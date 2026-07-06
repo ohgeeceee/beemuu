@@ -128,6 +128,20 @@ $("btn-connect").addEventListener("click", async () => {
       `<span class='vehicle-label'>${info.transport_name} &nbsp;·&nbsp; ${vin}</span>`;
     setStatus("Connected via " + info.transport_name);
     log("");
+    // Auto-select suggested profile if available
+    if (info.suggested_profile) {
+      const liveSel = $("live-profile");
+      const logSel = $("log-profile");
+      // Only switch if the profile exists in the dropdown
+      const exists = Array.from(liveSel.options).some((o) => o.value === info.suggested_profile);
+      if (exists) {
+        liveSel.value = info.suggested_profile;
+        logSel.value = info.suggested_profile;
+        // Trigger change to rebuild gauges / log params
+        liveSel.dispatchEvent(new Event("change"));
+        log("Auto-selected profile: " + info.suggested_profile);
+      }
+    }
     saveSettings();
   } catch (e) {
     setStatus("Disconnected");

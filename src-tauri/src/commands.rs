@@ -28,6 +28,7 @@ pub struct AppState {
 pub struct ConnectionInfo {
     pub transport_name: String,
     pub vin: Option<String>,
+    pub suggested_profile: Option<String>,
 }
 
 #[tauri::command]
@@ -51,8 +52,9 @@ pub fn connect(
     let vin = protocol::read_did(t.as_mut(), 0x12, 0xF190)
         .ok()
         .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).to_string());
+    let suggested_profile = vin.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
     *state.transport.lock().unwrap() = Some(t);
-    Ok(ConnectionInfo { transport_name: name, vin })
+    Ok(ConnectionInfo { transport_name: name, vin, suggested_profile })
 }
 
 #[tauri::command]
