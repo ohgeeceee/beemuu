@@ -1,6 +1,6 @@
 [package]
 name = "beeemuu"
-version = "0.1.0"
+version = "0.2.0"
 description = "Independent OBD2 diagnostic dashboard for BMW vehicles"
 edition = "2021"
 license = "GPL-3.0-or-later"
