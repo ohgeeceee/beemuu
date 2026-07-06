@@ -19,6 +19,21 @@ explorer, and service functions. Desktop app built with Tauri (Rust backend
 > The software is provided WITHOUT ANY WARRANTY — see LICENSE sections
 > 15 and 16.
 
+## Features
+
+Vehicle test (ISTA-style module scan), fault memory read/clear with freeze
+frames, live-data gauges, data logging with CSV export and charts, a
+Parameter Explorer with a byte-mutation heatmap for reverse-engineering
+unknown DIDs, vehicle info with VIN decode, UDS sessions and pluggable
+security access, service functions, a connection self-test, and a full
+traffic log you can export for bug reports or mapping work.
+
+## Screenshots
+
+_Add screenshots or a short GIF here — run against the Simulator so no real
+VIN is shown. Suggested shots: the Vehicle Test module tree, the Live Data
+gauges, and the Parameter Explorer heatmap._
+
 ## Supported interfaces
 
 | Transport | Cars | Status |
@@ -26,6 +41,16 @@ explorer, and service functions. Desktop app built with Tauri (Rust backend
 | **Simulator** | Virtual E90 (N52) | Works out of the box — develop/demo with no hardware |
 | **K+DCAN USB cable** | E-series (D-CAN ≈2007+, K-line earlier) | Implemented; needs on-car validation |
 | **ENET cable** | F/G-series (UDS over HSFZ, port 6801) | Implemented; needs on-car validation |
+
+## Tested vehicles
+
+Community-verified compatibility. If you run it on your car, please open a PR
+adding a row (and a `community/` profile if you mapped parameters).
+
+| Chassis | Engine | Cable | Module scan | Faults | Live data | Notes |
+|---|---|---|---|---|---|---|
+| _Simulator_ | virtual E90 | — | ✓ | ✓ | ✓ | Reference; always works |
+| E70 X5 | N62B48 (4.8i) | K+DCAN | _pending_ | _pending_ | _pending_ | Author's car; validation in progress |
 
 ## Building
 
@@ -68,14 +93,35 @@ src-tauri/src/
     kdcan.rs            KWP2000 framing over FTDI serial (K-line + D-CAN)
     enet.rs             UDS over HSFZ TCP (F/G-series)
     sim.rs              Virtual E90 for hardware-free development
-  protocol/mod.rs       Service layer: ident, DTC read/clear, DIDs, routines
+    record.rs           Traffic-recording transport decorator
+  protocol/
+    mod.rs              Service layer: ident, DTC read/clear, DIDs, routines
+    security.rs         Pluggable UDS SecurityAccess (0x27) seed/key registry
+  analysis.rs           Byte-diff mutation engine (Parameter Explorer)
+  community.rs          Loads community/*.toml into runtime registries
   data/
     ecus.rs             Diagnostic address table (DME 0x12, EGS 0x18, ...)
-    dtc.rs              Community fault-code text lookup (extend freely)
-    live.rs             Live parameter DID map + scaling
+    dtc.rs              Fault-code text (built-in + community overlay)
+    live.rs             Live-data profiles (built-in + community, runtime store)
+    freeze.rs           Per-ECU freeze-frame schema registry
+    vin.rs              VIN decoder
     service_functions.rs  CBS resets, registrations, actuator tests
   commands.rs           Tauri command bridge
+
+community/              Drop-in TOML data — edit without recompiling
+  dtc_texts.toml        Fault-code descriptions
+  profiles.toml         Live-data parameter maps per engine
+  freeze_schemas.toml   Freeze-frame byte layouts per ECU
 ```
+
+## Contributing data without writing code
+
+The biggest way to help is adding data — and you don't need to touch Rust.
+Edit the TOML files in [`community/`](community/README.md), restart the app,
+and your fault texts, parameter profiles, or freeze-frame layouts load
+automatically. The **Diagnostics** tab shows exactly what loaded and flags any
+file errors. Then open a pull request. Please contribute only original or
+community-derived knowledge — never data extracted from ISTA.
 
 ## Mapping your car (E70 X5 4.8i workflow)
 
@@ -95,7 +141,12 @@ To go beyond OBD-II (oil temp, per-bank data, transmission temps), use the
 3. Click a result to watch it live. Rev the engine, turn on AC, etc. —
    bytes that change are highlighted with hex + decimal + offset shown.
 4. Identify the value and offset (e.g. "bytes [0..1] track RPM ×1"),
-   then add it as a profile entry in `src-tauri/src/data/live.rs`.
+   then add it to `community/profiles.toml` — no recompile needed — or, for
+   built-ins, `src-tauri/src/data/live.rs`.
+
+The Explorer's watch view is a **mutation heatmap**: each byte shows its live
+value plus a volatility bar and observed min–max, so the bytes that track a
+changing signal light up as you rev the engine.
 
 ## Real-car notes (read before plugging in)
 
@@ -135,3 +186,5 @@ Contributions containing BMW proprietary data are rejected.
 - Freeze-frame (environmental data) display per fault
 - Data logging to CSV with chart playback
 - Coding/programming — deliberately out of scope for now
+#   b e e m u u  
+ 
