@@ -1,0 +1,315 @@
+# Instincts generated from https://github.com/ohgeeceee/beemuu
+# Generated: 2026-07-06T23:05:08.825Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: beemuu-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/ohgeeceee/beemuu
+---
+
+# Beemuu Commit Length
+
+## Action
+
+Keep commit messages concise (~42 characters)
+
+## Evidence
+
+- Average commit message length: 42 chars
+- Based on 2 commits
+
+---
+id: beemuu-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/ohgeeceee/beemuu
+---
+
+# Beemuu Naming Files
+
+## Action
+
+Use snake_case naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: snake_case
+
+---
+id: beemuu-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/ohgeeceee/beemuu
+---
+
+# Beemuu Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: beemuu-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/ohgeeceee/beemuu
+---
+
+# Beemuu Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: beemuu-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/ohgeeceee/beemuu
+---
+
+# Beemuu Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: beemuu-instinct-file-naming
+trigger: "When creating a new source file"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct File Naming
+
+## Action
+
+Name the file using snake_case
+
+## Evidence
+
+- Pattern in files: namingConventions.files = snake_case
+
+---
+id: beemuu-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Function Naming
+
+## Action
+
+Use camelCase for the function name
+
+## Evidence
+
+- Pattern in files: namingConventions.functions = camelCase
+
+---
+id: beemuu-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Class Naming
+
+## Action
+
+Use PascalCase for the class name
+
+## Evidence
+
+- Pattern in files: namingConventions.classes = PascalCase
+
+---
+id: beemuu-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for the constant name
+
+## Evidence
+
+- Pattern in files: namingConventions.constants = SCREAMING_SNAKE_CASE
+
+---
+id: beemuu-instinct-import-style
+trigger: "When importing modules"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Import Style
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in files: importStyle = relative
+
+---
+id: beemuu-instinct-export-style
+trigger: "When exporting modules or functions"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in files: exportStyle = named
+
+---
+id: beemuu-instinct-try-catch-error-handling
+trigger: "When handling errors in code"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Try Catch Error Handling
+
+## Action
+
+Use try-catch blocks for error handling
+
+## Evidence
+
+- Pattern in files: errorHandling.style = try-catch
+
+---
+id: beemuu-instinct-test-location
+trigger: "When adding new tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Test Location
+
+## Action
+
+Place test files in a separate directory from source files
+
+## Evidence
+
+- Pattern in files: testLocation = separate
+
+---
+id: beemuu-instinct-commit-prefix-feat
+trigger: "When committing a new feature"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Commit Prefix Feat
+
+## Action
+
+Prefix the commit message with 'feat:'
+
+## Evidence
+
+- Seen in commit: 'feat: restore Chart Playback Analyze button handler'
+
+---
+id: beemuu-instinct-commit-prefix-release
+trigger: "When committing release notes or version bumps"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Commit Prefix Release
+
+## Action
+
+Prefix the commit message with 'release:'
+
+## Evidence
+
+- Seen in commit: 'release: add v0.2.0 release notes'
+
+---
+id: beemuu-instinct-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: ohgeeceee/beemuu
+---
+
+# Beemuu Instinct Commit Length
+
+## Action
+
+Keep the commit message concise, around 42 characters on average
+
+## Evidence
+
+- Pattern in commits: averageLength = 42
+
