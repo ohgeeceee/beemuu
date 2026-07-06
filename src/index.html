@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BeeEmUu Diagnostics</title>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <!-- Top header band -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="brand-badge">◔</div>
+      <div>
+        <div class="brand-title">BeeEmUu</div>
+        <div class="brand-sub">Integrated Diagnostics</div>
+      </div>
+    </div>
+    <div class="header-vehicle" id="vehicle-banner">
+      <span class="vehicle-label">No vehicle connected</span>
+    </div>
+    <div class="header-conn">
+      <select id="conn-kind">
+        <option value="sim">Simulator (virtual E90)</option>
+        <option value="kdcan">K+DCAN cable</option>
+        <option value="enet">ENET cable</option>
+      </select>
+      <span id="conn-kdcan-opts" class="conn-opts hidden">
+        <select id="conn-port"></select>
+        <label class="chk"><input type="checkbox" id="conn-dcan" checked /> D-CAN</label>
+      </span>
+      <span id="conn-enet-opts" class="conn-opts hidden">
+        <input type="text" id="conn-addr" value="169.254.16.11:6801" size="18" />
+      </span>
+      <button id="btn-connect" class="btn btn-primary">Connect</button>
+    </div>
+  </header>
+
+  <!-- Tab bar -->
+  <nav class="tabbar">
+    <button class="tab active" data-view="vehicle">Vehicle Test</button>
+    <button class="tab" data-view="live">Live Data</button>
+    <button class="tab" data-view="explorer">Parameter Explorer</button>
+    <button class="tab" data-view="service">Service Functions</button>
+  </nav>
+
+  <main class="content">
+    <!-- ============ VEHICLE TEST ============ -->
+    <section id="view-vehicle" class="view active">
+      <div class="split">
+        <aside class="panel tree-panel">
+          <div class="panel-head">
+            <span>Control units</span>
+            <button id="btn-scan" class="btn btn-small">Run vehicle test</button>
+          </div>
+          <ul id="ecu-tree" class="ecu-tree">
+            <li class="tree-empty">Connect and run a vehicle test to identify control units.</li>
+          </ul>
+        </aside>
+        <div class="panel detail-panel">
+          <div class="panel-head">
+            <span id="detail-title">Fault memory</span>
+            <span>
+              <button id="btn-read-faults" class="btn btn-small" disabled>Read</button>
+              <button id="btn-clear-faults" class="btn btn-small btn-danger" disabled>Clear fault memory</button>
+            </span>
+          </div>
+          <div id="ecu-ident" class="ecu-ident hidden"></div>
+          <table class="fault-table">
+            <thead>
+              <tr><th>Code</th><th>Description</th><th>Status</th></tr>
+            </thead>
+            <tbody id="fault-rows">
+              <tr><td colspan="3" class="muted">Select a control unit.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LIVE DATA ============ -->
+    <section id="view-live" class="view">
+      <div class="panel">
+        <div class="panel-head">
+          <span>Live values —
+            <select id="live-profile"></select>
+          </span>
+          <label class="chk"><input type="checkbox" id="live-poll" /> Poll continuously</label>
+        </div>
+        <div id="gauge-grid" class="gauge-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============ PARAMETER EXPLORER ============ -->
+    <section id="view-explorer" class="view">
+      <div class="split">
+        <aside class="panel tree-panel">
+          <div class="panel-head"><span>Probe</span></div>
+          <div class="explorer-form">
+            <label>ECU
+              <select id="exp-address"></select>
+            </label>
+            <label>Ident type
+              <select id="exp-mode">
+                <option value="local">Local ident (KWP 21)</option>
+                <option value="did">DID (22)</option>
+                <option value="obd">OBD-II PID (01)</option>
+              </select>
+            </label>
+            <label>Range (hex)
+              <span class="range-row">
+                <input type="text" id="exp-start" value="00" size="5" />
+                <span>to</span>
+                <input type="text" id="exp-end" value="FF" size="5" />
+              </span>
+            </label>
+            <button id="btn-probe" class="btn btn-primary">Scan range</button>
+            <p class="explorer-hint">
+              Scans which identifiers the module answers. Click a result to
+              watch it live — changing bytes are highlighted, so you can rev
+              the engine and see which bytes are RPM, temperature, etc.
+            </p>
+          </div>
+          <ul id="exp-results" class="ecu-tree"></ul>
+        </aside>
+        <div class="panel detail-panel">
+          <div class="panel-head">
+            <span id="exp-watch-title">Watch</span>
+            <label class="chk"><input type="checkbox" id="exp-watch-poll" /> Poll</label>
+          </div>
+          <div id="exp-watch-bytes" class="watch-bytes">
+            <span class="muted">Scan a range, then select an identifier to watch.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SERVICE FUNCTIONS ============ -->
+    <section id="view-service" class="view">
+      <div class="panel">
+        <div class="panel-head"><span>Service functions</span></div>
+        <div id="service-list" class="service-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span id="status-conn" class="status-dot off"></span>
+    <span id="status-text">Disconnected</span>
+    <span class="status-right" id="status-log"></span>
+  </footer>
+
+  <script src="js/gauges.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

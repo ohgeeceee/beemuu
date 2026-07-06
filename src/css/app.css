@@ -1,0 +1,215 @@
+/* BeeEmUu — ISTA-inspired workshop look: dark blue chrome, light work area */
+
+:root {
+  --blue-deep: #14243d;
+  --blue-band: #1d3557;
+  --blue-accent: #2f6db3;
+  --blue-light: #e8eef5;
+  --bg: #dde4ec;
+  --panel: #ffffff;
+  --border: #b9c4d1;
+  --text: #1c2733;
+  --muted: #6b7a8c;
+  --ok: #2e8b57;
+  --warn: #d9822b;
+  --err: #c0392b;
+  --font: "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ---------- header ---------- */
+.header {
+  background: linear-gradient(180deg, var(--blue-band), var(--blue-deep));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 18px;
+}
+.header-brand { display: flex; align-items: center; gap: 12px; }
+.brand-badge {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: #101823;
+  color: #ff7d33;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 20px;
+  border: 2px solid #4da3ff;
+}
+.brand-title { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+.brand-sub { font-size: 11px; opacity: 0.75; }
+.header-vehicle { flex: 1; text-align: center; }
+.vehicle-label { font-size: 13px; opacity: 0.85; }
+.header-conn { display: flex; align-items: center; gap: 8px; }
+.header-conn select, .header-conn input[type="text"] {
+  padding: 5px 8px; border-radius: 3px; border: 1px solid var(--border);
+  font-size: 13px; background: #fff; color: var(--text);
+}
+.conn-opts { display: inline-flex; align-items: center; gap: 6px; }
+.conn-opts.hidden { display: none; }
+.chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  padding: 6px 14px; border: 1px solid var(--border); border-radius: 3px;
+  background: linear-gradient(180deg, #fdfdfd, #e7ebf0);
+  color: var(--text); font-size: 13px; cursor: pointer;
+}
+.btn:hover:not(:disabled) { background: var(--blue-light); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn-primary {
+  background: linear-gradient(180deg, #3f80c4, var(--blue-accent));
+  border-color: #24558c; color: #fff;
+}
+.btn-primary:hover:not(:disabled) { background: #3a76b6; }
+.btn-small { padding: 3px 10px; font-size: 12px; }
+.btn-danger { border-color: #a33; color: var(--err); }
+.btn-danger:hover:not(:disabled) { background: #fbeaea; }
+
+/* ---------- tabs ---------- */
+.tabbar {
+  background: var(--blue-deep);
+  display: flex; gap: 2px; padding: 0 18px;
+}
+.tab {
+  padding: 9px 22px; border: none; cursor: pointer;
+  background: transparent; color: #9fb2c8; font-size: 13px; font-weight: 600;
+  border-bottom: 3px solid transparent;
+}
+.tab:hover { color: #fff; }
+.tab.active { color: #fff; border-bottom-color: #7db3e8; background: rgba(255,255,255,0.06); }
+
+/* ---------- layout ---------- */
+.content { flex: 1; overflow: auto; padding: 14px 18px; }
+.view { display: none; height: 100%; }
+.view.active { display: block; }
+.split { display: flex; gap: 14px; height: 100%; }
+.tree-panel { width: 340px; flex-shrink: 0; }
+.detail-panel { flex: 1; }
+
+.panel {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+  display: flex; flex-direction: column; overflow: hidden; height: 100%;
+}
+.panel-head {
+  background: var(--blue-light);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px; font-weight: 600; font-size: 13px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* ---------- ECU tree ---------- */
+.ecu-tree { list-style: none; overflow-y: auto; flex: 1; }
+.ecu-tree li { border-bottom: 1px solid #edf1f5; }
+.tree-empty { padding: 14px; color: var(--muted); font-size: 13px; }
+.ecu-item {
+  padding: 9px 12px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+}
+.ecu-item:hover { background: var(--blue-light); }
+.ecu-item.selected { background: #d3e2f2; }
+.ecu-item.absent { opacity: 0.45; }
+.ecu-status {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  background: #b8c2ce;
+}
+.ecu-status.ok { background: var(--ok); }
+.ecu-status.faults { background: var(--err); }
+.ecu-name { font-weight: 600; width: 58px; }
+.ecu-desc { font-size: 12px; color: var(--muted); flex: 1; }
+.ecu-badge {
+  background: var(--err); color: #fff; border-radius: 9px;
+  font-size: 11px; padding: 1px 7px; font-weight: 600;
+}
+
+/* ---------- fault table ---------- */
+.ecu-ident {
+  padding: 8px 12px; font-family: Consolas, monospace; font-size: 12px;
+  background: #f4f7fa; border-bottom: 1px solid var(--border); color: #33475c;
+}
+.ecu-ident.hidden { display: none; }
+.fault-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fault-table th {
+  text-align: left; padding: 7px 12px; background: #f0f4f8;
+  border-bottom: 1px solid var(--border); font-size: 12px; color: #44576b;
+}
+.fault-table td { padding: 8px 12px; border-bottom: 1px solid #edf1f5; }
+.fault-code { font-family: Consolas, monospace; font-weight: 700; color: var(--err); }
+.muted { color: var(--muted); }
+.fault-ok { color: var(--ok); font-weight: 600; }
+
+/* ---------- gauges ---------- */
+.gauge-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px; padding: 14px; overflow-y: auto;
+}
+.gauge-cell {
+  background: #101823; border-radius: 6px; padding: 10px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.gauge-cell canvas { width: 100%; max-width: 220px; }
+.gauge-label { color: #9fb2c8; font-size: 12px; margin-top: 4px; }
+
+/* ---------- service functions ---------- */
+.service-list { padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.service-item {
+  border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 14px;
+}
+.service-info { flex: 1; }
+.service-label { font-weight: 600; }
+.service-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.risk-tag {
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px;
+}
+.risk-low { background: #e2f2e8; color: var(--ok); }
+.risk-high { background: #fbeaea; color: var(--err); }
+
+/* ---------- parameter explorer ---------- */
+.explorer-form {
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.explorer-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #44576b; font-weight: 600; }
+.explorer-form select, .explorer-form input {
+  padding: 5px 8px; border: 1px solid var(--border); border-radius: 3px; font-size: 13px;
+  font-family: Consolas, monospace;
+}
+.range-row { display: flex; align-items: center; gap: 6px; }
+.explorer-hint { font-size: 11px; color: var(--muted); font-weight: 400; line-height: 1.5; }
+.exp-result-item { padding: 7px 12px; cursor: pointer; display: flex; gap: 10px; font-family: Consolas, monospace; font-size: 12px; }
+.exp-result-item:hover { background: var(--blue-light); }
+.exp-result-item.selected { background: #d3e2f2; }
+.exp-result-id { font-weight: 700; color: var(--blue-accent); min-width: 44px; }
+.exp-result-hex { color: #33475c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watch-bytes {
+  padding: 18px; font-family: Consolas, monospace; font-size: 15px;
+  display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start;
+}
+.watch-byte {
+  background: #f0f4f8; border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px 10px; text-align: center; min-width: 52px;
+}
+.watch-byte.changed { background: #ffe9c7; border-color: var(--warn); }
+.watch-byte .wb-hex { font-weight: 700; font-size: 16px; }
+.watch-byte .wb-dec { font-size: 11px; color: var(--muted); }
+.watch-byte .wb-idx { font-size: 10px; color: #9aa9ba; }
+
+/* ---------- status bar ---------- */
+.statusbar {
+  background: var(--blue-deep); color: #c8d4e2; font-size: 12px;
+  padding: 5px 18px; display: flex; align-items: center; gap: 8px;
+}
+.status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.status-dot.off { background: #5a6a7d; }
+.status-dot.on { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; }
+.status-right { margin-left: auto; opacity: 0.8; }
