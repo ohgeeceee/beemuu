@@ -10,6 +10,8 @@ let selectedAddress = null;
 const gauges = new Map(); // id -> Gauge
 let pollTimer = null;
 let sessionReplay = false; // true when viewing a loaded snapshot
+let unlockStates = new Map(); // address -> bool
+let secCountdown = null; // interval id for NRC 0x37 retry countdown
 
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
@@ -111,12 +113,15 @@ $("btn-connect").addEventListener("click", async () => {
   if (connected) {
     stopPolling();
     stopWatch();
+    clearSecCountdown();
+    unlockStates.clear();
     await invoke("disconnect");
     connected = false;
     $("btn-connect").textContent = "Connect";
     $("btn-connect").classList.add("btn-primary");
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
+    renderTree();
     return;
   }
   try {
@@ -157,6 +162,8 @@ $("btn-scan").addEventListener("click", async () => {
   $("ecu-tree").innerHTML = "<li class='tree-empty'>Identifying control units…</li>";
   try {
     modules = await invoke("scan_modules");
+    const status = await invoke("security_status");
+    unlockStates = new Map(status.map((s) => [s.address, s.unlocked]));
     renderTree();
     fillExplorerEcus();
     fillSecurityEcus();
@@ -178,9 +185,14 @@ function renderTree() {
       (m.address === selectedAddress ? " selected" : "");
     const faults = m.fault_count ?? 0;
     const statusCls = !m.present ? "" : faults > 0 ? "faults" : "ok";
+    const isUnlocked = unlockStates.get(m.address) ?? false;
+    const secIcon = m.present
+      ? `<span class="sec-icon ${isUnlocked ? "sec-icon-unlocked" : "sec-icon-locked"}" title="${isUnlocked ? "Unlocked" : "Locked"}">${isUnlocked ? "🔓" : "🔒"}</span>`
+      : "";
     div.innerHTML =
       `<span class="ecu-status ${statusCls}"></span>` +
       `<span class="ecu-name">${m.name}</span>` +
+      secIcon +
       `<span class="ecu-desc">${m.description}</span>` +
       (m.present && faults > 0 ? `<span class="ecu-badge">${faults}</span>` : "");
     if (m.present) {
@@ -278,6 +290,7 @@ $("btn-read-faults").addEventListener("click", readFaults);
 
 $("btn-clear-faults").addEventListener("click", async () => {
   if (selectedAddress == null) return;
+  if (sessionReplay) { log("Cannot clear faults in session replay."); return; }
   const m = modules.find((x) => x.address === selectedAddress);
   if (!confirm(`Clear the fault memory of ${m.name}? Stored freeze-frame data will be lost.`)) return;
   try {
@@ -1182,11 +1195,40 @@ function fillSecurityEcus() {
   }
 }
 
+function clearSecCountdown() {
+  if (secCountdown) {
+    clearInterval(secCountdown);
+    secCountdown = null;
+  }
+}
+
+function startSecCountdown(seconds) {
+  clearSecCountdown();
+  const btn = $("btn-unlock");
+  const msg = $("sec-message");
+  btn.disabled = true;
+  let remaining = seconds;
+  msg.textContent = `Retry in ${remaining}s…`;
+  msg.className = "sec-message nrc-countdown";
+  secCountdown = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearSecCountdown();
+      btn.disabled = false;
+      msg.textContent = "";
+      msg.className = "sec-message";
+    } else {
+      msg.textContent = `Retry in ${remaining}s…`;
+    }
+  }, 1000);
+}
+
 $("btn-set-session").addEventListener("click", async () => {
   if (!connected) { log("Connect first."); return; }
   const address = parseInt($("sec-address").value, 10);
   const session = parseInt($("sec-session").value, 10);
-  setSecStatus(false);
+  clearSecCountdown();
+  setSecStatus(false, address);
   try {
     await invoke("set_session", { address, session });
     log(`Session 0x${session.toString(16).padStart(2, "0")} set`);
@@ -1198,21 +1240,67 @@ $("btn-set-session").addEventListener("click", async () => {
 $("btn-unlock").addEventListener("click", async () => {
   if (!connected) { log("Connect first."); return; }
   const address = parseInt($("sec-address").value, 10);
+  clearSecCountdown();
+  const msg = $("sec-message");
+  msg.textContent = "";
+  msg.className = "sec-message";
   try {
-    const ok = await invoke("security_access", { address, level: 1 });
-    setSecStatus(true);
-    log(ok ? "Security access granted" : "Already unlocked");
+    const res = await invoke("security_access", { address, level: 1 });
+    if (res.granted) {
+      setSecStatus(true, address);
+      log("Security access granted");
+    } else if (res.already_unlocked) {
+      setSecStatus(true, address);
+      log("Already unlocked");
+    } else if (res.nrc === 0x37) {
+      setSecStatus(false, address);
+      startSecCountdown(10);
+      log("Unlock failed: " + res.message);
+    } else if (res.nrc === 0x36) {
+      setSecStatus(false, address);
+      msg.textContent = "Exceeded attempts — module locked. Wait before retrying.";
+      msg.className = "sec-message nrc-error";
+      $("btn-unlock").disabled = true;
+      log("Unlock failed: " + res.message);
+    } else if (res.nrc === 0x35) {
+      setSecStatus(false, address);
+      msg.textContent = "Invalid key — check your algorithm registration.";
+      msg.className = "sec-message nrc-error";
+      log("Unlock failed: " + res.message);
+    } else {
+      setSecStatus(false, address);
+      msg.textContent = res.message;
+      msg.className = "sec-message nrc-error";
+      log("Unlock failed: " + res.message);
+    }
   } catch (e) {
-    setSecStatus(false);
+    setSecStatus(false, address);
+    msg.textContent = String(e);
+    msg.className = "sec-message nrc-error";
     log("Unlock failed: " + e);
   }
 });
 
-function setSecStatus(unlocked) {
+function setSecStatus(unlocked, address) {
   const el = $("sec-status");
   el.textContent = unlocked ? "Unlocked" : "Locked";
   el.className = "sec-status" + (unlocked ? " unlocked" : "");
+  if (address != null) {
+    unlockStates.set(address, unlocked);
+    renderTree();
+  }
 }
+
+$("sec-address").addEventListener("change", () => {
+  clearSecCountdown();
+  const msg = $("sec-message");
+  msg.textContent = "";
+  msg.className = "sec-message";
+  $("btn-unlock").disabled = false;
+  const address = parseInt($("sec-address").value, 10);
+  const unlocked = unlockStates.get(address) ?? false;
+  setSecStatus(unlocked, address);
+});
 
 /* ---------------- diagnostics: self-test ---------------- */
 $("btn-selftest").addEventListener("click", async () => {

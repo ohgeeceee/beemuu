@@ -27,6 +27,19 @@ use crate::transport::Transport;
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
+/// Rich error returned by the security exchange so the UI can show NRC-aware messages.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SecurityError {
+    pub nrc: Option<u8>,
+    pub message: String,
+}
+
+impl std::fmt::Display for SecurityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
 /// Seed bytes in, key bytes out. Boxed so plain `fn`s and stateful closures
 /// both work; `Send + Sync` so the registry can be a process-global.
 pub type KeyFn = Box<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
@@ -103,24 +116,33 @@ const NEG_RESPONSE: u8 = 0x7F;
 /// `level` is the *requestSeed* sub-function (odd, e.g. 0x01/0x03/0x11); the
 /// matching *sendKey* sub-function is `level + 1` per ISO 14229. The key is
 /// produced by whatever `KeyFn` the registry holds for this address+level.
-pub fn unlock(t: &mut dyn Transport, address: u8, level: u8) -> Result<Unlock, String> {
+pub fn unlock(t: &mut dyn Transport, address: u8, level: u8) -> Result<Unlock, SecurityError> {
     if level % 2 == 0 || level == 0xFF {
-        return Err(format!(
-            "Security level 0x{level:02X} must be an odd requestSeed sub-function (0x01..0x7D)"
-        ));
+        return Err(SecurityError {
+            nrc: None,
+            message: format!(
+                "Security level 0x{level:02X} must be an odd requestSeed sub-function (0x01..0x7D)"
+            ),
+        });
     }
     let send_key_sub = level + 1; // safe: level is odd and < 0xFF
     if !registry().has(address, level) {
-        return Err(format!(
-            "No key algorithm registered for ECU 0x{address:02X} level 0x{level:02X}. \
-             Register one via security::registry().register_for(..)."
-        ));
+        return Err(SecurityError {
+            nrc: None,
+            message: format!(
+                "No key algorithm registered for ECU 0x{address:02X} level 0x{level:02X}. \
+                 Register one via security::registry().register_for(..)."
+            ),
+        });
     }
 
     // --- requestSeed: 27 <level> ---
     let seed_resp = exchange(t, address, &[REQUEST_SEED, level])?;
     if seed_resp.first() != Some(&POS_RESPONSE) || seed_resp.len() < 2 || seed_resp[1] != level {
-        return Err(format!("Malformed seed response: {:02X?}", seed_resp));
+        return Err(SecurityError {
+            nrc: None,
+            message: format!("Malformed seed response: {:02X?}", seed_resp),
+        });
     }
     let seed = &seed_resp[2..];
     // ISO 14229: an all-zero seed means security is already unlocked.
@@ -130,7 +152,10 @@ pub fn unlock(t: &mut dyn Transport, address: u8, level: u8) -> Result<Unlock, S
 
     let key = registry()
         .generate(address, level, seed)
-        .ok_or("Key algorithm vanished from registry")?;
+        .ok_or_else(|| SecurityError {
+            nrc: None,
+            message: "Key algorithm vanished from registry".to_string(),
+        })?;
 
     // --- sendKey: 27 <level+1> <key...> ---
     let mut req = Vec::with_capacity(2 + key.len());
@@ -141,21 +166,30 @@ pub fn unlock(t: &mut dyn Transport, address: u8, level: u8) -> Result<Unlock, S
     if key_resp.first() == Some(&POS_RESPONSE) {
         Ok(Unlock::Granted)
     } else {
-        Err(format!("sendKey not accepted: {:02X?}", key_resp))
+        Err(SecurityError {
+            nrc: None,
+            message: format!("sendKey not accepted: {:02X?}", key_resp),
+        })
     }
 }
 
 /// Raw request that surfaces the exact security NRC (invalidKey vs.
 /// attempt-limit vs. time-delay) instead of collapsing them all to one error.
-fn exchange(t: &mut dyn Transport, address: u8, req: &[u8]) -> Result<Vec<u8>, String> {
-    let resp = t.request(address, req).map_err(|e| e.to_string())?;
+fn exchange(t: &mut dyn Transport, address: u8, req: &[u8]) -> Result<Vec<u8>, SecurityError> {
+    let resp = t.request(address, req).map_err(|e| SecurityError {
+        nrc: None,
+        message: e.to_string(),
+    })?;
     if resp.first() == Some(&NEG_RESPONSE) && resp.len() >= 3 {
         let nrc = resp[2];
-        return Err(match nrc {
-            0x35 => "Invalid key".to_string(),
-            0x36 => "Exceeded number of attempts — module locked out".to_string(),
-            0x37 => "Required time delay not expired — wait before retrying".to_string(),
-            other => format!("{} (NRC {:02X})", super::nrc_text(other), other),
+        return Err(SecurityError {
+            nrc: Some(nrc),
+            message: match nrc {
+                0x35 => "Invalid key".to_string(),
+                0x36 => "Exceeded number of attempts — module locked out".to_string(),
+                0x37 => "Required time delay not expired — wait before retrying".to_string(),
+                other => format!("{} (NRC {:02X})", super::nrc_text(other), other),
+            },
         });
     }
     Ok(resp)

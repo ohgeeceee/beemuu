@@ -327,6 +327,7 @@ body {
 .session-bar select { padding: 5px 8px; border: 1px solid var(--border); border-radius: 3px; font-size: 13px; }
 .sec-status { padding: 5px 12px; border-radius: 3px; font-size: 12px; font-weight: 700; background: #fbeaea; color: var(--err); }
 .sec-status.unlocked { background: #e2f2e8; color: var(--ok); }
+.sec-message { font-size: 12px; font-weight: 600; }
 .session-hint { padding: 0 12px 12px; font-size: 11px; line-height: 1.5; max-width: 700px; }
 .session-hint code { background: #eef2f6; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 
@@ -449,3 +450,10 @@ body {
 .status-dot.off { background: #5a6a7d; }
 .status-dot.on { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; }
 .status-right { margin-left: auto; opacity: 0.8; }
+
+/* ---------- security icons & NRC ---------- */
+.sec-icon { font-size: 11px; margin-left: 2px; }
+.sec-icon-locked { color: #5d7288; }
+.sec-icon-unlocked { color: #3ddc84; }
+.nrc-countdown { color: #f4b400; font-variant-numeric: tabular-nums; }
+.nrc-error { color: #e05545; }

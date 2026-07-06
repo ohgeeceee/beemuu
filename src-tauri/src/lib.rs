@@ -75,6 +75,8 @@ pub fn run() {
             commands::read_vehicle_info,
             commands::set_session,
             commands::security_access,
+            commands::is_unlocked,
+            commands::security_status,
             commands::community_report,
             commands::add_to_profile,
             commands::export_profile,

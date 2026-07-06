@@ -6,6 +6,7 @@ use crate::protocol::{self, Dtc, EcuInfo, FreezeItem};
 use crate::transport::record::{RecordingTransport, SharedLog, TrafficEntry};
 use crate::transport::{self, Transport, TransportConfig};
 use serde::Serialize;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 /// A live byte-diff watch bound to one identifier.
@@ -22,6 +23,7 @@ pub struct AppState {
     pub transport: Mutex<Option<Box<dyn Transport>>>,
     watch: Mutex<Option<WatchSession>>,
     traffic: SharedLog,
+    pub unlocked: Mutex<HashSet<u8>>,
 }
 
 #[derive(Serialize)]
@@ -62,6 +64,7 @@ pub fn disconnect(state: tauri::State<'_, AppState>) {
     if let Some(mut t) = state.transport.lock().unwrap().take() {
         t.disconnect();
     }
+    state.unlocked.lock().unwrap().clear();
 }
 
 fn with_transport<T>(
@@ -326,7 +329,23 @@ pub fn set_session(
     address: u8,
     session: u8,
 ) -> Result<(), String> {
-    with_transport(&state, |t| protocol::set_session(t, address, session))
+    with_transport(&state, |t| protocol::set_session(t, address, session))?;
+    state.unlocked.lock().unwrap().remove(&address);
+    Ok(())
+}
+
+#[derive(Serialize)]
+pub struct SecurityResult {
+    pub granted: bool,
+    pub already_unlocked: bool,
+    pub nrc: Option<u8>,
+    pub message: String,
+}
+
+#[derive(Serialize)]
+pub struct SecurityStatus {
+    pub address: u8,
+    pub unlocked: bool,
 }
 
 /// Security access via the pluggable key registry (`protocol::security`).
@@ -337,11 +356,52 @@ pub fn security_access(
     state: tauri::State<'_, AppState>,
     address: u8,
     level: u8,
-) -> Result<bool, String> {
+) -> Result<SecurityResult, String> {
     with_transport(&state, |t| {
-        protocol::security::unlock(t, address, level)
-            .map(|outcome| matches!(outcome, protocol::security::Unlock::Granted))
+        match protocol::security::unlock(t, address, level) {
+            Ok(protocol::security::Unlock::Granted) => {
+                state.unlocked.lock().unwrap().insert(address);
+                Ok(SecurityResult {
+                    granted: true,
+                    already_unlocked: false,
+                    nrc: None,
+                    message: "Security access granted".to_string(),
+                })
+            }
+            Ok(protocol::security::Unlock::AlreadyUnlocked) => {
+                state.unlocked.lock().unwrap().insert(address);
+                Ok(SecurityResult {
+                    granted: false,
+                    already_unlocked: true,
+                    nrc: None,
+                    message: "Already unlocked".to_string(),
+                })
+            }
+            Err(e) => Ok(SecurityResult {
+                granted: false,
+                already_unlocked: false,
+                nrc: e.nrc,
+                message: e.message,
+            }),
+        }
     })
+}
+
+#[tauri::command]
+pub fn is_unlocked(state: tauri::State<'_, AppState>, address: u8) -> bool {
+    state.unlocked.lock().unwrap().contains(&address)
+}
+
+#[tauri::command]
+pub fn security_status(state: tauri::State<'_, AppState>) -> Vec<SecurityStatus> {
+    let unlocked = state.unlocked.lock().unwrap();
+    ecus::ECUS
+        .iter()
+        .map(|def| SecurityStatus {
+            address: def.address,
+            unlocked: unlocked.contains(&def.address),
+        })
+        .collect()
 }
 
 /* ---------------- Connection self-test ---------------- */
