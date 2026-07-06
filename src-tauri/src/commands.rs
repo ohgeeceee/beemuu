@@ -294,6 +294,7 @@ pub struct VehicleInfo {
     pub vin: Option<String>,
     pub decode: Option<vin::VinDecode>,
     pub mileage_km: Option<u32>,
+    pub suggested_profile: Option<String>,
 }
 
 #[tauri::command]
@@ -304,6 +305,7 @@ pub fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInf
             .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
             .filter(|s| s.len() >= 11);
         let decode = vin_str.as_deref().map(vin::decode);
+        let suggested_profile = vin_str.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
         // Odometer DID (sim 0x1010, u24 km). Real DID varies by cluster.
         let mileage_km = protocol::read_did(t, 0x12, 0x1010).ok().and_then(|b| {
             if b.len() >= 3 {
@@ -312,7 +314,7 @@ pub fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInf
                 None
             }
         });
-        Ok(VehicleInfo { vin: vin_str, decode, mileage_km })
+        Ok(VehicleInfo { vin: vin_str, decode, mileage_km, suggested_profile })
     })
 }
 

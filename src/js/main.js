@@ -832,6 +832,7 @@ function renderVehicleInfo(info) {
   }
   rows.push(["__section", "Readouts"]);
   rows.push(["Mileage", info.mileage_km != null ? `${info.mileage_km.toLocaleString()} km` : "unavailable"]);
+  rows.push(["Suggested profile", info.suggested_profile || "none ( Generic OBD-II works on any 2007+)"]);
   const modCount = modules.filter((m) => m.present).length;
   rows.push(["Modules found", modCount ? String(modCount) : "run a vehicle test"]);
 
