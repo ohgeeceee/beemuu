@@ -200,7 +200,7 @@ async function selectModule(address) {
   identEl.textContent = m.ident || "";
   identEl.classList.toggle("hidden", !m.ident);
   $("btn-read-faults").disabled = false;
-  $("btn-clear-faults").disabled = false;
+  $("btn-clear-faults").disabled = sessionReplay;
   $("freeze-panel").classList.add("hidden");
   await readFaults();
 }
@@ -209,6 +209,29 @@ async function readFaults() {
   if (selectedAddress == null) return;
   const tbody = $("fault-rows");
   tbody.innerHTML = "<tr><td colspan='3' class='muted'>Reading…</td></tr>";
+
+  // In session replay, faults are already in the module data.
+  if (sessionReplay) {
+    const m = modules.find((x) => x.address === selectedAddress);
+    const dtcs = m?.dtcs || [];
+    if (dtcs.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='3' class='fault-ok'>No faults stored.</td></tr>";
+      return;
+    }
+    tbody.innerHTML = "";
+    for (const d of dtcs) {
+      const tr = document.createElement("tr");
+      tr.className = "fault-clickable";
+      tr.innerHTML =
+        `<td class="fault-code">${d.code}</td>` +
+        `<td>${d.text}</td>` +
+        `<td class="muted">${d.status_text}</td>`;
+      tr.addEventListener("click", () => showFreezeFrame(d.code));
+      tbody.appendChild(tr);
+    }
+    return;
+  }
+
   try {
     const dtcs = await invoke("read_faults", { address: selectedAddress });
     if (dtcs.length === 0) {
@@ -992,7 +1015,6 @@ $("btn-log-clear").addEventListener("click", () => {
   updatePlayButton();
   renderMarkerList();
 });
-
 /* Build the CSV string from the current log series data. */
 function buildLogCsv() {
   const enabled = [...logSeries.entries()].filter(([, s]) => s.enabled && s.getAllData().length);
