@@ -303,4 +303,19 @@ body {
 }
 .modal-head {
   background: linear-gradient(180deg, var(--blue-band), var(--blue-deep));
-  color: #fff; padding: 16px 2
+  color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+}
+.modal-body { padding: 18px 20px; }
+.modal-body p { margin-bottom: 12px; line-height: 1.55; font-size: 14px; }
+.modal-warn { background: #fbeaea; border-left: 3px solid var(--err); padding: 10px 12px; border-radius: 4px; }
+.modal-actions { padding: 0 20px 18px; text-align: right; }
+
+/* ---------- status bar ---------- */
+.statusbar {
+  background: var(--blue-deep); color: #c8d4e2; font-size: 12px;
+  padding: 5px 18px; display: flex; align-items: center; gap: 8px;
+}
+.status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.status-dot.off { background: #5a6a7d; }
+.status-dot.on { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; }
+.status-right { margin-left: auto; opacity: 0.8; }

@@ -34,6 +34,8 @@ pub enum Decode {
     PercentA,
     /// u16 BE / 1000 (OBD module voltage)
     U16Milli,
+    /// u16 BE * 10 (OBD fuel rail pressure, kPa)
+    U16Times10,
 }
 
 #[derive(Clone)]
@@ -160,12 +162,13 @@ pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
         Decode::U8 => data.first().map(|&b| b as f64),
         Decode::U8Tenths => data.first().map(|&b| b as f64 / 10.0),
         Decode::PercentA => data.first().map(|&b| b as f64 * 100.0 / 255.0),
-        Decode::U16 | Decode::U16Quarter | Decode::U16Milli => {
+        Decode::U16 | Decode::U16Quarter | Decode::U16Milli | Decode::U16Times10 => {
             if data.len() >= 2 {
                 let raw = u16::from_be_bytes([data[0], data[1]]) as f64;
                 Some(match decode {
                     Decode::U16Quarter => raw / 4.0,
                     Decode::U16Milli => raw / 1000.0,
+                    Decode::U16Times10 => raw * 10.0,
                     _ => raw,
                 })
             } else {
@@ -185,6 +188,7 @@ pub fn decode_from_str(s: &str) -> Option<Decode> {
         "u16_quarter" => Decode::U16Quarter,
         "percent_a" => Decode::PercentA,
         "u16_milli" => Decode::U16Milli,
+        "u16_times10" => Decode::U16Times10,
         _ => return None,
     })
 }
@@ -199,4 +203,49 @@ pub fn query_from_str(s: &str) -> Option<Query> {
         "local" => Query::Local(n as u8),
         _ => return None,
     })
+}
+
+/// Inverse of `query_from_str`, for exporting a profile.
+pub fn query_to_str(q: Query) -> String {
+    match q {
+        Query::Did(n) => format!("did:{n:04X}"),
+        Query::Obd(n) => format!("obd:{n:02X}"),
+        Query::Local(n) => format!("local:{n:02X}"),
+    }
+}
+
+/// Inverse of `decode_from_str`, for exporting a profile.
+pub fn decode_to_str(d: Decode) -> &'static str {
+    match d {
+        Decode::TempU8 => "temp_u8",
+        Decode::U16 => "u16",
+        Decode::U8 => "u8",
+        Decode::U8Tenths => "u8_tenths",
+        Decode::U16Quarter => "u16_quarter",
+        Decode::PercentA => "percent_a",
+        Decode::U16Milli => "u16_milli",
+    }
+}
+
+/// Serialise one profile back to a shareable TOML snippet, or None if the id
+/// is unknown. Round-trips through `query_from_str` / `decode_from_str`.
+pub fn profile_to_toml(id: &str) -> Option<String> {
+    let s = store().read().unwrap();
+    let p = s.iter().find(|p| p.id == id)?;
+    let mut out = String::new();
+    out.push_str("[[profile]]\n");
+    out.push_str(&format!("id = {:?}\n", p.id));
+    out.push_str(&format!("label = {:?}\n", p.label));
+    for pr in &p.params {
+        out.push_str("\n  [[profile.param]]\n");
+        out.push_str(&format!("  id = {:?}\n", pr.id));
+        out.push_str(&format!("  label = {:?}\n", pr.label));
+        out.push_str(&format!("  unit = {:?}\n", pr.unit));
+        out.push_str(&format!("  target = 0x{:02X}\n", pr.target));
+        out.push_str(&format!("  query = {:?}\n", query_to_str(pr.query)));
+        out.push_str(&format!("  decode = {:?}\n", decode_to_str(pr.decode)));
+        out.push_str(&format!("  min = {:?}\n", pr.min));
+        out.push_str(&format!("  max = {:?}\n", pr.max));
+    }
+    Some(out)
 }

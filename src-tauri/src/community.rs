@@ -225,4 +225,64 @@ fn load_profiles(dir: &Path, report: &mut LoadReport) {
 
 fn load_schemas(dir: &Path, report: &mut LoadReport) {
     for path in category_files(dir, "freeze_schemas.toml", "freeze") {
-        let Ok(text) = std::fs::read_to_string(&path) else 
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        let parsed = match toml::from_str::<SchemasFile>(&text) {
+            Ok(f) => f,
+            Err(e) => {
+                report.warnings.push(format!("{}: {e}", path.display()));
+                continue;
+            }
+        };
+        for s in parsed.schema {
+            match build_schema(s) {
+                Ok((addr, schema)) => {
+                    freeze::registry().register_for(addr, schema);
+                    report.freeze_schemas += 1;
+                }
+                Err(w) => report.warnings.push(w),
+            }
+        }
+    }
+}
+
+/// Parse and add profiles from a TOML string (in-app import). Strict: any bad
+/// profile fails the whole import. Returns the labels added.
+pub fn import_profiles_str(text: &str) -> Result<Vec<String>, String> {
+    let parsed: ProfilesFile = toml::from_str(text).map_err(|e| e.to_string())?;
+    if parsed.profile.is_empty() {
+        return Err("No [[profile]] entries found".into());
+    }
+    let mut labels = Vec::new();
+    for p in parsed.profile {
+        let prof = build_profile(p)?;
+        labels.push(prof.label.clone());
+        live::add_profile(prof);
+    }
+    Ok(labels)
+}
+
+static REPORT: OnceLock<LoadReport> = OnceLock::new();
+
+/// Load everything from the community directory (if found). Safe to call once
+/// at startup; caches a report for the Diagnostics tab.
+pub fn load() -> LoadReport {
+    let mut report = LoadReport::default();
+    match find_dir() {
+        Some(dir) => {
+            report.dir = Some(dir.display().to_string());
+            load_dtcs(&dir, &mut report);
+            load_profiles(&dir, &mut report);
+            load_schemas(&dir, &mut report);
+        }
+        None => report
+            .warnings
+            .push("No community/ directory found (using built-ins only).".into()),
+    }
+    let _ = REPORT.set(report.clone());
+    report
+}
+
+/// The cached report from the startup load (or an empty one).
+pub fn report() -> LoadReport {
+    REPORT.get().cloned().unwrap_or_default()
+}

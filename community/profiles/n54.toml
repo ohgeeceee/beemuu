@@ -1,0 +1,129 @@
+# N54 — 3.0 twin-turbo DI inline-6 (MSD80/MSD81), E8x/E9x 135i/335i, E60 535i,
+# E89 Z4 35i, 2006–2013. OBD-II entries are emissions-mandated and verified by
+# design. The `local:` oil-temp entry is a PLACEHOLDER — confirm with the
+# Parameter Explorer before trusting it.
+#
+# Boost: watch "map" minus "baro" (relative boost). Stock peak is roughly
+# 60–70 kPa over baro; the u8 OBD MAP PID tops out at 255 kPa absolute, which
+# is enough for stock-ish tunes.
+#
+# HPFP rail pressure uses the emissions-mandated obd:23 PID (raw × 10 kPa).
+# Healthy N54 rail pressure is roughly 5,000–20,000 kPa depending on load; a
+# failing HPFP shows as pressure collapsing under demand (long crank, limp
+# mode, 2FBF-family codes).
+
+[[profile]]
+id = "n54"
+label = "N54 3.0 twin-turbo I6 (MSD80/81) [community, oil temp unverified]"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 7000.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "oil"
+  label = "Oil temp [UNVERIFIED placeholder]"
+  unit = "°C"
+  target = 0x12
+  query = "local:10"
+  decode = "temp_u8"
+  min = -40.0
+  max = 160.0
+
+  # Charge-air temp matters on this engine (heat soak): OBD IAT on the N54
+  # reads post-intercooler.
+  [[profile.param]]
+  id = "iat"
+  label = "Intake air temp (post-IC)"
+  unit = "°C"
+  target = 0x12
+  query = "obd:0F"
+  decode = "temp_u8"
+  min = -40.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "map"
+  label = "Manifold pressure (abs)"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:0B"
+  decode = "u8"
+  min = 0.0
+  max = 255.0
+
+  [[profile.param]]
+  id = "baro"
+  label = "Barometric pressure"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:33"
+  decode = "u8"
+  min = 60.0
+  max = 110.0
+
+  [[profile.param]]
+  id = "rail"
+  label = "Fuel rail pressure (HPFP)"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:23"
+  decode = "u16_times10"
+  min = 0.0
+  max = 25000.0
+
+  [[profile.param]]
+  id = "load"
+  label = "Engine load"
+  unit = "%"
+  target = 0x12
+  query = "obd:04"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "throttle"
+  label = "Throttle position"
+  unit = "%"
+  target = 0x12
+  query = "obd:11"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "speed"
+  label = "Vehicle speed"
+  unit = "km/h"
+  target = 0x12
+  query = "obd:0D"
+  decode = "u8"
+  min = 0.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "volt"
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0

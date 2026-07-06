@@ -50,6 +50,8 @@ pub trait Transport: Send {
 pub enum TransportConfig {
     /// K+DCAN USB cable (FTDI COM port). `port` e.g. "COM3" or "/dev/ttyUSB0".
     Kdcan { port: String, dcan: bool },
+    /// K+DCAN with auto-detect: tries D-CAN first, then K-line.
+    KdcanAuto { port: String },
     /// ENET cable. `addr` e.g. "169.254.16.11:6801" (HSFZ port).
     Enet { addr: String },
     /// Built-in simulated E90 — no hardware required.
@@ -60,6 +62,9 @@ pub fn open(config: &TransportConfig) -> Result<Box<dyn Transport>> {
     match config {
         TransportConfig::Kdcan { port, dcan } => {
             Ok(Box::new(kdcan::KdcanTransport::open(port, *dcan)?))
+        }
+        TransportConfig::KdcanAuto { port } => {
+            Ok(Box::new(kdcan::KdcanTransport::auto_detect(port)?))
         }
         TransportConfig::Enet { addr } => Ok(Box::new(enet::EnetTransport::open(addr)?)),
         TransportConfig::Sim {} => Ok(Box::new(sim::SimTransport::new())),

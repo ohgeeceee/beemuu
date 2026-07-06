@@ -27,7 +27,8 @@ Codes are hex, case-insensitive. Overlay entries override the built-in table.
 Each profile is one engine/vehicle variant. `query` is `did:HHHH`, `obd:HH`,
 or `local:HH` (hex). `decode` is one of: `temp_u8` (raw−40 °C), `u8`,
 `u8_tenths` (raw/10), `u16`, `u16_quarter` (raw/4, OBD rpm),
-`u16_milli` (raw/1000), `percent_a` (raw·100/255).
+`u16_milli` (raw/1000), `u16_times10` (raw·10, OBD fuel rail pressure kPa),
+`percent_a` (raw·100/255).
 
 ```toml
 [[profile]]

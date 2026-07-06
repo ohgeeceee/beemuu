@@ -1,6 +1,6 @@
 # Live-data parameter profiles. See README.md in this folder for the format.
 # query: did:HHHH | obd:HH | local:HH   (hex)
-# decode: temp_u8 | u8 | u8_tenths | u16 | u16_quarter | u16_milli | percent_a
+# decode: temp_u8 | u8 | u8_tenths | u16 | u16_quarter | u16_milli | u16_times10 | percent_a
 
 # Example E70 X5 4.8i (N62B48) profile. The OBD-II entries are emissions-
 # mandated and work as-is; the `local:` oil-temp entry is a PLACEHOLDER —

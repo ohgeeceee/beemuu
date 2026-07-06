@@ -1,0 +1,101 @@
+# N52 — 2.5/3.0 NA inline-6 (MSV70/MSV80), E9x/E60/E63/E83/E85/E86, 2004–2013.
+# OBD-II entries are emissions-mandated and verified by design. The `local:`
+# oil-temp entry is a PLACEHOLDER — confirm the real local identifier with the
+# Parameter Explorer on your car before trusting it, then update this label.
+
+[[profile]]
+id = "n52"
+label = "N52 2.5/3.0 NA I6 (MSV70/MSV80) [community, oil temp unverified]"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 7000.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "oil"
+  label = "Oil temp [UNVERIFIED placeholder]"
+  unit = "°C"
+  target = 0x12
+  query = "local:10"
+  decode = "temp_u8"
+  min = -40.0
+  max = 160.0
+
+  [[profile.param]]
+  id = "iat"
+  label = "Intake air temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:0F"
+  decode = "temp_u8"
+  min = -40.0
+  max = 80.0
+
+  [[profile.param]]
+  id = "load"
+  label = "Engine load"
+  unit = "%"
+  target = 0x12
+  query = "obd:04"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "throttle"
+  label = "Throttle position"
+  unit = "%"
+  target = 0x12
+  query = "obd:11"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  # NA engine: manifold pressure reads as vacuum (well below ambient ~100 kPa
+  # at idle, approaching ambient at WOT). Useful for spotting intake leaks
+  # and DISA/valvetronic issues.
+  [[profile.param]]
+  id = "map"
+  label = "Manifold pressure"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:0B"
+  decode = "u8"
+  min = 0.0
+  max = 120.0
+
+  [[profile.param]]
+  id = "speed"
+  label = "Vehicle speed"
+  unit = "km/h"
+  target = 0x12
+  query = "obd:0D"
+  decode = "u8"
+  min = 0.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "volt"
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0

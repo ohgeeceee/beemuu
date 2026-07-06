@@ -840,4 +840,53 @@ $("btn-traffic-export").addEventListener("click", async () => {
     const ecu = "0x" + e.target.toString(16).toUpperCase().padStart(2, "0");
     txt += `${e.seq}\t${e.t_ms}\t${ecu}\t${e.request}\t${e.response}\t${e.ok}\t${e.dur_ms}\t${e.detail}\n`;
   }
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-")
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  try {
+    const path = await invoke("export_text", { filename: `beeemuu-traffic-${stamp}.tsv`, content: txt });
+    log("Saved: " + path);
+  } catch (e) {
+    log("Export failed: " + e);
+  }
+});
+
+/* ---------------- about / first-run modal ---------------- */
+function showModal() { $("modal-overlay").classList.remove("hidden"); }
+function hideModal() { $("modal-overlay").classList.add("hidden"); }
+$("btn-about").addEventListener("click", showModal);
+$("modal-accept").addEventListener("click", () => {
+  try { localStorage.setItem("beeemuu_accepted", "1"); } catch (_) {}
+  hideModal();
+});
+(function firstRunCheck() {
+  let accepted = false;
+  try { accepted = localStorage.getItem("beeemuu_accepted") === "1"; } catch (_) {}
+  if (!accepted) showModal();
+})();
+
+/* ---------------- tab activation hooks ---------------- */
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    if (tab.dataset.view === "logging") buildLogParams();
+    if (tab.dataset.view === "diagnostics") { loadCommunityReport(); refreshTraffic(); fillShareProfiles(); }
+  });
+});
+
+/* ---------------- init ---------------- */
+loadServiceFunctions();
+loadProfiles();
+loadLogProfiles();
+fillExplorerEcus();
+fillSecurityEcus();
+setStatus("Disconnected");
+
+async function loadLogProfiles() {
+  const profiles = await invoke("list_profiles");
+  const sel = $("log-profile");
+  sel.innerHTML = "";
+  for (const p of profiles) {
+    const o = document.createElement("option");
+    o.value = p.id;
+    o.textContent = p.label;
+    sel.appendChild(o);
+  }
+}

@@ -56,7 +56,32 @@ impl KdcanTransport {
         Ok(Self { port, dcan, kline_ready: Default::default() })
     }
 
-    /// ISO 14230-2 fast init: wake the ECU with a 25 ms low / 25 ms high
+    /// Auto-detect D-CAN vs K-line by trying 115200 baud first, then falling
+    /// back to 10400 baud with fast-init.
+    pub fn auto_detect(port_name: &str) -> Result<Self> {
+        // Try D-CAN first (most common for E9x and later).
+        if let Ok(mut t) = Self::open(port_name, true) {
+            let frame = Self::build_frame(0x12, &[0x3E, 0x00]);
+            let _ = t.port.clear(serialport::ClearBuffer::Input);
+            if t.port.write_all(&frame).is_ok() {
+                let _ = t.port.flush();
+                let deadline = Instant::now() + Duration::from_millis(600);
+                let mut echo = vec![0u8; frame.len()];
+                if t.read_exact_timeout(&mut echo, deadline).is_ok() && echo == frame {
+                    if let Ok(resp) = t.read_frame(deadline) {
+                        if resp.first() == Some(&0x7E) {
+                            return Ok(t);
+                        }
+                    }
+                }
+            }
+            // D-CAN port opened but no response — drop it before retrying K-line.
+        }
+        // Fall back to K-line.
+        Self::open(port_name, false)
+    }
+
+ wake the ECU with a 25 ms low / 25 ms high
     /// pulse on the K-line, then open a KWP session with StartCommunication
     /// (0x81). Required once per ECU on pre-2007 K-line cars; D-CAN needs
     /// no init.
@@ -124,3 +149,117 @@ impl KdcanTransport {
             match self.port.read(&mut buf[filled..]) {
                 Ok(0) => {}
                 Ok(n) => filled += n,
+                Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {}
+                Err(e) => return Err(TransportError::Io(e.to_string())),
+            }
+        }
+        Ok(())
+    }
+
+    /// Read one KWP frame (header + payload + checksum), return the payload.
+    fn read_frame(&mut self, deadline: Instant) -> Result<Vec<u8>> {
+        let mut hdr = [0u8; 3];
+        self.read_exact_timeout(&mut hdr, deadline)?;
+        let short_len = (hdr[0] & 0x3F) as usize;
+        let (len, extra_len_byte) = if short_len > 0 {
+            (short_len, false)
+        } else {
+            let mut lb = [0u8; 1];
+            self.read_exact_timeout(&mut lb, deadline)?;
+            (lb[0] as usize, true)
+        };
+        let mut rest = vec![0u8; len + 1]; // payload + checksum
+        self.read_exact_timeout(&mut rest, deadline)?;
+
+        // Verify checksum
+        let mut sum = hdr.iter().fold(0u8, |a, b| a.wrapping_add(*b));
+        if extra_len_byte {
+            sum = sum.wrapping_add(len as u8);
+        }
+        for b in &rest[..len] {
+            sum = sum.wrapping_add(*b);
+        }
+        if sum != rest[len] {
+            return Err(TransportError::BadFrame(format!(
+                "checksum mismatch (calc {sum:02X}, got {:02X})",
+                rest[len]
+            )));
+        }
+        rest.truncate(len);
+        Ok(rest)
+    }
+}
+
+impl Transport for KdcanTransport {
+    fn name(&self) -> &'static str {
+        if self.dcan { "K+DCAN (D-CAN)" } else { "K+DCAN (K-line)" }
+    }
+
+    fn request(&mut self, target: u8, payload: &[u8]) -> Result<Vec<u8>> {
+        // K-line ECUs must be woken with fast-init before first contact.
+        if !self.dcan && !self.kline_ready.contains(&target) {
+            self.fast_init(target)?;
+            self.kline_ready.insert(target);
+        }
+
+        match self.transact(target, payload) {
+            // A timeout on K-line usually means the KWP session expired
+            // (P3max idle). Re-init once and retry before giving up.
+            Err(TransportError::Timeout) if !self.dcan => {
+                self.kline_ready.remove(&target);
+                self.fast_init(target)?;
+                self.kline_ready.insert(target);
+                self.transact(target, payload)
+            }
+            other => other,
+        }
+    }
+}
+
+impl KdcanTransport {
+    /// One framed request/response exchange (no init logic).
+    fn transact(&mut self, target: u8, payload: &[u8]) -> Result<Vec<u8>> {
+        let frame = Self::build_frame(target, payload);
+
+        // Flush stale bytes
+        let _ = self.port.clear(serialport::ClearBuffer::Input);
+
+        self.port
+            .write_all(&frame)
+            .map_err(|e| TransportError::Io(e.to_string()))?;
+        let _ = self.port.flush();
+
+        let deadline = Instant::now() + Duration::from_millis(2500);
+
+        // Discard the loopback echo of our own frame. The echo is generated
+        // by the cable itself (TX/RX share the K-line), so its absence means
+        // the cable's line driver is dead — almost always missing vehicle 12V
+        // on OBD pin 16 (e.g. bench testing with no car attached).
+        let echo_deadline = Instant::now() + Duration::from_millis(300);
+        let mut echo = vec![0u8; frame.len()];
+        self.read_exact_timeout(&mut echo, echo_deadline)
+            .map_err(|e| match e {
+                TransportError::Timeout => TransportError::Io(
+                    "no echo from cable — cable unpowered? (needs vehicle 12V \
+                     on OBD pin 16; check ignition is on and cable is plugged \
+                     into the car)"
+                        .into(),
+                ),
+                other => other,
+            })?;
+        if echo != frame {
+            return Err(TransportError::BadFrame(
+                "echo mismatch — check baud/parity settings or bus contention".into(),
+            ));
+        }
+
+        // ECUs may send 0x78 (responsePending) before the real answer
+        loop {
+            let resp = self.read_frame(deadline)?;
+            if resp.len() >= 3 && resp[0] == 0x7F && resp[2] == 0x78 {
+                continue; // busy — keep waiting
+            }
+            return Ok(resp);
+        }
+    }
+}

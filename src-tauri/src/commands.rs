@@ -442,4 +442,14 @@ pub fn export_text(filename: String, content: String) -> Result<String, String> 
     let home = std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOME"))
         .map_err(|_| "Could not locate home directory")?;
-    let dir = std::path::Path::new(&home).join
+    let dir = std::path::Path::new(&home).join("beeemuu-exports");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    // sanitise filename to its base name only
+    let safe = std::path::Path::new(&filename)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "export.txt".into());
+    let path = dir.join(safe);
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}

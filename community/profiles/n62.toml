@@ -1,0 +1,103 @@
+# N62 — 4.0/4.4/4.8 NA V8 (Bosch ME9.2), E60/E63/E65 x40i–x50i, E53/E70 4.4i/
+# 4.8i, 2001–2010. OBD-II entries are emissions-mandated and verified by
+# design. The `local:` oil-temp entry is a PLACEHOLDER — same slot as the
+# repo's e70_n62 example; confirm with the Parameter Explorer before trusting.
+# Coolant temp is worth watching closely on this engine (coolant-pipe and
+# valley-pan failures show up as slow warm-up or creeping temps).
+
+[[profile]]
+id = "n62"
+label = "N62 4.0–4.8 NA V8 (ME9.2) [community, oil temp unverified]"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 6800.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "oil"
+  label = "Oil temp [UNVERIFIED placeholder]"
+  unit = "°C"
+  target = 0x12
+  query = "local:10"
+  decode = "temp_u8"
+  min = -40.0
+  max = 160.0
+
+  [[profile.param]]
+  id = "iat"
+  label = "Intake air temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:0F"
+  decode = "temp_u8"
+  min = -40.0
+  max = 80.0
+
+  [[profile.param]]
+  id = "load"
+  label = "Engine load"
+  unit = "%"
+  target = 0x12
+  query = "obd:04"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  # Valvetronic engine: at part throttle the throttle plate is mostly open and
+  # load is controlled by valve lift, so throttle % behaves differently than
+  # on a conventional engine — expect high readings at cruise.
+  [[profile.param]]
+  id = "throttle"
+  label = "Throttle position"
+  unit = "%"
+  target = 0x12
+  query = "obd:11"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "map"
+  label = "Manifold pressure"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:0B"
+  decode = "u8"
+  min = 0.0
+  max = 120.0
+
+  [[profile.param]]
+  id = "speed"
+  label = "Vehicle speed"
+  unit = "km/h"
+  target = 0x12
+  query = "obd:0D"
+  decode = "u8"
+  min = 0.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "volt"
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0

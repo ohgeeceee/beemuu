@@ -1,0 +1,110 @@
+# N55 — 3.0 single twin-scroll turbo DI inline-6 (MSD81 early, MEVD17.2
+# later), E9x/F1x/F2x/F3x 35i models and E70/E71, 2009–2017. OBD-II entries
+# are emissions-mandated and verified by design. The `local:` oil-temp entry
+# is a PLACEHOLDER — confirm with the Parameter Explorer before trusting it.
+# Note: late F-series N55 cars connect via ENET/DoIP; the OBD PIDs are the
+# same either way.
+
+[[profile]]
+id = "n55"
+label = "N55 3.0 turbo I6 (MSD81/MEVD17.2) [community, oil temp unverified]"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 7000.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "oil"
+  label = "Oil temp [UNVERIFIED placeholder]"
+  unit = "°C"
+  target = 0x12
+  query = "local:10"
+  decode = "temp_u8"
+  min = -40.0
+  max = 160.0
+
+  [[profile.param]]
+  id = "iat"
+  label = "Intake air temp (post-IC)"
+  unit = "°C"
+  target = 0x12
+  query = "obd:0F"
+  decode = "temp_u8"
+  min = -40.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "map"
+  label = "Manifold pressure (abs)"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:0B"
+  decode = "u8"
+  min = 0.0
+  max = 255.0
+
+  [[profile.param]]
+  id = "baro"
+  label = "Barometric pressure"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:33"
+  decode = "u8"
+  min = 60.0
+  max = 110.0
+
+  [[profile.param]]
+  id = "load"
+  label = "Engine load"
+  unit = "%"
+  target = 0x12
+  query = "obd:04"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "throttle"
+  label = "Throttle position"
+  unit = "%"
+  target = 0x12
+  query = "obd:11"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "speed"
+  label = "Vehicle speed"
+  unit = "km/h"
+  target = 0x12
+  query = "obd:0D"
+  decode = "u8"
+  min = 0.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "volt"
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0
