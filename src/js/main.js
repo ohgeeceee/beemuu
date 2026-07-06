@@ -636,7 +636,6 @@ function startLogging() {
   $("btn-log-start").textContent = "Stop recording";
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
-  $("btn-log-analyze").disabled = false;
   $("btn-log-clear").disabled = false;
   $("log-status").textContent = "Recording…";
 }
@@ -679,19 +678,6 @@ $("btn-log-export").addEventListener("click", async () => {
     log("Saved: " + path);
   } catch (e) {
     log("Export failed: " + e);
-  }
-});
-$("btn-log-analyze").addEventListener("click", async () => {
-  const csv = buildLogCsv();
-  if (!csv) { log("Nothing recorded yet."); return; }
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  log("Analyzing…");
-  try {
-    const path = await invoke("analyze_chart", { csvContent: csv, filename: `beeemuu-log-${stamp}.csv` });
-    log("Analysis saved: " + path);
-    await invoke("open_path", { path });
-  } catch (e) {
-    log("Analysis failed: " + e);
   }
 });
 $("log-profile").addEventListener("change", () => { buildLogParams(); saveSettings(); });
