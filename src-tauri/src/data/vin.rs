@@ -67,3 +67,25 @@ pub fn decode(vin_str: &str) -> VinDecode {
         serial,
     }
 }
+
+/// Best-effort profile suggestion from VIN.
+///
+/// BMW VIN position 8 (0-indexed 7) is the engine code in BMW's internal
+/// numbering. This mapping is community-sourced and approximate; it returns
+/// `None` when the code is unknown or ambiguous so the caller can fall back to
+/// Generic OBD-II or the user's previous selection.
+pub fn suggested_profile(vin_str: &str) -> Option<&'static str> {
+    let s = vin_str.trim();
+    if s.len() < 17 {
+        return None;
+    }
+    let engine_code = s.chars().nth(7)?;
+    Some(match engine_code {
+        '1' | '7' => "n52",       // N52 2.5/3.0 NA I6
+        '3' => "n54",             // N54 twin-turbo I6
+        '4' => "n55",             // N55 single-turbo I6
+        '5' | '6' => "n62",       // N62 V8 (4.0/4.4/4.8)
+        'B' | 'C' => "b58",       // B58 turbo I6 (F/G-series)
+        _ => return None,
+    })
+}
