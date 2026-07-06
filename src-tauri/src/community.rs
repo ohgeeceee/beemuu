@@ -26,7 +26,7 @@ pub struct LoadReport {
 ///   2. ./community            (cwd — dev runs and portable installs)
 ///   3. ../community           (when cwd is src-tauri under `tauri dev`)
 ///   4. <exe dir>/community    (installed app)
-fn find_dir() -> Option<PathBuf> {
+pub fn find_dir() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("BEEEMUU_COMMUNITY") {
         let pb = PathBuf::from(p);
         if pb.is_dir() {
@@ -90,26 +90,25 @@ struct SchemaToml {
 }
 
 #[derive(Deserialize)]
-struct FieldToml {
-    label: String,
-    unit: String,
-    offset: usize,
-    width: String,
-    scale: f64,
-    bias: f64,
+pub(crate) struct FreezeFile {
     #[serde(default)]
-    decimals: u8,
+    pub(crate) field: Vec<FieldToml>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct FieldToml {
+    pub(crate) label: String,
+    pub(crate) unit: String,
+    pub(crate) offset: usize,
+    pub(crate) width: String,
+    pub(crate) scale: f64,
+    pub(crate) bias: f64,
+    #[serde(default)]
+    pub(crate) decimals: u8,
 }
 
 fn width_from_str(s: &str) -> Option<freeze::Width> {
-    Some(match s {
-        "u8" => freeze::Width::U8,
-        "i8" => freeze::Width::I8,
-        "u16" => freeze::Width::U16,
-        "i16" => freeze::Width::I16,
-        "u24" => freeze::Width::U24,
-        _ => return None,
-    })
+    freeze::width_from_str(s)
 }
 
 // ---- File discovery --------------------------------------------------------
@@ -226,14 +225,45 @@ fn load_profiles(dir: &Path, report: &mut LoadReport) {
 fn load_schemas(dir: &Path, report: &mut LoadReport) {
     for path in category_files(dir, "freeze_schemas.toml", "freeze") {
         let Ok(text) = std::fs::read_to_string(&path) else { continue };
-        let parsed = match toml::from_str::<SchemasFile>(&text) {
-            Ok(f) => f,
-            Err(e) => {
-                report.warnings.push(format!("{}: {e}", path.display()));
-                continue;
+        if path.file_name().is_some_and(|n| n == "freeze_schemas.toml") {
+            // Top-level file: [[schema]] format
+            let parsed = match toml::from_str::<SchemasFile>(&text) {
+                Ok(f) => f,
+                Err(e) => {
+                    report.warnings.push(format!("{}: {e}", path.display()));
+                    continue;
+                }
+            };
+            for s in parsed.schema {
+                match build_schema(s) {
+                    Ok((addr, schema)) => {
+                        freeze::registry().register_for(addr, schema);
+                        report.freeze_schemas += 1;
+                    }
+                    Err(w) => report.warnings.push(w),
+                }
             }
-        };
-        for s in parsed.schema {
+        } else {
+            // Per-address file: [[field]] format, address from filename stem
+            let parsed = match toml::from_str::<FreezeFile>(&text) {
+                Ok(f) => f,
+                Err(e) => {
+                    report.warnings.push(format!("{}: {e}", path.display()));
+                    continue;
+                }
+            };
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let addr = match u8::from_str_radix(stem, 16) {
+                Ok(a) => a,
+                Err(_) => {
+                    report.warnings.push(format!("{}: bad filename (expected hex address)", path.display()));
+                    continue;
+                }
+            };
+            let s = SchemaToml {
+                address: addr,
+                field: parsed.field,
+            };
             match build_schema(s) {
                 Ok((addr, schema)) => {
                     freeze::registry().register_for(addr, schema);
@@ -243,6 +273,29 @@ fn load_schemas(dir: &Path, report: &mut LoadReport) {
             }
         }
     }
+}
+
+/// Save a freeze-frame schema to a per-address TOML file in `community/freeze/`.
+pub fn save_freeze_schema(address: u8, fields: &[freeze::FreezeField]) -> Result<(), String> {
+    let dir = find_dir().ok_or("Community directory not found")?;
+    let freeze_dir = dir.join("freeze");
+    std::fs::create_dir_all(&freeze_dir).map_err(|e| e.to_string())?;
+    let path = freeze_dir.join(format!("{:02X}.toml", address));
+
+    let mut toml = String::new();
+    for f in fields {
+        toml.push_str("[[field]]\n");
+        toml.push_str(&format!("label = {:?}\n", f.label));
+        toml.push_str(&format!("unit = {:?}\n", f.unit));
+        toml.push_str(&format!("offset = {}\n", f.offset));
+        toml.push_str(&format!("width = {:?}\n", freeze::width_to_str(f.width)));
+        toml.push_str(&format!("scale = {}\n", f.scale));
+        toml.push_str(&format!("bias = {}\n", f.bias));
+        toml.push_str(&format!("decimals = {}\n", f.decimals));
+        toml.push('\n');
+    }
+    std::fs::write(&path, toml).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Parse and add profiles from a TOML string (in-app import). Strict: any bad

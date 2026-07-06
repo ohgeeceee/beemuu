@@ -422,7 +422,99 @@ body {
   font-size: 12px; border: 1px solid var(--border); border-radius: 3px; padding: 6px;
 }
 
-/* ---------- modal ---------- */
+/* ---------- schema builder ---------- */
+.schema-builder {
+  border-top: 2px solid var(--blue-accent);
+  background: #f7fafd;
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+.schema-builder.hidden { display: none; }
+.schema-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+  color: #33475c;
+  margin-bottom: 10px;
+}
+.schema-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.schema-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #44576b;
+}
+.schema-row input {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: Consolas, monospace;
+}
+.schema-hex {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 10px;
+  color: #33475c;
+  min-height: 32px;
+}
+.schema-fields { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.schema-field-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  flex-wrap: wrap;
+}
+.schema-field-row input, .schema-field-row select {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: Consolas, monospace;
+}
+.schema-field-row input[type="number"] { width: 70px; }
+.schema-field-row .sf-offset { width: 50px; }
+.schema-field-row .sf-decimals { width: 40px; }
+.schema-field-row .sf-label { flex: 1; min-width: 100px; }
+.schema-field-row .sf-unit { width: 60px; }
+.schema-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.schema-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+.schema-preview .freeze-item {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.schema-preview .freeze-item .fi-label { font-size: 11px; color: var(--muted); }
+.schema-preview .freeze-item .fi-value { font-size: 15px; font-weight: 600; font-family: Consolas, monospace; }
+
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(10, 18, 30, 0.66);
   display: flex; align-items: center; justify-content: center; z-index: 100;

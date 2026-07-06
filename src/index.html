@@ -214,7 +214,10 @@
         <div class="panel detail-panel">
           <div class="panel-head">
             <span id="exp-watch-title">Watch</span>
-            <label class="chk"><input type="checkbox" id="exp-watch-poll" /> Poll</label>
+            <span>
+              <button id="btn-map-freeze" class="btn btn-small">Map freeze frame</button>
+              <label class="chk"><input type="checkbox" id="exp-watch-poll" /> Poll</label>
+            </span>
           </div>
           <div id="exp-watch-bytes" class="watch-bytes">
             <span class="muted">Scan a range, then select an identifier to watch.</span>
@@ -254,6 +257,30 @@
                 <span id="exp-add-status" class="muted"></span>
               </div>
             </div>
+          </div>
+          <div id="schema-builder" class="schema-builder hidden">
+            <div class="schema-head">
+              <span>Freeze-frame schema builder</span>
+              <button id="btn-schema-close" class="btn btn-small">Close</button>
+            </div>
+            <div class="schema-row">
+              <label>ECU address
+                <input type="text" id="schema-address" value="12" size="4" />
+              </label>
+              <label>DTC code
+                <input type="text" id="schema-dtc" value="2A82" size="6" />
+              </label>
+              <button id="btn-schema-read" class="btn btn-small">Read freeze frame</button>
+            </div>
+            <div class="schema-hex" id="schema-hex"></div>
+            <div class="schema-fields" id="schema-fields"></div>
+            <div class="schema-actions">
+              <button id="btn-schema-add" class="btn btn-small">Add field</button>
+              <button id="btn-schema-preview" class="btn btn-small btn-primary">Preview</button>
+              <button id="btn-schema-save" class="btn btn-small">Save schema</button>
+              <button id="btn-schema-load" class="btn btn-small">Reload saved</button>
+            </div>
+            <div class="schema-preview" id="schema-preview"></div>
           </div>
         </div>
       </div>

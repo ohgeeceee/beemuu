@@ -21,7 +21,7 @@
 //! layout). If a schema's field runs past the payload, that field is skipped
 //! rather than erroring, so a too-short frame still decodes what it can.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
@@ -68,7 +68,7 @@ impl Width {
     }
 }
 
-/// A single field in a freeze-frame schema.
+/// A single field in a freeze-frame schema (runtime, uses static strings).
 #[derive(Debug, Clone)]
 pub struct FreezeField {
     pub label: &'static str,
@@ -78,6 +78,68 @@ pub struct FreezeField {
     pub scale: f64,
     pub bias: f64,
     pub decimals: u8,
+}
+
+/// Serializable definition for building schemas from user input.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FreezeFieldDef {
+    pub label: String,
+    pub unit: String,
+    pub offset: usize,
+    pub width: String,
+    pub scale: f64,
+    pub bias: f64,
+    pub decimals: u8,
+}
+
+impl From<FreezeFieldDef> for FreezeField {
+    fn from(d: FreezeFieldDef) -> Self {
+        let width = width_from_str(&d.width).unwrap_or(Width::U8);
+        Self::new(
+            Box::leak(d.label.into_boxed_str()),
+            Box::leak(d.unit.into_boxed_str()),
+            d.offset,
+            width,
+            d.scale,
+            d.bias,
+            d.decimals,
+        )
+    }
+}
+
+impl From<FreezeField> for FreezeFieldDef {
+    fn from(f: FreezeField) -> Self {
+        Self {
+            label: f.label.to_string(),
+            unit: f.unit.to_string(),
+            offset: f.offset,
+            width: width_to_str(f.width).to_string(),
+            scale: f.scale,
+            bias: f.bias,
+            decimals: f.decimals,
+        }
+    }
+}
+
+pub fn width_from_str(s: &str) -> Option<Width> {
+    Some(match s {
+        "u8" => Width::U8,
+        "i8" => Width::I8,
+        "u16" => Width::U16,
+        "i16" => Width::I16,
+        "u24" => Width::U24,
+        _ => return None,
+    })
+}
+
+pub fn width_to_str(w: Width) -> &'static str {
+    match w {
+        Width::U8 => "u8",
+        Width::I8 => "i8",
+        Width::U16 => "u16",
+        Width::I16 => "i16",
+        Width::U24 => "u24",
+    }
 }
 
 impl FreezeField {
@@ -154,6 +216,17 @@ impl FreezeRegistry {
     /// Replace the default fallback schema.
     pub fn register_default(&self, schema: FreezeSchema) {
         self.map.write().unwrap().insert(None, schema);
+    }
+
+    /// Retrieve a copy of the schema for this ECU (or the default fallback).
+    pub fn get_schema(&self, address: u8) -> Option<FreezeSchema> {
+        let m = self.map.read().unwrap();
+        m.get(&Some(address)).or_else(|| m.get(&None)).cloned()
+    }
+
+    /// Remove the custom schema for this ECU, returning it if present.
+    pub fn unregister(&self, address: u8) -> Option<FreezeSchema> {
+        self.map.write().unwrap().remove(&Some(address))
     }
 
     /// Decode a payload using this ECU's schema, or the default.

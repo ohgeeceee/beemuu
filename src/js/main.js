@@ -584,6 +584,173 @@ $("exp-watch-poll").addEventListener("change", (e) => {
   }
 });
 
+/* ---------------- freeze-frame schema builder ---------------- */
+let schemaFields = [];
+let schemaAddress = 0x12;
+let lastSchemaHex = null;
+
+function openSchemaBuilder() {
+  $("schema-builder").classList.remove("hidden");
+  const addr = watchTarget ? watchTarget.address : parseInt($("exp-address").value, 10);
+  schemaAddress = addr;
+  $("schema-address").value = addr.toString(16).toUpperCase().padStart(2, "0");
+  loadSchemaFromBackend();
+}
+
+function closeSchemaBuilder() {
+  $("schema-builder").classList.add("hidden");
+}
+
+async function loadSchemaFromBackend() {
+  try {
+    const defs = await invoke("get_freeze_schema", { address: schemaAddress });
+    if (defs && defs.length) {
+      schemaFields = defs;
+    } else {
+      schemaFields = [];
+    }
+    renderSchemaFields();
+  } catch (e) {
+    log("Schema load: " + e);
+  }
+}
+
+function renderSchemaFields() {
+  const container = $("schema-fields");
+  container.innerHTML = "";
+  for (let i = 0; i < schemaFields.length; i++) {
+    const f = schemaFields[i];
+    const row = document.createElement("div");
+    row.className = "schema-field-row";
+    row.innerHTML =
+      `<input class="sf-label" type="text" value="${escapeHtml(f.label)}" placeholder="label" />` +
+      `<input class="sf-unit" type="text" value="${escapeHtml(f.unit)}" placeholder="unit" />` +
+      `<input class="sf-offset" type="number" value="${f.offset}" min="0" placeholder="offset" />` +
+      `<select class="sf-width">` +
+      `<option value="u8" ${f.width === "u8" ? "selected" : ""}>u8</option>` +
+      `<option value="i8" ${f.width === "i8" ? "selected" : ""}>i8</option>` +
+      `<option value="u16" ${f.width === "u16" ? "selected" : ""}>u16</option>` +
+      `<option value="i16" ${f.width === "i16" ? "selected" : ""}>i16</option>` +
+      `<option value="u24" ${f.width === "u24" ? "selected" : ""}>u24</option>` +
+      `</select>` +
+      `<input type="number" step="any" value="${f.scale}" placeholder="scale" />` +
+      `<input type="number" step="any" value="${f.bias}" placeholder="bias" />` +
+      `<input class="sf-decimals" type="number" value="${f.decimals}" min="0" max="6" placeholder="dec" />` +
+      `<button class="btn btn-small btn-danger" data-idx="${i}">×</button>`;
+    row.querySelector("button").addEventListener("click", () => {
+      schemaFields.splice(i, 1);
+      renderSchemaFields();
+    });
+    container.appendChild(row);
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function addSchemaField() {
+  schemaFields.push({
+    label: "New field",
+    unit: "",
+    offset: 0,
+    width: "u8",
+    scale: 1.0,
+    bias: 0.0,
+    decimals: 0,
+  });
+  renderSchemaFields();
+}
+
+function collectSchemaFields() {
+  const rows = document.querySelectorAll(".schema-field-row");
+  const fields = [];
+  for (const row of rows) {
+    const inputs = row.querySelectorAll("input, select");
+    fields.push({
+      label: inputs[0].value,
+      unit: inputs[1].value,
+      offset: parseInt(inputs[2].value, 10) || 0,
+      width: inputs[3].value,
+      scale: parseFloat(inputs[4].value) || 0,
+      bias: parseFloat(inputs[5].value) || 0,
+      decimals: parseInt(inputs[6].value, 10) || 0,
+    });
+  }
+  return fields;
+}
+
+async function readSchemaFreeze() {
+  if (!connected) { log("Connect first."); return; }
+  const addr = parseInt($("schema-address").value, 16);
+  const code = $("schema-dtc").value.trim().toUpperCase();
+  schemaAddress = addr;
+  try {
+    const items = await invoke("read_freeze_frame", { address: addr, code });
+    const raw = items.find((it) => it.label === "Raw");
+    if (raw) {
+      $("schema-hex").textContent = raw.value;
+      lastSchemaHex = raw.value.split(" ").map((h) => parseInt(h, 16));
+    } else {
+      $("schema-hex").textContent = "No raw data";
+      lastSchemaHex = null;
+    }
+  } catch (e) {
+    $("schema-hex").textContent = "Read failed: " + e;
+    lastSchemaHex = null;
+  }
+}
+
+async function previewSchema() {
+  if (!connected) { log("Connect first."); return; }
+  const addr = parseInt($("schema-address").value, 16);
+  const code = $("schema-dtc").value.trim().toUpperCase();
+  const fields = collectSchemaFields();
+  try {
+    const items = await invoke("preview_freeze_frame", { address: addr, code, fields });
+    const container = $("schema-preview");
+    container.innerHTML = "";
+    for (const it of items) {
+      const cell = document.createElement("div");
+      cell.className = "freeze-item";
+      cell.innerHTML = `<div class="fi-label">${escapeHtml(it.label)}</div><div class="fi-value">${escapeHtml(it.value)}</div>`;
+      container.appendChild(cell);
+    }
+  } catch (e) {
+    $("schema-preview").innerHTML = `<span class="muted">Preview failed: ${e}</span>`;
+  }
+}
+
+async function saveSchema() {
+  const addr = parseInt($("schema-address").value, 16);
+  const fields = collectSchemaFields();
+  try {
+    await invoke("save_freeze_schema", { address: addr, fields });
+    log(`Schema saved for 0x${addr.toString(16).toUpperCase().padStart(2, "0")}`);
+  } catch (e) {
+    log("Save schema failed: " + e);
+  }
+}
+
+async function reloadSchemas() {
+  try {
+    const count = await invoke("load_freeze_schemas");
+    log(`Reloaded ${count} freeze schema(s)`);
+    await loadSchemaFromBackend();
+    await previewSchema();
+  } catch (e) {
+    log("Reload schemas failed: " + e);
+  }
+}
+
+$("btn-map-freeze").addEventListener("click", openSchemaBuilder);
+$("btn-schema-close").addEventListener("click", closeSchemaBuilder);
+$("btn-schema-add").addEventListener("click", addSchemaField);
+$("btn-schema-read").addEventListener("click", readSchemaFreeze);
+$("btn-schema-preview").addEventListener("click", previewSchema);
+$("btn-schema-save").addEventListener("click", saveSchema);
+$("btn-schema-load").addEventListener("click", reloadSchemas);
+
 /* ---------------- logging + charts ---------------- */
 const LOG_COLORS = ["#4da3ff", "#ff7d33", "#3ddc84", "#e05545", "#c084fc",
                     "#f4b400", "#26c6da", "#ec407a", "#9ccc65", "#8d6e63"];

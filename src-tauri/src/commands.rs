@@ -1,7 +1,7 @@
 //! Tauri commands — the bridge between the frontend and the diagnostic stack.
 
 use crate::analysis::{ByteWatcher, WatchSnapshot};
-use crate::data::{ecus, live, service_functions, vin};
+use crate::data::{ecus, freeze, live, service_functions, vin};
 use crate::protocol::{self, Dtc, EcuInfo, FreezeItem};
 use crate::transport::record::{RecordingTransport, SharedLog, TrafficEntry};
 use crate::transport::{self, Transport, TransportConfig};
@@ -121,6 +121,86 @@ pub fn read_freeze_frame(
     code: String,
 ) -> Result<Vec<FreezeItem>, String> {
     with_transport(&state, |t| protocol::read_freeze_frame(t, address, &code))
+}
+
+#[tauri::command]
+pub fn get_freeze_schema(address: u8) -> Option<Vec<freeze::FreezeFieldDef>> {
+    let schema = freeze::registry().get_schema(address)?;
+    Some(schema.fields.into_iter().map(freeze::FreezeFieldDef::from).collect())
+}
+
+#[tauri::command]
+pub fn save_freeze_schema(
+    address: u8,
+    fields: Vec<freeze::FreezeFieldDef>,
+) -> Result<(), String> {
+    let rust_fields: Vec<freeze::FreezeField> = fields.iter().cloned().map(|f| f.into()).collect();
+    crate::community::save_freeze_schema(address, &rust_fields)?;
+    let schema = freeze::FreezeSchema {
+        fields: rust_fields,
+    };
+    freeze::registry().register_for(address, schema);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn load_freeze_schemas() -> Result<u32, String> {
+    let dir = crate::community::find_dir().ok_or("Community directory not found")?;
+    let freeze_dir = dir.join("freeze");
+    if !freeze_dir.is_dir() {
+        return Ok(0);
+    }
+    let mut count = 0u32;
+    for entry in std::fs::read_dir(&freeze_dir).map_err(|e| e.to_string())?.flatten() {
+        let path = entry.path();
+        if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("toml")) {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let parsed: crate::community::FreezeFile =
+            toml::from_str(&text).map_err(|e| e.to_string())?;
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        let address = u8::from_str_radix(stem, 16)
+            .map_err(|_| format!("Bad filename: {}", path.display()))?;
+        let fields: Vec<freeze::FreezeField> = parsed
+            .field
+            .into_iter()
+            .map(|f| {
+                let width = freeze::width_from_str(&f.width).unwrap_or(freeze::Width::U8);
+                freeze::FreezeField::new(
+                    Box::leak(f.label.into_boxed_str()),
+                    Box::leak(f.unit.into_boxed_str()),
+                    f.offset,
+                    width,
+                    f.scale,
+                    f.bias,
+                    f.decimals,
+                )
+            })
+            .collect();
+        freeze::registry().register_for(address, freeze::FreezeSchema { fields });
+        count += 1;
+    }
+    Ok(count)
+}
+
+#[tauri::command]
+pub fn preview_freeze_frame(
+    state: tauri::State<'_, AppState>,
+    address: u8,
+    code: String,
+    fields: Vec<freeze::FreezeFieldDef>,
+) -> Result<Vec<FreezeItem>, String> {
+    let schema = freeze::FreezeSchema {
+        fields: fields.into_iter().map(|f| f.into()).collect(),
+    };
+    let old = freeze::registry().unregister(address);
+    freeze::registry().register_for(address, schema);
+    let result = with_transport(&state, |t| protocol::read_freeze_frame(t, address, &code));
+    if let Some(s) = old {
+        freeze::registry().register_for(address, s);
+    }
+    result
 }
 
 #[tauri::command]
