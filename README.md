@@ -1,190 +1,266 @@
-# BeeEmUu — Diagnostic Dashboard for BMW Vehicles
+<div align="center">
 
-An independent, open-source diagnostic tool for BMW vehicles: vehicle test
-(module scan), fault memory read/clear, live-data gauges, a parameter
-explorer, and service functions. Desktop app built with Tauri (Rust backend
-+ web UI). Licensed GPL-3.0-or-later.
+# BeeEmUu
 
-> **Independence disclaimer.** This project is not affiliated with,
-> endorsed by, or connected to BMW AG in any way. "BMW" and "ISTA" are
-> trademarks of BMW AG, used here only to factually describe compatibility.
-> This repository contains none of BMW's proprietary data or software —
-> no SGBDs, no fault-text databases, no ISTA assets. All protocol behaviour
-> is based on community documentation and original work.
+**An independent, open-source diagnostic platform for BMW vehicles.**
 
-> **⚠ Safety warning.** This software communicates with safety-relevant
-> vehicle systems. Clearing fault memory erases diagnostic evidence;
-> service functions can actuate pumps, valves, and brakes. Use at your own
-> risk, with the vehicle stationary and secured, and never while driving.
-> The software is provided WITHOUT ANY WARRANTY — see LICENSE sections
-> 15 and 16.
+Vehicle scans, fault memory, live gauges, and a reverse-engineering toolkit —
+in a desktop app that runs against a built-in simulator or real hardware.
 
-## Features
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
+![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24C8DB)
+![Backend](https://img.shields.io/badge/backend-Rust-CE422B)
+![Status](https://img.shields.io/badge/status-research%20preview-orange)
 
-Vehicle test (ISTA-style module scan), fault memory read/clear with freeze
-frames, live-data gauges, data logging with CSV export and charts, a
-Parameter Explorer with a byte-mutation heatmap for reverse-engineering
-unknown DIDs, vehicle info with VIN decode, UDS sessions and pluggable
-security access, service functions, a connection self-test, and a full
-traffic log you can export for bug reports or mapping work.
+</div>
+
+---
+
+> [!IMPORTANT]
+> **Not affiliated with BMW.** "BMW" and "ISTA" are trademarks of BMW AG, used
+> here only to describe compatibility. This repository ships **none** of BMW's
+> proprietary data or software — no SGBDs, no fault-text databases, no ISTA
+> assets. All protocol behaviour is based on community documentation and
+> original work.
+
+> [!WARNING]
+> **This tool talks to safety-relevant vehicle systems.** Clearing faults
+> erases diagnostic evidence; service functions can actuate pumps, valves, and
+> brakes. Use with the vehicle **stationary and secured, never while driving**,
+> and entirely at your own risk. Provided WITHOUT ANY WARRANTY — see
+> [LICENSE](LICENSE) §§15–16.
+
+## Contents
+
+- [What it does](#what-it-does)
+- [Screenshots](#screenshots)
+- [Quick start (no hardware)](#quick-start-no-hardware)
+- [Supported hardware](#supported-hardware)
+- [Tested vehicles](#tested-vehicles)
+- [Build from source](#build-from-source)
+- [Contributing](#contributing)
+- [Mapping your car](#mapping-your-car)
+- [Architecture](#architecture)
+- [Real-car notes](#real-car-notes)
+- [Releases](#releases)
+- [License](#license)
+
+## What it does
+
+| Area | Capabilities |
+|---|---|
+| **Vehicle test** | ISTA-style module scan; per-ECU identification and fault-count badges |
+| **Fault memory** | Read / clear DTCs with decoded status bits, community fault text, and per-fault **freeze frames** |
+| **Live data** | Real-time dial gauges; selectable per-engine profiles (generic OBD-II works on any 2007+ car) |
+| **Logging** | Record parameters to time-series charts; export CSV |
+| **Parameter Explorer** | Scan a module's identifiers and watch one live as a **byte-mutation heatmap** — the tool for reverse-engineering unknown DIDs |
+| **Vehicle info** | VIN read + decode (manufacturer, year, plant); mileage; exportable report |
+| **Security** | UDS sessions and a pluggable **SecurityAccess (0x27)** seed/key registry |
+| **Service functions** | CBS resets, registrations, actuator tests — with risk warnings |
+| **Diagnostics** | Connection self-test, full **traffic log** (exportable), community-data status |
+
+Everything works end-to-end against the built-in **simulator**, so you can try
+the whole app with no car and no cable.
 
 ## Screenshots
 
-_Add screenshots or a short GIF here — run against the Simulator so no real
-VIN is shown. Suggested shots: the Vehicle Test module tree, the Live Data
-gauges, and the Parameter Explorer heatmap._
+> _Placeholder — add screenshots or a short GIF here. Run against the Simulator
+> so no real VIN is shown. Good shots: the Vehicle Test module tree, the Live
+> Data gauges, and the Parameter Explorer heatmap._
 
-## Supported interfaces
+## Quick start (no hardware)
 
-| Transport | Cars | Status |
-|---|---|---|
-| **Simulator** | Virtual E90 (N52) | Works out of the box — develop/demo with no hardware |
-| **K+DCAN USB cable** | E-series (D-CAN ≈2007+, K-line earlier) | Implemented; needs on-car validation |
-| **ENET cable** | F/G-series (UDS over HSFZ, port 6801) | Implemented; needs on-car validation |
+```bash
+npm install
+npm run dev
+```
+
+In the app: leave the transport on **Simulator** → **Connect** → **Run vehicle
+test**. The virtual E90 answers with eight modules, a few stored faults, and
+live engine data for the gauges.
+
+> First build compiles the Rust backend (a few minutes). Prerequisites are in
+> [Build from source](#build-from-source).
+
+## Supported hardware
+
+| Transport | Cars | Protocol | Status |
+|---|---|---|---|
+| **Simulator** | Virtual E90 (N52) | — | ✅ Works out of the box |
+| **K+DCAN USB cable** | E-series | D-CAN 115200 8N1 (2007+) · K-line 10400 8N1 + fast-init (earlier) | 🔧 Implemented; on-car validation in progress |
+| **ENET cable** | F/G-series | UDS over HSFZ (TCP :6801) | 🔧 Implemented; needs on-car validation |
+
+Transports sit behind one pluggable `Transport` trait, so adding another
+interface means implementing a single trait.
 
 ## Tested vehicles
 
-Community-verified compatibility. If you run it on your car, please open a PR
-adding a row (and a `community/` profile if you mapped parameters).
+Community-verified compatibility. Ran it on your car? Please
+[add a row](.github/ISSUE_TEMPLATE/profile_submission.md) — even if you only
+confirmed the module scan.
 
-| Chassis | Engine | Cable | Module scan | Faults | Live data | Notes |
-|---|---|---|---|---|---|---|
-| _Simulator_ | virtual E90 | — | ✓ | ✓ | ✓ | Reference; always works |
-| E70 X5 | N62B48 (4.8i) | K+DCAN | _pending_ | _pending_ | _pending_ | Author's car; validation in progress |
+| Chassis | Engine | Cable | Scan | Faults | Live data | Notes |
+|---|---|---|:--:|:--:|:--:|---|
+| _Simulator_ | virtual E90 | — | ✅ | ✅ | ✅ | Reference; always works |
+| E70 X5 | N62B48 (4.8i) | K+DCAN | 🔄 | 🔄 | 🔄 | Author's car; validation in progress |
 
-## Building
+## Build from source
 
-Prerequisites (Windows):
+**Prerequisites**
 
-1. [Rust](https://rustup.rs) (stable, MSVC toolchain)
-2. Node.js 18+
-3. Microsoft Edge WebView2 (preinstalled on Win 10/11)
-4. For K+DCAN: the FTDI VCP driver so the cable shows up as a COM port
+- [Rust](https://rustup.rs) (stable, MSVC toolchain on Windows)
+- Node.js 18+
+- WebView2 (preinstalled on Windows 10/11)
+- For K+DCAN: the FTDI VCP driver, so the cable appears as a COM port
 
-```
+**Commands**
+
+```bash
 npm install
-npm run dev        # development window with hot reload
-npm run build      # installer in src-tauri/target/release/bundle
+npm run dev      # dev window with hot reload
+npm run build    # installer in src-tauri/target/release/bundle
 ```
 
-First build only: generate the icon set (any square PNG works):
+First build only — generate the icon set from any square PNG:
 
-```
+```bash
 npx tauri icon app-icon.png
 ```
 
-## Try it immediately
+## Contributing
 
-Run `npm run dev`, leave the transport on **Simulator**, hit **Connect**,
-then **Run vehicle test**. The virtual E90 answers with eight modules, a few
-stored faults, and live engine data for the gauges tab.
+The most valuable contributions are **data** — and you don't need to write code.
+
+**Add data via TOML (no Rust).** Edit the files in
+[`community/`](community/README.md) — fault texts, live-data profiles, or
+freeze-frame layouts — restart, and they load automatically. The **Diagnostics**
+tab shows exactly what loaded and flags file errors.
+
+**Share a profile you mapped.** Export it in-app (Diagnostics → Share profiles),
+then send the file or open a PR. Full workflow:
+[docs/sharing-profiles.md](docs/sharing-profiles.md).
+
+**Report a tested vehicle**, submit fault texts, or contribute code — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+> One hard rule: contribute only original or community-derived knowledge.
+> **Never** data extracted from ISTA or other proprietary BMW software.
+
+## Mapping your car
+
+Live data uses selectable **profiles**. Start with **Generic OBD-II** (mode 01
+PIDs) — emissions-mandated, so any 2007+ DME answers it out of the box.
+
+To map model-specific values (oil temp, per-bank sensors, transmission temps),
+use the **Parameter Explorer**:
+
+1. Connect and run a vehicle test.
+2. Pick an ECU (start with the DME), choose an ident type (*Local ident*, *DID*,
+   or *OBD PID*), and scan a range. Only identifiers the module answers appear.
+3. Click a result to **watch it live**. Rev the engine, switch on the AC — the
+   byte-mutation heatmap highlights which bytes carry the changing signal, with
+   volatility, mean delta, and observed min–max.
+4. Add the confirmed mapping to `community/profiles.toml` (no recompile) or a
+   per-car file under `community/profiles/`.
 
 ## Architecture
 
+Tauri v2 — a synchronous Rust backend compiled to a native binary, with a
+dependency-free vanilla-JS frontend in the OS webview.
+
+<details>
+<summary><strong>Project layout</strong></summary>
+
 ```
-src/                    Frontend (vanilla JS, no build step)
-  index.html            Layout: header, tabs, module tree, fault table
-  css/app.css           ISTA-inspired theme
-  js/gauges.js          Canvas dial gauges
-  js/main.js            App logic, invokes Rust commands
+src/                      Frontend (vanilla JS, no build step)
+  index.html              Layout: header, tabs, panels
+  css/app.css             ISTA-inspired theme
+  js/gauges.js            Canvas dial gauges
+  js/main.js              App logic, invokes Rust commands
 
 src-tauri/src/
-  transport/            Physical interfaces (pluggable)
-    kdcan.rs            KWP2000 framing over FTDI serial (K-line + D-CAN)
-    enet.rs             UDS over HSFZ TCP (F/G-series)
-    sim.rs              Virtual E90 for hardware-free development
-    record.rs           Traffic-recording transport decorator
+  transport/              Physical interfaces (pluggable Transport trait)
+    kdcan.rs              KWP2000 over FTDI serial (K-line fast-init + D-CAN)
+    enet.rs               UDS over HSFZ TCP (F/G-series)
+    sim.rs                Virtual E90 for hardware-free development
+    record.rs             Traffic-recording transport decorator
   protocol/
-    mod.rs              Service layer: ident, DTC read/clear, DIDs, routines
-    security.rs         Pluggable UDS SecurityAccess (0x27) seed/key registry
-  analysis.rs           Byte-diff mutation engine (Parameter Explorer)
-  community.rs          Loads community/*.toml into runtime registries
+    mod.rs                Service layer: ident, DTC read/clear, DIDs, routines
+    security.rs           Pluggable UDS SecurityAccess (0x27) seed/key registry
+  analysis.rs             Byte-diff mutation engine (Parameter Explorer)
+  community.rs            Loads community/*.toml into runtime registries
   data/
-    ecus.rs             Diagnostic address table (DME 0x12, EGS 0x18, ...)
-    dtc.rs              Fault-code text (built-in + community overlay)
-    live.rs             Live-data profiles (built-in + community, runtime store)
-    freeze.rs           Per-ECU freeze-frame schema registry
-    vin.rs              VIN decoder
+    ecus.rs               Diagnostic address table (DME 0x12, EGS 0x18, …)
+    dtc.rs                Fault-code text (built-in + community overlay)
+    live.rs               Live-data profiles (runtime store)
+    freeze.rs             Per-ECU freeze-frame schema registry
+    vin.rs                VIN decoder
     service_functions.rs  CBS resets, registrations, actuator tests
-  commands.rs           Tauri command bridge
+  commands.rs             Tauri command bridge
 
-community/              Drop-in TOML data — edit without recompiling
-  dtc_texts.toml        Fault-code descriptions
-  profiles.toml         Live-data parameter maps per engine
-  freeze_schemas.toml   Freeze-frame byte layouts per ECU
+community/                Drop-in TOML data — edit without recompiling
+  dtc_texts.toml          Fault-code descriptions
+  profiles.toml           Live-data parameter maps
+  profiles/*.toml         One file per car (no PR merge conflicts)
+  freeze_schemas.toml     Freeze-frame byte layouts per ECU
 ```
 
-## Contributing data without writing code
+</details>
 
-The biggest way to help is adding data — and you don't need to touch Rust.
-Edit the TOML files in [`community/`](community/README.md), restart the app,
-and your fault texts, parameter profiles, or freeze-frame layouts load
-automatically. The **Diagnostics** tab shows exactly what loaded and flags any
-file errors. Then open a pull request. Please contribute only original or
-community-derived knowledge — never data extracted from ISTA.
+<details>
+<summary><strong>Design notes</strong></summary>
 
-## Mapping your car (E70 X5 4.8i workflow)
+- **Pluggable registries** for the parts that vary per car — SecurityAccess
+  algorithms (`protocol/security.rs`), freeze-frame schemas (`data/freeze.rs`),
+  and live-data profiles (`data/live.rs`) — so contributions drop in without
+  touching core logic.
+- **Runtime data loading** merges `community/*.toml` into those registries at
+  startup, keeping the app extensible by non-coders.
+- **Transport decorator** (`record.rs`) records every request/response for the
+  traffic log without the protocol layer knowing about it.
 
-Live data has selectable **profiles** (dropdown on the Live Data tab):
+</details>
 
-1. **Generic OBD-II** — standard mode 01 PIDs. Emissions-mandated, so the
-   N62B48 DME answers these out of the box. Use this first on the real car:
-   RPM, coolant, IAT, speed, load, throttle, fuel level, voltage.
-2. **Simulator** — the virtual E90's DIDs, for hardware-free demos.
+## Real-car notes
 
-To go beyond OBD-II (oil temp, per-bank data, transmission temps), use the
-**Parameter Explorer** tab on the real car:
+Read before plugging into a vehicle.
 
-1. Connect via K+DCAN (E70 = D-CAN mode), run a vehicle test.
-2. Pick an ECU (start with DME), ident type *Local ident (KWP 21)*,
-   scan range 00–FF. Only identifiers the module answers are listed.
-3. Click a result to watch it live. Rev the engine, turn on AC, etc. —
-   bytes that change are highlighted with hex + decimal + offset shown.
-4. Identify the value and offset (e.g. "bytes [0..1] track RPM ×1"),
-   then add it to `community/profiles.toml` — no recompile needed — or, for
-   built-ins, `src-tauri/src/data/live.rs`.
-
-The Explorer's watch view is a **mutation heatmap**: each byte shows its live
-value plus a volatility bar and observed min–max, so the bytes that track a
-changing signal light up as you rev the engine.
-
-## Real-car notes (read before plugging in)
-
-- **DIDs in `data/live.rs` currently match the simulator.** Real DMEs use
-  model-specific identifiers — map them per engine (community DID lists and
-  INPA `.IPO` files are the usual references) and add entries per variant.
-- **Routine IDs in `data/service_functions.rs` likewise match the simulator.**
-  Real CBS resets and actuator tests are model-specific and some need
-  security access (service 0x27). Verify before running on a real car.
-- The DTC text table (`data/dtc.rs`) is a small community starter set;
-  unknown codes show a generic label. Extend it as you go.
-- D-CAN uses 115200 baud 8E1 with TX echo; K-line 10400 baud. If responses
-  time out on a real car, reduce the FTDI latency timer to 1 ms in Device
-  Manager (Port Settings → Advanced).
-- **Safety:** fault clearing erases freeze frames; "high-risk" service
-  functions actuate hardware. Ignition on, engine off, car secured.
+- **Some DIDs and routine IDs are placeholders** matching the simulator. Real
+  DMEs use model-specific identifiers (community DID lists and INPA `.IPO` files
+  are the usual references); real CBS resets/actuator tests are model-specific
+  and some need security access. **Verify on your car before trusting them.**
+- **Fault texts** are a small community starter set; unknown codes show a
+  generic label. Extend via `community/dtc_texts.toml`.
+- **Cable timing:** D-CAN is 115200 8N1; K-line is 10400 8N1 with ISO 14230
+  fast-init. If a real car times out, drop the FTDI latency timer to 1 ms
+  (Device Manager → Port Settings → Advanced).
+- **Safety:** clearing faults erases freeze frames; high-risk service functions
+  actuate hardware. Ignition on, engine off, car secured.
 
 ## Releases
 
-CI (GitHub Actions) builds Windows and Linux packages on every push. To cut
-a release: bump the version in `package.json`, `src-tauri/tauri.conf.json`,
-and `src-tauri/Cargo.toml`, then push a tag like `v0.1.0` — the workflow
-creates a draft GitHub release with installers attached. Installers are
-unsigned, so Windows SmartScreen will warn on first run; code signing
-(e.g. Azure Trusted Signing) can be added later.
+GitHub Actions builds Windows and Linux packages on every push. To cut a
+release, bump the version in `package.json`, `src-tauri/tauri.conf.json`, and
+`src-tauri/Cargo.toml`, then push a `v*` tag — the workflow drafts a GitHub
+release with installers attached. Installers are unsigned, so Windows
+SmartScreen warns on first run; code signing can be added later.
 
-## Contributing
+## Roadmap
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Parameter mappings from real cars
-and community fault-code texts are the most valuable contributions.
-Contributions containing BMW proprietary data are rejected.
+- [ ] Per-engine live-data profiles (N52 / N54 / N55 / N62 / B58)
+- [ ] UDS security access for F/G-series service functions
+- [ ] Freeze-frame schemas confirmed on real cars
+- [ ] Chart playback for logged sessions
+- [ ] Community profile pack shipped with releases
 
-## Roadmap ideas
+Coding/flashing is deliberately **out of scope**.
 
-- Per-engine live-data profiles (N52/N54/N55/B58 DID maps)
-- UDS session management + security access for F/G service functions
-- Freeze-frame (environmental data) display per fault
-- Data logging to CSV with chart playback
-- Coding/programming — deliberately out of scope for now
-#   b e e m u u  
- 
+## License
+
+[GPL-3.0-or-later](LICENSE). You may use, study, modify, and redistribute this
+software under those terms; derivative works must remain open source.
+
+<div align="center">
+<sub>Independent project · not affiliated with or endorsed by BMW AG.</sub>
+</div>
