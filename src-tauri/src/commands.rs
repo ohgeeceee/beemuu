@@ -599,3 +599,153 @@ pub fn export_text(filename: String, content: String) -> Result<String, String> 
     std::fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
+/* ---------------- Session export ---------------- */
+
+use crate::data::{ecus, vin};
+use crate::protocol::{self, Dtc, FreezeItem};
+use crate::transport::record::TrafficEntry;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionDtc {
+    pub code: String,
+    pub status: u8,
+    pub status_text: String,
+    pub text: String,
+    pub freeze_frame: Vec<FreezeItem>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionModule {
+    pub address: u8,
+    pub name: String,
+    pub description: String,
+    pub ident: Option<String>,
+    pub present: bool,
+    pub fault_count: Option<usize>,
+    pub dtcs: Vec<SessionDtc>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionSnapshot {
+    pub version: u32,
+    pub exported_at: String,
+    pub transport_name: String,
+    pub vehicle_info: Option<SessionVehicleInfo>,
+    pub modules: Vec<SessionModule>,
+    pub traffic: Vec<TrafficEntry>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionVehicleInfo {
+    pub vin: Option<String>,
+    pub decode: Option<vin::VinDecode>,
+    pub mileage_km: Option<u32>,
+    pub suggested_profile: Option<String>,
+}
+
+#[tauri::command]
+pub fn export_session(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    use std::time::SystemTime;
+
+    let mut t = state
+        .transport
+        .lock()
+        .unwrap()
+        .as_mut()
+        .ok_or("Not connected")?
+        .as_mut();
+    let transport_name = t.name().to_string();
+
+    // Vehicle info
+    let vin_str = protocol::read_did(t, 0x12, 0xF190)
+        .ok()
+        .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
+        .filter(|s| s.len() >= 11);
+    let decode = vin_str.as_deref().map(vin::decode);
+    let suggested_profile = vin_str.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
+    let mileage_km = protocol::read_did(t, 0x12, 0x1010).ok().and_then(|b| {
+        if b.len() >= 3 {
+            Some(((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32)
+        } else {
+            None
+        }
+    });
+
+    let vehicle_info = Some(SessionVehicleInfo {
+        vin: vin_str.clone(),
+        decode,
+        mileage_km,
+        suggested_profile,
+    });
+
+    // Modules with faults and freeze frames
+    let mut modules = Vec::new();
+    for def in ecus::ECUS {
+        match protocol::identify(t, def.address) {
+            Ok(ident) => {
+                let dtcs = match protocol::read_dtcs(t, def.address) {
+                    Ok(dtc_list) => {
+                        dtc_list
+                            .into_iter()
+                            .map(|d| {
+                                let freeze = protocol::read_freeze_frame(t, def.address, &d.code)
+                                    .unwrap_or_default();
+                                SessionDtc {
+                                    code: d.code,
+                                    status: d.status,
+                                    status_text: d.status_text,
+                                    text: d.text,
+                                    freeze_frame: freeze,
+                                }
+                            })
+                            .collect()
+                    }
+                    Err(_) => Vec::new(),
+                };
+                modules.push(SessionModule {
+                    address: def.address,
+                    name: def.name.to_string(),
+                    description: def.description.to_string(),
+                    ident: Some(ident),
+                    present: true,
+                    fault_count: Some(dtcs.len()),
+                    dtcs,
+                });
+            }
+            Err(_) => {
+                modules.push(SessionModule {
+                    address: def.address,
+                    name: def.name.to_string(),
+                    description: def.description.to_string(),
+                    ident: None,
+                    present: false,
+                    fault_count: None,
+                    dtcs: Vec::new(),
+                });
+            }
+        }
+    }
+
+    // Traffic log
+    let traffic = state.traffic.lock().unwrap().snapshot();
+
+    let snapshot = SessionSnapshot {
+        version: 1,
+        exported_at: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| format!("{} (UTC)", d.as_secs()))
+            .unwrap_or_else(|_| "unknown".to_string()),
+        transport_name,
+        vehicle_info,
+        modules,
+        traffic,
+    };
+
+    serde_json::to_string_pretty(&snapshot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn import_session(content: String) -> Result<SessionSnapshot, String> {
+    serde_json::from_str(&content).map_err(|e| e.to_string())
+}

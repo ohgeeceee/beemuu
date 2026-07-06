@@ -9,6 +9,7 @@ let modules = [];
 let selectedAddress = null;
 const gauges = new Map(); // id -> Gauge
 let pollTimer = null;
+let sessionReplay = false; // true when viewing a loaded snapshot
 
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
@@ -553,49 +554,178 @@ const LOG_COLORS = ["#4da3ff", "#ff7d33", "#3ddc84", "#e05545", "#c084fc",
 let logChart = null;
 let logTimer = null;
 let logStart = 0;
-const logSeries = new Map(); // id -> { label, unit, data: [{x,y}], enabled, color }
+const MAX_LOG_POINTS = 10000;
+
+class LogSeries {
+  constructor(label, unit, color, enabled = true, maxPoints = MAX_LOG_POINTS) {
+    this.label = label;
+    this.unit = unit;
+    this.color = color;
+    this.enabled = enabled;
+    this.maxPoints = maxPoints;
+    this.data = [];
+    this.buffer = [];
+  }
+  push(point) {
+    if (this.data.length >= this.maxPoints) this.data.shift();
+    this.data.push(point);
+  }
+  bufferPush(point) {
+    this.buffer.push(point);
+  }
+  flushBuffer() {
+    for (const p of this.buffer) this.push(p);
+    this.buffer = [];
+  }
+  clear() {
+    this.data.length = 0;
+    this.buffer.length = 0;
+  }
+  getData(upToTime = null) {
+    if (upToTime === null || this.data.length === 0) return this.data;
+    let lo = 0, hi = this.data.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.data[mid].x <= upToTime) lo = mid + 1;
+      else hi = mid;
+    }
+    return this.data.slice(0, lo);
+  }
+  getAllData() {
+    return [...this.data, ...this.buffer];
+  }
+}
+
+class LogSession extends Map {
+  constructor() {
+    super();
+    this.markers = [];
+    this.startTime = 0;
+    this.paused = false;
+    this.scrubTime = 0;
+    this.wasPlaying = false;
+  }
+  get totalDuration() {
+    let maxT = 0;
+    for (const s of this.values()) {
+      const all = s.getAllData();
+      if (all.length) maxT = Math.max(maxT, all[all.length - 1].x);
+    }
+    return maxT;
+  }
+  clear() {
+    super.clear();
+    this.markers = [];
+    this.startTime = 0;
+    this.paused = false;
+    this.scrubTime = 0;
+    this.wasPlaying = false;
+  }
+}
+
+const logSeries = new LogSession();
+
+const markerPlugin = {
+  id: "markerLines",
+  afterDatasetsDraw(chart, args, options) {
+    const { ctx, chartArea, scales: { x, y } } = chart;
+    if (!x || !y || !chartArea) return;
+    ctx.save();
+    for (const marker of options.markers || []) {
+      const px = x.getPixelForValue(marker.time);
+      if (px == null || px < chartArea.left || px > chartArea.right) continue;
+      ctx.beginPath();
+      ctx.moveTo(px, chartArea.top);
+      ctx.lineTo(px, chartArea.bottom);
+      ctx.strokeStyle = "#f4b400";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#f4b400";
+      ctx.font = "11px Segoe UI";
+      ctx.textAlign = "center";
+      ctx.fillText(marker.label, px, chartArea.top + 12);
+    }
+    ctx.restore();
+  }
+};
+if (typeof Chart !== "undefined") Chart.register(markerPlugin);
+
+function isLoggingViewActive() {
+  return document.querySelector(".tab.active")?.dataset.view === "logging";
+}
+
+function formatTime(t) {
+  if (!isFinite(t) || t < 0) t = 0;
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  const ms = Math.floor((t % 1) * 10);
+  return `${m}:${s.toString().padStart(2, "0")}.${ms}`;
+}
+
+function updateTimeDisplay() {
+  const total = logSeries.totalDuration;
+  const cur = logSeries.paused ? logSeries.scrubTime : total;
+  $("log-time").textContent = `${formatTime(cur)} / ${formatTime(total)}`;
+}
+
+function updateScrubber() {
+  const total = logSeries.totalDuration;
+  const scrubber = $("log-scrubber");
+  scrubber.max = total.toFixed(1);
+  if (!logSeries.paused) {
+    scrubber.value = total.toFixed(1);
+  }
+  updateTimeDisplay();
+}
 
 async function buildLogParams() {
-  // use the selected profile's parameters as the available series
   const profile = $("log-profile").value;
   let values = [];
   try {
-    // one probe read to learn the parameter set (works while connected)
     values = connected ? await invoke("read_live_data", { profile }) : [];
   } catch (_) { values = []; }
   const el = $("log-params");
   el.innerHTML = "";
-  logSeries.clear();
   values.forEach((v, i) => {
     const color = LOG_COLORS[i % LOG_COLORS.length];
-    logSeries.set(v.id, { label: v.label, unit: v.unit, data: [], enabled: i < 3, color });
+    if (!logSeries.has(v.id)) {
+      logSeries.set(v.id, new LogSeries(v.label, v.unit, color, i < 3));
+    } else {
+      const s = logSeries.get(v.id);
+      s.label = v.label;
+      s.unit = v.unit;
+    }
+    const s = logSeries.get(v.id);
     const row = document.createElement("label");
     row.className = "log-param";
     row.innerHTML =
-      `<input type="checkbox" ${i < 3 ? "checked" : ""} data-id="${v.id}" />` +
-      `<span class="swatch" style="background:${color}"></span>` +
-      `<span>${v.label}</span>`;
+      `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${v.id}" />` +
+      `<span class="swatch" style="background:${s.color}"></span>` +
+      `<span>${s.label}</span>`;
     row.querySelector("input").addEventListener("change", (e) => {
-      const s = logSeries.get(v.id);
-      if (s) s.enabled = e.target.checked;
+      s.enabled = e.target.checked;
       rebuildChart();
     });
     el.appendChild(row);
   });
-  if (values.length === 0) {
+  if (logSeries.size === 0) {
     el.innerHTML = "<p class='muted' style='padding:8px;font-size:12px'>Connect first, then reopen this tab to load parameters.</p>";
   }
   rebuildChart();
+  checkSavedSession();
 }
 
 function rebuildChart() {
   if (typeof Chart === "undefined") return;
   const datasets = [];
+  const t = logSeries.paused ? logSeries.scrubTime : null;
   for (const [, s] of logSeries) {
     if (!s.enabled) continue;
     datasets.push({
       label: `${s.label} (${s.unit})`,
-      data: s.data,
+      data: s.getData(t),
       borderColor: s.color,
       backgroundColor: s.color,
       borderWidth: 1.5,
@@ -605,6 +735,7 @@ function rebuildChart() {
   }
   if (logChart) {
     logChart.data.datasets = datasets;
+    logChart.options.plugins.markerLines.markers = logSeries.markers;
     logChart.update("none");
     return;
   }
@@ -620,7 +751,10 @@ function rebuildChart() {
         x: { type: "linear", title: { display: true, text: "seconds" } },
         y: { beginAtZero: false },
       },
-      plugins: { legend: { labels: { boxWidth: 12 } } },
+      plugins: {
+        legend: { labels: { boxWidth: 12 } },
+        markerLines: { markers: logSeries.markers },
+      },
     },
   });
 }
@@ -632,9 +766,18 @@ async function logTick() {
     const t = (Date.now() - logStart) / 1000;
     for (const v of values) {
       const s = logSeries.get(v.id);
-      if (s) s.data.push({ x: t, y: v.value });
+      if (!s) continue;
+      const point = { x: t, y: v.value };
+      if (logSeries.paused) {
+        s.bufferPush(point);
+      } else {
+        s.push(point);
+      }
     }
-    if (logChart) logChart.update("none");
+    if (!logSeries.paused && logChart) {
+      logChart.update("none");
+      updateScrubber();
+    }
   } catch (e) {
     log("Logging: " + e);
     stopLogging();
@@ -645,40 +788,221 @@ function startLogging() {
   if (!connected) { log("Connect first."); return; }
   if (logTimer) return;
   logStart = Date.now();
-  for (const [, s] of logSeries) s.data.length = 0;
+  logSeries.clear();
+  logSeries.paused = false;
+  logSeries.scrubTime = 0;
+  logSeries.wasPlaying = false;
   logTimer = setInterval(logTick, 250);
+  updatePlayButton();
   $("btn-log-start").textContent = "Stop recording";
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
   $("btn-log-clear").disabled = false;
+  $("log-scrubber").disabled = false;
   $("log-status").textContent = "Recording…";
+  rebuildChart();
 }
+
 function stopLogging() {
   clearInterval(logTimer);
   logTimer = null;
+  logSeries.paused = true;
+  logSeries.scrubTime = logSeries.totalDuration;
+  updatePlayButton();
   $("btn-log-start").textContent = "Start recording";
   $("btn-log-start").classList.add("btn-primary");
   $("log-status").textContent = "Stopped.";
+  updateScrubber();
+  autoSaveSession();
 }
 
+function togglePlay() {
+  if (logSeries.totalDuration === 0) return;
+  logSeries.paused = !logSeries.paused;
+  if (!logSeries.paused) {
+    for (const s of logSeries.values()) s.flushBuffer();
+    logSeries.scrubTime = logSeries.totalDuration;
+  }
+  updatePlayButton();
+  rebuildChart();
+  updateScrubber();
+}
+
+function updatePlayButton() {
+  const btn = $("btn-log-play");
+  const isPlaying = !logSeries.paused;
+  btn.textContent = isPlaying ? "⏸" : "▶";
+  btn.title = isPlaying ? "Pause (Space)" : "Play (Space)";
+}
+
+function stepTime(delta) {
+  if (logSeries.totalDuration === 0) return;
+  logSeries.paused = true;
+  logSeries.scrubTime = Math.max(0, Math.min(logSeries.totalDuration, logSeries.scrubTime + delta));
+  updatePlayButton();
+  rebuildChart();
+  updateScrubber();
+}
+
+function addMarker(time) {
+  const label = `Marker ${logSeries.markers.length + 1}`;
+  logSeries.markers.push({ time, label });
+  logSeries.markers.sort((a, b) => a.time - b.time);
+  rebuildChart();
+  renderMarkerList();
+  $("btn-log-clear-markers").disabled = false;
+}
+
+function renderMarkerList() {
+  const list = $("log-marker-list");
+  list.innerHTML = "";
+  logSeries.markers.forEach((m, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="log-marker-time">${formatTime(m.time)}</span> <span class="log-marker-label" contenteditable="true">${escapeHtml(m.label)}</span> <button class="btn btn-small log-marker-del" data-idx="${i}">×</button>`;
+    li.querySelector(".log-marker-label").addEventListener("blur", (e) => {
+      logSeries.markers[i].label = e.target.textContent.trim() || `Marker ${i + 1}`;
+      rebuildChart();
+    });
+    li.querySelector(".log-marker-del").addEventListener("click", () => {
+      logSeries.markers.splice(i, 1);
+      renderMarkerList();
+      rebuildChart();
+      $("btn-log-clear-markers").disabled = logSeries.markers.length === 0;
+    });
+    list.appendChild(li);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function clearMarkers() {
+  logSeries.markers = [];
+  renderMarkerList();
+  rebuildChart();
+  $("btn-log-clear-markers").disabled = true;
+}
+
+/* localStorage */
+function autoSaveSession() {
+  const payload = {
+    startTime: logStart,
+    timestamp: Date.now(),
+    markers: logSeries.markers,
+    series: [...logSeries.entries()].map(([id, s]) => ({
+      id, label: s.label, unit: s.unit, color: s.color, enabled: s.enabled,
+      data: s.getAllData()
+    }))
+  };
+  try {
+    const key = `beeemuu-log-session-${payload.timestamp}`;
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch (e) {
+    console.warn("Session save failed", e);
+  }
+}
+
+function checkSavedSession() {
+  if (logSeries.totalDuration > 0) return;
+  const keys = listSessionKeys();
+  if (!keys.length) return;
+  const latest = keys.sort().pop();
+  const data = loadSession(latest);
+  if (!data) return;
+  const banner = $("log-restore-banner");
+  $("log-restore-time").textContent = new Date(data.timestamp).toLocaleString();
+  banner.classList.remove("hidden");
+}
+
+function listSessionKeys() {
+  try {
+    return Object.keys(localStorage).filter(k => k.startsWith("beeemuu-log-session-"));
+  } catch (e) { return []; }
+}
+
+function loadSession(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key));
+  } catch (e) { return null; }
+}
+
+function restoreSession() {
+  const keys = listSessionKeys().sort();
+  if (!keys.length) return;
+  const data = loadSession(keys.pop());
+  if (!data) return;
+  logSeries.clear();
+  logStart = data.startTime || 0;
+  logSeries.markers = data.markers || [];
+  for (const s of data.series) {
+    const series = new LogSeries(s.label, s.unit, s.color, s.enabled);
+    for (const p of s.data) series.push(p);
+    logSeries.set(s.id, series);
+  }
+  logSeries.paused = true;
+  logSeries.scrubTime = logSeries.totalDuration;
+  const el = $("log-params");
+  el.innerHTML = "";
+  for (const [id, s] of logSeries) {
+    const row = document.createElement("label");
+    row.className = "log-param";
+    row.innerHTML =
+      `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${id}" />` +
+      `<span class="swatch" style="background:${s.color}"></span>` +
+      `<span>${s.label}</span>`;
+    row.querySelector("input").addEventListener("change", (e) => {
+      s.enabled = e.target.checked;
+      rebuildChart();
+    });
+    el.appendChild(row);
+  }
+  rebuildChart();
+  renderMarkerList();
+  updateScrubber();
+  updatePlayButton();
+  $("log-status").textContent = "Restored saved session.";
+  $("btn-log-export").disabled = false;
+  $("btn-log-clear").disabled = false;
+  $("btn-log-clear-markers").disabled = logSeries.markers.length === 0;
+  $("log-scrubber").disabled = logSeries.totalDuration === 0;
+  dismissRestoreBanner();
+}
+
+function dismissRestoreBanner() {
+  $("log-restore-banner").classList.add("hidden");
+}
+
+function clearSavedSessions() {
+  for (const k of listSessionKeys()) localStorage.removeItem(k);
+  dismissRestoreBanner();
+}
+
+/* Events */
 $("btn-log-start").addEventListener("click", () => {
   if (logTimer) stopLogging(); else startLogging();
 });
 $("btn-log-clear").addEventListener("click", () => {
-  for (const [, s] of logSeries) s.data.length = 0;
+  for (const s of logSeries.values()) s.clear();
+  logSeries.paused = true;
+  logSeries.scrubTime = 0;
   if (logChart) logChart.update("none");
   $("log-status").textContent = "Cleared.";
+  updateScrubber();
+  updatePlayButton();
+  renderMarkerList();
 });
 
 /* Build the CSV string from the current log series data. */
 function buildLogCsv() {
-  const enabled = [...logSeries.entries()].filter(([, s]) => s.enabled && s.data.length);
+  const enabled = [...logSeries.entries()].filter(([, s]) => s.enabled && s.getAllData().length);
   if (!enabled.length) return null;
-  const rows = enabled[0][1].data.length;
+  const allData = enabled[0][1].getAllData();
+  const rows = allData.length;
   let csv = "time_s," + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(",") + "\n";
   for (let i = 0; i < rows; i++) {
-    const t = enabled[0][1].data[i]?.x ?? "";
-    csv += [t.toFixed ? t.toFixed(2) : t, ...enabled.map(([, s]) => s.data[i]?.y ?? "")].join(",") + "\n";
+    const t = allData[i]?.x ?? "";
+    csv += [t.toFixed ? t.toFixed(2) : t, ...enabled.map(([, s]) => s.getAllData()[i]?.y ?? "")].join(",") + "\n";
   }
   return csv;
 }
@@ -694,113 +1018,65 @@ $("btn-log-export").addEventListener("click", async () => {
     log("Export failed: " + e);
   }
 });
-$("log-profile").addEventListener("change", () => { buildLogParams(); saveSettings(); });
-
-/* ---------------- chart playback ---------------- */
-let playbackData = null;
-let replayRaf = null;
-let replayStartTime = 0;
-let replayCurrentTime = 0;
-
-function parsePlaybackCSV(text) {
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) return null;
-  const header = lines[0].split(",").map((s) => s.trim());
-  const columns = header.slice(1).map((h) => {
-    const m = h.match(/(.+?)\s*\((.+)\)/);
-    return { label: m ? m[1].trim() : h, unit: m ? m[2].trim() : "" };
-  });
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(",");
-    if (parts.length < 2) continue;
-    const time = parseFloat(parts[0]);
-    if (Number.isNaN(time)) continue;
-    rows.push({ time, values: parts.slice(1).map((v) => parseFloat(v) || 0) });
-  }
-  return { columns, rows, duration: rows.length ? rows[rows.length - 1].time : 0 };
-}
-
-function loadPlayback(csvText) {
-  playbackData = parsePlaybackCSV(csvText);
-  if (!playbackData || !playbackData.rows.length) { log("No valid data in CSV."); return; }
-  logSeries.clear();
-  playbackData.columns.forEach((col, i) => {
-    const color = LOG_COLORS[i % LOG_COLORS.length];
-    logSeries.set(`col_${i}`, {
-      label: col.label,
-      unit: col.unit,
-      data: playbackData.rows.map((r) => ({ x: r.time, y: r.values[i] ?? 0 })),
-      enabled: true,
-      color,
-    });
-  });
-  rebuildChart();
-  if (logChart) logChart.update();
-  $("log-status").textContent = `Loaded ${playbackData.rows.length} samples · ${playbackData.duration.toFixed(1)} s`;
-  $("btn-log-replay").classList.remove("hidden");
-  $("log-replay-speed").classList.remove("hidden");
-  $("log-scrubber").classList.remove("hidden");
-  $("log-scrubber").max = playbackData.duration;
-  $("log-scrubber").value = 0;
-  $("btn-log-export").disabled = false;
-  $("btn-log-clear").disabled = false;
-}
-
-function updateChartToTime(t) {
-  if (!logChart) return;
-  for (const [, s] of logSeries) {
-    if (!s.enabled) continue;
-    const ds = logChart.data.datasets.find((d) => d.label === `${s.label} (${s.unit})`);
-    if (ds) ds.data = s.data.filter((p) => p.x <= t);
-  }
-  logChart.update("none");
-}
-
-function tickReplay(now) {
-  if (!playbackData) return;
-  const speed = parseFloat($("log-replay-speed").value);
-  replayCurrentTime = ((now - replayStartTime) / 1000) * speed;
-  if (replayCurrentTime >= playbackData.duration) {
-    replayCurrentTime = playbackData.duration;
-    stopReplay();
-  }
-  $("log-scrubber").value = replayCurrentTime;
-  updateChartToTime(replayCurrentTime);
-  if (replayRaf) replayRaf = requestAnimationFrame(tickReplay);
-}
-
-function startReplay() {
-  if (!playbackData) return;
-  stopReplay();
-  replayStartTime = performance.now() - (replayCurrentTime / parseFloat($("log-replay-speed").value)) * 1000;
-  replayRaf = requestAnimationFrame(tickReplay);
-  $("btn-log-replay").textContent = "Pause";
-}
-
-function stopReplay() {
-  if (replayRaf) cancelAnimationFrame(replayRaf);
-  replayRaf = null;
-  $("btn-log-replay").textContent = "Replay";
-}
-
-function toggleReplay() {
-  if (replayRaf) stopReplay(); else startReplay();
-}
-
-$("btn-log-replay").addEventListener("click", toggleReplay);
+$("btn-log-play").addEventListener("click", togglePlay);
+$("btn-log-step-back").addEventListener("click", () => stepTime(-1));
+$("btn-log-step-forward").addEventListener("click", () => stepTime(1));
 $("log-scrubber").addEventListener("input", (e) => {
-  replayCurrentTime = parseFloat(e.target.value);
-  if (playbackData) updateChartToTime(replayCurrentTime);
+  logSeries.paused = true;
+  logSeries.scrubTime = parseFloat(e.target.value);
+  updatePlayButton();
+  rebuildChart();
+  updateTimeDisplay();
 });
-$("log-load-file").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => { loadPlayback(reader.result); e.target.value = ""; };
-  reader.readAsText(file);
+$("btn-log-clear-markers").addEventListener("click", clearMarkers);
+$("btn-log-restore").addEventListener("click", restoreSession);
+$("btn-log-restore-dismiss").addEventListener("click", dismissRestoreBanner);
+$("btn-log-clear-session").addEventListener("click", clearSavedSessions);
+
+$("log-chart").addEventListener("dblclick", (e) => {
+  if (!logChart || !logChart.scales.x) return;
+  const xVal = logChart.scales.x.getValueForPixel(e.offsetX);
+  if (xVal == null || !isFinite(xVal)) return;
+  addMarker(Math.max(0, xVal));
 });
-$("btn-log-load").addEventListener("click", () => { $("log-load-file").click(); });
+
+document.addEventListener("keydown", (e) => {
+  if (!isLoggingViewActive()) return;
+  if (e.target.matches("input, textarea, [contenteditable]")) return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    togglePlay();
+  } else if (e.code === "ArrowLeft") {
+    e.preventDefault();
+    stepTime(e.shiftKey ? -5 : -1);
+  } else if (e.code === "ArrowRight") {
+    e.preventDefault();
+    stepTime(e.shiftKey ? 5 : 1);
+  }
+});
+
+/* Tab visibility: pause on leave, resume on return if previously playing */
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    if (tab.dataset.view === "logging") {
+      if (logSeries.wasPlaying) {
+        logSeries.wasPlaying = false;
+        logSeries.paused = false;
+        for (const s of logSeries.values()) s.flushBuffer();
+        updatePlayButton();
+        rebuildChart();
+      }
+    } else {
+      if (logTimer && !logSeries.paused) {
+        logSeries.wasPlaying = true;
+        logSeries.paused = true;
+        updatePlayButton();
+      }
+    }
+  });
+});
+
+$("log-profile").addEventListener("change", buildLogParams);
 
 /* ---------------- vehicle info ---------------- */
 let lastVehicleInfo = null;

@@ -1,0 +1,35 @@
+# Funding
+
+# These are supported funding model platforms
+
+# GitHub Sponsors — enables the "Sponsor" button on the repo
+# Replace with your GitHub username when you set up GitHub Sponsors
+github: [ohgeeceee]
+
+# Ko-fi — optional, remove if not using
+# ko-fi: yourusername
+
+# Buy Me a Coffee — optional, remove if not using
+# buy_me_a_coffee: yourusername
+
+# Liberapay — optional, remove if not using
+# liberapay: yourusername
+
+# Open Collective — optional, remove if not using
+# open_collective: beeemuu
+
+# Patreon — optional, remove if not using
+# patreon: yourusername
+
+# Custom funding links — one-time tips, hardware fund, etc.
+custom:
+  - "https://github.com/ohgeeceee/beemuu#readme"
+  # Uncomment when you have a donation page:
+  # - "https://paypal.me/yourusername"
+  # - "https://ko-fi.com/yourusername"
+
+# To enable GitHub Sponsors, visit:
+# https://github.com/sponsors/ohgeeceee
+#
+# Until then, the button will be disabled. Setting up the file now
+# makes it easy to flip the switch once approved.

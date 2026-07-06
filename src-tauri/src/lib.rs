@@ -83,8 +83,8 @@ pub fn run() {
             commands::get_traffic,
             commands::clear_traffic,
             commands::export_text,
-            commands::analyze_chart,
-            commands::open_path,
+            commands::export_session,
+            commands::import_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -194,9 +194,125 @@ body {
 .log-param { display: flex; align-items: center; gap: 8px; padding: 5px 6px; font-size: 13px; }
 .log-param input { accent-color: var(--blue-accent); }
 .log-param .swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-.log-chart-wrap { flex: 1; padding: 14px; position: relative; min-width: 0; }
-.log-chart-wrap canvas { max-height: 100%; }
+.log-chart-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.log-chart-inner { flex: 1; padding: 14px; position: relative; overflow: hidden; }
+.log-chart-inner canvas { max-height: 100%; }
 .log-status { position: absolute; bottom: 10px; left: 14px; font-size: 12px; }
+.log-playback-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #0b1119;
+  border-top: 1px solid #1a2433;
+  color: #c8d4e2;
+  font-size: 13px;
+}
+.log-playback-bar .btn {
+  background: #1a2433;
+  border-color: #2a3a4d;
+  color: #c8d4e2;
+  min-width: 28px;
+}
+.log-playback-bar .btn:hover:not(:disabled) {
+  background: #243044;
+  border-color: #4da3ff;
+  color: #fff;
+}
+.log-time {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  color: #4da3ff;
+  min-width: 100px;
+  text-align: center;
+}
+#log-scrubber {
+  flex: 1;
+  accent-color: #4da3ff;
+}
+.log-markers {
+  max-height: 120px;
+  overflow-y: auto;
+  background: #0f1721;
+  border-top: 1px solid #1a2433;
+  padding: 8px 14px;
+}
+.log-markers-head {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9fb2c8;
+  margin-bottom: 6px;
+}
+.log-marker-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.log-marker-list li {
+  background: #1a2433;
+  border: 1px solid #2a3a4d;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #c8d4e2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.log-marker-time {
+  font-family: Consolas, monospace;
+  color: #f4b400;
+  font-size: 11px;
+}
+.log-marker-label {
+  color: #c8d4e2;
+  min-width: 60px;
+  outline: none;
+  border-bottom: 1px dashed #3a4a5d;
+}
+.log-marker-label:focus {
+  border-bottom-color: #4da3ff;
+  color: #fff;
+}
+.log-marker-del {
+  background: transparent;
+  border: none;
+  color: #e05545;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.log-marker-del:hover {
+  color: #ff7766;
+}
+.log-restore-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #0f1721;
+  border-bottom: 1px solid #1a2433;
+  color: #c8d4e2;
+  font-size: 12px;
+}
+.log-restore-banner.hidden { display: none; }
+.log-shortcuts {
+  padding: 6px 14px;
+  font-size: 11px;
+  background: #0b1119;
+  border-top: 1px solid #1a2433;
+}
+.log-shortcuts kbd {
+  background: #1a2433;
+  border: 1px solid #2a3a4d;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  color: #9fb2c8;
+}
 
 /* ---------- vehicle info ---------- */
 .info-body { padding: 18px; overflow-y: auto; }

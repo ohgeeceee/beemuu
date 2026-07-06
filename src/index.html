@@ -126,13 +126,36 @@
             <input type="range" id="log-scrubber" class="hidden" min="0" max="100" value="0" step="0.1" />
           </span>
         </div>
+        <div id="log-restore-banner" class="log-restore-banner hidden">
+          <span>Saved session found (<span id="log-restore-time"></span>)</span>
+          <button id="btn-log-restore" class="btn btn-small">Restore</button>
+          <button id="btn-log-restore-dismiss" class="btn btn-small">Dismiss</button>
+        </div>
         <div class="log-body">
           <div class="log-params" id="log-params"></div>
           <div class="log-chart-wrap">
-            <canvas id="log-chart"></canvas>
-            <div id="log-status" class="log-status muted">
-              Pick parameters to plot, then Start recording. Values are sampled
-              ~4×/second while connected.
+            <div class="log-chart-inner">
+              <canvas id="log-chart"></canvas>
+              <div id="log-status" class="log-status muted">
+                Pick parameters to plot, then Start recording. Values are sampled
+                ~4×/second while connected.
+              </div>
+            </div>
+            <div class="log-playback-bar">
+              <button id="btn-log-play" class="btn btn-small" title="Play/Pause (Space)">▶</button>
+              <button id="btn-log-step-back" class="btn btn-small" title="Step back 1s (←)">←</button>
+              <input type="range" id="log-scrubber" min="0" max="0" step="0.1" value="0" disabled />
+              <button id="btn-log-step-forward" class="btn btn-small" title="Step forward 1s (→)">→</button>
+              <span id="log-time" class="log-time">0:00.0 / 0:00.0</span>
+              <button id="btn-log-clear-markers" class="btn btn-small" disabled>Clear markers</button>
+              <button id="btn-log-clear-session" class="btn btn-small">Clear session</button>
+            </div>
+            <div class="log-markers" id="log-markers">
+              <div class="log-markers-head">Markers <span class="muted">(double-click chart to add)</span></div>
+              <ul id="log-marker-list" class="log-marker-list"></ul>
+            </div>
+            <div class="log-shortcuts muted">
+              <kbd>Space</kbd> Play/Pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> Step 1s &nbsp; <kbd>Shift+←</kbd> <kbd>Shift+→</kbd> Step 5s
             </div>
           </div>
         </div>
@@ -147,6 +170,7 @@
           <span>
             <button id="btn-info-read" class="btn btn-small btn-primary">Read vehicle</button>
             <button id="btn-info-export" class="btn btn-small" disabled>Export report</button>
+            <button id="btn-info-snapshot" class="btn btn-small" disabled>Export snapshot</button>
           </span>
         </div>
         <div id="info-body" class="info-body">
@@ -268,6 +292,18 @@
                 <input type="file" id="import-file" accept=".toml,text/plain" />
                 <textarea id="import-text" placeholder="…or paste profile TOML here"></textarea>
                 <button id="btn-import-profile" class="btn btn-small">Import</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span>Session snapshot</span></div>
+            <div class="share-body">
+              <p class="share-hint muted">Export a full diagnostic snapshot (modules,
+                DTCs, freeze frames, vehicle info, traffic log) as JSON. Load a
+                snapshot someone sent you for offline review.</p>
+              <div class="share-row">
+                <input type="file" id="session-load-file" accept=".json,application/json" class="hidden" />
+                <button id="btn-session-load" class="btn btn-small btn-primary">Load snapshot</button>
               </div>
             </div>
           </div>
