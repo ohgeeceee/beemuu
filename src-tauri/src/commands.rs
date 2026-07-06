@@ -433,6 +433,148 @@ pub fn import_profiles(content: String) -> Result<Vec<String>, String> {
     crate::community::import_profiles_str(&content)
 }
 
+/* ---------------- Profile editing ---------------- */
+
+#[derive(serde::Deserialize)]
+pub struct AddParamSpec {
+    pub label: String,
+    pub unit: String,
+    pub address: u8,
+    pub mode: String,
+    pub id: u16,
+    pub decode: String,
+    pub min: f64,
+    pub max: f64,
+}
+
+#[tauri::command]
+pub fn add_to_profile(profile_id: String, spec: AddParamSpec) -> Result<(), String> {
+    let query = match spec.mode.as_str() {
+        "did" => live::Query::Did(spec.id),
+        "local" => live::Query::Local(spec.id as u8),
+        "obd" => live::Query::Obd(spec.id as u8),
+        _ => return Err("Unknown mode".into()),
+    };
+    let decode = live::decode_from_str(&spec.decode)
+        .ok_or_else(|| format!("Unknown decode '{}'", spec.decode))?;
+    let param = live::LiveParam {
+        id: format!("{}_{:04X}", spec.mode, spec.id),
+        label: spec.label,
+        unit: spec.unit,
+        target: spec.address,
+        query,
+        decode,
+        min: spec.min,
+        max: spec.max,
+    };
+    live::add_param_to_profile(&profile_id, param)
+        .ok_or_else(|| format!("Unknown profile '{}'", profile_id))?;
+    Ok(())
+}
+
+fn find_python() -> Result<String, String> {
+    for cmd in &["python", "python3", "py"] {
+        if std::process::Command::new(cmd)
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            return Ok(cmd.to_string());
+        }
+    }
+    Err("Python not found. Please install Python and ensure it is on PATH.".into())
+}
+
+fn find_script(name: &str) -> Result<std::path::PathBuf, String> {
+    let mut candidates = vec![
+        std::path::PathBuf::from(format!("scripts/{}", name)),
+        std::path::PathBuf::from(format!("../scripts/{}", name)),
+    ];
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join(format!("scripts/{}", name)));
+            candidates.push(dir.join(format!("../scripts/{}", name)));
+            candidates.push(dir.join(format!("../../scripts/{}", name)));
+        }
+    }
+    for c in &candidates {
+        if c.exists() {
+            return Ok(c.clone());
+        }
+    }
+    Err(format!("{} not found. Searched: {}", name,
+        candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")))
+}
+
+#[tauri::command]
+pub fn analyze_chart(csv_content: String, filename: String) -> Result<String, String> {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .map_err(|_| "Could not locate home directory")?;
+    let dir = std::path::Path::new(&home).join("beeemuu-exports");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    let safe = std::path::Path::new(&filename)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "log.csv".into());
+    let csv_path = dir.join(&safe);
+    std::fs::write(&csv_path, csv_content).map_err(|e| e.to_string())?;
+
+    let python = find_python()?;
+    let script = find_script("chart_playback.py")?;
+    let output_name = safe.replace(".csv", "_analysis.png").replace(".CSV", "_analysis.png");
+    let output_path = dir.join(&output_name);
+
+    let output = std::process::Command::new(&python)
+        .arg(&script)
+        .arg(&csv_path)
+        .arg("-o")
+        .arg(&output_path)
+        .output()
+        .map_err(|e| format!("Failed to run Python: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Chart playback failed: {}", stderr));
+    }
+
+    Ok(output_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn open_path(path: String) -> Result<(), String> {
+    let path = std::path::Path::new(&path);
+    if !path.exists() {
+        return Err("File does not exist".into());
+    }
+    let path_str = path.to_string_lossy();
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "", &path_str])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path_str)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path_str)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /* ---------------- File export ---------------- */
 
 /// Write text to <home>/beeemuu-exports/<filename> and return the full path.

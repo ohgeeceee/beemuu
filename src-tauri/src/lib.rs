@@ -76,12 +76,15 @@ pub fn run() {
             commands::set_session,
             commands::security_access,
             commands::community_report,
+            commands::add_to_profile,
             commands::export_profile,
             commands::import_profiles,
             commands::connection_test,
             commands::get_traffic,
             commands::clear_traffic,
             commands::export_text,
+            commands::analyze_chart,
+            commands::open_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,7 +1,9 @@
 # N54 — 3.0 twin-turbo DI inline-6 (MSD80/MSD81), E8x/E9x 135i/335i, E60 535i,
 # E89 Z4 35i, 2006–2013. OBD-II entries are emissions-mandated and verified by
-# design. The `local:` oil-temp entry is a PLACEHOLDER — confirm with the
-# Parameter Explorer before trusting it.
+# design. The `local:10` oil-temp entry is a PLACEHOLDER with no open-source
+# evidence found. No community KWP2000 local identifier table for E-series BMWs
+# exists in open sources. Confirm with the Parameter Explorer or remove this
+# entry if not verified.
 #
 # Boost: watch "map" minus "baro" (relative boost). Stock peak is roughly
 # 60–70 kPa over baro; the u8 OBD MAP PID tops out at 255 kPa absolute, which

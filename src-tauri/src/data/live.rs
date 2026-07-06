@@ -224,11 +224,18 @@ pub fn decode_to_str(d: Decode) -> &'static str {
         Decode::U16Quarter => "u16_quarter",
         Decode::PercentA => "percent_a",
         Decode::U16Milli => "u16_milli",
+        Decode::U16Times10 => "u16_times10",
     }
 }
 
-/// Serialise one profile back to a shareable TOML snippet, or None if the id
-/// is unknown. Round-trips through `query_from_str` / `decode_from_str`.
+/// Add a parameter to an existing profile (or replace one with the same id).
+pub fn add_param_to_profile(id: &str, param: LiveParam) -> Option<()> {
+    let mut s = store().write().unwrap();
+    let p = s.iter_mut().find(|p| p.id == id)?;
+    p.params.retain(|pr| pr.id != param.id);
+    p.params.push(param);
+    Some(())
+}
 pub fn profile_to_toml(id: &str) -> Option<String> {
     let s = store().read().unwrap();
     let p = s.iter().find(|p| p.id == id)?;

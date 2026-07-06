@@ -19,6 +19,42 @@ function log(text) {
   $("status-log").textContent = text;
 }
 
+/* ---------------- persistent settings ---------------- */
+function saveSettings() {
+  try {
+    const s = {
+      connKind: $("conn-kind").value,
+      connPort: $("conn-port").value,
+      connDcan: $("conn-dcan").value,
+      connAddr: $("conn-addr").value,
+      liveProfile: $("live-profile").value,
+      logProfile: $("log-profile").value,
+      trafficAuto: $("traffic-auto").checked,
+    };
+    localStorage.setItem("beeemuu_settings", JSON.stringify(s));
+  } catch (_) {}
+}
+async function loadSettings() {
+  try {
+    const raw = localStorage.getItem("beeemuu_settings");
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s.connKind) $("conn-kind").value = s.connKind;
+    if (s.connDcan) $("conn-dcan").value = s.connDcan;
+    if (s.connAddr) $("conn-addr").value = s.connAddr;
+    if (s.liveProfile) $("live-profile").value = s.liveProfile;
+    if (s.logProfile) $("log-profile").value = s.logProfile;
+    if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
+    const kind = $("conn-kind").value;
+    $("conn-kdcan-opts").classList.toggle("hidden", kind !== "kdcan");
+    $("conn-enet-opts").classList.toggle("hidden", kind !== "enet");
+    if (kind === "kdcan") {
+      await refreshPorts();
+      if (s.connPort) $("conn-port").value = s.connPort;
+    }
+  } catch (_) {}
+}
+
 /* ---------------- tabs ---------------- */
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -35,7 +71,10 @@ $("conn-kind").addEventListener("change", async () => {
   $("conn-kdcan-opts").classList.toggle("hidden", kind !== "kdcan");
   $("conn-enet-opts").classList.toggle("hidden", kind !== "enet");
   if (kind === "kdcan") await refreshPorts();
+  saveSettings();
 });
+$("conn-dcan").addEventListener("change", saveSettings);
+$("conn-addr").addEventListener("input", saveSettings);
 
 async function refreshPorts() {
   const ports = await invoke("list_ports");
@@ -55,7 +94,11 @@ async function refreshPorts() {
 function connConfig() {
   const kind = $("conn-kind").value;
   if (kind === "kdcan") {
-    return { kind: "kdcan", port: $("conn-port").value, dcan: $("conn-dcan").checked };
+    const dcanVal = $("conn-dcan").value;
+    if (dcanVal === "auto") {
+      return { kind: "kdcan_auto", port: $("conn-port").value };
+    }
+    return { kind: "kdcan", port: $("conn-port").value, dcan: dcanVal === "true" };
   }
   if (kind === "enet") {
     return { kind: "enet", addr: $("conn-addr").value.trim() };
@@ -85,6 +128,7 @@ $("btn-connect").addEventListener("click", async () => {
       `<span class='vehicle-label'>${info.transport_name} &nbsp;·&nbsp; ${vin}</span>`;
     setStatus("Connected via " + info.transport_name);
     log("");
+    saveSettings();
   } catch (e) {
     setStatus("Disconnected");
     log("Connect failed: " + e);
@@ -242,6 +286,7 @@ $("live-profile").addEventListener("change", () => {
   // different profile = different parameter set: rebuild gauges
   gauges.clear();
   $("gauge-grid").innerHTML = "";
+  saveSettings();
 });
 
 async function pollOnce() {
@@ -376,15 +421,58 @@ async function startWatch(address, mode, id, itemEl) {
   const idHex = id.toString(16).toUpperCase().padStart(mode === "did" ? 4 : 2, "0");
   $("exp-watch-title").textContent = `Watch — ${mode} ${idHex}`;
   $("exp-watch-poll").checked = true;
+  $("exp-add-panel").classList.remove("hidden");
+  $("exp-add-status").textContent = "";
+  await fillAddProfileDropdown();
+  $("exp-add-label").value = "";
+  $("exp-add-unit").value = "";
+  $("exp-add-min").value = 0;
+  $("exp-add-max").value = 255;
   try {
     await invoke("watch_start", { address, mode, id });
   } catch (e) {
     log("Watch start: " + e);
+    $("exp-add-panel").classList.add("hidden");
     return;
   }
   if (!watchTimer) watchTimer = setInterval(watchOnce, 300);
   watchOnce();
 }
+
+async function fillAddProfileDropdown() {
+  const profiles = await invoke("list_profiles");
+  const sel = $("exp-add-profile");
+  sel.innerHTML = "";
+  for (const p of profiles) {
+    const o = document.createElement("option");
+    o.value = p.id;
+    o.textContent = p.label;
+    sel.appendChild(o);
+  }
+}
+
+$("btn-add-to-profile").addEventListener("click", async () => {
+  if (!watchTarget) return;
+  const spec = {
+    label: $("exp-add-label").value.trim(),
+    unit: $("exp-add-unit").value.trim(),
+    address: watchTarget.address,
+    mode: watchTarget.mode,
+    id: watchTarget.id,
+    decode: $("exp-add-decode").value,
+    min: parseFloat($("exp-add-min").value) || 0,
+    max: parseFloat($("exp-add-max").value) || 255,
+  };
+  if (!spec.label) { $("exp-add-status").textContent = "Enter a label."; return; }
+  try {
+    await invoke("add_to_profile", { profileId: $("exp-add-profile").value, spec });
+    $("exp-add-status").textContent = "Added.";
+    // Refresh profile selectors so the new param is available.
+    await Promise.all([loadProfiles(), loadLogProfiles(), fillShareProfiles()]);
+  } catch (e) {
+    $("exp-add-status").textContent = "Error: " + e;
+  }
+});
 
 async function watchOnce() {
   if (!watchTarget) return;
@@ -432,6 +520,7 @@ function stopWatch() {
   clearInterval(watchTimer);
   watchTimer = null;
   $("exp-watch-poll").checked = false;
+  $("exp-add-panel").classList.add("hidden");
   invoke("watch_stop").catch(() => {});
 }
 
@@ -547,6 +636,7 @@ function startLogging() {
   $("btn-log-start").textContent = "Stop recording";
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
+  $("btn-log-analyze").disabled = false;
   $("btn-log-clear").disabled = false;
   $("log-status").textContent = "Recording…";
 }
@@ -566,16 +656,23 @@ $("btn-log-clear").addEventListener("click", () => {
   if (logChart) logChart.update("none");
   $("log-status").textContent = "Cleared.";
 });
-$("btn-log-export").addEventListener("click", async () => {
-  // build CSV: time + each enabled series (sampled rows aligned by index)
+
+/* Build the CSV string from the current log series data. */
+function buildLogCsv() {
   const enabled = [...logSeries.entries()].filter(([, s]) => s.enabled && s.data.length);
-  if (!enabled.length) { log("Nothing recorded yet."); return; }
+  if (!enabled.length) return null;
   const rows = enabled[0][1].data.length;
   let csv = "time_s," + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(",") + "\n";
   for (let i = 0; i < rows; i++) {
     const t = enabled[0][1].data[i]?.x ?? "";
     csv += [t.toFixed ? t.toFixed(2) : t, ...enabled.map(([, s]) => s.data[i]?.y ?? "")].join(",") + "\n";
   }
+  return csv;
+}
+
+$("btn-log-export").addEventListener("click", async () => {
+  const csv = buildLogCsv();
+  if (!csv) { log("Nothing recorded yet."); return; }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   try {
     const path = await invoke("export_text", { filename: `beeemuu-log-${stamp}.csv`, content: csv });
@@ -584,7 +681,126 @@ $("btn-log-export").addEventListener("click", async () => {
     log("Export failed: " + e);
   }
 });
-$("log-profile").addEventListener("change", buildLogParams);
+$("btn-log-analyze").addEventListener("click", async () => {
+  const csv = buildLogCsv();
+  if (!csv) { log("Nothing recorded yet."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  log("Analyzing…");
+  try {
+    const path = await invoke("analyze_chart", { csvContent: csv, filename: `beeemuu-log-${stamp}.csv` });
+    log("Analysis saved: " + path);
+    await invoke("open_path", { path });
+  } catch (e) {
+    log("Analysis failed: " + e);
+  }
+});
+$("log-profile").addEventListener("change", () => { buildLogParams(); saveSettings(); });
+
+/* ---------------- chart playback ---------------- */
+let playbackData = null;
+let replayRaf = null;
+let replayStartTime = 0;
+let replayCurrentTime = 0;
+
+function parsePlaybackCSV(text) {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return null;
+  const header = lines[0].split(",").map((s) => s.trim());
+  const columns = header.slice(1).map((h) => {
+    const m = h.match(/(.+?)\s*\((.+)\)/);
+    return { label: m ? m[1].trim() : h, unit: m ? m[2].trim() : "" };
+  });
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(",");
+    if (parts.length < 2) continue;
+    const time = parseFloat(parts[0]);
+    if (Number.isNaN(time)) continue;
+    rows.push({ time, values: parts.slice(1).map((v) => parseFloat(v) || 0) });
+  }
+  return { columns, rows, duration: rows.length ? rows[rows.length - 1].time : 0 };
+}
+
+function loadPlayback(csvText) {
+  playbackData = parsePlaybackCSV(csvText);
+  if (!playbackData || !playbackData.rows.length) { log("No valid data in CSV."); return; }
+  logSeries.clear();
+  playbackData.columns.forEach((col, i) => {
+    const color = LOG_COLORS[i % LOG_COLORS.length];
+    logSeries.set(`col_${i}`, {
+      label: col.label,
+      unit: col.unit,
+      data: playbackData.rows.map((r) => ({ x: r.time, y: r.values[i] ?? 0 })),
+      enabled: true,
+      color,
+    });
+  });
+  rebuildChart();
+  if (logChart) logChart.update();
+  $("log-status").textContent = `Loaded ${playbackData.rows.length} samples · ${playbackData.duration.toFixed(1)} s`;
+  $("btn-log-replay").classList.remove("hidden");
+  $("log-replay-speed").classList.remove("hidden");
+  $("log-scrubber").classList.remove("hidden");
+  $("log-scrubber").max = playbackData.duration;
+  $("log-scrubber").value = 0;
+  $("btn-log-export").disabled = false;
+  $("btn-log-clear").disabled = false;
+}
+
+function updateChartToTime(t) {
+  if (!logChart) return;
+  for (const [, s] of logSeries) {
+    if (!s.enabled) continue;
+    const ds = logChart.data.datasets.find((d) => d.label === `${s.label} (${s.unit})`);
+    if (ds) ds.data = s.data.filter((p) => p.x <= t);
+  }
+  logChart.update("none");
+}
+
+function tickReplay(now) {
+  if (!playbackData) return;
+  const speed = parseFloat($("log-replay-speed").value);
+  replayCurrentTime = ((now - replayStartTime) / 1000) * speed;
+  if (replayCurrentTime >= playbackData.duration) {
+    replayCurrentTime = playbackData.duration;
+    stopReplay();
+  }
+  $("log-scrubber").value = replayCurrentTime;
+  updateChartToTime(replayCurrentTime);
+  if (replayRaf) replayRaf = requestAnimationFrame(tickReplay);
+}
+
+function startReplay() {
+  if (!playbackData) return;
+  stopReplay();
+  replayStartTime = performance.now() - (replayCurrentTime / parseFloat($("log-replay-speed").value)) * 1000;
+  replayRaf = requestAnimationFrame(tickReplay);
+  $("btn-log-replay").textContent = "Pause";
+}
+
+function stopReplay() {
+  if (replayRaf) cancelAnimationFrame(replayRaf);
+  replayRaf = null;
+  $("btn-log-replay").textContent = "Replay";
+}
+
+function toggleReplay() {
+  if (replayRaf) stopReplay(); else startReplay();
+}
+
+$("btn-log-replay").addEventListener("click", toggleReplay);
+$("log-scrubber").addEventListener("input", (e) => {
+  replayCurrentTime = parseFloat(e.target.value);
+  if (playbackData) updateChartToTime(replayCurrentTime);
+});
+$("log-load-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { loadPlayback(reader.result); e.target.value = ""; };
+  reader.readAsText(file);
+});
+$("btn-log-load").addEventListener("click", () => { $("log-load-file").click(); });
 
 /* ---------------- vehicle info ---------------- */
 let lastVehicleInfo = null;
@@ -828,6 +1044,7 @@ $("traffic-auto").addEventListener("change", (e) => {
     clearInterval(trafficAuto);
     trafficAuto = null;
   }
+  saveSettings();
 });
 $("btn-traffic-clear").addEventListener("click", async () => {
   await invoke("clear_traffic");
@@ -872,12 +1089,15 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 /* ---------------- init ---------------- */
-loadServiceFunctions();
-loadProfiles();
-loadLogProfiles();
-fillExplorerEcus();
-fillSecurityEcus();
-setStatus("Disconnected");
+(async function init() {
+  loadServiceFunctions();
+  await loadProfiles();
+  await loadLogProfiles();
+  fillExplorerEcus();
+  fillSecurityEcus();
+  setStatus("Disconnected");
+  await loadSettings();
+})();
 
 async function loadLogProfiles() {
   const profiles = await invoke("list_profiles");

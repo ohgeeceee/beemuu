@@ -1,7 +1,9 @@
 # N62 — 4.0/4.4/4.8 NA V8 (Bosch ME9.2), E60/E63/E65 x40i–x50i, E53/E70 4.4i/
 # 4.8i, 2001–2010. OBD-II entries are emissions-mandated and verified by
-# design. The `local:` oil-temp entry is a PLACEHOLDER — same slot as the
-# repo's e70_n62 example; confirm with the Parameter Explorer before trusting.
+# design. The `local:10` oil-temp entry is a PLACEHOLDER with no open-source
+# evidence found. No community KWP2000 local identifier table for E-series BMWs
+# exists in open sources. Confirm with the Parameter Explorer or remove this
+# entry if not verified.
 # Coolant temp is worth watching closely on this engine (coolant-pipe and
 # valley-pan failures show up as slow warm-up or creeping temps).
 

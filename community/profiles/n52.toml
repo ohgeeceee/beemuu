@@ -1,7 +1,10 @@
 # N52 — 2.5/3.0 NA inline-6 (MSV70/MSV80), E9x/E60/E63/E83/E85/E86, 2004–2013.
-# OBD-II entries are emissions-mandated and verified by design. The `local:`
-# oil-temp entry is a PLACEHOLDER — confirm the real local identifier with the
-# Parameter Explorer on your car before trusting it, then update this label.
+# OBD-II entries are emissions-mandated and verified by design. The `local:10`
+# oil-temp entry is a PLACEHOLDER with no open-source evidence found. N52 oil
+# temperature is primarily communicated via the BSD (Bit Serial Data) protocol
+# from the oil condition sensor to the DME, not over KWP2000. No community
+# KWP2000 local identifier table for E-series BMWs exists in open sources.
+# Confirm with the Parameter Explorer or remove this entry if not verified.
 
 [[profile]]
 id = "n52"

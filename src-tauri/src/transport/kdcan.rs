@@ -81,7 +81,7 @@ impl KdcanTransport {
         Self::open(port_name, false)
     }
 
- wake the ECU with a 25 ms low / 25 ms high
+    /// ISO 14230-2 fast init: wake the ECU with a 25 ms low / 25 ms high
     /// pulse on the K-line, then open a KWP session with StartCommunication
     /// (0x81). Required once per ECU on pre-2007 K-line cars; D-CAN needs
     /// no init.

@@ -1,6 +1,13 @@
 # Freeze-frame byte layouts per ECU. See README.md in this folder.
 # width: u8 | i8 | u16 | i16 | u24   (multi-byte = big-endian)
 # value = raw * scale + bias, shown with `decimals` places.
+#
+# WARNING: This schema is SIMULATOR-ONLY and UNVERIFIED for real cars.
+# No open-source freeze-frame layout documentation for BMW ECUs was found
+# during deep research (2025-01). The DME layout below matches the built-in
+# simulator's 9-byte frame, not any confirmed real-world ECU response. Replace
+# or extend with your car's real layout once confirmed in the Parameter
+# Explorer or via CAN bus logging.
 
 # DME (0x12) — matches the simulator's 9-byte layout. Replace/extend with
 # your car's real layout once confirmed in the Parameter Explorer.
