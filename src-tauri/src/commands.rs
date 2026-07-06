@@ -1,14 +1,27 @@
 //! Tauri commands — the bridge between the frontend and the diagnostic stack.
 
+use crate::analysis::{ByteWatcher, WatchSnapshot};
 use crate::data::{ecus, live, service_functions, vin};
 use crate::protocol::{self, Dtc, EcuInfo, FreezeItem};
+use crate::transport::record::{RecordingTransport, SharedLog, TrafficEntry};
 use crate::transport::{self, Transport, TransportConfig};
 use serde::Serialize;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+
+/// A live byte-diff watch bound to one identifier.
+#[derive(Default)]
+struct WatchSession {
+    address: u8,
+    mode: String,
+    id: u16,
+    watcher: ByteWatcher,
+}
 
 #[derive(Default)]
 pub struct AppState {
     pub transport: Mutex<Option<Box<dyn Transport>>>,
+    watch: Mutex<Option<WatchSession>>,
+    traffic: SharedLog,
 }
 
 #[derive(Serialize)]
@@ -27,7 +40,12 @@ pub fn connect(
     state: tauri::State<'_, AppState>,
     config: TransportConfig,
 ) -> Result<ConnectionInfo, String> {
-    let mut t = transport::open(&config).map_err(|e| e.to_string())?;
+    let inner = transport::open(&config).map_err(|e| e.to_string())?;
+    // Fresh session: reset the traffic log and wrap the transport so every
+    // request/response from here on is recorded.
+    state.traffic.lock().unwrap().clear();
+    let mut t: Box<dyn Transport> =
+        Box::new(RecordingTransport::new(inner, Arc::clone(&state.traffic)));
     let name = t.name().to_string();
     // Best effort VIN read from DME (DID F190)
     let vin = protocol::read_did(t.as_mut(), 0x12, 0xF190)
@@ -107,15 +125,15 @@ pub fn clear_faults(state: tauri::State<'_, AppState>, address: u8) -> Result<()
 
 #[derive(Serialize)]
 pub struct ProfileInfo {
-    pub id: &'static str,
-    pub label: &'static str,
+    pub id: String,
+    pub label: String,
 }
 
 #[tauri::command]
 pub fn list_profiles() -> Vec<ProfileInfo> {
-    live::PROFILES
-        .iter()
-        .map(|p| ProfileInfo { id: p.id, label: p.label })
+    live::profile_list()
+        .into_iter()
+        .map(|(id, label)| ProfileInfo { id, label })
         .collect()
 }
 
@@ -125,20 +143,21 @@ pub fn read_live_data(
     state: tauri::State<'_, AppState>,
     profile: String,
 ) -> Result<Vec<live::LiveValue>, String> {
-    let prof = live::profile(&profile).ok_or("Unknown profile")?;
+    let params = live::profile_params(&profile).ok_or("Unknown profile")?;
     with_transport(&state, |t| {
         let mut out = Vec::new();
-        for def in prof.params {
+        for def in &params {
             let data = match def.query {
                 live::Query::Did(did) => protocol::read_did(t, def.target, did),
                 live::Query::Obd(pid) => protocol::read_obd_pid(t, def.target, pid),
+                live::Query::Local(id) => protocol::read_local_ident(t, def.target, id),
             };
             if let Ok(data) = data {
-                if let Some(value) = live::decode(def, &data) {
+                if let Some(value) = live::decode(def.decode, &data) {
                     out.push(live::LiveValue {
-                        id: def.id,
-                        label: def.label,
-                        unit: def.unit,
+                        id: def.id.clone(),
+                        label: def.label.clone(),
+                        unit: def.unit.clone(),
                         value,
                         min: def.min,
                         max: def.max,
@@ -205,6 +224,45 @@ pub fn read_raw(
     id: u16,
 ) -> Result<Vec<u8>, String> {
     with_transport(&state, |t| probe_read(t, &mode, address, id))
+}
+
+/// Begin (or restart) a stateful byte-diff watch on one identifier. Clears
+/// any prior mutation statistics.
+#[tauri::command]
+pub fn watch_start(
+    state: tauri::State<'_, AppState>,
+    address: u8,
+    mode: String,
+    id: u16,
+) -> Result<(), String> {
+    *state.watch.lock().unwrap() = Some(WatchSession {
+        address,
+        mode,
+        id,
+        watcher: ByteWatcher::new(),
+    });
+    Ok(())
+}
+
+/// Poll the active watch once and return accumulated per-byte statistics
+/// (change count, min/max, volatility, mean delta).
+#[tauri::command]
+pub fn watch_tick(state: tauri::State<'_, AppState>) -> Result<WatchSnapshot, String> {
+    let (address, mode, id) = {
+        let guard = state.watch.lock().unwrap();
+        let s = guard.as_ref().ok_or("No active watch")?;
+        (s.address, s.mode.clone(), s.id)
+    };
+    let data = with_transport(&state, |t| probe_read(t, &mode, address, id))?;
+    let mut guard = state.watch.lock().unwrap();
+    let s = guard.as_mut().ok_or("Watch stopped")?;
+    s.watcher.feed(&data);
+    Ok(s.watcher.snapshot())
+}
+
+#[tauri::command]
+pub fn watch_stop(state: tauri::State<'_, AppState>) {
+    *state.watch.lock().unwrap() = None;
 }
 
 #[tauri::command]
@@ -282,6 +340,99 @@ pub fn security_access(
     })
 }
 
+/* ---------------- Connection self-test ---------------- */
+
+#[derive(Serialize)]
+pub struct TestStep {
+    pub name: String,
+    pub ok: bool,
+    pub detail: String,
+    pub ms: u64,
+}
+
+fn push_step(
+    steps: &mut Vec<TestStep>,
+    name: &str,
+    start: std::time::Instant,
+    res: Result<String, String>,
+) {
+    let (ok, detail) = match res {
+        Ok(d) => (true, d),
+        Err(e) => (false, e),
+    };
+    steps.push(TestStep { name: name.to_string(), ok, detail, ms: start.elapsed().as_millis() as u64 });
+}
+
+/// Run a sequence of sanity checks against the connected adapter and DME.
+/// Each step is timed so a healthy cable's round-trip latency is visible —
+/// high latency here is the usual cause of intermittent K+DCAN reads.
+#[tauri::command]
+pub fn connection_test(state: tauri::State<'_, AppState>) -> Result<Vec<TestStep>, String> {
+    use std::time::Instant;
+    with_transport(&state, |t| {
+        let mut steps = Vec::new();
+
+        let s = Instant::now();
+        let r = protocol::identify(t, 0x12)
+            .map(|id| format!("responded: {}", id.chars().take(40).collect::<String>()));
+        push_step(&mut steps, "DME identification (1A 80)", s, r);
+
+        let s = Instant::now();
+        let r = protocol::read_did(t, 0x12, 0xF190)
+            .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
+            .map(|v| if v.is_empty() { "empty".into() } else { v });
+        push_step(&mut steps, "VIN read (22 F190)", s, r);
+
+        let s = Instant::now();
+        let r = protocol::read_obd_pid(t, 0x12, 0x00)
+            .map(|b| format!("bitmask {}", b.iter().map(|x| format!("{x:02X}")).collect::<String>()));
+        push_step(&mut steps, "OBD-II supported PIDs (01 00)", s, r);
+
+        // Round-trip latency: three testerPresent calls, report the mean.
+        let s = Instant::now();
+        let mut total = 0u128;
+        for _ in 0..3 {
+            let one = Instant::now();
+            let _ = t.request(0x12, &[0x3E, 0x00]);
+            total += one.elapsed().as_millis();
+        }
+        push_step(&mut steps, "Round-trip latency (3× tester present)", s, Ok(format!("~{} ms/round-trip", total / 3)));
+
+        Ok(steps)
+    })
+}
+
+/* ---------------- Traffic log ---------------- */
+
+#[tauri::command]
+pub fn get_traffic(state: tauri::State<'_, AppState>) -> Vec<TrafficEntry> {
+    state.traffic.lock().unwrap().snapshot()
+}
+
+#[tauri::command]
+pub fn clear_traffic(state: tauri::State<'_, AppState>) {
+    state.traffic.lock().unwrap().clear();
+}
+
+/* ---------------- Community data ---------------- */
+
+#[tauri::command]
+pub fn community_report() -> crate::community::LoadReport {
+    crate::community::report()
+}
+
+/// Serialise a profile to a shareable TOML snippet.
+#[tauri::command]
+pub fn export_profile(id: String) -> Result<String, String> {
+    live::profile_to_toml(&id).ok_or_else(|| format!("Unknown profile '{id}'"))
+}
+
+/// Import profiles from a pasted/loaded TOML string; returns labels added.
+#[tauri::command]
+pub fn import_profiles(content: String) -> Result<Vec<String>, String> {
+    crate::community::import_profiles_str(&content)
+}
+
 /* ---------------- File export ---------------- */
 
 /// Write text to <home>/beeemuu-exports/<filename> and return the full path.
@@ -291,14 +442,4 @@ pub fn export_text(filename: String, content: String) -> Result<String, String> 
     let home = std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOME"))
         .map_err(|_| "Could not locate home directory")?;
-    let dir = std::path::Path::new(&home).join("beeemuu-exports");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    // sanitise filename to its base name only
-    let safe = std::path::Path::new(&filename)
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| "export.txt".into());
-    let path = dir.join(safe);
-    std::fs::write(&path, content).map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().to_string())
-}
+    let dir = std::path::Path::new(&home).join

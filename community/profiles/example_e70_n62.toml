@@ -1,0 +1,28 @@
+# Example per-car profile file. Copy this pattern for your own vehicle.
+# The OBD-II entries are emissions-mandated and work as-is. Anything read via
+# did:/local: must be confirmed on the real car with the Parameter Explorer
+# before it can be trusted — mark unverified entries in the label.
+
+[[profile]]
+id = "e70_n62_example"
+label = "E70 X5 4.8i (N62B48) — example, verify before trusting"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 7000.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0

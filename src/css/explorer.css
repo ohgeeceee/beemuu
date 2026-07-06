@@ -1,0 +1,113 @@
+/* ============================================================
+   explorer.css — hex payload explorer
+   High-density byte grid with live-mutation highlighting.
+   ============================================================ */
+
+:root {
+  /* Base surface & text */
+  --byte-bg: transparent;
+  --byte-fg: #d4d4d8;
+  --byte-fg-dim: #71717a;
+  --byte-border: #27272a;
+
+  /* Mutation highlights — soft, desaturated */
+  --mut-up-bg: hsl(152 45% 22% / 0.55);   /* desaturated emerald wash */
+  --mut-up-fg: hsl(152 55% 72%);
+  --mut-down-bg: hsl(6 50% 26% / 0.55);   /* desaturated coral wash */
+  --mut-down-fg: hsl(6 70% 75%);
+
+  /* Timing */
+  --mut-fade-out: 450ms;
+}
+
+/* ------------------------------------------------------------
+   1. Grid container — auto-fills columns at high density.
+   minmax() keeps cells readable; grid handles any payload size.
+   ------------------------------------------------------------ */
+.byte-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+  gap: 2px;
+  padding: 4px;
+  font-family: "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  content-visibility: auto; /* cheap rendering for long payloads */
+}
+
+/* Fixed 16-per-row variant for classic hex-dump alignment */
+.byte-grid--dump {
+  grid-template-columns: repeat(16, minmax(2.75rem, 1fr));
+}
+
+/* ------------------------------------------------------------
+   2. Cell — flex column separating index / hex / ascii.
+   ------------------------------------------------------------ */
+.byte-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 2px;
+  border-radius: 3px;
+  border: 1px solid var(--byte-border);
+  background-color: var(--byte-bg);
+  color: var(--byte-fg);
+  cursor: default;
+  user-select: none;
+
+  /* Fade-out on revert: transition lives on the base state so the
+     highlight bleeds away smoothly when a modifier class is removed. */
+  transition:
+    background-color var(--mut-fade-out) ease-out,
+    color var(--mut-fade-out) ease-out,
+    border-color var(--mut-fade-out) ease-out;
+}
+
+.byte-cell__index {
+  font-size: 0.6rem;
+  line-height: 1;
+  color: var(--byte-fg-dim);
+}
+
+.byte-cell__hex {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+}
+
+.byte-cell__ascii {
+  font-size: 0.6rem;
+  line-height: 1;
+  color: var(--byte-fg-dim);
+}
+
+/* ------------------------------------------------------------
+   3. Mutation modifiers — apply instantly, revert gradually.
+   transition: none makes the highlight snap ON (no lag on live
+   data); removal falls back to the base transition = smooth fade.
+   ------------------------------------------------------------ */
+.byte-cell.mutated-up {
+  background-color: var(--mut-up-bg);
+  border-color: var(--mut-up-bg);
+  color: var(--mut-up-fg);
+  transition: none;
+}
+
+.byte-cell.mutated-down {
+  background-color: var(--mut-down-bg);
+  border-color: var(--mut-down-bg);
+  color: var(--mut-down-fg);
+  transition: none;
+}
+
+/* Keep sub-labels legible inside a highlighted cell */
+.byte-cell.mutated-up .byte-cell__index,
+.byte-cell.mutated-up .byte-cell__ascii,
+.byte-cell.mutated-down .byte-cell__index,
+.byte-cell.mutated-down .byte-cell__ascii {
+  color: inherit;
+  opacity: 0.65;
+}

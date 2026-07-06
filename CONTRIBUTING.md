@@ -4,17 +4,25 @@ Thanks for your interest! This project lives or dies by community knowledge
 of BMW diagnostic protocols, so contributions of *data* are as valuable as
 contributions of code.
 
-## Most-wanted contributions
+## Easiest path: edit TOML, no Rust needed
 
-**Parameter mappings.** Used the Parameter Explorer on your car? Open a PR
-adding a profile to `src-tauri/src/data/live.rs` with your chassis/engine in
-the label (e.g. "E70 X5 4.8i (N62B48)"), or open an issue with your findings:
-ECU, ident type, identifier, byte offsets, scaling, and how you verified it.
+Most valuable contributions are **data**, and you can add data by editing the
+files in [`community/`](community/README.md) — no compiler, no Rust. Restart
+the app and the **Diagnostics** tab shows what loaded.
 
-**Fault-code texts.** Add community-known codes to `src-tauri/src/data/dtc.rs`.
-Cite where the description comes from (observed on your car, forum thread,
-etc.). Do NOT paste text extracted from ISTA or other proprietary BMW
-software — such contributions will be rejected.
+- **Fault-code texts** → `community/dtc_texts.toml`
+- **Live-data profiles** (per engine) → `community/profiles.toml`
+- **Freeze-frame layouts** (per ECU) → `community/freeze_schemas.toml`
+
+Include your chassis and engine so others know what your data applies to, and
+say how you verified it (Parameter Explorer, forum thread you can cite, etc.).
+
+**Tested-vehicle reports.** Ran it on your car? Add a row to the "Tested
+vehicles" table in the README, even if you only confirmed the module scan.
+
+**Sharing a mapped profile?** The app can export it for you and import ones
+others send — see [docs/sharing-profiles.md](docs/sharing-profiles.md). Add
+per-car files under `community/profiles/` so PRs don't collide.
 
 **Transport testing.** Reports of what works/breaks with specific cables,
 chassis, and modules are gold. Include cable type, chassis, module, and the

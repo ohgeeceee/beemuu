@@ -1,14 +1,12 @@
 //! Live-data parameter definitions, organised as engine profiles.
 //!
-//! A profile is a named set of parameters for one engine/vehicle variant.
-//! Two profiles ship today:
-//!   - "sim"  : DIDs matching the built-in simulator
-//!   - "obd2" : standard OBD-II mode 01 PIDs — works on any 2007+ car,
-//!              including the E70 X5 4.8i (N62B48), as the guaranteed baseline
-//! BMW-specific profiles (proper N62 idents) get added here once mapped
-//! with the Parameter Explorer on the real car.
+//! Profiles live in a runtime store seeded with the built-ins below and
+//! extended at startup from `community/profiles.toml` (see `crate::community`),
+//! so contributors can add engine-specific parameter maps without touching
+//! Rust. A profile is a named set of parameters for one engine/vehicle variant.
 
 use serde::Serialize;
+use std::sync::{OnceLock, RwLock};
 
 #[derive(Clone, Copy)]
 pub enum Query {
@@ -16,6 +14,8 @@ pub enum Query {
     Did(u16),
     /// OBD-II mode 01 <pid>
     Obd(u8),
+    /// KWP readDataByLocalIdentifier 21 <id>
+    Local(u8),
 }
 
 #[derive(Clone, Copy)]
@@ -36,10 +36,11 @@ pub enum Decode {
     U16Milli,
 }
 
-pub struct LiveParamDef {
-    pub id: &'static str,
-    pub label: &'static str,
-    pub unit: &'static str,
+#[derive(Clone)]
+pub struct LiveParam {
+    pub id: String,
+    pub label: String,
+    pub unit: String,
     pub target: u8,
     pub query: Query,
     pub decode: Decode,
@@ -47,62 +48,114 @@ pub struct LiveParamDef {
     pub max: f64,
 }
 
+impl LiveParam {
+    /// Convenience constructor for the built-in tables.
+    fn new(
+        id: &str,
+        label: &str,
+        unit: &str,
+        target: u8,
+        query: Query,
+        decode: Decode,
+        min: f64,
+        max: f64,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            unit: unit.into(),
+            target,
+            query,
+            decode,
+            min,
+            max,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct LiveValue {
-    pub id: &'static str,
-    pub label: &'static str,
-    pub unit: &'static str,
+    pub id: String,
+    pub label: String,
+    pub unit: String,
     pub value: f64,
     pub min: f64,
     pub max: f64,
 }
 
+#[derive(Clone)]
 pub struct Profile {
-    pub id: &'static str,
-    pub label: &'static str,
-    pub params: &'static [LiveParamDef],
+    pub id: String,
+    pub label: String,
+    pub params: Vec<LiveParam>,
 }
 
-const SIM_PARAMS: &[LiveParamDef] = &[
-    LiveParamDef { id: "rpm",     label: "Engine speed",      unit: "rpm",  target: 0x12, query: Query::Did(0x1000), decode: Decode::U16,      min: 0.0,   max: 8000.0 },
-    LiveParamDef { id: "coolant", label: "Coolant temp",      unit: "°C",   target: 0x12, query: Query::Did(0x1001), decode: Decode::TempU8,   min: -40.0, max: 150.0 },
-    LiveParamDef { id: "oil",     label: "Oil temp",          unit: "°C",   target: 0x12, query: Query::Did(0x1002), decode: Decode::TempU8,   min: -40.0, max: 160.0 },
-    LiveParamDef { id: "iat",     label: "Intake air temp",   unit: "°C",   target: 0x12, query: Query::Did(0x1003), decode: Decode::TempU8,   min: -40.0, max: 80.0 },
-    LiveParamDef { id: "batt",    label: "Battery voltage",   unit: "V",    target: 0x12, query: Query::Did(0x1004), decode: Decode::U8Tenths, min: 8.0,   max: 16.0 },
-    LiveParamDef { id: "speed",   label: "Vehicle speed",     unit: "km/h", target: 0x12, query: Query::Did(0x1005), decode: Decode::U8,       min: 0.0,   max: 300.0 },
-    LiveParamDef { id: "load",    label: "Engine load",       unit: "%",    target: 0x12, query: Query::Did(0x1006), decode: Decode::U8,       min: 0.0,   max: 100.0 },
-    LiveParamDef { id: "fuel",    label: "Fuel level",        unit: "%",    target: 0x12, query: Query::Did(0x1007), decode: Decode::U8,       min: 0.0,   max: 100.0 },
-    LiveParamDef { id: "ambient", label: "Ambient temp",      unit: "°C",   target: 0x12, query: Query::Did(0x1008), decode: Decode::TempU8,   min: -40.0, max: 60.0 },
-    LiveParamDef { id: "map",     label: "Manifold pressure", unit: "mbar", target: 0x12, query: Query::Did(0x1009), decode: Decode::U16,      min: 0.0,   max: 3000.0 },
-];
-
-/// Standard OBD-II mode 01 — emissions-mandated, so every 2007+ BMW DME
-/// answers these regardless of variant.
-const OBD2_PARAMS: &[LiveParamDef] = &[
-    LiveParamDef { id: "rpm",     label: "Engine speed",     unit: "rpm",  target: 0x12, query: Query::Obd(0x0C), decode: Decode::U16Quarter, min: 0.0,   max: 8000.0 },
-    LiveParamDef { id: "coolant", label: "Coolant temp",     unit: "°C",   target: 0x12, query: Query::Obd(0x05), decode: Decode::TempU8,     min: -40.0, max: 150.0 },
-    LiveParamDef { id: "iat",     label: "Intake air temp",  unit: "°C",   target: 0x12, query: Query::Obd(0x0F), decode: Decode::TempU8,     min: -40.0, max: 80.0 },
-    LiveParamDef { id: "speed",   label: "Vehicle speed",    unit: "km/h", target: 0x12, query: Query::Obd(0x0D), decode: Decode::U8,         min: 0.0,   max: 300.0 },
-    LiveParamDef { id: "load",    label: "Engine load",      unit: "%",    target: 0x12, query: Query::Obd(0x04), decode: Decode::PercentA,   min: 0.0,   max: 100.0 },
-    LiveParamDef { id: "throttle",label: "Throttle position",unit: "%",    target: 0x12, query: Query::Obd(0x11), decode: Decode::PercentA,   min: 0.0,   max: 100.0 },
-    LiveParamDef { id: "map",     label: "Manifold pressure",unit: "kPa",  target: 0x12, query: Query::Obd(0x0B), decode: Decode::U8,         min: 0.0,   max: 255.0 },
-    LiveParamDef { id: "fuel",    label: "Fuel level",       unit: "%",    target: 0x12, query: Query::Obd(0x2F), decode: Decode::PercentA,   min: 0.0,   max: 100.0 },
-    LiveParamDef { id: "volt",    label: "Module voltage",   unit: "V",    target: 0x12, query: Query::Obd(0x42), decode: Decode::U16Milli,   min: 8.0,   max: 16.0 },
-    LiveParamDef { id: "ambient", label: "Ambient temp",     unit: "°C",   target: 0x12, query: Query::Obd(0x46), decode: Decode::TempU8,     min: -40.0, max: 60.0 },
-    LiveParamDef { id: "timing",  label: "Timing advance",   unit: "°",    target: 0x12, query: Query::Obd(0x0E), decode: Decode::U8,         min: 0.0,   max: 128.0 },
-];
-
-pub const PROFILES: &[Profile] = &[
-    Profile { id: "obd2", label: "Generic OBD-II (any 2007+ car)", params: OBD2_PARAMS },
-    Profile { id: "sim",  label: "Simulator (virtual E90)",        params: SIM_PARAMS },
-];
-
-pub fn profile(id: &str) -> Option<&'static Profile> {
-    PROFILES.iter().find(|p| p.id == id)
+fn builtin_profiles() -> Vec<Profile> {
+    use Decode::*;
+    use Query::*;
+    let obd2 = Profile {
+        id: "obd2".into(),
+        label: "Generic OBD-II (any 2007+ car)".into(),
+        params: vec![
+            LiveParam::new("rpm", "Engine speed", "rpm", 0x12, Obd(0x0C), U16Quarter, 0.0, 8000.0),
+            LiveParam::new("coolant", "Coolant temp", "°C", 0x12, Obd(0x05), TempU8, -40.0, 150.0),
+            LiveParam::new("iat", "Intake air temp", "°C", 0x12, Obd(0x0F), TempU8, -40.0, 80.0),
+            LiveParam::new("speed", "Vehicle speed", "km/h", 0x12, Obd(0x0D), U8, 0.0, 300.0),
+            LiveParam::new("load", "Engine load", "%", 0x12, Obd(0x04), PercentA, 0.0, 100.0),
+            LiveParam::new("throttle", "Throttle position", "%", 0x12, Obd(0x11), PercentA, 0.0, 100.0),
+            LiveParam::new("map", "Manifold pressure", "kPa", 0x12, Obd(0x0B), U8, 0.0, 255.0),
+            LiveParam::new("fuel", "Fuel level", "%", 0x12, Obd(0x2F), PercentA, 0.0, 100.0),
+            LiveParam::new("volt", "Module voltage", "V", 0x12, Obd(0x42), U16Milli, 8.0, 16.0),
+            LiveParam::new("ambient", "Ambient temp", "°C", 0x12, Obd(0x46), TempU8, -40.0, 60.0),
+            LiveParam::new("timing", "Timing advance", "°", 0x12, Obd(0x0E), U8, 0.0, 128.0),
+        ],
+    };
+    let sim = Profile {
+        id: "sim".into(),
+        label: "Simulator (virtual E90)".into(),
+        params: vec![
+            LiveParam::new("rpm", "Engine speed", "rpm", 0x12, Did(0x1000), U16, 0.0, 8000.0),
+            LiveParam::new("coolant", "Coolant temp", "°C", 0x12, Did(0x1001), TempU8, -40.0, 150.0),
+            LiveParam::new("oil", "Oil temp", "°C", 0x12, Did(0x1002), TempU8, -40.0, 160.0),
+            LiveParam::new("iat", "Intake air temp", "°C", 0x12, Did(0x1003), TempU8, -40.0, 80.0),
+            LiveParam::new("batt", "Battery voltage", "V", 0x12, Did(0x1004), U8Tenths, 8.0, 16.0),
+            LiveParam::new("speed", "Vehicle speed", "km/h", 0x12, Did(0x1005), U8, 0.0, 300.0),
+            LiveParam::new("load", "Engine load", "%", 0x12, Did(0x1006), U8, 0.0, 100.0),
+            LiveParam::new("fuel", "Fuel level", "%", 0x12, Did(0x1007), U8, 0.0, 100.0),
+            LiveParam::new("ambient", "Ambient temp", "°C", 0x12, Did(0x1008), TempU8, -40.0, 60.0),
+            LiveParam::new("map", "Manifold pressure", "mbar", 0x12, Did(0x1009), U16, 0.0, 3000.0),
+        ],
+    };
+    vec![obd2, sim]
 }
 
-pub fn decode(def: &LiveParamDef, data: &[u8]) -> Option<f64> {
-    match def.decode {
+fn store() -> &'static RwLock<Vec<Profile>> {
+    static STORE: OnceLock<RwLock<Vec<Profile>>> = OnceLock::new();
+    STORE.get_or_init(|| RwLock::new(builtin_profiles()))
+}
+
+/// Add or replace a profile (same `id` replaces). Used by the TOML loader.
+pub fn add_profile(profile: Profile) {
+    let mut s = store().write().unwrap();
+    if let Some(existing) = s.iter_mut().find(|p| p.id == profile.id) {
+        *existing = profile;
+    } else {
+        s.push(profile);
+    }
+}
+
+/// (id, label) pairs for the profile selector.
+pub fn profile_list() -> Vec<(String, String)> {
+    store().read().unwrap().iter().map(|p| (p.id.clone(), p.label.clone())).collect()
+}
+
+/// Clone one profile's parameters by id.
+pub fn profile_params(id: &str) -> Option<Vec<LiveParam>> {
+    store().read().unwrap().iter().find(|p| p.id == id).map(|p| p.params.clone())
+}
+
+pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
+    match decode {
         Decode::TempU8 => data.first().map(|&b| b as f64 - 40.0),
         Decode::U8 => data.first().map(|&b| b as f64),
         Decode::U8Tenths => data.first().map(|&b| b as f64 / 10.0),
@@ -110,7 +163,7 @@ pub fn decode(def: &LiveParamDef, data: &[u8]) -> Option<f64> {
         Decode::U16 | Decode::U16Quarter | Decode::U16Milli => {
             if data.len() >= 2 {
                 let raw = u16::from_be_bytes([data[0], data[1]]) as f64;
-                Some(match def.decode {
+                Some(match decode {
                     Decode::U16Quarter => raw / 4.0,
                     Decode::U16Milli => raw / 1000.0,
                     _ => raw,
@@ -120,4 +173,30 @@ pub fn decode(def: &LiveParamDef, data: &[u8]) -> Option<f64> {
             }
         }
     }
+}
+
+/// Parse a decode name from TOML (e.g. "temp_u8", "u16_quarter").
+pub fn decode_from_str(s: &str) -> Option<Decode> {
+    Some(match s {
+        "temp_u8" => Decode::TempU8,
+        "u16" => Decode::U16,
+        "u8" => Decode::U8,
+        "u8_tenths" => Decode::U8Tenths,
+        "u16_quarter" => Decode::U16Quarter,
+        "percent_a" => Decode::PercentA,
+        "u16_milli" => Decode::U16Milli,
+        _ => return None,
+    })
+}
+
+/// Parse a query from TOML (e.g. "did:1000", "obd:0C", "local:01").
+pub fn query_from_str(s: &str) -> Option<Query> {
+    let (kind, val) = s.split_once(':')?;
+    let n = u16::from_str_radix(val.trim(), 16).ok()?;
+    Some(match kind.trim() {
+        "did" => Query::Did(n),
+        "obd" => Query::Obd(n as u8),
+        "local" => Query::Local(n as u8),
+        _ => return None,
+    })
 }

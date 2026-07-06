@@ -1,4 +1,6 @@
+pub mod analysis;
 pub mod commands;
+pub mod community;
 pub mod data;
 pub mod protocol;
 pub mod transport;
@@ -20,9 +22,36 @@ fn register_security_algorithms() {
     // (No proprietary algorithms bundled — add yours here.)
 }
 
+/// Register per-ECU freeze-frame schemas here once mapped on a real car.
+///
+/// The registry ships with the simulator's 9-byte default. Add exact-address
+/// schemas as you confirm layouts with the Parameter Explorer. Example:
+///
+/// ```ignore
+/// use data::freeze::{registry, FreezeField, FreezeSchema, Width};
+/// registry().register_for(0x12, FreezeSchema { fields: vec![
+///     FreezeField::new("Engine speed", "rpm", 0, Width::U16, 1.0, 0.0, 0),
+///     FreezeField::new("Oil temp", "°C", 2, Width::U8, 1.0, -48.0, 0),
+/// ]});
+/// ```
+fn register_freeze_schemas() {
+    let _ = data::freeze::registry();
+    // (Add mapped per-ECU schemas here.)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     register_security_algorithms();
+    register_freeze_schemas();
+    // Merge community-contributed TOML data (fault texts, profiles, schemas).
+    let rep = community::load();
+    eprintln!(
+        "community data: {} fault texts, {} profiles, {} freeze schemas{}",
+        rep.dtc_texts,
+        rep.profiles,
+        rep.freeze_schemas,
+        rep.dir.map(|d| format!(" from {d}")).unwrap_or_default()
+    );
 
     tauri::Builder::default()
         .manage(commands::AppState::default())
@@ -38,13 +67,20 @@ pub fn run() {
             commands::read_live_data,
             commands::probe_range,
             commands::read_raw,
+            commands::watch_start,
+            commands::watch_tick,
+            commands::watch_stop,
             commands::list_service_functions,
             commands::run_service_function,
             commands::read_vehicle_info,
             commands::set_session,
             commands::security_access,
+            commands::community_report,
+            commands::export_profile,
+            commands::import_profiles,
+            commands::connection_test,
+            commands::get_traffic,
+            commands::clear_traffic,
             commands::export_text,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
+        .run(tauri::gene

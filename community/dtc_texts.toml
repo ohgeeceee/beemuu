@@ -1,0 +1,12 @@
+# Community fault-code descriptions. Hex codes, case-insensitive.
+# Overrides the built-in table. See README.md in this folder.
+# Do NOT paste text extracted from ISTA or other proprietary software.
+
+[dtc]
+"2A82" = "VANOS intake: control fault, camshaft stuck"
+"2A87" = "VANOS exhaust: control fault, camshaft stuck"
+"2E81" = "Electric coolant pump: speed deviation"
+"2E82" = "Electric coolant pump: cutoff"
+"2FBF" = "Oil pressure control: static"
+"5DF0" = "DSC: hydraulic pump, mechanical fault"
+"9CBA" = "FRM: rear left turn indicator, open circuit"

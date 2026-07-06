@@ -3,7 +3,28 @@
 //! NOTE: BMW's official fault texts ship inside ISTA's proprietary database
 //! and cannot be redistributed. This table carries community-known
 //! descriptions for common codes; unknown codes fall back to a generic
-//! label. Extend this table freely — format is (hex code, text).
+//! label. Contributors can add codes here, or — without recompiling — via
+//! `community/dtc_texts.toml`, which is merged into a runtime overlay that
+//! takes precedence over this built-in table.
+
+use std::collections::HashMap;
+use std::sync::{OnceLock, RwLock};
+
+fn overlay() -> &'static RwLock<HashMap<String, String>> {
+    static OVERLAY: OnceLock<RwLock<HashMap<String, String>>> = OnceLock::new();
+    OVERLAY.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+/// Add or replace a community fault text (called by the TOML loader).
+/// Codes are stored upper-case so lookups are case-insensitive.
+pub fn set_text(code: &str, text: &str) {
+    overlay().write().unwrap().insert(code.to_uppercase(), text.to_string());
+}
+
+/// Number of community-supplied texts currently loaded.
+pub fn overlay_count() -> usize {
+    overlay().read().unwrap().len()
+}
 
 const DTC_TEXTS: &[(&str, &str)] = &[
     ("2A82", "VANOS intake: control fault, camshaft stuck"),
@@ -35,10 +56,18 @@ const DTC_TEXTS: &[(&str, &str)] = &[
     ("930B", "KOMBI: fuel sender, right, implausible"),
 ];
 
-pub fn lookup(code: &str) -> &'static str {
+/// Look up fault text: community overlay first, then the built-in table,
+/// then a generic fallback. Case-insensitive on the hex code.
+pub fn lookup(code: &str) -> String {
+    let upper = code.to_uppercase();
+    if let Some(t) = overlay().read().unwrap().get(&upper) {
+        return t.clone();
+    }
     DTC_TEXTS
         .iter()
-        .find(|(c, _)| *c == code)
-        .map(|(_, t)| *t)
-        .unwrap_or("No description in local database — look up code in module documentation")
+        .find(|(c, _)| c.eq_ignore_ascii_case(&upper))
+        .map(|(_, t)| t.to_string())
+        .unwrap_or_else(|| {
+            "No description in local database — look up code in module documentation".to_string()
+        })
 }

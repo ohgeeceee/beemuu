@@ -95,7 +95,7 @@ pub fn read_dtcs(t: &mut dyn Transport, target: u8) -> PResult<Vec<Dtc>> {
         let code = format!("{:02X}{:02X}", resp[i], resp[i + 1]);
         let status = resp[i + 2];
         dtcs.push(Dtc {
-            text: crate::data::dtc::lookup(&code).to_string(),
+            text: crate::data::dtc::lookup(&code),
             code,
             status,
             status_text: dtc_status_text(status),
@@ -146,43 +146,24 @@ pub fn read_local_ident(t: &mut dyn Transport, target: u8, id: u8) -> PResult<Ve
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub struct FreezeItem {
-    pub label: String,
-    pub value: String,
-}
+/// Re-exported so callers can keep using `protocol::FreezeItem`; the type and
+/// its schema-driven decoder now live in `data::freeze`.
+pub use crate::data::freeze::FreezeItem;
 
-/// readFreezeFrame (12 hi lo) -> 52 hi lo <env bytes>. Decodes the sim's
-/// 9-byte environmental layout. Real modules vary — adjust per chassis once
-/// mapped with the Parameter Explorer.
+/// readFreezeFrame (12 hi lo) -> 52 hi lo <env bytes>. The environmental
+/// payload is decoded through the per-ECU schema registry in `data::freeze`,
+/// so byte layouts are configured declaratively rather than hardcoded.
 pub fn read_freeze_frame(t: &mut dyn Transport, target: u8, code: &str) -> PResult<Vec<FreezeItem>> {
+    if code.len() < 4 {
+        return Err("DTC code must be 4 hex digits".into());
+    }
     let hi = u8::from_str_radix(&code[0..2], 16).map_err(|_| "Bad DTC code")?;
     let lo = u8::from_str_radix(&code[2..4], 16).map_err(|_| "Bad DTC code")?;
     let resp = service(t, target, &[0x12, hi, lo])?;
     if resp.first() != Some(&0x52) || resp.len() < 3 {
         return Err(format!("Unexpected freeze response: {:02X?}", resp));
     }
-    let d = &resp[3..];
-    if d.len() < 9 {
-        return Ok(vec![FreezeItem {
-            label: "Raw".into(),
-            value: d.iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(" "),
-        }]);
-    }
-    let rpm = u16::from_be_bytes([d[0], d[1]]);
-    let coolant = d[2] as i16 - 40;
-    let speed = d[3];
-    let load = d[4];
-    let volts = d[5] as f64 / 10.0;
-    let mileage = ((d[6] as u32) << 16) | ((d[7] as u32) << 8) | d[8] as u32;
-    Ok(vec![
-        FreezeItem { label: "Engine speed".into(), value: format!("{rpm} rpm") },
-        FreezeItem { label: "Coolant temp".into(), value: format!("{coolant} °C") },
-        FreezeItem { label: "Vehicle speed".into(), value: format!("{speed} km/h") },
-        FreezeItem { label: "Engine load".into(), value: format!("{load} %") },
-        FreezeItem { label: "Battery voltage".into(), value: format!("{volts:.1} V") },
-        FreezeItem { label: "Mileage".into(), value: format!("{mileage} km") },
-    ])
+    Ok(crate::data::freeze::registry().decode(target, &resp[3..]))
 }
 
 /// diagnosticSessionControl (10 session) -> 50 session ...

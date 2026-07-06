@@ -6,6 +6,7 @@
 
 pub mod kdcan;
 pub mod enet;
+pub mod record;
 pub mod sim;
 
 use std::fmt;

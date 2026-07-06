@@ -9,8 +9,9 @@
 //! byte for longer payloads. SRC is the tester address 0xF1. CS is the
 //! 8-bit sum of all preceding bytes.
 //!
-//! D-CAN cars (E9x and later E-series, ~2007+): 115200 baud, 8E1.
-//! K-line cars (pre-2007): 10400 baud, 8E1, with fast-init.
+//! D-CAN cars (E9x and later E-series, ~2007+): 115200 baud, 8N1 (BMW-FAST).
+//! K-line cars (pre-2007): 10400 baud, 8N1 (ISO 14230), with fast-init.
+//! (8E1 belongs to the older DS2 protocol at 9600 baud — not used here.)
 //!
 //! The cable echoes every transmitted byte (K-line loopback), so we read
 //! back and discard our own frame before reading the response.
@@ -24,6 +25,22 @@ const TESTER: u8 = 0xF1;
 pub struct KdcanTransport {
     port: Box<dyn serialport::SerialPort>,
     dcan: bool,
+    /// K-line only: ECU addresses with an established KWP session.
+    /// An ECU drops off this list when it times out (session lost).
+    kline_ready: std::collections::HashSet<u8>,
+}
+
+/// Sleep with sub-millisecond accuracy: coarse sleep, then spin. Plain
+/// `thread::sleep` can overshoot by ~15 ms on Windows, which blows the
+/// ISO 14230 fast-init 25 ms timing.
+fn precise_sleep(d: Duration) {
+    let end = Instant::now() + d;
+    if d > Duration::from_millis(5) {
+        std::thread::sleep(d - Duration::from_millis(5));
+    }
+    while Instant::now() < end {
+        std::hint::spin_loop();
+    }
 }
 
 impl KdcanTransport {
@@ -31,12 +48,52 @@ impl KdcanTransport {
         let baud = if dcan { 115_200 } else { 10_400 };
         let port = serialport::new(port_name, baud)
             .data_bits(serialport::DataBits::Eight)
-            .parity(serialport::Parity::Even)
+            .parity(serialport::Parity::None)
             .stop_bits(serialport::StopBits::One)
             .timeout(Duration::from_millis(100))
             .open()
             .map_err(|e| TransportError::Io(format!("open {port_name}: {e}")))?;
-        Ok(Self { port, dcan })
+        Ok(Self { port, dcan, kline_ready: Default::default() })
+    }
+
+    /// ISO 14230-2 fast init: wake the ECU with a 25 ms low / 25 ms high
+    /// pulse on the K-line, then open a KWP session with StartCommunication
+    /// (0x81). Required once per ECU on pre-2007 K-line cars; D-CAN needs
+    /// no init.
+    fn fast_init(&mut self, target: u8) -> Result<()> {
+        // W5: bus must be idle before the wake-up pattern.
+        std::thread::sleep(Duration::from_millis(300));
+
+        // 25 ms low (break asserts a space on TX), 25 ms high.
+        self.port
+            .set_break()
+            .map_err(|e| TransportError::Io(format!("set_break: {e}")))?;
+        precise_sleep(Duration::from_millis(25));
+        self.port
+            .clear_break()
+            .map_err(|e| TransportError::Io(format!("clear_break: {e}")))?;
+        precise_sleep(Duration::from_millis(25));
+
+        // The break shows up in our own RX as a framing-error 0x00 — drop it.
+        let _ = self.port.clear(serialport::ClearBuffer::Input);
+
+        // StartCommunication request, expect positive response 0xC1 + key bytes.
+        let frame = Self::build_frame(target, &[0x81]);
+        self.port
+            .write_all(&frame)
+            .map_err(|e| TransportError::Io(e.to_string()))?;
+        let _ = self.port.flush();
+
+        let deadline = Instant::now() + Duration::from_millis(500);
+        let mut echo = vec![0u8; frame.len()];
+        self.read_exact_timeout(&mut echo, deadline)?;
+        let resp = self.read_frame(deadline)?;
+        match resp.first() {
+            Some(0xC1) => Ok(()),
+            _ => Err(TransportError::BadFrame(format!(
+                "StartCommunication to {target:02X} rejected: {resp:02X?}"
+            ))),
+        }
     }
 
     fn build_frame(target: u8, payload: &[u8]) -> Vec<u8> {
@@ -67,76 +124,3 @@ impl KdcanTransport {
             match self.port.read(&mut buf[filled..]) {
                 Ok(0) => {}
                 Ok(n) => filled += n,
-                Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {}
-                Err(e) => return Err(TransportError::Io(e.to_string())),
-            }
-        }
-        Ok(())
-    }
-
-    /// Read one KWP frame (header + payload + checksum), return the payload.
-    fn read_frame(&mut self, deadline: Instant) -> Result<Vec<u8>> {
-        let mut hdr = [0u8; 3];
-        self.read_exact_timeout(&mut hdr, deadline)?;
-        let short_len = (hdr[0] & 0x3F) as usize;
-        let (len, extra_len_byte) = if short_len > 0 {
-            (short_len, false)
-        } else {
-            let mut lb = [0u8; 1];
-            self.read_exact_timeout(&mut lb, deadline)?;
-            (lb[0] as usize, true)
-        };
-        let mut rest = vec![0u8; len + 1]; // payload + checksum
-        self.read_exact_timeout(&mut rest, deadline)?;
-
-        // Verify checksum
-        let mut sum = hdr.iter().fold(0u8, |a, b| a.wrapping_add(*b));
-        if extra_len_byte {
-            sum = sum.wrapping_add(len as u8);
-        }
-        for b in &rest[..len] {
-            sum = sum.wrapping_add(*b);
-        }
-        if sum != rest[len] {
-            return Err(TransportError::BadFrame(format!(
-                "checksum mismatch (calc {sum:02X}, got {:02X})",
-                rest[len]
-            )));
-        }
-        rest.truncate(len);
-        Ok(rest)
-    }
-}
-
-impl Transport for KdcanTransport {
-    fn name(&self) -> &'static str {
-        if self.dcan { "K+DCAN (D-CAN)" } else { "K+DCAN (K-line)" }
-    }
-
-    fn request(&mut self, target: u8, payload: &[u8]) -> Result<Vec<u8>> {
-        let frame = Self::build_frame(target, payload);
-
-        // Flush stale bytes
-        let _ = self.port.clear(serialport::ClearBuffer::Input);
-
-        self.port
-            .write_all(&frame)
-            .map_err(|e| TransportError::Io(e.to_string()))?;
-        let _ = self.port.flush();
-
-        let deadline = Instant::now() + Duration::from_millis(2500);
-
-        // Discard the loopback echo of our own frame
-        let mut echo = vec![0u8; frame.len()];
-        self.read_exact_timeout(&mut echo, deadline)?;
-
-        // ECUs may send 0x78 (responsePending) before the real answer
-        loop {
-            let resp = self.read_frame(deadline)?;
-            if resp.len() >= 3 && resp[0] == 0x7F && resp[2] == 0x78 {
-                continue; // busy — keep waiting
-            }
-            return Ok(resp);
-        }
-    }
-}

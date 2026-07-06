@@ -1,0 +1,53 @@
+# Freeze-frame byte layouts per ECU. See README.md in this folder.
+# width: u8 | i8 | u16 | i16 | u24   (multi-byte = big-endian)
+# value = raw * scale + bias, shown with `decimals` places.
+
+# DME (0x12) — matches the simulator's 9-byte layout. Replace/extend with
+# your car's real layout once confirmed in the Parameter Explorer.
+[[schema]]
+address = 0x12
+
+  [[schema.field]]
+  label = "Engine speed"
+  unit = "rpm"
+  offset = 0
+  width = "u16"
+  scale = 1.0
+  bias = 0.0
+  decimals = 0
+
+  [[schema.field]]
+  label = "Coolant temp"
+  unit = "°C"
+  offset = 2
+  width = "u8"
+  scale = 1.0
+  bias = -40.0
+  decimals = 0
+
+  [[schema.field]]
+  label = "Vehicle speed"
+  unit = "km/h"
+  offset = 3
+  width = "u8"
+  scale = 1.0
+  bias = 0.0
+  decimals = 0
+
+  [[schema.field]]
+  label = "Battery voltage"
+  unit = "V"
+  offset = 5
+  width = "u8"
+  scale = 0.1
+  bias = 0.0
+  decimals = 1
+
+  [[schema.field]]
+  label = "Mileage"
+  unit = "km"
+  offset = 6
+  width = "u24"
+  scale = 1.0
+  bias = 0.0
+  decimals = 0

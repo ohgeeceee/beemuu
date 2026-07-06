@@ -321,7 +321,6 @@ async function loadServiceFunctions() {
 /* ---------------- parameter explorer ---------------- */
 let watchTimer = null;
 let watchTarget = null; // { address, mode, id }
-let lastBytes = null;
 
 function fillExplorerEcus() {
   const sel = $("exp-address");
@@ -370,14 +369,19 @@ $("btn-probe").addEventListener("click", async () => {
   }
 });
 
-function startWatch(address, mode, id, itemEl) {
+async function startWatch(address, mode, id, itemEl) {
   document.querySelectorAll(".exp-result-item").forEach((el) => el.classList.remove("selected"));
   itemEl.classList.add("selected");
   watchTarget = { address, mode, id };
-  lastBytes = null;
   const idHex = id.toString(16).toUpperCase().padStart(mode === "did" ? 4 : 2, "0");
   $("exp-watch-title").textContent = `Watch — ${mode} ${idHex}`;
   $("exp-watch-poll").checked = true;
+  try {
+    await invoke("watch_start", { address, mode, id });
+  } catch (e) {
+    log("Watch start: " + e);
+    return;
+  }
   if (!watchTimer) watchTimer = setInterval(watchOnce, 300);
   watchOnce();
 }
@@ -385,30 +389,50 @@ function startWatch(address, mode, id, itemEl) {
 async function watchOnce() {
   if (!watchTarget) return;
   try {
-    const bytes = await invoke("read_raw", watchTarget);
-    const el = $("exp-watch-bytes");
-    el.innerHTML = "";
-    bytes.forEach((b, i) => {
-      const changed = lastBytes && lastBytes[i] !== b;
-      const cell = document.createElement("div");
-      cell.className = "watch-byte" + (changed ? " changed" : "");
-      cell.innerHTML =
-        `<div class="wb-hex">${b.toString(16).toUpperCase().padStart(2, "0")}</div>` +
-        `<div class="wb-dec">${b}</div>` +
-        `<div class="wb-idx">[${i}]</div>`;
-      el.appendChild(cell);
-    });
-    lastBytes = bytes;
+    const snap = await invoke("watch_tick");
+    renderWatch(snap);
   } catch (e) {
     log("Watch: " + e);
     stopWatch();
   }
 }
 
+// Render the byte-diff heatmap. Volatility drives the accent bar + color:
+// bytes that change often (live signals) glow; static bytes stay grey.
+function renderWatch(snap) {
+  const el = $("exp-watch-bytes");
+  el.innerHTML = "";
+  $("exp-watch-title").dataset.samples = snap.samples;
+  const head = document.createElement("div");
+  head.className = "watch-summary";
+  head.textContent = `${snap.samples} samples · ${snap.bytes.length} bytes · sorted by position`;
+  el.appendChild(head);
+  const grid = document.createElement("div");
+  grid.className = "watch-grid";
+  for (const b of snap.bytes) {
+    const pct = Math.round(b.volatility * 100);
+    const hot = b.volatility > 0.02;
+    const cell = document.createElement("div");
+    cell.className = "watch-byte" + (hot ? " hot" : "");
+    // accent bar height reflects volatility; hue shifts grey→orange
+    const barColor = hot ? `hsl(${28 - b.volatility * 10}, 90%, 55%)` : "#c3ccd6";
+    cell.innerHTML =
+      `<div class="wb-hex">${b.last.toString(16).toUpperCase().padStart(2, "0")}</div>` +
+      `<div class="wb-dec">${b.last}</div>` +
+      `<div class="wb-bar"><span style="height:${Math.max(3, pct)}%;background:${barColor}"></span></div>` +
+      `<div class="wb-meta">${pct}% · Δ${b.mean_delta.toFixed(1)}</div>` +
+      `<div class="wb-meta">${b.min}–${b.max}</div>` +
+      `<div class="wb-idx">[${b.offset}]</div>`;
+    grid.appendChild(cell);
+  }
+  el.appendChild(grid);
+}
+
 function stopWatch() {
   clearInterval(watchTimer);
   watchTimer = null;
   $("exp-watch-poll").checked = false;
+  invoke("watch_stop").catch(() => {});
 }
 
 $("exp-watch-poll").addEventListener("change", (e) => {
@@ -675,24 +699,51 @@ function setSecStatus(unlocked) {
   el.className = "sec-status" + (unlocked ? " unlocked" : "");
 }
 
-/* ---------------- tab activation hooks ---------------- */
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    if (tab.dataset.view === "logging") buildLogParams();
-  });
+/* ---------------- diagnostics: self-test ---------------- */
+$("btn-selftest").addEventListener("click", async () => {
+  if (!connected) { log("Connect first."); return; }
+  const body = $("selftest-body");
+  body.innerHTML = "<p class='muted'>Running…</p>";
+  try {
+    const steps = await invoke("connection_test");
+    body.innerHTML = "";
+    for (const s of steps) {
+      const row = document.createElement("div");
+      row.className = "selftest-step " + (s.ok ? "ok" : "fail");
+      row.innerHTML =
+        `<span class="st-icon">${s.ok ? "✓" : "✗"}</span>` +
+        `<span class="st-name">${s.name}</span>` +
+        `<span class="st-detail">${s.detail}</span>` +
+        `<span class="st-ms">${s.ms} ms</span>`;
+      body.appendChild(row);
+    }
+  } catch (e) {
+    body.innerHTML = `<p class='muted'>Test failed: ${e}</p>`;
+  }
 });
 
-/* ---------------- init ---------------- */
-loadServiceFunctions();
-loadProfiles();
-loadLogProfiles();
-fillExplorerEcus();
-fillSecurityEcus();
-setStatus("Disconnected");
+/* ---------------- diagnostics: community data ---------------- */
+async function loadCommunityReport() {
+  try {
+    const r = await invoke("community_report");
+    const el = $("community-body");
+    const dir = r.dir ? `<code>${r.dir}</code>` : "not found (built-ins only)";
+    let html =
+      `<div class="cd-row"><span>Source folder</span><span>${dir}</span></div>` +
+      `<div class="cd-row"><span>Fault texts</span><span>${r.dtc_texts}</span></div>` +
+      `<div class="cd-row"><span>Profiles</span><span>${r.profiles}</span></div>` +
+      `<div class="cd-row"><span>Freeze schemas</span><span>${r.freeze_schemas}</span></div>`;
+    for (const w of r.warnings) html += `<div class="cd-warn">⚠ ${w}</div>`;
+    el.innerHTML = html;
+  } catch (e) {
+    $("community-body").innerHTML = `<p class='muted'>${e}</p>`;
+  }
+}
 
-async function loadLogProfiles() {
+/* ---------------- diagnostics: share profiles ---------------- */
+async function fillShareProfiles() {
   const profiles = await invoke("list_profiles");
-  const sel = $("log-profile");
+  const sel = $("share-profile");
   sel.innerHTML = "";
   for (const p of profiles) {
     const o = document.createElement("option");
@@ -701,3 +752,92 @@ async function loadLogProfiles() {
     sel.appendChild(o);
   }
 }
+
+$("btn-export-profile").addEventListener("click", async () => {
+  const id = $("share-profile").value;
+  if (!id) return;
+  try {
+    const toml = await invoke("export_profile", { id });
+    const path = await invoke("export_text", { filename: `${id}.toml`, content: toml });
+    log("Exported profile to: " + path);
+  } catch (e) {
+    log("Export failed: " + e);
+  }
+});
+
+$("import-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { $("import-text").value = reader.result; };
+  reader.readAsText(file);
+});
+
+$("btn-import-profile").addEventListener("click", async () => {
+  const content = $("import-text").value.trim();
+  if (!content) { log("Paste or choose a profile TOML first."); return; }
+  try {
+    const labels = await invoke("import_profiles", { content });
+    log(`Imported: ${labels.join(", ")}`);
+    // refresh every profile dropdown so the new profile is selectable
+    await Promise.all([loadProfiles(), loadLogProfiles(), fillShareProfiles()]);
+    $("import-text").value = "";
+    $("import-file").value = "";
+  } catch (e) {
+    log("Import failed: " + e);
+  }
+});
+
+/* ---------------- diagnostics: traffic log ---------------- */
+let trafficAuto = null;
+let lastTraffic = [];
+
+async function refreshTraffic() {
+  try {
+    const rows = await invoke("get_traffic");
+    lastTraffic = rows;
+    const tbody = $("traffic-rows");
+    if (!rows.length) {
+      tbody.innerHTML = "<tr><td colspan='6' class='muted'>No traffic yet.</td></tr>";
+      return;
+    }
+    // newest last; show most recent 300 to keep the DOM light
+    const recent = rows.slice(-300);
+    tbody.innerHTML = "";
+    for (const e of recent) {
+      const tr = document.createElement("tr");
+      if (!e.ok) tr.className = "err";
+      const resp = e.ok ? e.response : `NRC/err: ${e.detail}`;
+      tr.innerHTML =
+        `<td>${e.seq}</td><td>${e.t_ms}</td>` +
+        `<td>0x${e.target.toString(16).toUpperCase().padStart(2, "0")}</td>` +
+        `<td>${e.request}</td><td class="tr-resp">${resp}</td><td>${e.dur_ms}</td>`;
+      tbody.appendChild(tr);
+    }
+    $("traffic-rows").parentElement.parentElement.scrollTop = 1e9;
+  } catch (e) {
+    log("Traffic: " + e);
+  }
+}
+
+$("btn-traffic-refresh").addEventListener("click", refreshTraffic);
+$("traffic-auto").addEventListener("change", (e) => {
+  if (e.target.checked) {
+    if (!trafficAuto) trafficAuto = setInterval(refreshTraffic, 1000);
+  } else {
+    clearInterval(trafficAuto);
+    trafficAuto = null;
+  }
+});
+$("btn-traffic-clear").addEventListener("click", async () => {
+  await invoke("clear_traffic");
+  refreshTraffic();
+});
+$("btn-traffic-export").addEventListener("click", async () => {
+  if (!lastTraffic.length) { log("Nothing to export."); return; }
+  let txt = "seq\tt_ms\tECU\trequest\tresponse\tok\tdur_ms\tdetail\n";
+  for (const e of lastTraffic) {
+    const ecu = "0x" + e.target.toString(16).toUpperCase().padStart(2, "0");
+    txt += `${e.seq}\t${e.t_ms}\t${ecu}\t${e.request}\t${e.response}\t${e.ok}\t${e.dur_ms}\t${e.detail}\n`;
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-")

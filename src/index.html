@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BeeEmUu Diagnostics</title>
   <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/explorer.css" />
 </head>
 <body>
   <!-- Top header band -->
@@ -33,6 +34,7 @@
         <input type="text" id="conn-addr" value="169.254.16.11:6801" size="18" />
       </span>
       <button id="btn-connect" class="btn btn-primary">Connect</button>
+      <button id="btn-about" class="btn" title="About &amp; license">ⓘ</button>
     </div>
   </header>
 
@@ -44,6 +46,7 @@
     <button class="tab" data-view="explorer">Parameter Explorer</button>
     <button class="tab" data-view="info">Vehicle Info</button>
     <button class="tab" data-view="service">Service Functions</button>
+    <button class="tab" data-view="diagnostics">Diagnostics</button>
   </nav>
 
   <main class="content">
@@ -183,6 +186,67 @@
       </div>
     </section>
 
+    <!-- ============ DIAGNOSTICS ============ -->
+    <section id="view-diagnostics" class="view">
+      <div class="diag-cols">
+        <div class="diag-left">
+          <div class="panel">
+            <div class="panel-head">
+              <span>Connection self-test</span>
+              <button id="btn-selftest" class="btn btn-small btn-primary">Run test</button>
+            </div>
+            <div id="selftest-body" class="selftest-body">
+              <p class="muted">Connect, then run the self-test to check the adapter, the DME, and round-trip latency.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span>Loaded community data</span></div>
+            <div id="community-body" class="community-body">
+              <p class="muted">Loading…</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span>Share profiles</span></div>
+            <div class="share-body">
+              <div class="share-row">
+                <select id="share-profile"></select>
+                <button id="btn-export-profile" class="btn btn-small btn-primary">Export .toml</button>
+              </div>
+              <p class="share-hint muted">Exports the selected profile as a TOML
+                file you can send to others or attach to a pull request.</p>
+              <div class="share-import">
+                <label class="share-label">Import a profile someone shared:</label>
+                <input type="file" id="import-file" accept=".toml,text/plain" />
+                <textarea id="import-text" placeholder="…or paste profile TOML here"></textarea>
+                <button id="btn-import-profile" class="btn btn-small">Import</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel diag-traffic">
+          <div class="panel-head">
+            <span>Traffic log</span>
+            <span>
+              <button id="btn-traffic-refresh" class="btn btn-small">Refresh</button>
+              <label class="chk"><input type="checkbox" id="traffic-auto" /> Auto</label>
+              <button id="btn-traffic-export" class="btn btn-small">Export</button>
+              <button id="btn-traffic-clear" class="btn btn-small btn-danger">Clear</button>
+            </span>
+          </div>
+          <div class="traffic-wrap">
+            <table class="traffic-table">
+              <thead>
+                <tr><th>#</th><th>t(ms)</th><th>ECU</th><th>Request</th><th>Response</th><th>ms</th></tr>
+              </thead>
+              <tbody id="traffic-rows">
+                <tr><td colspan="6" class="muted">No traffic yet. Connect and interact with the car.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ SERVICE FUNCTIONS ============ -->
     <section id="view-service" class="view">
       <div class="panel">
@@ -222,8 +286,17 @@
     <span class="status-right" id="status-log"></span>
   </footer>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="js/gauges.js"></script>
-  <script src="js/main.js"></script>
-</body>
-</html>
+  <!-- About / first-run safety modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="brand-badge">◔</span>
+        <div>
+          <div class="brand-title">BeeEmUu</div>
+          <div class="brand-sub">Independent diagnostic tool for BMW vehicles · v0.1.0</div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p><strong>This program comes with ABSOLUTELY NO WARRANTY.</strong> It is
+        free software licensed under the GNU General Public License v3, and you
+     

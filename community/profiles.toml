@@ -1,0 +1,41 @@
+# Live-data parameter profiles. See README.md in this folder for the format.
+# query: did:HHHH | obd:HH | local:HH   (hex)
+# decode: temp_u8 | u8 | u8_tenths | u16 | u16_quarter | u16_milli | percent_a
+
+# Example E70 X5 4.8i (N62B48) profile. The OBD-II entries are emissions-
+# mandated and work as-is; the `local:` oil-temp entry is a PLACEHOLDER —
+# confirm the real local identifier and offset with the Parameter Explorer
+# before trusting it.
+[[profile]]
+id = "e70_n62"
+label = "E70 X5 4.8i (N62B48) [community, partly unverified]"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 7000.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "load"
+  label = "Engine load"
+  unit = "%"
+  target = 0x12
+  query = "obd:04"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
