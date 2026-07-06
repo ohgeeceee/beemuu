@@ -1,7 +1,7 @@
 //! Tauri commands — the bridge between the frontend and the diagnostic stack.
 
-use crate::data::{ecus, live, service_functions};
-use crate::protocol::{self, Dtc, EcuInfo};
+use crate::data::{ecus, live, service_functions, vin};
+use crate::protocol::{self, Dtc, EcuInfo, FreezeItem};
 use crate::transport::{self, Transport, TransportConfig};
 use serde::Serialize;
 use std::sync::Mutex;
@@ -89,6 +89,15 @@ pub fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuInfo>, S
 #[tauri::command]
 pub fn read_faults(state: tauri::State<'_, AppState>, address: u8) -> Result<Vec<Dtc>, String> {
     with_transport(&state, |t| protocol::read_dtcs(t, address))
+}
+
+#[tauri::command]
+pub fn read_freeze_frame(
+    state: tauri::State<'_, AppState>,
+    address: u8,
+    code: String,
+) -> Result<Vec<FreezeItem>, String> {
+    with_transport(&state, |t| protocol::read_freeze_frame(t, address, &code))
 }
 
 #[tauri::command]
@@ -216,4 +225,80 @@ pub fn run_service_function(
         protocol::routine(t, sf.target, 0x01, sf.routine)?;
         Ok(format!("{} completed successfully", sf.label))
     })
+}
+
+/* ---------------- Vehicle info ---------------- */
+
+#[derive(Serialize)]
+pub struct VehicleInfo {
+    pub vin: Option<String>,
+    pub decode: Option<vin::VinDecode>,
+    pub mileage_km: Option<u32>,
+}
+
+#[tauri::command]
+pub fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInfo, String> {
+    with_transport(&state, |t| {
+        let vin_str = protocol::read_did(t, 0x12, 0xF190)
+            .ok()
+            .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
+            .filter(|s| s.len() >= 11);
+        let decode = vin_str.as_deref().map(vin::decode);
+        // Odometer DID (sim 0x1010, u24 km). Real DID varies by cluster.
+        let mileage_km = protocol::read_did(t, 0x12, 0x1010).ok().and_then(|b| {
+            if b.len() >= 3 {
+                Some(((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32)
+            } else {
+                None
+            }
+        });
+        Ok(VehicleInfo { vin: vin_str, decode, mileage_km })
+    })
+}
+
+/* ---------------- UDS session + security ---------------- */
+
+#[tauri::command]
+pub fn set_session(
+    state: tauri::State<'_, AppState>,
+    address: u8,
+    session: u8,
+) -> Result<(), String> {
+    with_transport(&state, |t| protocol::set_session(t, address, session))
+}
+
+/// Security access via the pluggable key registry (`protocol::security`).
+/// The algorithm used is whatever is registered for this ECU address + level;
+/// register real per-ECU algorithms at startup in `lib.rs`.
+#[tauri::command]
+pub fn security_access(
+    state: tauri::State<'_, AppState>,
+    address: u8,
+    level: u8,
+) -> Result<bool, String> {
+    with_transport(&state, |t| {
+        protocol::security::unlock(t, address, level)
+            .map(|outcome| matches!(outcome, protocol::security::Unlock::Granted))
+    })
+}
+
+/* ---------------- File export ---------------- */
+
+/// Write text to <home>/beeemuu-exports/<filename> and return the full path.
+/// Used for module-inventory reports and live-data CSV logs.
+#[tauri::command]
+pub fn export_text(filename: String, content: String) -> Result<String, String> {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .map_err(|_| "Could not locate home directory")?;
+    let dir = std::path::Path::new(&home).join("beeemuu-exports");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    // sanitise filename to its base name only
+    let safe = std::path::Path::new(&filename)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "export.txt".into());
+    let path = dir.join(safe);
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
 }

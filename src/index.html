@@ -40,7 +40,9 @@
   <nav class="tabbar">
     <button class="tab active" data-view="vehicle">Vehicle Test</button>
     <button class="tab" data-view="live">Live Data</button>
+    <button class="tab" data-view="logging">Logging</button>
     <button class="tab" data-view="explorer">Parameter Explorer</button>
+    <button class="tab" data-view="info">Vehicle Info</button>
     <button class="tab" data-view="service">Service Functions</button>
   </nav>
 
@@ -74,6 +76,10 @@
               <tr><td colspan="3" class="muted">Select a control unit.</td></tr>
             </tbody>
           </table>
+          <div id="freeze-panel" class="freeze-panel hidden">
+            <div class="freeze-head">Freeze frame <span id="freeze-code"></span></div>
+            <div id="freeze-body" class="freeze-body"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -88,6 +94,48 @@
           <label class="chk"><input type="checkbox" id="live-poll" /> Poll continuously</label>
         </div>
         <div id="gauge-grid" class="gauge-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============ LOGGING ============ -->
+    <section id="view-logging" class="view">
+      <div class="panel">
+        <div class="panel-head">
+          <span>Data logging —
+            <select id="log-profile"></select>
+          </span>
+          <span>
+            <button id="btn-log-start" class="btn btn-small btn-primary">Start recording</button>
+            <button id="btn-log-export" class="btn btn-small" disabled>Export CSV</button>
+            <button id="btn-log-clear" class="btn btn-small" disabled>Clear</button>
+          </span>
+        </div>
+        <div class="log-body">
+          <div class="log-params" id="log-params"></div>
+          <div class="log-chart-wrap">
+            <canvas id="log-chart"></canvas>
+            <div id="log-status" class="log-status muted">
+              Pick parameters to plot, then Start recording. Values are sampled
+              ~4×/second while connected.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VEHICLE INFO ============ -->
+    <section id="view-info" class="view">
+      <div class="panel">
+        <div class="panel-head">
+          <span>Vehicle information</span>
+          <span>
+            <button id="btn-info-read" class="btn btn-small btn-primary">Read vehicle</button>
+            <button id="btn-info-export" class="btn btn-small" disabled>Export report</button>
+          </span>
+        </div>
+        <div id="info-body" class="info-body">
+          <p class="muted">Connect and click "Read vehicle" to read VIN, decode it, and read mileage.</p>
+        </div>
       </div>
     </section>
 
@@ -138,6 +186,30 @@
     <!-- ============ SERVICE FUNCTIONS ============ -->
     <section id="view-service" class="view">
       <div class="panel">
+        <div class="panel-head"><span>Session &amp; security</span></div>
+        <div class="session-bar">
+          <label>Module
+            <select id="sec-address"></select>
+          </label>
+          <label>Session
+            <select id="sec-session">
+              <option value="1">Default (01)</option>
+              <option value="3" selected>Extended (03)</option>
+              <option value="2">Programming (02)</option>
+            </select>
+          </label>
+          <button id="btn-set-session" class="btn btn-small">Set session</button>
+          <button id="btn-unlock" class="btn btn-small">Security access (unlock)</button>
+          <span id="sec-status" class="sec-status">Locked</span>
+        </div>
+        <p class="session-hint muted">
+          Security unlock uses the module's seed/key algorithm. Only the
+          simulator's algorithm is built in; real BMW modules need their
+          per-ECU algorithm added in <code>commands.rs</code>. Some service
+          functions require an unlocked extended session.
+        </p>
+      </div>
+      <div class="panel">
         <div class="panel-head"><span>Service functions</span></div>
         <div id="service-list" class="service-list"></div>
       </div>
@@ -150,6 +222,7 @@
     <span class="status-right" id="status-log"></span>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/gauges.js"></script>
   <script src="js/main.js"></script>
 </body>

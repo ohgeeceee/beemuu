@@ -2,10 +2,13 @@
 //! requests so the whole app can be developed and demoed without a car.
 //!
 //! Supported services per simulated ECU:
+//!   10 <session> diagnosticSessionControl -> 50 <session> 00 32 01 F4
 //!   1A 80        readEcuIdentification  -> 5A 80 <ident string>
 //!   18 02 FF FF  readDTCByStatus (KWP)  -> 58 <count> [hi lo status]*
+//!   12 <hi> <lo> readFreezeFrame        -> 52 <hi> <lo> <env bytes>
 //!   14 FF FF     clearDTC               -> 54
 //!   22 <DID:2>   readDataByIdentifier   -> 62 <DID:2> <data>
+//!   27 <sub>     securityAccess         -> 67 <sub> <seed> | 67 <sub>
 //!   3E ..        testerPresent          -> 7E
 //!   31 ..        routineControl (service functions) -> 71 ..
 
@@ -17,26 +20,42 @@ struct SimEcu {
     ident: &'static str,
     /// (dtc_hi, dtc_lo, status)
     dtcs: Vec<(u8, u8, u8)>,
+    /// Freeze-frame environmental data per DTC, indexed same as `dtcs`.
+    /// Layout matches protocol::freeze::decode: rpm(u16), coolant(u8-40),
+    /// speed(u8), load(u8), volts(u8/10), mileage(u24 km).
+    freeze: Vec<[u8; 9]>,
 }
+
+/// XOR constant the sim uses for its trivial seed→key security algorithm.
+/// Real BMW modules use undisclosed per-ECU algorithms — this only lets the
+/// unlock flow be exercised against the simulator.
+const SIM_KEY_XOR: u32 = 0x5A_A5_1234;
 
 pub struct SimTransport {
     ecus: Vec<SimEcu>,
     started: Instant,
+    /// Current diagnostic session (0x01 default, 0x03 extended, etc.)
+    session: u8,
+    /// Last seed handed out, per requesting sub-function.
+    last_seed: u32,
+    /// Whether security access is currently granted.
+    unlocked: bool,
 }
 
 impl SimTransport {
     pub fn new() -> Self {
+        let dme_freeze = [0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40];
         let ecus = vec![
-            SimEcu { address: 0x12, ident: "DME MSV70 7558449 hw04 sw11.32 ci08", dtcs: vec![(0x2A, 0x82, 0x24), (0x30, 0xFF, 0x20)] },
-            SimEcu { address: 0x18, ident: "EGS GS19D 7566999 hw02 sw09.10 ci03", dtcs: vec![] },
-            SimEcu { address: 0x29, ident: "DSC MK60E5 6778239 hw05 sw06.40 ci04", dtcs: vec![(0x5D, 0xF0, 0x22)] },
-            SimEcu { address: 0x40, ident: "CAS3 9147193 hw03 sw05.60 ci11", dtcs: vec![] },
-            SimEcu { address: 0x60, ident: "KOMBI L6 9187068 hw01 sw10.02 ci06", dtcs: vec![] },
-            SimEcu { address: 0x72, ident: "FRM2 9241322 hw22 sw16.10 ci07", dtcs: vec![(0x9C, 0xBA, 0x21)] },
-            SimEcu { address: 0x78, ident: "IHKA 9226613 hw02 sw08.30 ci02", dtcs: vec![] },
-            SimEcu { address: 0x01, ident: "ACSM2 9166087 hw04 sw03.21 ci05", dtcs: vec![] },
+            SimEcu { address: 0x12, ident: "DME MSV70 7558449 hw04 sw11.32 ci08", dtcs: vec![(0x2A, 0x82, 0x24), (0x30, 0xFF, 0x20)], freeze: vec![dme_freeze, [0x00, 0x00, 0x59, 0x00, 0x0C, 0x8C, 0x01, 0xE2, 0x40]] },
+            SimEcu { address: 0x18, ident: "EGS GS19D 7566999 hw02 sw09.10 ci03", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x29, ident: "DSC MK60E5 6778239 hw05 sw06.40 ci04", dtcs: vec![(0x5D, 0xF0, 0x22)], freeze: vec![[0x00, 0x00, 0x51, 0x2D, 0x00, 0x8A, 0x01, 0xE2, 0x41]] },
+            SimEcu { address: 0x40, ident: "CAS3 9147193 hw03 sw05.60 ci11", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x60, ident: "KOMBI L6 9187068 hw01 sw10.02 ci06", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x72, ident: "FRM2 9241322 hw22 sw16.10 ci07", dtcs: vec![(0x9C, 0xBA, 0x21)], freeze: vec![[0x00, 0x00, 0x4B, 0x00, 0x00, 0x8B, 0x01, 0xE2, 0x40]] },
+            SimEcu { address: 0x78, ident: "IHKA 9226613 hw02 sw08.30 ci02", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x01, ident: "ACSM2 9166087 hw04 sw03.21 ci05", dtcs: vec![], freeze: vec![] },
         ];
-        Self { ecus, started: Instant::now() }
+        Self { ecus, started: Instant::now(), session: 0x01, last_seed: 0, unlocked: false }
     }
 
     /// Time-varying engine model for live values.
@@ -77,6 +96,8 @@ impl SimTransport {
             0x1009 => ((980.0 + wave * 15.0) as u16).to_be_bytes().to_vec(),
             // VIN
             0xF190 => b"WBAVA31050NL12345".to_vec(),
+            // Odometer (u24, km) — 123456 km = 0x01E240
+            0x1010 => vec![0x01, 0xE2, 0x40],
             _ => vec![0x00],
         }
     }
@@ -142,6 +163,38 @@ impl Transport for SimTransport {
             None
         };
 
+        // Session control and security access mutate transport-wide state, so
+        // handle them before the per-ECU borrow.
+        match payload {
+            [0x10, session, ..] => {
+                self.session = *session;
+                self.unlocked = false; // session change drops security
+                // 50 <session> P2=0x0032 P2*=0x01F4 (timing params)
+                return Ok(vec![0x50, *session, 0x00, 0x32, 0x01, 0xF4]);
+            }
+            [0x27, sub] if sub % 2 == 1 => {
+                // requestSeed — derive a pseudo-seed from time + sub
+                let seed = 0x1000_0000u32
+                    .wrapping_add((self.started.elapsed().as_millis() as u32) & 0x00FF_FFFF)
+                    .wrapping_add(*sub as u32);
+                self.last_seed = seed;
+                let mut r = vec![0x67, *sub];
+                r.extend_from_slice(&seed.to_be_bytes());
+                return Ok(r);
+            }
+            [0x27, sub, k0, k1, k2, k3] if sub % 2 == 0 => {
+                let key = u32::from_be_bytes([*k0, *k1, *k2, *k3]);
+                let expected = self.last_seed ^ SIM_KEY_XOR;
+                if key == expected {
+                    self.unlocked = true;
+                    return Ok(vec![0x67, *sub]);
+                } else {
+                    return Ok(vec![0x7F, 0x27, 0x35]); // invalidKey
+                }
+            }
+            _ => {}
+        }
+
         let ecu = self
             .ecus
             .iter_mut()
@@ -160,6 +213,17 @@ impl Transport for SimTransport {
                     r.extend_from_slice(&[*hi, *lo, *st]);
                 }
                 Ok(r)
+            }
+            [0x12, hi, lo] => {
+                // readFreezeFrame for a specific DTC
+                match ecu.dtcs.iter().position(|(h, l, _)| h == hi && l == lo) {
+                    Some(idx) if idx < ecu.freeze.len() => {
+                        let mut r = vec![0x52, *hi, *lo];
+                        r.extend_from_slice(&ecu.freeze[idx]);
+                        Ok(r)
+                    }
+                    _ => Ok(vec![0x7F, 0x12, 0x31]), // no freeze frame for this DTC
+                }
             }
             [0x14, ..] => {
                 ecu.dtcs.clear();
