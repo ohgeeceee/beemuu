@@ -418,7 +418,7 @@ SOFTWARE.
 
 <p align="center">
   <a href="https://github.com/ohgeecee/beemuu/stargazers">⭐ Star</a> ·
-  <a href="https://github.com/ohgeeceeebeemuu/fork">🍴 Fork</a> ·
+  <a href="https://github.com/ohgeeceee/beemuu/fork">🍴 Fork</a> ·
   <a href="https://github.com/ohgeeceee/beemuu/issues">🐛 Report Bug</a>
 </p>
->>>>>>> b18739d0ed091821c583fbb4c2dbed95ae0f5390
+
