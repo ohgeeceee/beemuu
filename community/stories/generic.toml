@@ -1,0 +1,29 @@
+[[dtc_story]]
+code = "P0171"
+engine = "generic"
+template = "System too lean (Bank 1). Unmetered air is entering the engine after the MAF sensor."
+severity = "warning"
+diy = "moderate"
+first_check = "Smoke test the intake tract for vacuum leaks"
+rationale = "A lean mixture code means the DME is adding more fuel than expected. The most common cause is a vacuum leak allowing unmetered air into the intake."
+estimated_cost = "$100–250"
+
+[[dtc_story]]
+code = "P0300"
+engine = "generic"
+template = "Random/multiple cylinder misfire. The ignition system, fuel delivery, or mechanical condition is causing intermittent combustion failure."
+severity = "warning"
+diy = "moderate"
+first_check = "Check ignition coils and spark plugs; look for coolant or oil contamination"
+rationale = "Random misfires across multiple cylinders usually point to a system-wide issue (ignition, fuel pressure, vacuum) rather than one bad component."
+estimated_cost = "$100–400"
+
+[[dtc_story]]
+code = "P0420"
+engine = "generic"
+template = "Catalytic converter efficiency below threshold. The cat may be failing, or a sensor may be reading incorrectly."
+severity = "warning"
+diy = "advanced"
+first_check = "Check for exhaust leaks before the cat; verify O2 sensor operation with live data"
+rationale = "An exhaust leak upstream of the catalytic converter can pull in fresh air and skew O2 sensor readings, falsely triggering this code."
+estimated_cost = "$150–1200"

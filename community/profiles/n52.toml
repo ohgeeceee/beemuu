@@ -87,18 +87,4 @@ label = "N52 2.5/3.0 NA I6 (MSV70/MSV80) [community, oil temp unverified]"
   id = "speed"
   label = "Vehicle speed"
   unit = "km/h"
-  target = 0x12
-  query = "obd:0D"
-  decode = "u8"
-  min = 0.0
-  max = 300.0
-
-  [[profile.param]]
-  id = "volt"
-  label = "Module voltage"
-  unit = "V"
-  target = 0x12
-  query = "obd:42"
-  decode = "u16_milli"
-  min = 8.0
-  max = 16.0
+  target

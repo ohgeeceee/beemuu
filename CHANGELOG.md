@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- N/A
+- **Parameter Hunt (gamified reverse engineering)** — new Hunt tab turns the Parameter Explorer into a game. Points are awarded automatically: +10 per new responding identifier discovered (`probe_range`), +50 per unknown byte mapped to a physical value (`add_to_profile`), +100 per confirmed freeze-frame schema saved, +500 per contribution merged into a release (via the leaderboard file). Includes 11 badges, monthly challenges, a global leaderboard, a recent-activity feed, and award toasts. Simulator runs are logged as practice and score 0 points. New files: `src-tauri/src/hunt.rs`, `src/js/hunt.js`, `src/css/hunt.css`, `community/hunt/leaderboard.json`, `community/hunt/challenges.json`. Local ledger persists to `<home>/beeemuu-exports/hunt_state.json`; leaderboard and challenges ship as static community files updated via pull request (offline-first, same pattern as Oracle/Story).
 
 ### Changed
 - N/A

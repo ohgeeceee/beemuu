@@ -1,6 +1,11 @@
 pub mod analysis;
 pub mod commands;
 pub mod community;
+pub mod oracle;
+pub mod story;
+pub mod anonymize;
+pub mod opinions;
+pub mod hunt;
 pub mod data;
 pub mod protocol;
 pub mod transport;
@@ -45,11 +50,19 @@ pub fn run() {
     register_freeze_schemas();
     // Merge community-contributed TOML data (fault texts, profiles, schemas).
     let rep = community::load();
+    let oracle_entries = oracle::load();
+    let story_entries = story::load();
+    let opinion_entries = opinions::load();
+    let hunt_entries = hunt::load();
     eprintln!(
-        "community data: {} fault texts, {} profiles, {} freeze schemas{}",
+        "community data: {} fault texts, {} profiles, {} freeze schemas, {} oracle entries, {} story entries, {} opinion entries, {} hunt entries{}",
         rep.dtc_texts,
         rep.profiles,
         rep.freeze_schemas,
+        oracle_entries,
+        story_entries,
+        opinion_entries,
+        hunt_entries,
         rep.dir.map(|d| format!(" from {d}")).unwrap_or_default()
     );
 
@@ -91,6 +104,15 @@ pub fn run() {
             commands::export_text,
             commands::export_session,
             commands::import_session,
+            commands::import_session_file,
+            commands::list_exports,
+            commands::query_oracle,
+            commands::generate_story,
+            commands::anonymize_snapshot,
+            commands::get_opinions,
+            commands::hunt_status,
+            commands::hunt_leaderboard,
+            commands::hunt_set_alias,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

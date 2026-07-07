@@ -12,6 +12,7 @@ let pollTimer = null;
 let sessionReplay = false; // true when viewing a loaded snapshot
 let unlockStates = new Map(); // address -> bool
 let secCountdown = null; // interval id for NRC 0x37 retry countdown
+let lastDtcs = []; // cached DTCs for CSV export
 
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
@@ -20,6 +21,24 @@ function setStatus(text, isConnected = connected) {
 }
 function log(text) {
   $("status-log").textContent = text;
+}
+
+/* ---------------- theme toggle ---------------- */
+function applyTheme(dark) {
+  document.body.dataset.theme = dark ? "dark" : "light";
+  $("btn-theme").textContent = dark ? "☀" : "🌙";
+  try { localStorage.setItem("beeemuu_dark", dark ? "1" : "0"); } catch (_) {}
+}
+function toggleTheme() {
+  applyTheme(document.body.dataset.theme !== "dark");
+}
+function loadTheme() {
+  let dark = false;
+  try { dark = localStorage.getItem("beeemuu_dark") === "1"; } catch (_) {}
+  // Respect OS preference if no saved choice
+  if (dark || (!localStorage.getItem("beeemuu_dark") && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    applyTheme(true);
+  }
 }
 
 /* ---------------- persistent settings ---------------- */
@@ -79,6 +98,8 @@ $("conn-kind").addEventListener("change", async () => {
 $("conn-dcan").addEventListener("change", saveSettings);
 $("conn-addr").addEventListener("input", saveSettings);
 
+$("btn-theme").addEventListener("click", toggleTheme);
+
 async function refreshPorts() {
   const ports = await invoke("list_ports");
   const sel = $("conn-port");
@@ -117,11 +138,32 @@ $("btn-connect").addEventListener("click", async () => {
     unlockStates.clear();
     await invoke("disconnect");
     connected = false;
+    sessionReplay = false;
+    modules = [];
+    selectedAddress = null;
+    lastVehicleInfo = null;
+    lastTraffic = [];
     $("btn-connect").textContent = "Connect";
     $("btn-connect").classList.add("btn-primary");
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
     renderTree();
+    return;
+  }
+  if (sessionReplay) {
+    sessionReplay = false;
+    modules = [];
+    selectedAddress = null;
+    lastVehicleInfo = null;
+    lastTraffic = [];
+    $("ecu-tree").innerHTML = "<li class='tree-empty'>Connect and run a vehicle test to identify control units.</li>";
+    $("fault-rows").innerHTML = "<tr><td colspan='3' class='muted'>Select a control unit.</td></tr>";
+    $("info-body").innerHTML = "<p class='muted'>Connect and click 'Read vehicle' to read VIN, decode it, and read mileage.</p>";
+    $("traffic-rows").innerHTML = "<tr><td colspan='6' class='muted'>No traffic yet. Connect and interact with the car.</td></tr>";
+    $("btn-connect").textContent = "Connect";
+    $("btn-connect").classList.add("btn-primary");
+    $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
+    setStatus("Disconnected");
     return;
   }
   try {
@@ -212,9 +254,11 @@ async function selectModule(address) {
   identEl.textContent = m.ident || "";
   identEl.classList.toggle("hidden", !m.ident);
   $("btn-read-faults").disabled = false;
+  $("btn-export-faults").disabled = false;
   $("btn-clear-faults").disabled = sessionReplay;
   $("freeze-panel").classList.add("hidden");
   await readFaults();
+  await loadOracle(address);
 }
 
 async function readFaults() {
@@ -226,6 +270,7 @@ async function readFaults() {
   if (sessionReplay) {
     const m = modules.find((x) => x.address === selectedAddress);
     const dtcs = m?.dtcs || [];
+    lastDtcs = dtcs;
     if (dtcs.length === 0) {
       tbody.innerHTML = "<tr><td colspan='3' class='fault-ok'>No faults stored.</td></tr>";
       return;
@@ -246,6 +291,7 @@ async function readFaults() {
 
   try {
     const dtcs = await invoke("read_faults", { address: selectedAddress });
+    lastDtcs = dtcs;
     if (dtcs.length === 0) {
       tbody.innerHTML = "<tr><td colspan='3' class='fault-ok'>No faults stored.</td></tr>";
       return;
@@ -273,18 +319,113 @@ async function showFreezeFrame(code) {
   body.innerHTML = "<span class='muted'>Reading…</span>";
   panel.classList.remove("hidden");
   try {
-    const items = await invoke("read_freeze_frame", { address: selectedAddress, code });
+    let items;
+    if (sessionReplay) {
+      const m = modules.find((x) => x.address === selectedAddress);
+      const dtc = m?.dtcs?.find((d) => d.code === code);
+      items = dtc?.freeze_frame || [];
+    } else {
+      items = await invoke("read_freeze_frame", { address: selectedAddress, code });
+    }
     body.innerHTML = "";
-    for (const it of items) {
-      const cell = document.createElement("div");
-      cell.className = "freeze-item";
-      cell.innerHTML = `<div class="fi-label">${it.label}</div><div class="fi-value">${it.value}</div>`;
-      body.appendChild(cell);
+    if (items.length === 0) {
+      body.innerHTML = "<span class='muted'>No freeze frame available.</span>";
+    } else {
+      for (const it of items) {
+        const cell = document.createElement("div");
+        cell.className = "freeze-item";
+        cell.innerHTML = `<div class="fi-label">${it.label}</div><div class="fi-value">${it.value}</div>`;
+        body.appendChild(cell);
+      }
     }
   } catch (e) {
     body.innerHTML = `<span class='muted'>No freeze frame available (${e})</span>`;
   }
+  // Also load second opinion for this DTC
+  await loadOpinion(code);
 }
+
+async function loadOpinion(code) {
+  const panel = $("opinion-panel");
+  const body = $("opinion-body");
+  panel.classList.remove("hidden");
+  body.innerHTML = "<span class='muted'>Loading perspectives…</span>";
+  try {
+    const dtc = lastDtcs.find((d) => d.code === code);
+    const dtcText = dtc?.text || "";
+    const result = await invoke("get_opinions", { dtcCode: code, dtcText: dtcText });
+    renderOpinion(result);
+  } catch (e) {
+    body.innerHTML = `<span class='muted'>No opinions available: ${e}</span>`;
+  }
+}
+
+function renderOpinion(result) {
+  const body = $("opinion-body");
+  if (!result.perspectives || result.perspectives.length === 0) {
+    body.innerHTML = `<span class='muted'>No community opinions yet for ${escapeHtml(result.dtc_code)}. Be the first to contribute one!</span>`;
+    return;
+  }
+  let html = '<div class="opinion-tabs">';
+  const perspectives = ["diy", "indie", "dealer"];
+  for (const p of perspectives) {
+    const has = result.perspectives.some((o) => o.perspective === p);
+    if (has) {
+      html += `<button class="opinion-tab ${p === 'diy' ? 'active' : ''}" data-pov="${p}" onclick="switchOpinionTab(this)">${p.toUpperCase()}</button>`;
+    }
+  }
+  html += '</div>';
+  html += '<div class="opinion-cards">';
+  for (const o of result.perspectives) {
+    const cost = o.cost_usd ? ` · ~$${o.cost_usd}` : '';
+    const time = o.time_estimate ? ` · ${escapeHtml(o.time_estimate)}` : '';
+    const diff = o.difficulty ? ` · ${escapeHtml(o.difficulty)}` : '';
+    const source = o.source_url
+      ? `<a href="${escapeHtml(o.source_url)}" target="_blank" class="op-source">${escapeHtml(o.source)}</a>`
+      : `<span class="op-source">${escapeHtml(o.source)}</span>`;
+    html += `<div class="opinion-card op-card-${o.perspective}">
+      <div class="op-perspective op-perspective-${o.perspective}">${o.perspective.toUpperCase()}</div>
+      <div class="op-action">${escapeHtml(o.action)}</div>
+      <div class="op-meta">${cost}${time}${diff}</div>
+      <div class="op-note">${escapeHtml(o.note)}</div>
+      ${source}
+    </div>`;
+  }
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+function switchOpinionTab(btn) {
+  const pov = btn.dataset.pov;
+  const body = $("opinion-body");
+  body.querySelectorAll(".opinion-tab").forEach((t) => t.classList.remove("active"));
+  btn.classList.add("active");
+  body.querySelectorAll(".opinion-card").forEach((c) => {
+    c.style.display = c.classList.contains(`op-card-${pov}`) ? "block" : "none";
+  });
+}
+
+/* ---------- secure snapshot share ---------- */
+
+$("btn-info-secure-share").addEventListener("click", async () => {
+  if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
+  try {
+    setStatus("Preparing secure share…");
+    const json = await invoke("export_session");
+    const snapshot = JSON.parse(json);
+    const anon = await invoke("anonymize_snapshot", { snapshot });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const path = await invoke("export_text", {
+      filename: `beeemuu-secure-${stamp}.json`,
+      content: anon
+    });
+    log("Secure snapshot saved: " + path);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  } catch (e) {
+    log("Secure share failed: " + e);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  }
+});
 
 $("btn-read-faults").addEventListener("click", readFaults);
 
@@ -303,6 +444,72 @@ $("btn-clear-faults").addEventListener("click", async () => {
     log("Clear failed: " + e);
   }
 });
+
+$("btn-export-faults").addEventListener("click", async () => {
+  if (selectedAddress == null || !lastDtcs.length) { log("No faults to export."); return; }
+  const m = modules.find((x) => x.address === selectedAddress);
+  let csv = "Code,Description,Status,StatusHex\n";
+  for (const d of lastDtcs) {
+    csv += `${d.code},"${d.text}","${d.status_text}",0x${d.status.toString(16).toUpperCase().padStart(2, "0")}\n`;
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  try {
+    const path = await invoke("export_text", { filename: `beeemuu-dtcs-${m.name}-${stamp}.csv`, content: csv });
+    log("Saved: " + path);
+  } catch (e) {
+    log("Export failed: " + e);
+  }
+});
+
+/* ---------------- community oracle ---------------- */
+async function loadOracle(address) {
+  const panel = $("oracle-panel");
+  const body = $("oracle-body");
+  const m = modules.find((x) => x.address === address);
+  if (!m || !(m.fault_count > 0)) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+  body.innerHTML = "<span class='muted'>Querying community knowledge base…</span>";
+  try {
+    const result = await invoke("query_oracle", { address });
+    renderOracle(result);
+  } catch (e) {
+    body.innerHTML = `<span class='muted'>Oracle offline: ${e}</span>`;
+  }
+}
+
+function renderOracle(result) {
+  const body = $("oracle-body");
+  if (result.match_count === 0) {
+    body.innerHTML = `<span class='muted'>No community patterns yet for this DTC set. If you fix it, contribute your outcome!</span>`;
+    return;
+  }
+  let html = `<div class="oracle-stats">${result.match_count} similar case${result.match_count !== 1 ? 's' : ''}`;
+  if (result.exact_matches > 0) {
+    html += ` · ${result.exact_matches} exact match${result.exact_matches !== 1 ? 'es' : ''}`;
+  }
+  html += '</div>';
+  html += '<div class="oracle-outcomes">';
+  for (const o of result.outcomes) {
+    const cost = o.cost_estimate_usd ? ` · ~$${o.cost_estimate_usd}` : '';
+    const parts = o.part_numbers && o.part_numbers.length ? `<div class="fix-parts">Parts: ${o.part_numbers.join(', ')}</div>` : '';
+    html += `<div class="oracle-fix">
+      <div class="fix-cat">${escapeHtml(o.fix_category)}</div>
+      <div class="fix-meta">Confidence: ${o.confidence}%${cost}</div>
+      ${parts}
+      <div class="fix-note">${escapeHtml(o.note)}</div>
+    </div>`;
+  }
+  html += '</div>';
+  if (result.forum_threads && result.forum_threads.length) {
+    html += '<div class="oracle-forums"><strong>Sources:</strong> ';
+    html += result.forum_threads.map(f => `<a class="oracle-forum-link" href="${escapeHtml(f.url)}" target="_blank">${escapeHtml(f.title)}</a>`).join(' · ');
+    html += '</div>';
+  }
+  body.innerHTML = html;
+}
 
 /* ---------------- live data ---------------- */
 function ensureGauge(v) {
@@ -459,6 +666,7 @@ $("btn-probe").addEventListener("click", async () => {
       ul.appendChild(li);
     }
     setStatus(`Probe complete — ${results.length} identifiers answered`);
+    if (window.Hunt) Hunt.poke(); // Parameter Hunt: new discoveries may have scored
   } catch (e) {
     ul.innerHTML = `<li class='tree-empty'>Probe failed: ${e}</li>`;
     setStatus("Connected");
@@ -518,6 +726,7 @@ $("btn-add-to-profile").addEventListener("click", async () => {
   try {
     await invoke("add_to_profile", { profileId: $("exp-add-profile").value, spec });
     $("exp-add-status").textContent = "Added.";
+    if (window.Hunt) Hunt.poke(); // Parameter Hunt: +50 for a mapped byte
     // Refresh profile selectors so the new param is available.
     await Promise.all([loadProfiles(), loadLogProfiles(), fillShareProfiles()]);
   } catch (e) {
@@ -727,6 +936,7 @@ async function saveSchema() {
   try {
     await invoke("save_freeze_schema", { address: addr, fields });
     log(`Schema saved for 0x${addr.toString(16).toUpperCase().padStart(2, "0")}`);
+    if (window.Hunt) Hunt.poke(); // Parameter Hunt: +100 for a confirmed schema
   } catch (e) {
     log("Save schema failed: " + e);
   }
@@ -1292,9 +1502,233 @@ $("btn-info-read").addEventListener("click", async () => {
     lastVehicleInfo = info;
     renderVehicleInfo(info);
     $("btn-info-export").disabled = false;
+    $("btn-info-snapshot").disabled = false;
+    $("btn-info-secure-share").disabled = false;
+    $("btn-info-story").disabled = false;
   } catch (e) {
     body.innerHTML = `<p class='muted'>Read failed: ${e}</p>`;
   }
+});
+
+$("btn-info-snapshot").addEventListener("click", async () => {
+  if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
+  try {
+    setStatus("Exporting session snapshot…");
+    const json = await invoke("export_session");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const path = await invoke("export_text", { filename: `beeemuu-session-${stamp}.json`, content: json });
+    log("Snapshot saved: " + path);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  } catch (e) {
+    log("Snapshot export failed: " + e);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  }
+});
+
+/* ---------------- diagnostic story mode ---------------- */
+
+let lastSnapshotForStory = null;
+
+$("btn-info-story").addEventListener("click", async () => {
+  await generateStoryFromCurrent();
+});
+
+$("btn-story-from-snapshot").addEventListener("click", async () => {
+  if (!lastSnapshotForStory) { log("Load a snapshot first."); return; }
+  await generateStory(lastSnapshotForStory);
+});
+
+async function generateStoryFromCurrent() {
+  if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
+  try {
+    setStatus("Generating diagnostic story…");
+    const json = await invoke("export_session");
+    const snapshot = JSON.parse(json);
+    await generateStory(snapshot);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  } catch (e) {
+    log("Story generation failed: " + e);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  }
+}
+
+async function generateStory(snapshot) {
+  try {
+    const story = await invoke("generate_story", { snapshot });
+    renderStory(story);
+  } catch (e) {
+    log("Story generation failed: " + e);
+  }
+}
+
+function renderStory(story) {
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.id = "story-modal";
+  const sevClass = story.severity === "Critical" ? "story-sev-critical" : story.severity === "Warning" ? "story-sev-warning" : "story-sev-info";
+  const sevLabel = story.severity === "Critical" ? "🔴 Critical" : story.severity === "Warning" ? "🟡 Warning" : "🔵 Info";
+  modal.innerHTML = `
+    <div class="modal story-modal">
+      <div class="modal-head">${escapeHtml(story.title)}</div>
+      <div class="modal-body">
+        <div class="story-severity ${sevClass}">${sevLabel}</div>
+        <p class="story-vehicle">${escapeHtml(story.vehicle_summary)}</p>
+        <p class="story-summary">${escapeHtml(story.summary)}</p>
+        <h4 class="story-section">Findings</h4>
+        <div class="story-findings">
+          ${story.findings.map(f => `
+            <div class="story-finding">
+              <div class="finding-header">
+                <code class="finding-code">${escapeHtml(f.dtc_code)}</code>
+                <span class="finding-text">${escapeHtml(f.dtc_text)}</span>
+              </div>
+              <div class="finding-context">${escapeHtml(f.context)}</div>
+              ${f.engine_note ? `<div class="finding-note">${escapeHtml(f.engine_note)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+        <h4 class="story-section">Recommendations</h4>
+        <ol class="story-recommendations">
+          ${story.recommendations.map(r => `
+            <li>
+              <div class="rec-action">${escapeHtml(r.action)}</div>
+              <div class="rec-meta">Difficulty: ${escapeHtml(r.diy_difficulty)}${r.estimated_cost ? ' · Estimated: ' + escapeHtml(r.estimated_cost) : ''}</div>
+              <div class="rec-rationale">${escapeHtml(r.rationale)}</div>
+            </li>
+          `).join('')}
+        </ol>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="copyStoryText()">Copy text</button>
+        <button class="btn btn-primary" onclick="document.getElementById('story-modal').remove()">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  // Store raw text for copy
+  modal.dataset.rawText = formatStoryPlain(story);
+}
+
+function formatStoryPlain(story) {
+  let text = `${story.title}\n${story.vehicle_summary}\n\n${story.summary}\n\nFindings:\n`;
+  for (const f of story.findings) {
+    text += `  ${f.dtc_code} — ${f.dtc_text}\n`;
+    text += `  ${f.context}\n`;
+    if (f.engine_note) text += `  Note: ${f.engine_note}\n`;
+    text += '\n';
+  }
+  text += '\nRecommendations:\n';
+  for (const r of story.recommendations) {
+    text += `  ${r.priority}. ${r.action} (${r.diy_difficulty})\n`;
+    text += `     ${r.rationale}\n`;
+    if (r.estimated_cost) text += `     Est: ${r.estimated_cost}\n`;
+  }
+  return text;
+}
+
+function copyStoryText() {
+  const modal = document.getElementById('story-modal');
+  if (!modal) return;
+  const text = modal.dataset.rawText || '';
+  navigator.clipboard.writeText(text).then(() => {
+    log("Story copied to clipboard");
+  }).catch(() => {
+    log("Copy failed");
+  });
+}
+
+/* ---------------- session snapshot export / import ---------------- */
+
+$("btn-info-snapshot").addEventListener("click", async () => {
+  if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
+  try {
+    setStatus("Exporting session snapshot…");
+    const json = await invoke("export_session");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const path = await invoke("export_text", { filename: `beeemuu-session-${stamp}.json`, content: json });
+    log("Snapshot saved: " + path);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  } catch (e) {
+    log("Snapshot export failed: " + e);
+    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+  }
+});
+
+function loadSnapshot(data) {
+  sessionReplay = true;
+  connected = false;
+  setStatus("Session replay (offline)");
+  $("status-conn").className = "status-dot on";
+  $("vehicle-banner").innerHTML =
+    `<span class="vehicle-label">${data.transport_name} &nbsp;·&nbsp; Session replay</span>`;
+  $("btn-connect").textContent = "Disconnect";
+
+  modules = data.modules.map((m) => ({
+    address: m.address,
+    name: m.name,
+    description: m.description,
+    ident: m.ident,
+    present: m.present,
+    fault_count: m.fault_count,
+    dtcs: m.dtcs || [],
+  }));
+  renderTree();
+  fillExplorerEcus();
+  fillSecurityEcus();
+
+  if (data.vehicle_info) {
+    lastVehicleInfo = {
+      vin: data.vehicle_info.vin,
+      decode: data.vehicle_info.decode,
+      mileage_km: data.vehicle_info.mileage_km,
+      suggested_profile: data.vehicle_info.suggested_profile,
+    };
+    renderVehicleInfo(lastVehicleInfo);
+    $("btn-info-export").disabled = false;
+    $("btn-info-snapshot").disabled = true;
+    $("btn-info-secure-share").disabled = false;
+    $("btn-info-story").disabled = false;
+  }
+
+  if (data.traffic) {
+    lastTraffic = data.traffic;
+    refreshTraffic();
+  }
+
+  if (data.vehicle_info?.suggested_profile) {
+    const liveSel = $("live-profile");
+    const logSel = $("log-profile");
+    const exists = Array.from(liveSel.options).some((o) => o.value === data.vehicle_info.suggested_profile);
+    if (exists) {
+      liveSel.value = data.vehicle_info.suggested_profile;
+      logSel.value = data.vehicle_info.suggested_profile;
+      liveSel.dispatchEvent(new Event("change"));
+    }
+  }
+
+  log("Loaded session snapshot.");
+}
+
+$("session-load-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const data = await invoke("import_session", { content: reader.result });
+      lastSnapshotForStory = data;
+      $("btn-story-from-snapshot").disabled = false;
+      loadSnapshot(data);
+    } catch (err) {
+      log("Failed to load session: " + err);
+    }
+    e.target.value = "";
+  };
+  reader.readAsText(file);
+});
+
+$("btn-session-load").addEventListener("click", () => {
+  $("session-load-file").click();
 });
 
 function renderVehicleInfo(info) {
@@ -1639,11 +2073,13 @@ document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     if (tab.dataset.view === "logging") buildLogParams();
     if (tab.dataset.view === "diagnostics") { loadCommunityReport(); refreshTraffic(); fillShareProfiles(); }
+    if (tab.dataset.view === "snapshots") refreshSnapshots();
   });
 });
 
 /* ---------------- init ---------------- */
 (async function init() {
+  loadTheme();
   loadServiceFunctions();
   await loadProfiles();
   await loadLogProfiles();
@@ -1664,3 +2100,86 @@ async function loadLogProfiles() {
     sel.appendChild(o);
   }
 }
+
+/* ---------------- snapshot library ---------------- */
+
+async function refreshSnapshots() {
+  const list = $("snapshot-list");
+  list.innerHTML = "<div class='snapshot-card'><div class='snapshot-meta'>Scanning exports folder…</div></div>";
+  try {
+    const files = await invoke("list_exports");
+    renderSnapshots(files);
+  } catch (e) {
+    list.innerHTML = `<div class='snapshot-card'><div class='snapshot-meta'>Failed to read exports: ${e}</div></div>`;
+  }
+}
+
+function renderSnapshots(files) {
+  const list = $("snapshot-list");
+  if (!files.length) {
+    list.innerHTML = `<div class='snapshot-card'><div class='snapshot-meta'>No snapshots yet. Connect to a vehicle and click "Export full snapshot" in Vehicle Info to create one.</div></div>`;
+    return;
+  }
+  list.innerHTML = "";
+  for (const f of files) {
+    const dt = new Date(f.modified_secs * 1000);
+    const dateStr = dt.toLocaleString();
+    const sizeStr = f.size_bytes < 1024 ? `${f.size_bytes} B` : f.size_bytes < 1048576 ? `${(f.size_bytes / 1024).toFixed(1)} KB` : `${(f.size_bytes / 1048576).toFixed(1)} MB`;
+    const card = document.createElement("div");
+    card.className = "snapshot-card";
+    card.innerHTML =
+      `<div class="snapshot-title">${escapeHtml(f.name)}</div>` +
+      `<div class="snapshot-meta">${dateStr} · ${sizeStr}</div>` +
+      `<div class="snapshot-actions">` +
+        `<button class="btn btn-small" data-name="${escapeHtml(f.name)}">Open</button>` +
+      `</div>`;
+    card.querySelector("button").addEventListener("click", () => loadSnapshotFromFile(f.name));
+    list.appendChild(card);
+  }
+}
+
+async function loadSnapshotFromFile(name) {
+  try {
+    setStatus("Loading snapshot…");
+    const data = await invoke("import_session_file", { name });
+    lastSnapshotForStory = data;
+    $("btn-story-from-snapshot").disabled = false;
+    loadSnapshot(data);
+    log("Loaded snapshot: " + name);
+    setStatus("Session replay (offline)");
+    // Switch to the vehicle-info tab so the user sees the loaded data
+    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+    const infoTab = document.querySelector('.tab[data-view="info"]');
+    if (infoTab) {
+      infoTab.classList.add("active");
+      $("view-info").classList.add("active");
+    }
+  } catch (e) {
+    log("Failed to load snapshot: " + e);
+    setStatus("Disconnected");
+  }
+}
+
+$("btn-snapshot-refresh").addEventListener("click", refreshSnapshots);
+
+$("btn-snapshot-load-file").addEventListener("click", () => {
+  $("snapshot-load-file").click();
+});
+
+$("snapshot-load-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const data = await invoke("import_session", { content: reader.result });
+      loadSnapshot(data);
+      log("Loaded snapshot from file: " + file.name);
+    } catch (err) {
+      log("Failed to load session: " + err);
+    }
+    e.target.value = "";
+  };
+  reader.readAsText(file);
+});

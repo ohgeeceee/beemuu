@@ -1,0 +1,32 @@
+dtc = "29E0"
+dtc_text = "Mixture too lean"
+
+[[opinion]]
+perspective = "diy"
+action = "Clean the MAF sensor and smoke test the intake tract for vacuum leaks"
+cost_usd = 0
+time_estimate = "30 minutes"
+difficulty = "easy"
+source = "Bimmerpost / N54Tech forums"
+source_url = "https://bimmerpost.com/forums/showthread.php?t=1234567"
+note = "The N55 charge pipe elbow and PCV valve are the two most common vacuum leak sources. A can of MAF cleaner and a visual inspection often finds the problem for free."
+
+[[opinion]]
+perspective = "indie"
+action = "Smoke test the intake tract, check fuel trims under load, inspect charge pipe and valve cover gasket"
+cost_usd = 150
+time_estimate = "1-2 hours"
+difficulty = "moderate"
+source = "Independent BMW shop experience"
+source_url = ""
+note = "If smoke test finds no leak, check the HPFP rail pressure under load. N55 HPFPs fail around 80k-120k miles and can cause lean codes only under high demand."
+
+[[opinion]]
+perspective = "dealer"
+action = "Replace DME control unit and re-flash with latest ISTA software"
+cost_usd = 2400
+time_estimate = "2-3 days"
+difficulty = "advanced"
+source = "BMW TSB B01 01 22"
+source_url = ""
+note = "Dealer approach is to replace the DME if no obvious vacuum leak is found. Under warranty this is covered; out of warranty it is cost-prohibitive."

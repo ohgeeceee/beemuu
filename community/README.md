@@ -85,9 +85,7 @@ address = 0x12   # DME
   decimals = 0
 ```
 
-## How to find these values
+## `oracle/*.json` — Community Oracle DTC patterns
 
-Use the **Parameter Explorer** tab on a real car: scan a module's identifiers,
-watch one live, and note which byte offsets track RPM, temperature, etc. as you
-rev the engine. Then write them up here and open a pull request — include your
-chassis and engine so others know what it applies to.
+These power the **Community Oracle** panel on the Vehicle Test tab.
+When a user scans faults, BeeEmUu fingerprints the DTC set

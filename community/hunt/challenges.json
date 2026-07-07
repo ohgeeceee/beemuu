@@ -1,0 +1,32 @@
+{
+  "_comment": "Monthly Parameter Hunt challenges. 'month' is YYYY-MM (empty = always active). 'kind' is one of: discover | map | schema. Progress counts real-car events only (simulator runs are practice). Updated via pull request.",
+  "challenge": [
+    {
+      "id": "2026-07-n54-locals",
+      "title": "July: N54 Local Sweep",
+      "description": "Discover 5 new responding local identifiers this month",
+      "month": "2026-07",
+      "kind": "discover",
+      "target": 5,
+      "reward": 250
+    },
+    {
+      "id": "2026-07-map-two",
+      "title": "July: Name That Byte",
+      "description": "Map 2 unknown bytes to physical values this month",
+      "month": "2026-07",
+      "kind": "map",
+      "target": 2,
+      "reward": 300
+    },
+    {
+      "id": "evergreen-first-schema",
+      "title": "Schema Pioneer",
+      "description": "Save a confirmed freeze-frame schema for any ECU",
+      "month": "",
+      "kind": "schema",
+      "target": 1,
+      "reward": 150
+    }
+  ]
+}

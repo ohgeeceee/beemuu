@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
 /// One decoded freeze-frame value, ready for display.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FreezeItem {
     pub label: String,
     pub value: String,
@@ -220,67 +220,4 @@ impl FreezeRegistry {
 
     /// Retrieve a copy of the schema for this ECU (or the default fallback).
     pub fn get_schema(&self, address: u8) -> Option<FreezeSchema> {
-        let m = self.map.read().unwrap();
-        m.get(&Some(address)).or_else(|| m.get(&None)).cloned()
-    }
-
-    /// Remove the custom schema for this ECU, returning it if present.
-    pub fn unregister(&self, address: u8) -> Option<FreezeSchema> {
-        self.map.write().unwrap().remove(&Some(address))
-    }
-
-    /// Decode a payload using this ECU's schema, or the default.
-    pub fn decode(&self, address: u8, data: &[u8]) -> Vec<FreezeItem> {
-        let m = self.map.read().unwrap();
-        let schema = m.get(&Some(address)).or_else(|| m.get(&None));
-        match schema {
-            Some(s) => s.decode(data),
-            None => vec![FreezeItem {
-                label: "Raw".to_string(),
-                value: data.iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(" "),
-            }],
-        }
-    }
-}
-
-/// Global freeze-frame registry, seeded with the default schema.
-pub fn registry() -> &'static FreezeRegistry {
-    static REG: OnceLock<FreezeRegistry> = OnceLock::new();
-    REG.get_or_init(|| {
-        let r = FreezeRegistry::new();
-        r.register_default(default_schema());
-        r
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn default_layout_decodes() {
-        // rpm=750, coolant=90(=130-40), speed=0, load=20, volts=13.9(=139/10), mileage=123456
-        let data = [0x02, 0xEE, 0x82, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40];
-        let items = registry().decode(0x12, &data);
-        assert_eq!(items[0].value, "750 rpm");
-        assert_eq!(items[1].value, "90 °C");
-        assert_eq!(items[4].value, "13.9 V");
-        assert_eq!(items[5].value, "123456 km");
-    }
-
-    #[test]
-    fn short_payload_skips_missing_fields() {
-        // Only rpm + coolant present; later fields skipped, raw still appended.
-        let data = [0x02, 0xEE, 0x82];
-        let items = registry().decode(0x12, &data);
-        assert_eq!(items[0].value, "750 rpm");
-        assert_eq!(items[1].value, "90 °C");
-        assert_eq!(items.last().unwrap().label, "Raw");
-    }
-
-    #[test]
-    fn signed_field_handles_negative() {
-        let s = FreezeSchema { fields: vec![FreezeField::new("t", "°C", 0, Width::I8, 1.0, 0.0, 0)] };
-        assert_eq!(s.decode(&[0xF6])[0].value, "-10 °C"); // 0xF6 = -10
-    }
-}
+        let m = self

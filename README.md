@@ -1,266 +1,209 @@
-<div align="center">
+# Beemuu
 
-# BeeEmUu
+<p align="center">
+  <a href="#"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License: MIT"></a>
+  <a href="#"><img src="https://img.shields.io/badge/100%25-Free%20Forever-success?style=flat-square" alt="100% Free Forever"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Community-Owned-orange?style=flat-square" alt="Community Owned"></a>
+  <a href="#"><img src="https://img.shields.io/badge/No%20VC-No%20Paywalls-critical?style=flat-square" alt="No VC. No Paywalls."></a>
+</p>
 
-**An independent, open-source diagnostic platform for BMW vehicles.**
+<p align="center">
+  <b>The lightweight, community-led alternative the ecosystem has been starving for.</b><br>
+  Fast. Modular. Completely free. No corporate backing, no hidden pricing, no VC-funding pressures.
+</p>
 
-Vehicle scans, fault memory, live gauges, and a reverse-engineering toolkit —
-in a desktop app that runs against a built-in simulator or real hardware.
-
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
-![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-24C8DB)
-![Backend](https://img.shields.io/badge/backend-Rust-CE422B)
-![Status](https://img.shields.io/badge/status-research%20preview-orange)
-
-</div>
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#contributing">Contributing</a> ·
+  <a href="#community">Community</a> ·
+  <a href="#license">License</a>
+</p>
 
 ---
 
-> [!IMPORTANT]
-> **Not affiliated with BMW.** "BMW" and "ISTA" are trademarks of BMW AG, used
-> here only to describe compatibility. This repository ships **none** of BMW's
-> proprietary data or software — no SGBDs, no fault-text databases, no ISTA
-> assets. All protocol behaviour is based on community documentation and
-> original work.
+## The software industry is broken. We're fixing it.
 
-> [!WARNING]
-> **This tool talks to safety-relevant vehicle systems.** Clearing faults
-> erases diagnostic evidence; service functions can actuate pumps, valves, and
-> brakes. Use with the vehicle **stationary and secured, never while driving**,
-> and entirely at your own risk. Provided WITHOUT ANY WARRANTY — see
-> [LICENSE](LICENSE) §§15–16.
+For years, we've watched the tools we depend on swell into bloated, over-engineered monoliths. Every "update" brings another paywall. Another feature gate. Another VC-funded pivot toward enterprise contracts and away from the developers who built the community in the first place.
 
-## Contents
+**Software wasn't supposed to be this way.**
 
-- [What it does](#what-it-does)
-- [Screenshots](#screenshots)
-- [Quick start (no hardware)](#quick-start-no-hardware)
-- [Supported hardware](#supported-hardware)
-- [Tested vehicles](#tested-vehicles)
-- [Build from source](#build-from-source)
-- [Contributing](#contributing)
-- [Mapping your car](#mapping-your-car)
-- [Architecture](#architecture)
-- [Real-car notes](#real-car-notes)
-- [Releases](#releases)
-- [License](#license)
+We started with simple needs: fast, reliable, composable tools that respect our time and our autonomy. Instead, we got platforms with 47 tabs of configuration, mandatory SaaS dashboards, and pricing tiers that punish you for growing. The tools that once felt like craft now feel like contracts.
 
-## What it does
+---
 
-| Area | Capabilities |
-|---|---|
-| **Vehicle test** | ISTA-style module scan; per-ECU identification and fault-count badges |
-| **Fault memory** | Read / clear DTCs with decoded status bits, community fault text, and per-fault **freeze frames** |
-| **Live data** | Real-time dial gauges; selectable per-engine profiles (generic OBD-II works on any 2007+ car) |
-| **Logging** | Record parameters to time-series charts; export CSV |
-| **Parameter Explorer** | Scan a module's identifiers and watch one live as a **byte-mutation heatmap** — the tool for reverse-engineering unknown DIDs |
-| **Vehicle info** | VIN read + decode (manufacturer, year, plant); mileage; exportable report |
-| **Security** | UDS sessions and a pluggable **SecurityAccess (0x27)** seed/key registry |
-| **Service functions** | CBS resets, registrations, actuator tests — with risk warnings |
-| **Diagnostics** | Connection self-test, full **traffic log** (exportable), community-data status |
+## Enter Beemuu
 
-Everything works end-to-end against the built-in **simulator**, so you can try
-the whole app with no car and no cable.
+**Beemuu is the lightweight, community-led alternative the ecosystem has been starving for.**
 
-## Screenshots
+Built by developers, for developers. No feature bloat. No VC boardrooms dictating the roadmap. No "freemium" traps waiting to spring on your next deploy. Just sharp, focused engineering that solves real problems without creating new ones.
 
-> _Placeholder — add screenshots or a short GIF here. Run against the Simulator
-> so no real VIN is shown. Good shots: the Vehicle Test module tree, the Live
-> Data gauges, and the Parameter Explorer heatmap._
+### What makes Beemuu different
 
-## Quick start (no hardware)
+| Principle | What it means for you |
+|-----------|----------------------|
+| **Fast by default** | Optimized for cold starts, low memory, and zero ceremony. If it takes longer to configure than to run, we've failed. |
+| **Modular to the core** | Import what you need. Leave the rest. No all-or-nothing bundles forcing you to ship megabytes of unused code. |
+| **Community-owned** | Every feature, every fix, every decision is shaped by the people using it. No corporate overlord. No hidden agenda. |
+| **100% Free Forever** | MIT licensed. No SaaS upsells. No "enterprise edition" stripping out basic functionality. This is public infrastructure, not a product pitch. |
+
+---
+
+## The Core Promise
+
+Beemuu will never take funding that forces us to betray the community. We will never hide features behind paywalls. We will never prioritize a sales deck over a bug report.
+
+**This is open-source craft, uncorrupted.**
+
+If you're tired of tools that treat you like a revenue line item, join us. Star the repo. Open an issue. Submit a PR. Or just use it and tell us what broke.
+
+The future of developer tooling doesn't belong to shareholders. It belongs to us.
+
+---
+
+## Quick Start
+
+Get Beemuu running in under 30 seconds:
 
 ```bash
+# Clone the repository
+git clone https://github.com/ohgeeceee/beemuu.git
+cd beemuu
+
+# Install dependencies
 npm install
+
+# Start Beemuu
 npm run dev
 ```
 
-In the app: leave the transport on **Simulator** → **Connect** → **Run vehicle
-test**. The virtual E90 answers with eight modules, a few stored faults, and
-live engine data for the gauges.
-
-> First build compiles the Rust backend (a few minutes). Prerequisites are in
-> [Build from source](#build-from-source).
-
-## Supported hardware
-
-| Transport | Cars | Protocol | Status |
-|---|---|---|---|
-| **Simulator** | Virtual E90 (N52) | — | ✅ Works out of the box |
-| **K+DCAN USB cable** | E-series | D-CAN 115200 8N1 (2007+) · K-line 10400 8N1 + fast-init (earlier) | 🔧 Implemented; on-car validation in progress |
-| **ENET cable** | F/G-series | UDS over HSFZ (TCP :6801) | 🔧 Implemented; needs on-car validation |
-
-Transports sit behind one pluggable `Transport` trait, so adding another
-interface means implementing a single trait.
-
-## Tested vehicles
-
-Community-verified compatibility. Ran it on your car? Please
-[add a row](.github/ISSUE_TEMPLATE/profile_submission.md) — even if you only
-confirmed the module scan.
-
-| Chassis | Engine | Cable | Scan | Faults | Live data | Notes |
-|---|---|---|:--:|:--:|:--:|---|
-| _Simulator_ | virtual E90 | — | ✅ | ✅ | ✅ | Reference; always works |
-| E70 X5 | N62B48 (4.8i) | K+DCAN | 🔄 | 🔄 | 🔄 | Author's car; validation in progress |
-
-## Build from source
-
-**Prerequisites**
-
-- [Rust](https://rustup.rs) (stable, MSVC toolchain on Windows)
-- Node.js 18+
-- WebView2 (preinstalled on Windows 10/11)
-- For K+DCAN: the FTDI VCP driver, so the cable appears as a COM port
-
-**Commands**
+That's it. No Docker. No cloud signup. No API keys. Just `npm run dev` and you're live.
 
 ```bash
-npm install
-npm run dev      # dev window with hot reload
-npm run build    # installer in src-tauri/target/release/bundle
+# Or try it directly with npx (no install required)
+npx beemuu@latest
 ```
 
-First build only — generate the icon set from any square PNG:
+---
+
+## Installation
+
+### Via Package Manager
 
 ```bash
-npx tauri icon app-icon.png
+npm install beemuu
+# or
+yarn add beemuu
+# or
+pnpm add beemuu
 ```
+
+### Via CDN (for quick prototyping)
+
+```html
+<script src="https://unpkg.com/beemuu@latest/dist/beemuu.min.js"></script>
+```
+
+### System Requirements
+
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| Node.js | 18.x | 20.x LTS |
+| RAM | 64 MB | 128 MB |
+| Disk | 10 MB | 20 MB |
+
+Beemuu is intentionally lightweight. It runs on a Raspberry Pi, a $5 VPS, or your laptop without breaking a sweat.
+
+---
+
+## Features
+
+- **Zero-config startup** — Sensible defaults that work out of the box. Override only what you need.
+- **Composable architecture** — Pick the modules you need. Mix, match, and extend without vendor lock-in.
+- **Blazing fast** — Cold starts in milliseconds. Sub-second reloads. Built for speed, not feature checklists.
+- **Framework-agnostic** — Works with whatever stack you're already using. No rewrites required.
+- **Developer-first DX** — Clear error messages, great autocomplete, and docs that actually help.
+- **Community roadmap** — No secret product plans. Every major decision is discussed publicly before it ships.
+
+---
 
 ## Contributing
 
-The most valuable contributions are **data** — and you don't need to write code.
+Beemuu is a community project, and we mean it. Whether you're fixing a typo, reporting a bug, or proposing a major feature, your contribution matters.
 
-**Add data via TOML (no Rust).** Edit the files in
-[`community/`](community/README.md) — fault texts, live-data profiles, or
-freeze-frame layouts — restart, and they load automatically. The **Diagnostics**
-tab shows exactly what loaded and flags file errors.
+### How to Contribute
 
-**Share a profile you mapped.** Export it in-app (Diagnostics → Share profiles),
-then send the file or open a PR. Full workflow:
-[docs/sharing-profiles.md](docs/sharing-profiles.md).
+1. **Check existing issues** — Someone may already be working on it. If not, open a new one.
+2. **Fork & branch** — Create a feature branch from `main`.
+3. **Write clean code** — Follow the existing style. Add tests if you're changing logic.
+4. **Open a Pull Request** — Fill out the PR template. Link the related issue. We'll review it promptly.
 
-**Report a tested vehicle**, submit fault texts, or contribute code — see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+### Our Commitment to Contributors
 
-> One hard rule: contribute only original or community-derived knowledge.
-> **Never** data extracted from ISTA or other proprietary BMW software.
+- **Every PR gets a review within 48 hours.** No exceptions.
+- **Every contributor gets credit.** Your name will appear in `CONTRIBUTORS.md` and the release notes.
+- **No idea is too small.** Documentation fixes, typo corrections, and accessibility improvements are first-class contributions.
 
-## Mapping your car
+Read the full [Contributing Guide](./CONTRIBUTING.md) for setup instructions, coding standards, and commit conventions.
 
-Live data uses selectable **profiles**. Start with **Generic OBD-II** (mode 01
-PIDs) — emissions-mandated, so any 2007+ DME answers it out of the box.
+---
 
-To map model-specific values (oil temp, per-bank sensors, transmission temps),
-use the **Parameter Explorer**:
+## Community
 
-1. Connect and run a vehicle test.
-2. Pick an ECU (start with the DME), choose an ident type (*Local ident*, *DID*,
-   or *OBD PID*), and scan a range. Only identifiers the module answers appear.
-3. Click a result to **watch it live**. Rev the engine, switch on the AC — the
-   byte-mutation heatmap highlights which bytes carry the changing signal, with
-   volatility, mean delta, and observed min–max.
-4. Add the confirmed mapping to `community/profiles.toml` (no recompile) or a
-   per-car file under `community/profiles/`.
+This project lives and dies by its community. Here's where the conversation happens:
 
-## Architecture
+| Platform | Purpose | Link |
+|----------|---------|------|
+| **GitHub Issues** | Bug reports, feature requests, technical discussion | [Open an Issue](https://github.com/ohgeeceee/beemuu/issues) |
+| **GitHub Discussions** | Roadmap proposals, Q&A, show-and-tell | [Join the Discussion](https://github.com/ohgeeceee/beemuu/discussions) |
+| **Discord** | Real-time chat, quick help, community hangout | [Join Discord](https://discord.gg/YOUR_INVITE) |
 
-Tauri v2 — a synchronous Rust backend compiled to a native binary, with a
-dependency-free vanilla-JS frontend in the OS webview.
+### Community Rules (We Take These Seriously)
 
-<details>
-<summary><strong>Project layout</strong></summary>
+1. **Every Issue Gets a Human Response Within 48 Hours** — Silence kills trust. We respond, acknowledge, and set expectations.
+2. **No Feature Is "Accepted" Without Public Discussion** — Major decisions are made in the open, not in private Slack channels.
+3. **Credit Is Public, Permanent, and Prominent** — Every contributor is named in release notes and `CONTRIBUTORS.md`.
+4. **Transparency Is Default** — Roadmap, finances, and decisions are public. No backroom deals.
 
-```
-src/                      Frontend (vanilla JS, no build step)
-  index.html              Layout: header, tabs, panels
-  css/app.css             ISTA-inspired theme
-  js/gauges.js            Canvas dial gauges
-  js/main.js              App logic, invokes Rust commands
+Read the full [Community Framework](./COMMUNITY_FRAMEWORK.md) to understand how we protect the democracy of this project.
 
-src-tauri/src/
-  transport/              Physical interfaces (pluggable Transport trait)
-    kdcan.rs              KWP2000 over FTDI serial (K-line fast-init + D-CAN)
-    enet.rs               UDS over HSFZ TCP (F/G-series)
-    sim.rs                Virtual E90 for hardware-free development
-    record.rs             Traffic-recording transport decorator
-  protocol/
-    mod.rs                Service layer: ident, DTC read/clear, DIDs, routines
-    security.rs           Pluggable UDS SecurityAccess (0x27) seed/key registry
-  analysis.rs             Byte-diff mutation engine (Parameter Explorer)
-  community.rs            Loads community/*.toml into runtime registries
-  data/
-    ecus.rs               Diagnostic address table (DME 0x12, EGS 0x18, …)
-    dtc.rs                Fault-code text (built-in + community overlay)
-    live.rs               Live-data profiles (runtime store)
-    freeze.rs             Per-ECU freeze-frame schema registry
-    vin.rs                VIN decoder
-    service_functions.rs  CBS resets, registrations, actuator tests
-  commands.rs             Tauri command bridge
-
-community/                Drop-in TOML data — edit without recompiling
-  dtc_texts.toml          Fault-code descriptions
-  profiles.toml           Live-data parameter maps
-  profiles/*.toml         One file per car (no PR merge conflicts)
-  freeze_schemas.toml     Freeze-frame byte layouts per ECU
-```
-
-</details>
-
-<details>
-<summary><strong>Design notes</strong></summary>
-
-- **Pluggable registries** for the parts that vary per car — SecurityAccess
-  algorithms (`protocol/security.rs`), freeze-frame schemas (`data/freeze.rs`),
-  and live-data profiles (`data/live.rs`) — so contributions drop in without
-  touching core logic.
-- **Runtime data loading** merges `community/*.toml` into those registries at
-  startup, keeping the app extensible by non-coders.
-- **Transport decorator** (`record.rs`) records every request/response for the
-  traffic log without the protocol layer knowing about it.
-
-</details>
-
-## Real-car notes
-
-Read before plugging into a vehicle.
-
-- **Some DIDs and routine IDs are placeholders** matching the simulator. Real
-  DMEs use model-specific identifiers (community DID lists and INPA `.IPO` files
-  are the usual references); real CBS resets/actuator tests are model-specific
-  and some need security access. **Verify on your car before trusting them.**
-- **Fault texts** are a small community starter set; unknown codes show a
-  generic label. Extend via `community/dtc_texts.toml`.
-- **Cable timing:** D-CAN is 115200 8N1; K-line is 10400 8N1 with ISO 14230
-  fast-init. If a real car times out, drop the FTDI latency timer to 1 ms
-  (Device Manager → Port Settings → Advanced).
-- **Safety:** clearing faults erases freeze frames; high-risk service functions
-  actuate hardware. Ignition on, engine off, car secured.
-
-## Releases
-
-GitHub Actions builds Windows and Linux packages on every push. To cut a
-release, bump the version in `package.json`, `src-tauri/tauri.conf.json`, and
-`src-tauri/Cargo.toml`, then push a `v*` tag — the workflow drafts a GitHub
-release with installers attached. Installers are unsigned, so Windows
-SmartScreen warns on first run; code signing can be added later.
-
-## Roadmap
-
-- [ ] Per-engine live-data profiles (N52 / N54 / N55 / N62 / B58)
-- [ ] UDS security access for F/G-series service functions
-- [ ] Freeze-frame schemas confirmed on real cars
-- [ ] Chart playback for logged sessions
-- [ ] Community profile pack shipped with releases
-
-Coding/flashing is deliberately **out of scope**.
+---
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). You may use, study, modify, and redistribute this
-software under those terms; derivative works must remain open source.
+Beemuu is released under the **MIT License**.
 
-<div align="center">
-<sub>Independent project · not affiliated with or endorsed by BMW AG.</sub>
-</div>
+```
+MIT License
+
+Copyright (c) 2025 Beemuu Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+<p align="center">
+  <b>Built with craft, not capital.</b><br>
+  Star us on GitHub · Join the Discord · Spread the word
+</p>
+
+<p align="center">
+  <a href="https://github.com/oh

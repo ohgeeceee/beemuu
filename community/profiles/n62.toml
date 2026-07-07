@@ -96,10 +96,4 @@ label = "N62 4.0–4.8 NA V8 (ME9.2) [community, oil temp unverified]"
 
   [[profile.param]]
   id = "volt"
-  label = "Module voltage"
-  unit = "V"
-  target = 0x12
-  query = "obd:42"
-  decode = "u16_milli"
-  min = 8.0
-  max = 16.0
+  label = "Module v

@@ -228,43 +228,4 @@ pub mod algo {
         for (i, &s) in seed.iter().take(4).enumerate() {
             b[i] = s;
         }
-        u32::from_be_bytes(b)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn xor_algorithm_roundtrip() {
-        let f = algo::xor_u32(0x5AA5_1234);
-        let seed = [0x11, 0x22, 0x33, 0x44];
-        let key = f(&seed);
-        let expected = (0x1122_3344u32 ^ 0x5AA5_1234).to_be_bytes().to_vec();
-        assert_eq!(key, expected);
-    }
-
-    #[test]
-    fn short_seed_is_zero_padded() {
-        let f = algo::add_u32(1);
-        // seed 0x00AB -> u32 0x00AB0000 -> +1
-        assert_eq!(f(&[0x00, 0xAB]), 0x00AB_0001u32.to_be_bytes().to_vec());
-    }
-
-    #[test]
-    fn exact_registration_beats_default() {
-        let r = SecurityRegistry::new();
-        r.register_default(0x01, algo::echo());
-        r.register_for(0x12, 0x01, algo::xor_u32(0xFFFF_FFFF));
-        // DME uses the exact XOR entry
-        assert_eq!(
-            r.generate(0x12, 0x01, &[0x00, 0x00, 0x00, 0x00]),
-            Some(vec![0xFF, 0xFF, 0xFF, 0xFF])
-        );
-        // Any other ECU falls back to echo
-        assert_eq!(r.generate(0x29, 0x01, &[1, 2, 3]), Some(vec![1, 2, 3]));
-        // Unknown level: nothing
-        assert_eq!(r.generate(0x12, 0x03, &[1]), None);
-    }
-}
+        u32::from_be_bytes

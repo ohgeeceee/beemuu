@@ -1,0 +1,49 @@
+[[dtc_story]]
+code = "29E0"
+engine = "n55"
+template = "Mixture too lean on the N55. This is most commonly caused by a vacuum leak at the charge pipe elbow or valve cover gasket. Check fuel trims under load."
+severity = "warning"
+diy = "moderate"
+first_check = "Smoke test the intake tract (charge pipe, valve cover gasket, PCV valve)"
+rationale = "Unmetered air after the MAF sensor causes the DME to detect a lean mixture. The N55 charge pipe plastic elbow is a known weak point."
+estimated_cost = "$80–200"
+
+[[dtc_story]]
+code = "30FF"
+engine = "n55"
+template = "Charge-air pressure too low on the N55. Almost always a boost leak — charge pipe crack, diverter valve, or intercooler hose."
+severity = "warning"
+diy = "easy"
+first_check = "Visually inspect charge pipe and intercooler connections for oil residue or cracks"
+rationale = "The N55 charge pipe is plastic and cracks at the elbow under heat cycling. Oil spray around the connection confirms a leak."
+estimated_cost = "$0–350"
+
+[[dtc_story]]
+code = "2A82"
+engine = "n55"
+template = "VANOS intake control fault on the N55. The solenoid can often be removed, cleaned, and reinstalled successfully."
+severity = "warning"
+diy = "easy"
+first_check = "Remove and clean the VANOS intake solenoid with brake cleaner"
+rationale = "Oil sludge can cause the VANOS solenoid to stick. Cleaning takes 20 minutes and costs $0. Replacement is ~$120 if cleaning fails."
+estimated_cost = "$0–120"
+
+[[dtc_story]]
+code = "2E81"
+engine = "n55"
+template = "Electric coolant pump speed deviation on the N55. The pump is failing or the wiring is degraded."
+severity = "critical"
+diy = "advanced"
+first_check = "Check coolant pump fuse and wiring; if OK, replace the pump"
+rationale = "The N55 electric water pump is a known failure point at 60k–100k miles. A failing pump can lead to overheating and engine damage."
+estimated_cost = "$350–500"
+
+[[dtc_story]]
+code = "29CC"
+engine = "n55"
+template = "Random/multiple cylinder misfire on the N55. Often caused by aging ignition coils or spark plugs."
+severity = "warning"
+diy = "easy"
+first_check = "Replace spark plugs first (cheapest), then swap coils between cylinders to isolate"
+rationale = "N55 ignition coils are robust but degrade after 60k+ miles. Plugs are due every 30k on tuned cars. Always start with the cheapest fix."
+estimated_cost = "$80–220"

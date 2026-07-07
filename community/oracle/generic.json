@@ -1,0 +1,30 @@
+{
+  "f6a7b8c9d0e12345": {
+    "engine_family": "generic",
+    "dtcs": ["P0171"],
+    "outcomes": [
+      {
+        "fix_category": "Smoke test intake tract for vacuum leaks",
+        "part_numbers": [],
+        "cost_estimate_usd": 100,
+        "confidence": 80,
+        "note": "System too lean (Bank 1) is most commonly caused by unmetered air entering after the MAF."
+      }
+    ],
+    "forum_threads": []
+  },
+  "a7b8c9d0e1f23456": {
+    "engine_family": "generic",
+    "dtcs": ["P0300"],
+    "outcomes": [
+      {
+        "fix_category": "Check ignition system (coils, plugs, wires)",
+        "part_numbers": [],
+        "cost_estimate_usd": 200,
+        "confidence": 75,
+        "note": "Random/multiple cylinder misfire — start with the cheapest ignition components."
+      }
+    ],
+    "forum_threads": []
+  }
+}

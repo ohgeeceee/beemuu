@@ -5,7 +5,7 @@ use crate::data::{ecus, freeze, live, service_functions, vin};
 use crate::protocol::{self, Dtc, EcuInfo, FreezeItem};
 use crate::transport::record::{RecordingTransport, SharedLog, TrafficEntry};
 use crate::transport::{self, Transport, TransportConfig};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
@@ -140,6 +140,8 @@ pub fn save_freeze_schema(
         fields: rust_fields,
     };
     freeze::registry().register_for(address, schema);
+    // Parameter Hunt: +100 for a confirmed freeze-frame schema.
+    crate::hunt::record_schema(address);
     Ok(())
 }
 
@@ -285,6 +287,8 @@ pub fn probe_range(
         return Err("Range too large (max 512 per scan)".into());
     }
     with_transport(&state, |t| {
+        // Simulator discoveries are practice runs: logged, but 0 points.
+        let practice = t.name().to_ascii_lowercase().contains("sim");
         let mut found = Vec::new();
         for id in start..=end {
             if let Ok(data) = probe_read(t, &mode, address, id) {
@@ -296,6 +300,9 @@ pub fn probe_range(
                 found.push(ProbeResult { id, hex });
             }
         }
+        // Parameter Hunt: +10 per never-before-seen responding identifier.
+        let ids: Vec<u16> = found.iter().map(|f| f.id).collect();
+        crate::hunt::record_discoveries(address, &mode, &ids, practice);
         Ok(found)
     })
 }
@@ -603,7 +610,7 @@ pub fn add_to_profile(profile_id: String, spec: AddParamSpec) -> Result<(), Stri
         .ok_or_else(|| format!("Unknown decode '{}'", spec.decode))?;
     let param = live::LiveParam {
         id: format!("{}_{:04X}", spec.mode, spec.id),
-        label: spec.label,
+        label: spec.label.clone(),
         unit: spec.unit,
         target: spec.address,
         query,
@@ -613,6 +620,8 @@ pub fn add_to_profile(profile_id: String, spec: AddParamSpec) -> Result<(), Stri
     };
     live::add_param_to_profile(&profile_id, param)
         .ok_or_else(|| format!("Unknown profile '{}'", profile_id))?;
+    // Parameter Hunt: +50 for mapping an unknown byte to a physical value.
+    crate::hunt::record_mapping(spec.address, &spec.mode, spec.id, &spec.label);
     Ok(())
 }
 
@@ -741,11 +750,6 @@ pub fn export_text(filename: String, content: String) -> Result<String, String> 
 }
 /* ---------------- Session export ---------------- */
 
-use crate::data::{ecus, vin};
-use crate::protocol::{self, Dtc, FreezeItem};
-use crate::transport::record::TrafficEntry;
-use serde::{Deserialize, Serialize};
-
 #[derive(Serialize, Deserialize)]
 pub struct SessionDtc {
     pub code: String,
@@ -788,13 +792,8 @@ pub struct SessionVehicleInfo {
 pub fn export_session(state: tauri::State<'_, AppState>) -> Result<String, String> {
     use std::time::SystemTime;
 
-    let mut t = state
-        .transport
-        .lock()
-        .unwrap()
-        .as_mut()
-        .ok_or("Not connected")?
-        .as_mut();
+    let mut guard = state.transport.lock().unwrap();
+    let t = guard.as_mut().ok_or("Not connected")?.as_mut();
     let transport_name = t.name().to_string();
 
     // Vehicle info
@@ -888,4 +887,127 @@ pub fn export_session(state: tauri::State<'_, AppState>) -> Result<String, Strin
 #[tauri::command]
 pub fn import_session(content: String) -> Result<SessionSnapshot, String> {
     serde_json::from_str(&content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn import_session_file(name: String) -> Result<SessionSnapshot, String> {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .map_err(|_| "Could not locate home directory")?;
+    let dir = std::path::Path::new(&home).join("beeemuu-exports");
+    let safe = std::path::Path::new(&name)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "session.json".into());
+    let path = dir.join(safe);
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&content).map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+pub struct ExportFile {
+    pub name: String,
+    pub modified_secs: u64,
+    pub size_bytes: u64,
+}
+
+#[tauri::command]
+pub fn list_exports() -> Result<Vec<ExportFile>, String> {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .map_err(|_| "Could not locate home directory")?;
+    let dir = std::path::Path::new(&home).join("beeemuu-exports");
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+        let meta = entry.metadata().ok();
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.ends_with(".json") {
+            continue;
+        }
+        files.push(ExportFile {
+            modified_secs: meta.as_ref().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()).unwrap_or(0),
+            size_bytes: meta.as_ref().map(|m| m.len()).unwrap_or(0),
+            name,
+        });
+    }
+    files.sort_by(|a, b| b.modified_secs.cmp(&a.modified_secs));
+    Ok(files)
+}
+
+/* ---------------- Community Oracle ---------------- */
+
+#[tauri::command]
+pub fn query_oracle(
+    state: tauri::State<'_, AppState>,
+    address: u8,
+) -> Result<crate::oracle::OracleResult, String> {
+    let dtcs = with_transport(&state, |t| protocol::read_dtcs(t, address))?;
+    // Derive engine family from the active live-data profile (best-effort).
+    // If no profile is selected, fall back to "generic".
+    let profile = "n55"; // TODO: derive from VIN or user selection once profile tracking is added
+    let fp = crate::oracle::fingerprint(&dtcs, profile);
+    crate::oracle::query(&fp)
+}
+
+/* ---------------- Diagnostic Story Mode ---------------- */
+
+#[tauri::command]
+pub fn generate_story(
+    snapshot: SessionSnapshot,
+) -> Result<crate::story::Story, String> {
+    let engine_family = snapshot.vehicle_info
+        .as_ref()
+        .and_then(|v| v.suggested_profile.clone())
+        .unwrap_or_else(|| "generic".into());
+    let input = crate::story::StoryInput {
+        vehicle: snapshot.vehicle_info.map(|v| VehicleInfo {
+            vin: v.vin,
+            decode: v.decode,
+            mileage_km: v.mileage_km,
+            suggested_profile: v.suggested_profile,
+        }).unwrap_or(VehicleInfo { vin: None, decode: None, mileage_km: None, suggested_profile: None }),
+        modules: snapshot.modules,
+        engine_family,
+    };
+    Ok(crate::story::generate(&input))
+}
+
+/* ---------------- Secure Snapshot Share ---------------- */
+
+#[tauri::command]
+pub fn anonymize_snapshot(
+    snapshot: SessionSnapshot,
+) -> Result<String, String> {
+    let json = crate::anonymize::export_json(&snapshot);
+    Ok(json)
+}
+
+/* ---------------- Parameter Hunt ---------------- */
+
+#[tauri::command]
+pub fn hunt_status() -> crate::hunt::HuntStatus {
+    crate::hunt::status()
+}
+
+#[tauri::command]
+pub fn hunt_leaderboard() -> Vec<crate::hunt::LeaderboardEntry> {
+    crate::hunt::leaderboard()
+}
+
+#[tauri::command]
+pub fn hunt_set_alias(alias: String) -> Result<(), String> {
+    crate::hunt::set_alias(&alias)
+}
+
+/* ---------------- Virtual Second Opinion ---------------- */
+
+#[tauri::command]
+pub fn get_opinions(
+    dtc_code: String,
+    dtc_text: String,
+) -> Result<crate::opinions::OpinionSet, String> {
+    Ok(crate::opinions::query(&dtc_code, &dtc_text))
 }

@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 /// One logged request/response pair.
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct TrafficEntry {
     pub seq: u64,
     /// Milliseconds since the log started.
@@ -100,12 +100,4 @@ impl Transport for RecordingTransport {
         let res = self.inner.request(target, payload);
         // Best-effort logging; never let a poisoned lock break diagnostics.
         if let Ok(mut log) = self.log.lock() {
-            log.record(target, payload, &res, t0.elapsed());
-        }
-        res
-    }
-
-    fn disconnect(&mut self) {
-        self.inner.disconnect();
-    }
-}
+            log.record(target, payload, 

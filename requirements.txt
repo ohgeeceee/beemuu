@@ -1,0 +1,24 @@
+# BMW K+DCAN Diagnostic Tool - Requirements
+# Open-source, no paywalls, no licensing fees
+
+# Core GUI
+PyQt6>=6.4.0
+PyQt6-Qt6>=6.4.0
+
+# Serial / FTDI Communication
+pyserial>=3.5
+pyftdi>=0.54.0
+
+# OBD-II Support
+obd>=0.7.1
+
+# Utilities
+psutil>=5.9.0
+colorama>=0.4.6
+
+# Data handling
+pandas>=1.5.0
+numpy>=1.24.0
+
+# Optional: For packaging
+pyinstaller>=5.0

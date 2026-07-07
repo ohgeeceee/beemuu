@@ -71,9 +71,4 @@ pub fn open(config: &TransportConfig) -> Result<Box<dyn Transport>> {
     }
 }
 
-/// List candidate serial ports for the connection dialog.
-pub fn list_serial_ports() -> Vec<String> {
-    serialport::available_ports()
-        .map(|ports| ports.into_iter().map(|p| p.port_name).collect())
-        .unwrap_or_default()
-}
+/// List candid

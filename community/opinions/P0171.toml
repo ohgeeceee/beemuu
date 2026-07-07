@@ -1,0 +1,32 @@
+dtc = "P0171"
+dtc_text = "System too lean (Bank 1)"
+
+[[opinion]]
+perspective = "diy"
+action = "Check all vacuum hoses and intake manifold gasket for leaks; clean MAF sensor"
+cost_usd = 0
+time_estimate = "45 minutes"
+difficulty = "easy"
+source = "OBD-II forums and YouTube guides"
+source_url = ""
+note = "Start with the cheapest checks: visually inspect vacuum lines, spray carb cleaner around the intake manifold while idling (RPM change = leak found)."
+
+[[opinion]]
+perspective = "indie"
+action = "Smoke test intake, verify MAF readings, check fuel pressure and O2 sensor cross-counts"
+cost_usd = 200
+time_estimate = "1.5 hours"
+difficulty = "moderate"
+source = "General automotive diagnostic practice"
+source_url = ""
+note = "A lazy O2 sensor can cause false lean codes. Cross-counts should be 5-10 per 10 seconds at idle. Fuel pressure should be ~58-65 psi on most BMWs."
+
+[[opinion]]
+perspective = "dealer"
+action = "Replace MAF sensor, O2 sensors, and perform fuel trim adaptation"
+cost_usd = 850
+time_estimate = "4 hours"
+difficulty = "advanced"
+source = "BMW diagnostic tree"
+source_url = ""
+note = "Dealer approach replaces sensors rather than testing. Many owners find the real issue is a $5 vacuum hose or cracked intake boot."

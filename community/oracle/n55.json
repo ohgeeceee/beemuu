@@ -1,0 +1,118 @@
+{
+  "a1b2c3d4e5f67890": {
+    "engine_family": "n55",
+    "dtcs": ["29E0", "30FF"],
+    "outcomes": [
+      {
+        "fix_category": "Smoke test intake tract",
+        "part_numbers": ["11-61-7-599-779"],
+        "cost_estimate_usd": 150,
+        "confidence": 85,
+        "note": "Vacuum leak at charge pipe elbow is the #1 cause of 29E0+30FF on N55. Check the PCV valve and valve cover gasket too."
+      },
+      {
+        "fix_category": "Replace high-pressure fuel pump (HPFP)",
+        "part_numbers": ["13-51-7-607-699"],
+        "cost_estimate_usd": 650,
+        "confidence": 45,
+        "note": "Less common for this pair, but HPFP failure can cause lean mixture under load."
+      }
+    ],
+    "forum_threads": [
+      {
+        "title": "N55 29E0 + 30FF — vacuum leak diagnosis",
+        "url": "https://bimmerpost.com/forums/showthread.php?t=1234567"
+      }
+    ]
+  },
+  "b2c3d4e5f6a78901": {
+    "engine_family": "n55",
+    "dtcs": ["2A82"],
+    "outcomes": [
+      {
+        "fix_category": "Clean VANOS intake solenoid",
+        "part_numbers": [],
+        "cost_estimate_usd": 0,
+        "confidence": 78,
+        "note": "Remove the solenoid, spray with brake cleaner, reinstall. 20-minute DIY fix."
+      },
+      {
+        "fix_category": "Replace VANOS intake solenoid",
+        "part_numbers": ["11-36-7-585-425"],
+        "cost_estimate_usd": 120,
+        "confidence": 65,
+        "note": "If cleaning doesn't resolve, replace the solenoid."
+      }
+    ],
+    "forum_threads": [
+      {
+        "title": "N55 2A82 VANOS intake — cleaning vs replacement",
+        "url": "https://e90post.com/forums/showthread.php?t=2345678"
+      }
+    ]
+  },
+  "c3d4e5f6a7b89012": {
+    "engine_family": "n54",
+    "dtcs": ["30FF", "29CC"],
+    "outcomes": [
+      {
+        "fix_category": "Replace both charge pipes (cold-side)",
+        "part_numbers": ["11-61-7-599-779", "11-61-7-599-780"],
+        "cost_estimate_usd": 340,
+        "confidence": 92,
+        "note": "N54 charge pipes crack at the plastic elbow. Upgrade to aluminum aftermarket or OEM."
+      }
+    ],
+    "forum_threads": [
+      {
+        "title": "N54 30FF boost leak — charge pipe crack guide",
+        "url": "https://n54tech.com/forums/showthread.php?t=3456789"
+      }
+    ]
+  },
+  "d4e5f6a7b8c90123": {
+    "engine_family": "n55",
+    "dtcs": ["2E81", "2E82"],
+    "outcomes": [
+      {
+        "fix_category": "Replace electric coolant pump",
+        "part_numbers": ["11-51-7-632-426"],
+        "cost_estimate_usd": 380,
+        "confidence": 95,
+        "note": "N55 electric water pump is a known failure point at 60k-100k miles."
+      }
+    ],
+    "forum_threads": [
+      {
+        "title": "N55 electric water pump failure — DIY replacement",
+        "url": "https://bimmerpost.com/forums/showthread.php?t=4567890"
+      }
+    ]
+  },
+  "e5f6a7b8c9d01234": {
+    "engine_family": "n55",
+    "dtcs": ["29CC"],
+    "outcomes": [
+      {
+        "fix_category": "Replace ignition coils (all 6)",
+        "part_numbers": ["12-13-7-582-469"],
+        "cost_estimate_usd": 220,
+        "confidence": 70,
+        "note": "Random misfire across multiple cylinders often points to aging coils."
+      },
+      {
+        "fix_category": "Replace spark plugs",
+        "part_numbers": ["12-12-2-158-252"],
+        "cost_estimate_usd": 80,
+        "confidence": 55,
+        "note": "If plugs are at or past 30k miles, start here before coils."
+      }
+    ],
+    "forum_threads": [
+      {
+        "title": "N55 random misfire 29CC — coil and plug diagnosis",
+        "url": "https://e90post.com/forums/showthread.php?t=5678901"
+      }
+    ]
+  }
+}

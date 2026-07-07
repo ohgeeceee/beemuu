@@ -1,0 +1,32 @@
+dtc = "2A82"
+dtc_text = "VANOS intake control fault"
+
+[[opinion]]
+perspective = "diy"
+action = "Remove VANOS intake solenoid, clean with brake cleaner, reinstall"
+cost_usd = 0
+time_estimate = "20 minutes"
+difficulty = "easy"
+source = "E90Post DIY threads"
+source_url = "https://e90post.com/forums/showthread.php?t=2345678"
+note = "Oil sludge buildup is the #1 cause. Cleaning the solenoid screen fixes ~70% of cases. Use a 10mm socket and a pick tool."
+
+[[opinion]]
+perspective = "indie"
+action = "Clean solenoid first; if code returns, replace solenoid and check oil quality"
+cost_usd = 120
+time_estimate = "1 hour"
+difficulty = "easy"
+source = "Indie shop standard practice"
+source_url = ""
+note = "If the oil hasn't been changed in 10k+ miles, do an oil change with high-detergent synthetic. Sludge from cheap oil causes repeat failures."
+
+[[opinion]]
+perspective = "dealer"
+action = "Replace VANOS solenoid and perform camshaft timing adaptation"
+cost_usd = 580
+time_estimate = "3-4 hours"
+difficulty = "advanced"
+source = "BMW workshop manual"
+source_url = ""
+note = "Dealers rarely clean — they replace. The cam timing adaptation requires ISTA/D which indie shops can do too for much less."

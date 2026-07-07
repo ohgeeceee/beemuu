@@ -38,4 +38,3 @@ label = "E70 X5 4.8i (N62B48) [community, partly unverified]"
   query = "obd:04"
   decode = "percent_a"
   min = 0.0
-  max = 100.0

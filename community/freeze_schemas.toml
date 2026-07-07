@@ -29,32 +29,4 @@ address = 0x12
   offset = 2
   width = "u8"
   scale = 1.0
-  bias = -40.0
-  decimals = 0
-
-  [[schema.field]]
-  label = "Vehicle speed"
-  unit = "km/h"
-  offset = 3
-  width = "u8"
-  scale = 1.0
-  bias = 0.0
-  decimals = 0
-
-  [[schema.field]]
-  label = "Battery voltage"
-  unit = "V"
-  offset = 5
-  width = "u8"
-  scale = 0.1
-  bias = 0.0
-  decimals = 1
-
-  [[schema.field]]
-  label = "Mileage"
-  unit = "km"
-  offset = 6
-  width = "u24"
-  scale = 1.0
-  bias = 0.0
-  decimals = 0
+  bias = 
