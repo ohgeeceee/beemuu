@@ -10,6 +10,7 @@ pub mod hunt;
 pub mod data;
 pub mod protocol;
 pub mod transport;
+pub mod server;
 
 /// Register real per-ECU SecurityAccess key algorithms here.
 ///
@@ -66,6 +67,8 @@ pub fn run() {
         hunt_entries,
         rep.dir.map(|d| format!(" from {d}")).unwrap_or_default()
     );
+
+    server::start_server();
 
     tauri::Builder::default()
         .manage(commands::AppState::default())
