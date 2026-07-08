@@ -228,4 +228,6 @@ pub mod algo {
         for (i, &s) in seed.iter().take(4).enumerate() {
             b[i] = s;
         }
-        u32::from_be_bytes
+        u32::from_be_bytes(b)
+    }
+}

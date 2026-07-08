@@ -196,4 +196,56 @@ pub fn decode_from_str(s: &str) -> Option<Decode> {
 /// Parse a query from TOML (e.g. "did:1000", "obd:0C", "local:01").
 pub fn query_from_str(s: &str) -> Option<Query> {
     let (kind, val) = s.split_once(':')?;
-    let n = u16::from_str_radix(val.trim(), 1
+    let n = u16::from_str_radix(val.trim(), 16).ok()?;
+    Some(match kind.trim().to_ascii_lowercase().as_str() {
+        "did" => Query::Did(n),
+        "obd" => Query::Obd(u8::try_from(n).ok()?),
+        "local" => Query::Local(u8::try_from(n).ok()?),
+        _ => return None,
+    })
+}
+
+fn query_to_str(q: Query) -> String {
+    match q {
+        Query::Did(n) => format!("did:{n:04X}"),
+        Query::Obd(n) => format!("obd:{n:02X}"),
+        Query::Local(n) => format!("local:{n:02X}"),
+    }
+}
+
+fn decode_to_str(d: Decode) -> &'static str {
+    match d {
+        Decode::TempU8 => "temp_u8",
+        Decode::U16 => "u16",
+        Decode::U8 => "u8",
+        Decode::U8Tenths => "u8_tenths",
+        Decode::U16Quarter => "u16_quarter",
+        Decode::PercentA => "percent_a",
+        Decode::U16Milli => "u16_milli",
+        Decode::U16Times10 => "u16_times10",
+    }
+}
+
+pub fn add_param_to_profile(profile_id: &str, param: LiveParam) -> Option<()> {
+    let mut s = store().write().ok()?;
+    let profile = s.iter_mut().find(|p| p.id == profile_id)?;
+    profile.params.push(param);
+    Some(())
+}
+
+pub fn profile_to_toml(id: &str) -> Option<String> {
+    let p = store().read().ok()?.iter().find(|p| p.id == id)?.clone();
+    let mut out = format!("[[profile]]\nid = {:?}\nlabel = {:?}\n\n", p.id, p.label);
+    for param in p.params {
+        out.push_str("[[profile.param]]\n");
+        out.push_str(&format!("id = {:?}\n", param.id));
+        out.push_str(&format!("label = {:?}\n", param.label));
+        out.push_str(&format!("unit = {:?}\n", param.unit));
+        out.push_str(&format!("target = {}\n", param.target));
+        out.push_str(&format!("query = {:?}\n", query_to_str(param.query)));
+        out.push_str(&format!("decode = {:?}\n", decode_to_str(param.decode)));
+        out.push_str(&format!("min = {}\n", param.min));
+        out.push_str(&format!("max = {}\n\n", param.max));
+    }
+    Some(out)
+}

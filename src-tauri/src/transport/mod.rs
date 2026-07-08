@@ -71,4 +71,9 @@ pub fn open(config: &TransportConfig) -> Result<Box<dyn Transport>> {
     }
 }
 
-/// List candid
+/// List available serial ports (for UI dropdown).
+pub fn list_serial_ports() -> Vec<String> {
+    serialport::available_ports()
+        .map(|ports| ports.iter().map(|p| p.port_name.clone()).collect())
+        .unwrap_or_default()
+}

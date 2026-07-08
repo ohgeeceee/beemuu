@@ -216,4 +216,79 @@ fn load_profiles(dir: &Path, report: &mut LoadReport) {
                     live::add_profile(prof);
                     report.profiles += 1;
                 }
-                Err(w) => report.warnings.pus
+                Err(w) => report.warnings.push(w),
+            }
+        }
+    }
+}
+
+fn load_schemas(dir: &Path, report: &mut LoadReport) {
+    for path in category_files(dir, "freeze_schemas.toml", "schemas") {
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        match toml::from_str::<SchemasFile>(&text) {
+            Ok(f) => {
+                for s in f.schema {
+                    match build_schema(s) {
+                        Ok((address, schema)) => {
+                            freeze::registry().register_for(address, schema);
+                            report.freeze_schemas += 1;
+                        }
+                        Err(w) => report.warnings.push(w),
+                    }
+                }
+            }
+            Err(e) => report.warnings.push(format!("{}: {e}", path.display())),
+        }
+    }
+}
+
+static REPORT: OnceLock<LoadReport> = OnceLock::new();
+
+pub fn load() -> LoadReport {
+    let mut report = LoadReport::default();
+    let Some(dir) = find_dir() else {
+        let _ = REPORT.set(report.clone());
+        return report;
+    };
+    report.dir = Some(dir.display().to_string());
+    load_dtcs(&dir, &mut report);
+    load_profiles(&dir, &mut report);
+    load_schemas(&dir, &mut report);
+    let _ = REPORT.set(report.clone());
+    report
+}
+
+pub fn report() -> LoadReport {
+    REPORT.get().cloned().unwrap_or_default()
+}
+
+pub fn import_profiles_str(content: &str) -> Result<Vec<String>, String> {
+    let parsed: ProfilesFile = toml::from_str(content).map_err(|e| e.to_string())?;
+    let mut added = Vec::new();
+    for p in parsed.profile {
+        let label = p.label.clone();
+        let prof = build_profile(p)?;
+        live::add_profile(prof);
+        added.push(label);
+    }
+    Ok(added)
+}
+
+pub fn save_freeze_schema(address: u8, fields: &[freeze::FreezeField]) -> Result<(), String> {
+    let dir = find_dir().unwrap_or_else(|| PathBuf::from("community"));
+    let freeze_dir = dir.join("freeze");
+    std::fs::create_dir_all(&freeze_dir).map_err(|e| e.to_string())?;
+    let path = freeze_dir.join(format!("{address:02X}.toml"));
+    let mut out = String::new();
+    for f in fields {
+        out.push_str("[[field]]\n");
+        out.push_str(&format!("label = {:?}\n", f.label));
+        out.push_str(&format!("unit = {:?}\n", f.unit));
+        out.push_str(&format!("offset = {}\n", f.offset));
+        out.push_str(&format!("width = {:?}\n", freeze::width_to_str(f.width)));
+        out.push_str(&format!("scale = {}\n", f.scale));
+        out.push_str(&format!("bias = {}\n", f.bias));
+        out.push_str(&format!("decimals = {}\n\n", f.decimals));
+    }
+    std::fs::write(path, out).map_err(|e| e.to_string())
+}

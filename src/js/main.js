@@ -2074,6 +2074,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
     if (tab.dataset.view === "logging") buildLogParams();
     if (tab.dataset.view === "diagnostics") { loadCommunityReport(); refreshTraffic(); fillShareProfiles(); }
     if (tab.dataset.view === "snapshots") refreshSnapshots();
+    if (tab.dataset.view === "backend") refreshBackendDashboard();
   });
 });
 
@@ -2183,3 +2184,45 @@ $("snapshot-load-file").addEventListener("change", async (e) => {
   };
   reader.readAsText(file);
 });
+
+/* ---------------- backend dashboard ---------------- */
+function dashMetric(label, value) {
+  return `<div class="dash-metric"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function fmtTarget(target) {
+  return target == null ? "—" : `0x${target.toString(16).toUpperCase().padStart(2, "0")}`;
+}
+
+async function refreshBackendDashboard() {
+  const body = $("dash-body");
+  body.innerHTML = "<p class='muted'>Loading backend status…</p>";
+  try {
+    const d = await invoke("backend_dashboard");
+    const generated = d.generated_at_secs ? new Date(d.generated_at_secs * 1000).toLocaleString() : "unknown";
+    body.innerHTML =
+      `<div class="dash-grid">` +
+      dashMetric("Connection", d.connected ? "Connected" : "Disconnected") +
+      dashMetric("Transport", d.transport_name || "—") +
+      dashMetric("Profiles", d.profile_count) +
+      dashMetric("Exports", d.export_count) +
+      dashMetric("Traffic entries", d.traffic.entries) +
+      dashMetric("Traffic failures", d.traffic.failed) +
+      dashMetric("Average latency", `${d.traffic.avg_ms} ms`) +
+      dashMetric("Last target", fmtTarget(d.traffic.last_target)) +
+      dashMetric("Hunt points", d.hunt.points) +
+      dashMetric("Community profiles", d.community.profiles) +
+      dashMetric("Fault texts", d.community.dtc_texts) +
+      dashMetric("Freeze schemas", d.community.freeze_schemas) +
+      `</div>` +
+      `<div class="dash-section"><div class="dash-section-title">Last backend error</div><pre>${d.traffic.last_detail || "None"}</pre></div>` +
+      `<div class="dash-section"><div class="dash-section-title">Community data source</div><pre>${d.community.dir || "built-ins only"}</pre></div>` +
+      `<p class="muted">Generated ${generated}</p>`;
+    log("Backend dashboard refreshed");
+  } catch (e) {
+    body.innerHTML = `<p class='muted'>Dashboard failed: ${e}</p>`;
+    log("Backend dashboard failed: " + e);
+  }
+}
+
+$("btn-dash-refresh").addEventListener("click", refreshBackendDashboard);

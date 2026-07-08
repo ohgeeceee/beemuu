@@ -63,4 +63,15 @@ pub fn decode(vin_str: &str) -> VinDecode {
         manufacturer: manufacturer(&wmi).to_string(),
         wmi,
         model_year: year_char.and_then(model_year),
-        
+        plant: plant_char.map(plant).unwrap_or("Unknown plant").to_string(),
+        serial,
+    }
+}
+
+pub fn suggested_profile(vin_str: &str) -> Option<&'static str> {
+    let wmi: String = vin_str.trim().chars().take(3).collect();
+    match wmi.as_str() {
+        "WBA" | "WBS" | "WBX" | "WBY" | "4US" | "5UX" | "5YM" => Some("obd2"),
+        _ => None,
+    }
+}

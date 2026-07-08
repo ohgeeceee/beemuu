@@ -714,14 +714,14 @@ pub fn open_path(path: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("open")
-            .arg(&path_str)
+            .arg(&*path_str)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
     #[cfg(target_os = "linux")]
     {
         std::process::Command::new("xdg-open")
-            .arg(&path_str)
+            .arg(&*path_str)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
@@ -935,6 +935,30 @@ pub fn list_exports() -> Result<Vec<ExportFile>, String> {
     }
     files.sort_by(|a, b| b.modified_secs.cmp(&a.modified_secs));
     Ok(files)
+}
+
+/* ---------------- Backend Dashboard ---------------- */
+
+#[tauri::command]
+pub fn backend_dashboard(state: tauri::State<'_, AppState>) -> Result<crate::backend_dashboard::BackendDashboard, String> {
+    let (connected, transport_name) = {
+        let guard = state.transport.lock().unwrap();
+        (guard.is_some(), guard.as_ref().map(|t| t.name().to_string()))
+    };
+    let traffic = state.traffic.lock().unwrap().snapshot();
+    let profile_count = live::profile_list().len();
+    let export_count = list_exports()?.len();
+
+    Ok(crate::backend_dashboard::BackendDashboard {
+        generated_at_secs: crate::backend_dashboard::now_secs(),
+        connected,
+        transport_name,
+        profile_count,
+        export_count,
+        traffic: crate::backend_dashboard::summarize_traffic(&traffic),
+        community: crate::community::report(),
+        hunt: crate::hunt::status(),
+    })
 }
 
 /* ---------------- Community Oracle ---------------- */

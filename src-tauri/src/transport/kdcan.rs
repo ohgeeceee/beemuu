@@ -115,4 +115,73 @@ impl KdcanTransport {
         let resp = self.read_frame(deadline)?;
         match resp.first() {
             Some(0xC1) => Ok(()),
-            _ => Err(TransportError::
+            _ => Err(TransportError::BadFrame(format!("fast_init: expected 0xC1, got {resp:?}"))),
+        }
+    }
+
+    fn build_frame(target: u8, payload: &[u8]) -> Vec<u8> {
+        let len = (payload.len() + 3) as u8;
+        let mut frame = vec![len, target, TESTER];
+        frame.extend_from_slice(payload);
+        let sum: u8 = frame.iter().fold(0, |a, &b| a.wrapping_add(b));
+        frame.push(sum);
+        frame
+    }
+
+    fn read_frame(&mut self, deadline: Instant) -> Result<Vec<u8>> {
+        let mut buf = vec![0u8; 256];
+        let mut pos = 0;
+        while Instant::now() < deadline {
+            match self.port.read(&mut buf[pos..pos+1]) {
+                Ok(0) => return Err(TransportError::Io("eof".into())),
+                Ok(n) => {
+                    pos += n;
+                    if pos >= 3 && pos >= buf[0] as usize + 1 { break; }
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => continue,
+                Err(e) => return Err(TransportError::Io(e.to_string())),
+            }
+        }
+        Ok(buf[..pos].to_vec())
+    }
+
+    fn read_exact_timeout(&mut self, buf: &mut [u8], deadline: Instant) -> Result<()> {
+        let mut pos = 0;
+        while pos < buf.len() && Instant::now() < deadline {
+            match self.port.read(&mut buf[pos..]) {
+                Ok(0) => return Err(TransportError::Io("eof".into())),
+                Ok(n) => pos += n,
+                Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => continue,
+                Err(e) => return Err(TransportError::Io(e.to_string())),
+            }
+        }
+        if pos < buf.len() { Err(TransportError::Timeout) } else { Ok(()) }
+    }
+
+    fn ensure_session(&mut self, target: u8) -> Result<()> {
+        if !self.dcan && !self.kline_ready.contains(&target) {
+            self.fast_init(target)?;
+            self.kline_ready.insert(target);
+        }
+        Ok(())
+    }
+}
+
+impl Transport for KdcanTransport {
+    fn name(&self) -> &'static str { "K+DCAN" }
+
+    fn request(&mut self, target: u8, payload: &[u8]) -> Result<Vec<u8>> {
+        self.ensure_session(target)?;
+        let frame = Self::build_frame(target, payload);
+        self.port.write_all(&frame).map_err(|e| TransportError::Io(e.to_string()))?;
+        let _ = self.port.flush();
+        let deadline = Instant::now() + Duration::from_millis(1000);
+        let mut echo = vec![0u8; frame.len()];
+        self.read_exact_timeout(&mut echo, deadline)?;
+        let resp = self.read_frame(deadline)?;
+        if resp.len() < 3 { return Err(TransportError::BadFrame("short".into())); }
+        Ok(resp[3..resp.len()-1].to_vec())
+    }
+
+    fn disconnect(&mut self) {}
+}

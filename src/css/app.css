@@ -311,4 +311,67 @@ body[data-theme="dark"] .rec-rationale { color: #9fb2c8; }
 .log-status { position: absolute; bottom: 10px; left: 14px; font-size: 12px; }
 .log-playback-bar {
   display: flex;
-  align-items: 
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+/* ---------- backend dashboard ---------- */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.dash-metric {
+  background: #f7fafd;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+.dash-metric span {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.dash-metric strong {
+  font-size: 18px;
+  color: var(--text);
+  margin-top: 4px;
+}
+.dash-section {
+  background: #f7fafd;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.dash-section-title {
+  background: var(--blue-light);
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.dash-section pre {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+}
+body[data-theme="dark"] .dash-metric,
+body[data-theme="dark"] .dash-section {
+  background: #1a2332;
+  border-color: #2a3545;
+}
+body[data-theme="dark"] .dash-section-title {
+  background: #0f1825;
+  border-color: #2a3545;
+}

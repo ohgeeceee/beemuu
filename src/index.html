@@ -55,6 +55,7 @@
     <button class="tab" data-view="service">Service Functions</button>
     <button class="tab" data-view="diagnostics">Diagnostics</button>
     <button class="tab" data-view="snapshots">Snapshots</button>
+    <button class="tab" data-view="backend">Backend</button>
   </nav>
 
   <main class="content">
@@ -488,6 +489,19 @@
         </div>
         <div id="snapshot-list" class="snapshot-list">
           <p class="muted">No snapshots yet. Export one from Vehicle Info or load a file.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BACKEND DASHBOARD ============ -->
+    <section id="view-backend" class="view">
+      <div class="panel" style="height:100%">
+        <div class="panel-head">
+          <span>Backend Dashboard</span>
+          <button id="btn-dash-refresh" class="btn btn-small btn-primary">Refresh</button>
+        </div>
+        <div id="dash-body" class="dash-body" style="padding:14px;overflow-y:auto;flex:1">
+          <p class="muted">Click Refresh to load backend status.</p>
         </div>
       </div>
     </section>

@@ -213,6 +213,10 @@ impl FreezeRegistry {
         self.map.write().unwrap().insert(Some(address), schema);
     }
 
+    pub fn unregister(&self, address: u8) -> Option<FreezeSchema> {
+        self.map.write().unwrap().remove(&Some(address))
+    }
+
     /// Replace the default fallback schema.
     pub fn register_default(&self, schema: FreezeSchema) {
         self.map.write().unwrap().insert(None, schema);
@@ -220,4 +224,23 @@ impl FreezeRegistry {
 
     /// Retrieve a copy of the schema for this ECU (or the default fallback).
     pub fn get_schema(&self, address: u8) -> Option<FreezeSchema> {
-        let m = self
+        let m = self.map.read().unwrap();
+        m.get(&Some(address)).cloned().or_else(|| m.get(&None).cloned())
+    }
+
+    pub fn decode(&self, address: u8, data: &[u8]) -> Vec<FreezeItem> {
+        self.get_schema(address)
+            .unwrap_or_else(default_schema)
+            .decode(data)
+    }
+}
+
+static REGISTRY: OnceLock<FreezeRegistry> = OnceLock::new();
+
+pub fn registry() -> &'static FreezeRegistry {
+    REGISTRY.get_or_init(|| {
+        let r = FreezeRegistry::new();
+        r.register_default(default_schema());
+        r
+    })
+}
