@@ -2226,3 +2226,41 @@ async function refreshBackendDashboard() {
 }
 
 $("btn-dash-refresh").addEventListener("click", refreshBackendDashboard);
+
+/* ---------------- hosted (remote) dashboard ---------------- */
+async function refreshHostedDashboard() {
+  const body = $("hosted-body");
+  const btn = $("btn-hosted-refresh");
+  body.innerHTML = "<p class='muted'>Fetching VPS dashboard…</p>";
+  btn.disabled = true;
+  try {
+    const d = await invoke("fetch_hosted_dashboard", { url: null });
+    const generated = d.generated_at_secs
+      ? new Date(d.generated_at_secs * 1000).toLocaleString()
+      : "unknown";
+    const artifacts = d.artifacts || [];
+    const artifactList = artifacts.length
+      ? artifacts.map((a) => `<li>${escapeHtml(a)}</li>`).join("")
+      : "<li class='muted'>No release bundles yet.</li>";
+    body.innerHTML =
+      `<div class="dash-grid">` +
+      dashMetric("Service", d.service || "—") +
+      dashMetric("Commit", d.repo?.commit || "—") +
+      dashMetric("Branch", d.repo?.branch || "—") +
+      dashMetric("Dirty", d.repo?.dirty ? "yes" : "no") +
+      dashMetric("Profiles", d.counts?.community_profiles ?? 0) +
+      dashMetric("Bundles", d.counts?.bundles ?? 0) +
+      dashMetric("Exports", d.counts?.exports ?? 0) +
+      `</div>` +
+      `<div class="dash-section"><div class="dash-section-title">Build artifacts</div><ul>${artifactList}</ul></div>` +
+      `<p class="muted">Generated ${generated} · source: beemuu.montanablotter.com/api/dashboard</p>`;
+    log("Hosted dashboard refreshed");
+  } catch (e) {
+    body.innerHTML = `<p class='muted'>Hosted dashboard offline: ${escapeHtml(String(e))}</p>`;
+    log("Hosted dashboard failed: " + e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("btn-hosted-refresh").addEventListener("click", refreshHostedDashboard);
