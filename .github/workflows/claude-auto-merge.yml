@@ -1,0 +1,78 @@
+name: Auto-merge safe PRs
+
+# Auto-merges ONLY documentation / non-code PRs, and only after all required
+# checks pass. Anything that touches source code — especially the hardware
+# transport/protocol layers — is deliberately excluded and left for you.
+#
+# How "safe" is decided (allowlist, not denylist — anything not listed is unsafe):
+#   *.md, *.txt, docs/**, LICENSE, images, and .github/ISSUE_TEMPLATE/**
+#
+# Requirements for this to actually gate on CI (set up once, see docs/AGENTS_SETUP.md):
+#   - Repo Settings → General → "Allow auto-merge" enabled
+#   - Branch protection on main with your CI checks marked "required"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine if every changed file is doc-only (safe)
+        id: check
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:"
+          echo "$FILES"
+
+          is_safe() {
+            case "$1" in
+              *.md|*.txt) return 0 ;;
+              docs/*|docs/**) return 0 ;;
+              LICENSE) return 0 ;;
+              *.png|*.jpg|*.jpeg|*.gif|*.svg) return 0 ;;
+              .github/ISSUE_TEMPLATE/*) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          SAFE=true
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            if ! is_safe "$f"; then
+              echo "UNSAFE (code / protected): $f"
+              SAFE=false
+            fi
+          done <<< "$FILES"
+
+          echo "safe=$SAFE" >> "$GITHUB_OUTPUT"
+
+      - name: Enable auto-merge for safe PRs
+        if: steps.check.outputs.safe == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --auto --squash --repo "${{ github.repository }}"
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "🤖 Doc-only change — auto-merge enabled. Will merge once required checks pass."
+
+      - name: Leave code PRs for human review
+        if: steps.check.outputs.safe != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "PR touches code or protected paths — not auto-merging."
