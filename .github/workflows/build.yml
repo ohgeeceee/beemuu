@@ -15,32 +15,13 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - run: npm install
 
       - name: Check TOML formatting (basic)
-        run: |
-          node -e "
-            const fs = require('fs');
-            const path = require('path');
-            let ok = true;
-            function walk(dir) {
-              for (const f of fs.readdirSync(dir)) {
-                const p = path.join(dir, f);
-                if (fs.statSync(p).isDirectory()) walk(p);
-                else if (p.endsWith('.toml')) {
-                  const data = fs.readFileSync(p, 'utf8');
-                  // Basic checks: no tabs, no trailing whitespace on lines, file ends with newline
-                  const lines = data.split('\n');
-                  for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].includes('\t')) {
-                      console.error('TAB in ' + p + ':' + (i+1));
-                      ok = false;
-                    }
-                    if (lines[i].endsWith(' ')) {
-                      console.error('Trailing space in ' + p + '
+        run: node scripts/lint-toml.js

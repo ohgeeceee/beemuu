@@ -102,4 +102,4 @@ label = "N54 3.0 twin-turbo I6 (MSD80/81) [community, oil temp unverified]"
 
   [[profile.param]]
   id = "throttle"
-  label = "Throttle 
+  label = "Throttle
