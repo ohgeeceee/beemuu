@@ -937,6 +937,19 @@ pub fn list_exports() -> Result<Vec<ExportFile>, String> {
     Ok(files)
 }
 
+/* ---------------- Hosted (Remote) Dashboard ----------------
+ *
+ * PROTECTED PATH: this command touches the network. Per CLAUDE.md it MUST
+ * be async, return a Result, and never block the webview.
+ */
+
+#[tauri::command]
+pub async fn fetch_hosted_dashboard(
+    url: Option<String>,
+) -> Result<crate::hosted::HostedDashboard, String> {
+    crate::hosted::fetch(url.as_deref()).await
+}
+
 /* ---------------- Backend Dashboard ---------------- */
 
 #[tauri::command]

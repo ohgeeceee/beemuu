@@ -5,6 +5,7 @@ pub mod oracle;
 pub mod story;
 pub mod anonymize;
 pub mod backend_dashboard;
+pub mod hosted;
 pub mod opinions;
 pub mod hunt;
 pub mod data;
@@ -111,6 +112,7 @@ pub fn run() {
             commands::import_session_file,
             commands::list_exports,
             commands::backend_dashboard,
+            commands::fetch_hosted_dashboard,
             commands::query_oracle,
             commands::generate_story,
             commands::anonymize_snapshot,
