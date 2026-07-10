@@ -29,4 +29,4 @@ address = 0x12
   offset = 2
   width = "u8"
   scale = 1.0
-  bias = 
+  bias =
