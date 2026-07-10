@@ -1,0 +1,20 @@
+[Unit]
+Description=BeeEmUu VPS backend API
+After=network.target
+Documentation=https://github.com/ohgeeceee/beemuu
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /root/beemuu/backend/app.py --host 127.0.0.1 --port 8765
+WorkingDirectory=/root/beemuu
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=beemuu-api
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

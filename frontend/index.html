@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BeeEmUu</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">BeeEmUu VPS</p>
+      <h1>BMW diagnostic backend dashboard</h1>
+      <p>Hosted control surface for repo/build health. Desktop app still handles live cable/vehicle I/O.</p>
+      <button id="refresh" type="button">Refresh</button>
+    </section>
+
+    <section id="status" class="grid" aria-live="polite">
+      <article class="card"><span>API</span><strong>Loading</strong></article>
+      <article class="card"><span>Repo</span><strong>Loading</strong></article>
+      <article class="card"><span>Profiles</span><strong>Loading</strong></article>
+      <article class="card"><span>Bundles</span><strong>Loading</strong></article>
+    </section>
+
+    <section class="panel">
+      <h2>Build artifacts</h2>
+      <ul id="artifacts"><li>Loading…</li></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Raw dashboard JSON</h2>
+      <pre id="raw">Loading…</pre>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
