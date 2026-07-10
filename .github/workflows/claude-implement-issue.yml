@@ -1,0 +1,51 @@
+name: Claude Implement Issue
+
+# Backlog agent: when you add the label "agent-ready" to an issue, Claude picks
+# it up, implements it on a branch, and opens a PR. It never pushes to main and
+# never merges — every change lands as a reviewable PR and then flows through
+# claude-review.yml + your normal CI.
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: github.event.label.name == 'agent-ready'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Implement GitHub issue #${{ github.event.issue.number }} in ${{ github.repository }}.
+
+            Title: ${{ github.event.issue.title }}
+
+            Rules:
+              1. Read CLAUDE.md at the repo root and obey every invariant in it.
+              2. Work on a new branch and open a pull request. NEVER push to main.
+                 NEVER merge the PR yourself.
+              3. Keep the change as small and focused as the issue requires.
+              4. Add or update tests (`cargo test` for Rust, pytest for bmw_diag) and
+                 make sure they pass locally before opening the PR.
+              5. If the correct fix requires touching a protected path
+                 (src-tauri/src/transport/**, src-tauri/src/protocol/**,
+                 src-tauri/src/commands.rs, or bmw_diag/core/**), STILL open the PR,
+                 but call it out prominently in the PR description and request human
+                 review — these paths talk to real vehicle hardware and must not be
+                 auto-merged.
+              6. In the PR description, link back to this issue and summarise what you
+                 changed and how you verified it.
+          claude_args: |
+            --max-turns 40

@@ -1,0 +1,55 @@
+name: Claude PR Review
+
+# Autonomous reviewer: runs on every PR (open + each new push) and leaves a
+# review focused on this project's hardware-timing invariants. No merge power —
+# it only comments.
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+
+            Read CLAUDE.md at the repo root first — it contains the non-negotiable
+            hardware and threading invariants for this project. Judge the diff against them.
+
+            Pay special attention when the PR touches any of these protected paths:
+              - src-tauri/src/transport/**   (K+DCAN / ENET serial + network transport)
+              - src-tauri/src/protocol/**    (byte-level parsing, UDS/KWP, security access)
+              - src-tauri/src/commands.rs    (Tauri command threading)
+              - bmw_diag/core/**             (Python protocol/interface core)
+
+            For those paths, explicitly check:
+              - Any Tauri command that does serial/network I/O is `async fn` (blocking I/O
+                on the main thread freezes the webview).
+              - The Tester Present (0x3E) keep-alive still runs on an async/isolated worker
+                and is not blocked by a long-running operation.
+              - No target car IPs are hardcoded (DoIP discovery must stay dynamic).
+              - The protocol/parser layer stays decoupled from UI render cycles.
+              - VIN reads go through protocol::read_vin, not a raw DID read.
+
+            Post a concise review. Approve only trivial/docs changes; for anything touching
+            the protected paths, request human review and clearly flag the timing risk.
+          claude_args: |
+            --max-turns 20
