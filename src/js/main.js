@@ -2231,29 +2231,48 @@ $("btn-dash-refresh").addEventListener("click", refreshBackendDashboard);
 async function refreshHostedDashboard() {
   const body = $("hosted-body");
   const btn = $("btn-hosted-refresh");
-  body.innerHTML = "<p class='muted'>Fetching VPS dashboard…</p>";
+  body.innerHTML = "<p class='muted'>Fetching VPS stats…</p>";
   btn.disabled = true;
   try {
-    const d = await invoke("fetch_hosted_dashboard", { url: null });
-    const generated = d.generated_at_secs
-      ? new Date(d.generated_at_secs * 1000).toLocaleString()
-      : "unknown";
-    const artifacts = d.artifacts || [];
-    const artifactList = artifacts.length
-      ? artifacts.map((a) => `<li>${escapeHtml(a)}</li>`).join("")
-      : "<li class='muted'>No release bundles yet.</li>";
+    // Two URLs: stats + landing-content. Both default to https://beemuu.com.
+    // Pass null for each to use the Rust-side default.
+    const d = await invoke("fetch_hosted_dashboard", {
+      statsUrl: null,
+      landingUrl: null,
+    });
+
+    const s = d.stats || {};
+    const l = d.landing || {};
+    const c = l.counters || {};
+
+    // DTC-by-system: render as a simple key→count list, sorted descending.
+    const dtcBySystem = s.dtc_by_system || {};
+    const dtcRows = Object.entries(dtcBySystem)
+      .sort((a, b) => b[1] - a[1])
+      .map(([system, count]) =>
+        `<li><strong>${escapeHtml(system)}</strong>: ${count}</li>`
+      )
+      .join("");
+
     body.innerHTML =
       `<div class="dash-grid">` +
-      dashMetric("Service", d.service || "—") +
-      dashMetric("Commit", d.repo?.commit || "—") +
-      dashMetric("Branch", d.repo?.branch || "—") +
-      dashMetric("Dirty", d.repo?.dirty ? "yes" : "no") +
-      dashMetric("Profiles", d.counts?.community_profiles ?? 0) +
-      dashMetric("Bundles", d.counts?.bundles ?? 0) +
-      dashMetric("Exports", d.counts?.exports ?? 0) +
+      dashMetric("Service", "beemuu-api") +
+      dashMetric("Version", s.version || "—") +
+      dashMetric("Users", s.users ?? 0) +
+      dashMetric("DTCs", s.dtc ?? 0) +
+      dashMetric("Sessions", s.diagnostic_sessions ?? 0) +
+      dashMetric("Contact msgs", s.contact_messages ?? 0) +
+      dashMetric("Systems supported", c.systems_supported ?? 0) +
+      dashMetric("Server time", s.server_time || "—") +
       `</div>` +
-      `<div class="dash-section"><div class="dash-section-title">Build artifacts</div><ul>${artifactList}</ul></div>` +
-      `<p class="muted">Generated ${generated} · source: beemuu.montanablotter.com/api/dashboard</p>`;
+      `<div class="dash-section"><div class="dash-section-title">DTCs by system</div>` +
+      (dtcRows
+        ? `<ul>${dtcRows}</ul>`
+        : `<p class='muted'>No DTCs recorded yet.</p>`) +
+      `</div>` +
+      `<div class="dash-section"><div class="dash-section-title">Motto</div>` +
+      `<p>${escapeHtml(l.motto || "")}</p></div>` +
+      `<p class="muted">Source: beemuu.com/api/stats + beemuu.com/api/landing-content · fetched ${escapeHtml(new Date((d.fetched_at_secs || 0) * 1000).toLocaleString())}</p>`;
     log("Hosted dashboard refreshed");
   } catch (e) {
     body.innerHTML = `<p class='muted'>Hosted dashboard offline: ${escapeHtml(String(e))}</p>`;
