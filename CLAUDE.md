@@ -5,6 +5,28 @@ plus a Python core in `bmw_diag/`). Code here can flash ECUs and talk to real
 vehicle hardware. Correctness and timing are safety-relevant. Read this file fully
 before making changes.
 
+## Topology — one app, one repo, one domain
+
+BeeMuu is exactly one application. Do not propose or build a second one.
+
+- **Repo:** `github.com/ohgeeceee/beemuu` — the only source of truth. No mirrors,
+  no separate "API repo", no separate "frontend repo".
+- **Domains (production):**
+  - `beemuu.com` → landing page + hosted admin panel (static, served by nginx)
+  - `api.beemuu.com` → hosted backend API (Python, served by nginx → `beemuu-prod-api.service`)
+- **Frontend + backend of the same app:** the Tauri webview (`src/`) talks to the
+  Python backend (`bmw_diag/` + `backend/`). The hosted build reuses the same
+  backend over `/api/*`. There is no "frontend-only" or "backend-only" sibling
+  product.
+- **No other VPS / domain.** The retired LA VPS (`montanablotter.com`,
+  `beemuu.montanablotter.com`, `74.208.64.42`) is decommissioned as of 2026-07-11
+  and must not be referenced, reactivated, or rebuilt. The only production host
+  is the NJ Spectrum VPS (`vps3490050.trouble-free.net`, `162.35.175.39`).
+
+If a task seems to require splitting BeeMuu into multiple apps, multiple repos,
+or pointing it at another domain/VPS — stop and ask first. That is almost
+certainly the wrong shape.
+
 ## Golden rules
 
 1. **Never push to `main`.** All work lands as a pull request for human review.
