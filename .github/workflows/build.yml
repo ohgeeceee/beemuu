@@ -25,3 +25,15 @@ jobs:
 
       - name: Check TOML formatting (basic)
         run: node scripts/lint-toml.js
+
+      # Regenerate the community/forum index from thread files and fail
+      # the build if the committed index.json is out of date. Runners
+      # come with Python 3.12+ on Ubuntu-latest; tomllib is stdlib.
+      - name: Check community/forum/index.json is up to date
+        run: |
+          python3 scripts/forum_index.py
+          if ! git diff --quiet community/forum/index.json; then
+            echo "::error::community/forum/index.json is out of date. Run 'python3 scripts/forum_index.py' and commit the result."
+            git diff community/forum/index.json
+            exit 1
+          fi
