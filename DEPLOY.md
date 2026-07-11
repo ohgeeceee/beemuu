@@ -62,8 +62,8 @@ journalctl -u beemuu-api -f
 ## 2. Install nginx config
 
 ```bash
-sudo cp /root/beemuu/ops/beemuu.montanablotter.com.conf /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/beemuu.montanablotter.com.conf /etc/nginx/sites-enabled/
+sudo cp /root/beemuu/ops/beemuu.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/beemuu.com.conf /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -72,10 +72,10 @@ sudo systemctl reload nginx
 
 ```bash
 # Health check
-curl -s https://beemuu.montanablotter.com/api/health | jq
+curl -s https://beemuu.com/api/health | jq
 
-# Dashboard
-curl -s https://beemuu.montanablotter.com/api/dashboard | jq
+# Stats (live counters)
+curl -s https://beemuu.com/api/stats | jq
 ```
 
 ## 4. Manage service
@@ -120,7 +120,7 @@ Re-running is a no-op — every seed is idempotent (UPSERT on the code PK).
 │   └── app.css
 ├── ops/
 │   ├── beemuu-api.service  # systemd unit
-│   ├── beemuu.montanablotter.com.conf  # nginx config
+│   ├── beemuu.com.conf     # nginx vhost (HTTP-only base; certbot adds HTTPS)
 │   └── bootstrap.sh        # DTC seed runner
 └── [rest of repo]
 ```
@@ -134,11 +134,6 @@ The VPS exposes (production API surface):
 - `https://beemuu.com/api/health` — `{ok, service, version, time}`
 - `https://beemuu.com/api/stats` — live counters: users, DTCs, sessions, contact messages, breakdowns by system/status, server time
 - `https://beemuu.com/api/landing-content` — landing page content (version, motto, GitHub/Discord URLs, counters)
-
-Legacy mirror:
-
-- `https://beemuu.montanablotter.com/` → 301 redirect to `https://beemuu.com/`
-- `https://beemuu.montanablotter.com/api/*` → 301 redirect to `https://beemuu.com/api/*`
 
 > Note: the desktop app's "hosted dashboard" panel talks to `/api/stats` and
 > `/api/landing-content`. The `/api/dashboard` endpoint from the GitHub-repo

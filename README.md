@@ -169,7 +169,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 ## Links
 
-- Project status & landing page: **https://beemuu.com** (legacy mirror: **https://beemuu.montanablotter.com** — 301 redirects to beemuu.com)
+- Project status & landing page: **https://beemuu.com**
 - Source: **https://github.com/ohgeeceee/beemuu**
 - Issues: **https://github.com/ohgeeceee/beemuu/issues**
 - Discussions (Q&A, roadmap): **https://github.com/ohgeeceee/beemuu/discussions**
