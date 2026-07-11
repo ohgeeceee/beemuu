@@ -330,3 +330,275 @@ body.admin-shell { display: flex; flex-direction: column; }
     border-top: 1px solid var(--border);
     font-size: 12px;
 }
+
+/* ----- filter bar + data table (PR 3) ----- */
+
+.admin-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.admin-filter-bar input[type="search"],
+.admin-filter-bar select {
+    padding: 6px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.admin-filter-bar input[type="search"] {
+    min-width: 180px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+}
+
+.admin-filter-bar button {
+    padding: 6px 14px;
+    background: var(--accent);
+    color: #0a0f15;
+    border: 0;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-filter-bar button:hover { filter: brightness(1.1); }
+
+.admin-filter-meta {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.admin-data-table-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.admin-data-table {
+    border-radius: 0;
+    border: 0;
+}
+
+.admin-data-table tbody tr:hover {
+    background: var(--panel-2);
+}
+
+.admin-row-clickable {
+    cursor: pointer;
+}
+
+.col-code { font-family: var(--mono); font-weight: 600; }
+.col-source { font-family: var(--mono); color: var(--muted); font-size: 12px; }
+.col-actions { white-space: nowrap; }
+.col-actions button {
+    margin-right: 4px;
+    padding: 4px 10px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.col-actions button:hover { border-color: var(--accent); }
+.col-actions button[data-action="reject"]:hover { border-color: var(--danger); color: var(--danger); }
+
+.admin-meta-note {
+    color: var(--muted);
+    font-size: 12px;
+    font-style: italic;
+}
+
+/* ----- pills (severity + status) ----- */
+
+.admin-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+}
+
+.admin-pill-info { background: rgba(93, 204, 138, 0.15); border-color: rgba(93, 204, 138, 0.4); color: var(--ok); }
+.admin-pill-warn { background: rgba(255, 184, 0, 0.12); border-color: rgba(255, 184, 0, 0.4); color: #ffb800; }
+.admin-pill-critical { background: rgba(255, 93, 93, 0.12); border-color: rgba(255, 93, 93, 0.4); color: var(--danger); }
+
+.admin-pill-status-pending { background: rgba(77, 159, 255, 0.12); border-color: rgba(77, 159, 255, 0.4); color: var(--accent); }
+.admin-pill-status-approved { background: rgba(93, 204, 138, 0.15); border-color: rgba(93, 204, 138, 0.4); color: var(--ok); }
+.admin-pill-status-rejected { background: rgba(255, 93, 93, 0.12); border-color: rgba(255, 93, 93, 0.4); color: var(--danger); }
+
+/* ----- pager ----- */
+
+.admin-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 8px 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.admin-pager button {
+    padding: 6px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.admin-pager button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.admin-pager button:not(:disabled):hover {
+    border-color: var(--accent);
+}
+
+/* ----- dialogs (PR 3 edit + approve + reject) ----- */
+
+.admin-dialog {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 520px;
+    width: 90vw;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.admin-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.admin-dialog h3 {
+    margin: 0 0 16px;
+    font-size: 16px;
+}
+
+.admin-dialog label {
+    display: block;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.admin-dialog input[type="text"],
+.admin-dialog select,
+.admin-dialog textarea {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.admin-dialog textarea {
+    font-family: var(--mono);
+    resize: vertical;
+}
+
+.admin-dialog input:focus,
+.admin-dialog select:focus,
+.admin-dialog textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(77, 159, 255, 0.2);
+}
+
+.admin-checkbox-row {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    color: var(--text) !important;
+    font-size: 13px !important;
+}
+
+.admin-checkbox-row input { margin: 0; width: auto !important; }
+
+.admin-dialog-meta {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.admin-dialog-meta code {
+    font-family: var(--mono);
+    background: var(--panel-2);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--text);
+}
+
+.admin-dialog-status {
+    margin: 12px 0 0;
+    min-height: 1em;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.admin-dialog-status:not(:empty) { color: var(--danger); }
+
+.admin-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 20px 0 0;
+    padding: 0;
+}
+
+.admin-dialog-actions button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+}
+
+.admin-dialog-actions button[value="cancel"] {
+    background: var(--panel-2);
+    color: var(--text);
+}
+
+.admin-dialog-actions button[value="save"] {
+    background: var(--accent);
+    color: #0a0f15;
+    border-color: var(--accent);
+}
+
+.admin-dialog-actions button:hover { filter: brightness(1.1); }

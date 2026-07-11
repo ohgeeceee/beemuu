@@ -64,6 +64,19 @@ def handle(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str
     """
     from .app import _resolve_db_path
 
+    # PR 3: forward DTC + submissions paths to the dedicated router first,
+    # so GET/POST /admin/api/dtc and friends work.
+    if path.startswith("/admin/api/dtc") or path.startswith("/admin/api/submissions"):
+        # Inline dispatch via route_dtc; keep handle_post_route_dtc for callers
+        # that want a stand-alone function.
+        from . import dtc_api as _dtc_api
+        method = handler.command
+        if route_dtc(handler, method, path, query):
+            return True
+        # If route_dtc didn't match (e.g. /admin/api/dtc with method DELETE),
+        # fall through to 404 below.
+        return False
+
     if not path.startswith("/admin/api/"):
         return False
     if path == "/admin/api/stats/dtc-submissions":
@@ -158,3 +171,94 @@ def handle(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str
 
     # No admin API route matched.
     return False
+
+
+# ---- PR 3: DTC + submissions routing ------------------------------------
+
+import re as _re  # noqa: E402
+
+_DTC_CODE_RE = _re.compile(r"^/admin/api/dtc/([A-Za-z0-9]{1,16})$")
+_SUBMISSION_GET_RE = _re.compile(r"^/admin/api/submissions/(\d+)$")
+_SUBMISSION_ACTION_RE = _re.compile(r"^/admin/api/submissions/(\d+)/(approve|reject)$")
+
+
+def _client_ip_for(handler: BaseHTTPRequestHandler) -> str:
+    """Pull the originating client IP from X-Forwarded-For / X-Real-IP.
+
+    Mirrors the helper in app.py but lives here too because admin_api is
+    imported by app.py and we don't want a circular import.
+    """
+    fwd = handler.headers.get("X-Forwarded-For", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return handler.headers.get("X-Real-IP", "")
+
+
+def route_dtc(handler: BaseHTTPRequestHandler, method: str, path: str, query: dict) -> bool:
+    """Dispatch /admin/api/dtc* and /admin/api/submissions* requests.
+
+    Returns True if the path matched (handler should not 404), False otherwise.
+    Caller is responsible for calling require_admin() for protected routes.
+    """
+    # Local import keeps this module's import graph shallow and avoids a
+    # circular dependency (admin_api is imported by app.py).
+    from .app import _resolve_db_path
+    db_path = _resolve_db_path()
+
+    # GET /admin/api/dtc
+    if path == "/admin/api/dtc" and method == "GET":
+        admin_id = require_admin(handler)
+        if admin_id is None:
+            return True
+        from . import dtc_api
+        return dtc_api.list_dtc(handler, db_path, query)
+
+    # GET/POST /admin/api/dtc/<code>
+    m = _DTC_CODE_RE.match(path)
+    if m:
+        admin_id = require_admin(handler)
+        if admin_id is None:
+            return True
+        from . import dtc_api
+        code = m.group(1)
+        if method == "GET":
+            return dtc_api.get_dtc(handler, db_path, code)
+        if method == "POST":
+            return dtc_api.update_dtc(handler, db_path, code, admin_id, _client_ip_for(handler))
+        _json(handler, {"error": "method not allowed"}, status=405)
+        return True
+
+    # GET /admin/api/submissions
+    if path == "/admin/api/submissions" and method == "GET":
+        admin_id = require_admin(handler)
+        if admin_id is None:
+            return True
+        from . import dtc_api
+        return dtc_api.list_submissions(handler, db_path, query)
+
+    # GET /admin/api/submissions/<id>
+    m = _SUBMISSION_GET_RE.match(path)
+    if m and method == "GET":
+        admin_id = require_admin(handler)
+        if admin_id is None:
+            return True
+        from . import dtc_api
+        return dtc_api.get_submission(handler, db_path, int(m.group(1)))
+
+    # POST /admin/api/submissions/<id>/approve|reject
+    m = _SUBMISSION_ACTION_RE.match(path)
+    if m and method == "POST":
+        admin_id = require_admin(handler)
+        if admin_id is None:
+            return True
+        from . import dtc_api
+        sub_id = int(m.group(1))
+        action = m.group(2)
+        if action == "approve":
+            return dtc_api.approve_submission(handler, db_path, sub_id, admin_id, _client_ip_for(handler))
+        return dtc_api.reject_submission(handler, db_path, sub_id, admin_id, _client_ip_for(handler))
+
+    return False
+
+
+# ---- PR 3: DTC + submissions routing ------------------------------------

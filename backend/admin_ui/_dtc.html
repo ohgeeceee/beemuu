@@ -1,21 +1,95 @@
 <section class="admin-page-intro">
     <h2>DTC catalog</h2>
     <p class="admin-page-meta">
-        Browse, edit, and disable diagnostic trouble codes stored in the local
-        catalog. Pending community submissions are reviewed on the
+        Browse and edit diagnostic trouble codes stored in the local catalog.
+        Filter by prefix (e.g. <code>P00</code>), severity, or enabled/verified
+        flag. Click a code's row to edit it inline. Pending community
+        submissions are reviewed on the
         <a href="/admin/submissions/">Submissions</a> page.
     </p>
 </section>
-<section class="admin-empty-state">
-    <h3>Coming in PR 3</h3>
-    <p>
-        List/search by code prefix, edit titles and severity, toggle the
-        <code>enabled</code> and <code>verified</code> flags. Every edit is
-        written to the audit log.
-    </p>
-    <p class="admin-empty-state-api">
-        API contract (PR 3): <code>GET /admin/api/dtc?prefix=&amp;page=</code>,
-        <code>GET /admin/api/dtc/&lt;code&gt;</code>,
-        <code>POST /admin/api/dtc/&lt;code&gt;</code>.
-    </p>
+
+<section class="admin-filter-bar">
+    <input
+        type="search"
+        id="dtc-prefix"
+        placeholder="Prefix (e.g. P00, B1, U)"
+        autocomplete="off"
+        spellcheck="false"
+        maxlength="16"
+    >
+    <select id="dtc-severity" aria-label="Severity">
+        <option value="">All severities</option>
+        <option value="info">Info</option>
+        <option value="warn">Warn</option>
+        <option value="critical">Critical</option>
+    </select>
+    <select id="dtc-enabled" aria-label="Enabled">
+        <option value="">Any</option>
+        <option value="1">Enabled</option>
+        <option value="0">Disabled</option>
+    </select>
+    <select id="dtc-verified" aria-label="Verified">
+        <option value="">Any</option>
+        <option value="1">Verified</option>
+        <option value="0">Unverified</option>
+    </select>
+    <button type="button" id="dtc-apply">Apply</button>
+    <span class="admin-filter-meta" id="dtc-meta"></span>
 </section>
+
+<section class="admin-data-table-wrap">
+    <table class="admin-table admin-data-table" id="dtc-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Title</th>
+                <th>Severity</th>
+                <th>Source</th>
+                <th>Enabled</th>
+                <th>Verified</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" class="admin-empty">Loading…</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<nav class="admin-pager" aria-label="Pagination">
+    <button type="button" id="dtc-prev" disabled>‹ Prev</button>
+    <span id="dtc-page-info">Page 1</span>
+    <button type="button" id="dtc-next" disabled>Next ›</button>
+</nav>
+
+<dialog id="dtc-edit-dialog" class="admin-dialog" aria-labelledby="dtc-edit-title">
+    <form method="dialog" id="dtc-edit-form">
+        <h3 id="dtc-edit-title">Edit DTC</h3>
+        <input type="hidden" id="dtc-edit-code">
+        <label for="dtc-edit-title-input">Title</label>
+        <input type="text" id="dtc-edit-title-input" maxlength="512" required>
+        <label for="dtc-edit-severity">Severity</label>
+        <select id="dtc-edit-severity">
+            <option value="info">Info</option>
+            <option value="warn">Warn</option>
+            <option value="critical">Critical</option>
+        </select>
+        <label for="dtc-edit-description">Description</label>
+        <textarea id="dtc-edit-description" rows="6" maxlength="4096"></textarea>
+        <label class="admin-checkbox-row">
+            <input type="checkbox" id="dtc-edit-enabled">
+            Enabled
+        </label>
+        <label class="admin-checkbox-row">
+            <input type="checkbox" id="dtc-edit-verified">
+            Verified
+        </label>
+        <p class="admin-dialog-status" id="dtc-edit-status" aria-live="polite"></p>
+        <menu class="admin-dialog-actions">
+            <button type="button" value="cancel" id="dtc-edit-cancel">Cancel</button>
+            <button type="submit" value="save" id="dtc-edit-save">Save</button>
+        </menu>
+    </form>
+</dialog>
+
+<script src="/admin/static/dtc.js" defer></script>

@@ -6,15 +6,85 @@
         rejecting it preserves the submission for audit.
     </p>
 </section>
-<section class="admin-empty-state">
-    <h3>Coming in PR 3</h3>
-    <p>
-        Sortable queue with status filter (pending / approved / rejected),
-        reviewer notes, and a one-click approve / reject action.
-    </p>
-    <p class="admin-empty-state-api">
-        API contract (PR 3): <code>GET /admin/api/submissions?status=&amp;page=</code>,
-        <code>POST /admin/api/submissions/&lt;id&gt;/approve</code>,
-        <code>POST /admin/api/submissions/&lt;id&gt;/reject</code>.
-    </p>
+
+<section class="admin-filter-bar">
+    <select id="sub-status" aria-label="Status">
+        <option value="pending" selected>Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="all">All</option>
+    </select>
+    <button type="button" id="sub-apply">Apply</button>
+    <span class="admin-filter-meta" id="sub-meta"></span>
 </section>
+
+<section class="admin-data-table-wrap">
+    <table class="admin-table admin-data-table" id="sub-table">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Code</th>
+                <th>Submitter</th>
+                <th>Symptoms</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" class="admin-empty">Loading…</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<nav class="admin-pager" aria-label="Pagination">
+    <button type="button" id="sub-prev" disabled>‹ Prev</button>
+    <span id="sub-page-info">Page 1</span>
+    <button type="button" id="sub-next" disabled>Next ›</button>
+</nav>
+
+<dialog id="sub-approve-dialog" class="admin-dialog" aria-labelledby="sub-approve-title">
+    <form method="dialog" id="sub-approve-form">
+        <h3 id="sub-approve-title">Approve submission</h3>
+        <input type="hidden" id="sub-approve-id">
+        <p class="admin-dialog-meta">
+            Promoting <code id="sub-approve-code"></code> into the DTC catalog.
+            Leave fields blank to use the submission's own values.
+        </p>
+        <label for="sub-approve-title-input">Title (override)</label>
+        <input type="text" id="sub-approve-title-input" maxlength="512" placeholder="Use submission default">
+        <label for="sub-approve-severity">Severity</label>
+        <select id="sub-approve-severity">
+            <option value="">Use submission default</option>
+            <option value="info">Info</option>
+            <option value="warn">Warn</option>
+            <option value="critical">Critical</option>
+        </select>
+        <label for="sub-approve-note">Reviewer note (optional)</label>
+        <textarea id="sub-approve-note" rows="2" maxlength="512"></textarea>
+        <p class="admin-dialog-status" id="sub-approve-status" aria-live="polite"></p>
+        <menu class="admin-dialog-actions">
+            <button type="button" value="cancel" id="sub-approve-cancel">Cancel</button>
+            <button type="submit" value="save" id="sub-approve-save">Approve</button>
+        </menu>
+    </form>
+</dialog>
+
+<dialog id="sub-reject-dialog" class="admin-dialog" aria-labelledby="sub-reject-title">
+    <form method="dialog" id="sub-reject-form">
+        <h3 id="sub-reject-title">Reject submission</h3>
+        <input type="hidden" id="sub-reject-id">
+        <p class="admin-dialog-meta">
+            Rejecting <code id="sub-reject-code"></code>. A reviewer note is
+            required so the submitter (and audit trail) knows why.
+        </p>
+        <label for="sub-reject-note">Reviewer note (required)</label>
+        <textarea id="sub-reject-note" rows="3" maxlength="512" required></textarea>
+        <p class="admin-dialog-status" id="sub-reject-status" aria-live="polite"></p>
+        <menu class="admin-dialog-actions">
+            <button type="button" value="cancel" id="sub-reject-cancel">Cancel</button>
+            <button type="submit" value="save" id="sub-reject-save">Reject</button>
+        </menu>
+    </form>
+</dialog>
+
+<script src="/admin/static/submissions.js" defer></script>

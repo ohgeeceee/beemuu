@@ -188,9 +188,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/admin/logout" and method == "POST":
             self._handle_logout()
             return
-        # Admin JSON API (tiles, audit log). Lives under /admin/api/* and is
-        # always auth-gated; the admin_api module handles 401 itself.
-        if path.startswith("/admin/api/") and method == "GET":
+        # Admin JSON API (tiles, audit log, DTC, submissions). Lives under
+        # /admin/api/* and is always auth-gated. PR 3 added POST endpoints
+        # (dtc.update, submissions.approve/reject); auth still gated the same
+        # way via require_admin() inside each route.
+        if path.startswith("/admin/api/") and method in ("GET", "POST"):
             from . import admin_api
             query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
             if not admin_api.handle(self, path, query):
