@@ -3,7 +3,8 @@
 ## Prerequisites
 - VPS running Ubuntu 20.04+ with systemd and nginx
 - Git repo cloned to `/root/beemuu`
-- Python 3.8+
+- Python 3.8+ (stdlib only — no pip dependencies required for the admin panel;
+  password hashing uses `hashlib.scrypt` from the standard library)
 - TLS certificates (Let's Encrypt via certbot)
 
 ## 1. Install systemd service
@@ -15,6 +16,29 @@ sudo systemctl enable beemuu-api
 sudo systemctl start beemuu-api
 sudo systemctl status beemuu-api
 ```
+
+### Admin password (required for first boot)
+
+The admin panel uses a single shared admin account. On first boot, the service
+creates the account from the `BEEMUU_ADMIN_PASSWORD` environment variable. **The
+service refuses to start without it.** Set it before starting:
+
+```bash
+# Generate a random password
+export BEEMUU_ADMIN_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+echo "Save this: $BEEMUU_ADMIN_PASSWORD"
+
+# Persist it for systemd
+sudo systemctl edit beemuu-api
+# Add:
+# [Service]
+# Environment=BEEMUU_ADMIN_PASSWORD=<paste password>
+sudo systemctl daemon-reload
+sudo systemctl restart beemuu-api
+```
+
+The SQLite database lives at `/root/beemuu/backend/data/beemuu.db` by default;
+override with `BEEMUU_DB_PATH`.
 
 Verify:
 ```bash
