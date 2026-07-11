@@ -127,10 +127,24 @@ Re-running is a no-op — every seed is idempotent (UPSERT on the code PK).
 
 ## Endpoints
 
-- `https://beemuu.montanablotter.com/` — frontend
-- `https://beemuu.montanablotter.com/api/health` — health check
-- `https://beemuu.montanablotter.com/api/dashboard` — JSON metrics
+The VPS exposes (production API surface):
 
+- `https://beemuu.com/` — public landing page (HTML)
+- `https://beemuu.com/admin/` — admin panel UI
+- `https://beemuu.com/api/health` — `{ok, service, version, time}`
+- `https://beemuu.com/api/stats` — live counters: users, DTCs, sessions, contact messages, breakdowns by system/status, server time
+- `https://beemuu.com/api/landing-content` — landing page content (version, motto, GitHub/Discord URLs, counters)
+
+Legacy mirror:
+
+- `https://beemuu.montanablotter.com/` → 301 redirect to `https://beemuu.com/`
+- `https://beemuu.montanablotter.com/api/*` → 301 redirect to `https://beemuu.com/api/*`
+
+> Note: the desktop app's "hosted dashboard" panel talks to `/api/stats` and
+> `/api/landing-content`. The `/api/dashboard` endpoint from the GitHub-repo
+> `backend/app.py` is not the same surface as the production VPS and is not
+> exposed publicly; if you need it locally, point the Tauri command at a
+> local backend on `127.0.0.1:8765` instead.
 ## Troubleshooting
 
 - **Port 8765 in use**: `lsof -i :8765` then kill the process
