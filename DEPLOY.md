@@ -21,21 +21,30 @@ sudo systemctl status beemuu-api
 
 The admin panel uses a single shared admin account. On first boot, the service
 creates the account from the `BEEMUU_ADMIN_PASSWORD` environment variable. **The
-service refuses to start without it.** Set it before starting:
+service refuses to start without it.** Set it before starting.
+
+The recommended pattern is an env file (mode 600), referenced from the systemd
+unit via `EnvironmentFile=`:
 
 ```bash
-# Generate a random password
-export BEEMUU_ADMIN_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
-echo "Save this: $BEEMUU_ADMIN_PASSWORD"
+# 1. Generate a random password and save it in /etc/beemuu/beemuu.env
+sudo mkdir -p /etc/beemuu
+sudo python3 -c 'import secrets; print("BEEMUU_ADMIN_PASSWORD=" + secrets.token_urlsafe(32))' \
+  | sudo tee /etc/beemuu/beemuu.env
+sudo chmod 600 /etc/beemuu/beemuu.env
+sudo chown root:root /etc/beemuu/beemuu.env
 
-# Persist it for systemd
-sudo systemctl edit beemuu-api
-# Add:
-# [Service]
-# Environment=BEEMUU_ADMIN_PASSWORD=<paste password>
+# 2. Install the unit and start
+sudo cp /root/beemuu/ops/beemuu-api.service /etc/systemd/system/
 sudo systemctl daemon-reload
+sudo systemctl enable beemuu-api
 sudo systemctl restart beemuu-api
+sudo systemctl status beemuu-api
 ```
+
+**Do not inline the password in `ops/beemuu-api.service`** — the env file pattern
+keeps the secret out of any unit-file dumps (`systemctl show`, backups, version
+control) and makes rotation a one-line change.
 
 The SQLite database lives at `/root/beemuu/backend/data/beemuu.db` by default;
 override with `BEEMUU_DB_PATH`.
