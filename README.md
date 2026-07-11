@@ -8,7 +8,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v0.2.0](https://img.shields.io/badge/release-v0.2.0-success.svg)](RELEASE_NOTES_v0.2.0.md)
+[![v0.3.0](https://img.shields.io/badge/release-v0.3.0-success.svg)](RELEASE_NOTES_v0.3.0.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core with a Python diagnostic backend in `bmw_diag/` — for talking to
@@ -116,8 +116,10 @@ Highlights from v0.3.0 ("Real Car") and beyond:
 - **Tuning Fingerprint Detector** *(research)* — compare live data
   distributions against a stock baseline. Useful when buying used.
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.2.0** (2026-07-06),
-150+ DTC texts, B58/N55 verified DIDs, CI across Ubuntu + Windows.
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.3.0** (2026-07-11),
+"Community Intelligence" — Parameter Hunt, Community Oracle, DTC Opinions,
+Diagnostic Story, and the VPS-hosted backend. See
+[`RELEASE_NOTES_v0.3.0.md`](RELEASE_NOTES_v0.3.0.md).
 
 ---
 
