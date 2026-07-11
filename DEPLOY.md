@@ -84,18 +84,35 @@ sudo journalctl -u beemuu-api -n 50
 sudo systemctl stop beemuu-api
 ```
 
+## 5. Seed the DTC catalog (first deploy)
+
+After first boot, the admin panel needs DTC data to be useful. The bootstrap
+seeds ~236 generic SAE J2012 codes plus 11 BMW-specific codes drawn from the
+project's own `community/opinions/*.toml` docs:
+
+```bash
+cd /root/beemuu
+sudo ./ops/bootstrap.sh
+```
+
+Output should end with `done in ~0.2s — 236 total DTCs (11 BMW-specific)`.
+Re-running is a no-op — every seed is idempotent (UPSERT on the code PK).
+
 ## Layout
 
 ```
 /root/beemuu/
 ├── backend/app.py          # Main service
+├── backend/bootstrap_dtc.py # DTC seed CLI (`python -m backend.bootstrap_dtc`)
+├── backend/seed*.py        # Seed sources (auto-registered)
 ├── frontend/               # Static assets
 │   ├── index.html
 │   ├── app.js
 │   └── app.css
 ├── ops/
 │   ├── beemuu-api.service  # systemd unit
-│   └── beemuu.montanablotter.com.conf  # nginx config
+│   ├── beemuu.montanablotter.com.conf  # nginx config
+│   └── bootstrap.sh        # DTC seed runner
 └── [rest of repo]
 ```
 
