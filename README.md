@@ -17,7 +17,7 @@ ENET/DoIP), **KWP2000** (E series, classic cars over a $15 K+DCAN cable),
 and **standard OBD-II PIDs**. A built-in virtual E90 simulator means you can
 work on the app without owning a car.
 
-> **Try it first** at [beemuu.montanablotter.com](https://beemuu.montanablotter.com/)
+> **Try it first** at [beemuu.com](https://beemuu.com/)
 > for the landing page and project status. This README is for people who already
 > want to install.
 
@@ -39,7 +39,7 @@ The desktop app is organized into ten tabs. Every one of these is real code in
 | **Service Functions** | Battery registration, CBS reset, DPF/adaptations where the ECU firmware supports them. High-risk functions stay gated. |
 | **Diagnostics** | Run an individual diagnostic job against one ECU (as opposed to scanning the whole car). |
 | **Snapshots** | Bundle VIN + fault memory + freeze frames + recent live values into one JSON artifact for sharing or analysis. |
-| **Backend** | Local status of the bundled read-only API (`/api/health`, `/api/dashboard`). |
+| **Backend** | Local status of the bundled read-only API (`/api/health`, `/api/dashboard`), plus the live hosted build status from `beemuu.com` (`/api/stats`, `/api/landing-content`). |
 
 The optional **Python core** in `bmw_diag/` is a standalone library you can use
 from any Python 3.11+ project without the desktop app. Same transport layer,
@@ -167,7 +167,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 ## Links
 
-- Project status & landing page: **https://beemuu.montanablotter.com**
+- Project status & landing page: **https://beemuu.com** (legacy mirror: **https://beemuu.montanablotter.com** — 301 redirects to beemuu.com)
 - Source: **https://github.com/ohgeeceee/beemuu**
 - Issues: **https://github.com/ohgeeceee/beemuu/issues**
 - Discussions (Q&A, roadmap): **https://github.com/ohgeeceee/beemuu/discussions**
