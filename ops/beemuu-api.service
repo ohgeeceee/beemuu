@@ -5,8 +5,13 @@ Documentation=https://github.com/ohgeeceee/beemuu
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /root/beemuu/backend/app.py --host 127.0.0.1 --port 8765
+# Run as a module so relative imports inside backend/ work.
+ExecStart=/usr/bin/python3 -m backend.app --host 127.0.0.1 --port 8765
 WorkingDirectory=/root/beemuu
+# Admin credentials must be set in /etc/beemuu/beemuu.env (chmod 600).
+# The beemuu-api backend fails LOUD on startup if BEEMUU_ADMIN_PASSWORD
+# is unset — see backend/bootstrap.py. Do not inline secrets here.
+EnvironmentFile=/etc/beemuu/beemuu.env
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 Restart=on-failure
 RestartSec=5s
