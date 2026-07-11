@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Beemuu Admin — Sign in</title>
+    <link rel="stylesheet" href="/admin/static/admin.css">
+</head>
+<body class="login-page">
+    <main class="login-card" aria-labelledby="login-title">
+        <h1 id="login-title">Beemuu Admin</h1>
+        <p class="login-sub">Sign in to manage the hosted panel.</p>
+        <form method="post" action="/admin/login" autocomplete="on">
+            <label for="username">Username</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                autocomplete="username"
+                required
+                autofocus
+                spellcheck="false"
+                autocapitalize="off"
+            >
+            <label for="password">Password</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                autocomplete="current-password"
+                required
+            >
+            <input type="hidden" name="next" value="{{NEXT}}">
+            <button type="submit">Sign in</button>
+        </form>
+        <p class="login-footer">
+            This panel is for the site administrator only. All actions are logged.
+        </p>
+    </main>
+</body>
+</html>

@@ -1,0 +1,257 @@
+/* Beemuu admin shell — stdlib-friendly, no external fonts/CDNs.
+   Hand-written CSS: deliberately plain so it stays easy to audit.
+*/
+
+* { box-sizing: border-box; }
+
+:root {
+    --bg: #0f1419;
+    --panel: #1a2028;
+    --panel-2: #232b36;
+    --text: #e6e8ea;
+    --muted: #8a96a3;
+    --accent: #4d9fff;
+    --danger: #ff5d5d;
+    --ok: #5dcc8a;
+    --border: #2a323d;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+html, body { margin: 0; padding: 0; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+/* ----- login page ----- */
+
+body.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    box-shadow: var(--shadow);
+}
+
+.login-card h1 {
+    margin: 0 0 4px;
+    font-size: 20px;
+}
+
+.login-sub {
+    margin: 0 0 24px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.login-card label {
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.login-card input[type="text"],
+.login-card input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--mono);
+}
+
+.login-card input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(77, 159, 255, 0.2);
+}
+
+.login-card button {
+    width: 100%;
+    margin-top: 24px;
+    padding: 10px 16px;
+    background: var(--accent);
+    color: #0a0f15;
+    border: 0;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.login-card button:hover { filter: brightness(1.1); }
+
+.login-error {
+    margin-top: 16px;
+    padding: 10px 12px;
+    background: rgba(255, 93, 93, 0.1);
+    border: 1px solid rgba(255, 93, 93, 0.4);
+    border-radius: 4px;
+    color: var(--danger);
+    font-size: 13px;
+}
+
+.login-footer {
+    margin: 24px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+/* ----- admin shell ----- */
+
+body.admin-shell { display: flex; flex-direction: column; }
+
+.admin-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+
+.admin-brand { font-weight: 600; font-size: 15px; }
+
+.admin-nav {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    flex-wrap: wrap;
+}
+
+.admin-nav a {
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.admin-nav a:hover { background: var(--panel-2); color: var(--text); }
+.admin-nav a[aria-current="page"] { background: var(--panel-2); color: var(--text); }
+
+.admin-logout button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.admin-logout button:hover { color: var(--text); border-color: var(--accent); }
+
+.admin-main {
+    flex: 1;
+    padding: 24px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.admin-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.admin-tile {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+}
+
+.admin-tile h2 {
+    margin: 0 0 4px;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+}
+
+.admin-tile-value {
+    margin: 0;
+    font-size: 28px;
+    font-family: var(--mono);
+    font-weight: 600;
+}
+
+.admin-tile-meta {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.admin-recent h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 0 0 12px;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.admin-table th {
+    background: var(--panel-2);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-table tbody tr:last-child td { border-bottom: 0; }
+
+.admin-table .admin-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 24px;
+}
+
+.admin-table .col-time { font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+.admin-table .col-ip { font-family: var(--mono); color: var(--muted); }
+.admin-table .col-action { font-family: var(--mono); }

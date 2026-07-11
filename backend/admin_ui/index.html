@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Beemuu Admin</title>
+    <link rel="stylesheet" href="/admin/static/admin.css">
+</head>
+<body class="admin-shell">
+    <header class="admin-header">
+        <span class="admin-brand">Beemuu Admin</span>
+        <nav class="admin-nav" aria-label="Sections">
+            <a href="/admin/">Dashboard</a>
+            <a href="/admin/dtc/">DTC</a>
+            <a href="/admin/submissions/">Submissions</a>
+            <a href="/admin/community/">Community</a>
+            <a href="/admin/hunts/">Hunts</a>
+            <a href="/admin/leaderboard/">Leaderboard</a>
+            <a href="/admin/audit/">Audit log</a>
+        </nav>
+        <form method="post" action="/admin/logout" class="admin-logout">
+            <button type="submit">Sign out</button>
+        </form>
+    </header>
+    <main class="admin-main">
+        <section class="admin-tiles" aria-label="Summary">
+            <article class="admin-tile">
+                <h2>DTC submissions</h2>
+                <p class="admin-tile-value" data-source="/admin/api/stats/dtc-submissions">—</p>
+                <p class="admin-tile-meta">Pending community submissions</p>
+            </article>
+            <article class="admin-tile">
+                <h2>Diagnostic sessions</h2>
+                <p class="admin-tile-value" data-source="/admin/api/stats/diag-sessions">—</p>
+                <p class="admin-tile-meta">Logged in the last 30 days</p>
+            </article>
+            <article class="admin-tile">
+                <h2>Community profiles</h2>
+                <p class="admin-tile-value" data-source="/admin/api/stats/community-profiles">—</p>
+                <p class="admin-tile-meta">TOML profiles on disk</p>
+            </article>
+            <article class="admin-tile">
+                <h2>Leaderboard size</h2>
+                <p class="admin-tile-value" data-source="/admin/api/stats/leaderboard-size">—</p>
+                <p class="admin-tile-meta">Distinct handles scored</p>
+            </article>
+        </section>
+        <section class="admin-recent">
+            <h2>Recent activity</h2>
+            <table class="admin-table" id="admin-recent-table">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody><tr><td colspan="4" class="admin-empty">Loading…</td></tr></tbody>
+            </table>
+        </section>
+    </main>
+    <script src="/admin/static/admin.js" defer></script>
+</body>
+</html>

@@ -5,12 +5,13 @@ Documentation=https://github.com/ohgeeceee/beemuu
 
 [Service]
 Type=simple
-# Run as a module so relative imports inside backend/ work.
+# Run as a module so relative imports in backend/ work. We set PYTHONPATH
+# explicitly because systemd can strip cwd from sys.path under some conditions,
+# and we hit a real-world `ImportError: attempted relative import with no known
+# parent package` crashloop on the VPS before this fix.
 ExecStart=/usr/bin/python3 -m backend.app --host 127.0.0.1 --port 8765
 WorkingDirectory=/root/beemuu
-# Admin credentials must be set in /etc/beemuu/beemuu.env (chmod 600).
-# The beemuu-api backend fails LOUD on startup if BEEMUU_ADMIN_PASSWORD
-# is unset — see backend/bootstrap.py. Do not inline secrets here.
+Environment=PYTHONPATH=/root/beemuu
 EnvironmentFile=/etc/beemuu/beemuu.env
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 Restart=on-failure
