@@ -16,3 +16,16 @@ Thumbs.db
 
 # Logs / local data
 *.log
+
+# Backend runtime data (sqlite db + WAL/SHM)
+backend/data/*.db
+backend/data/*.db-*
+
+# Hermes agent artifacts (plans, scratch)
+.hermes/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/

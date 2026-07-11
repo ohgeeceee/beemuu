@@ -15,6 +15,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from . import bootstrap
+
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 
@@ -134,6 +136,11 @@ def main() -> None:
     parser.add_argument("--host", default=os.environ.get("BEEMUU_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("BEEMUU_PORT", "8765")))
     args = parser.parse_args()
+
+    # First-boot bootstrap: ensure DB + schema exist, ensure admin user exists.
+    # bootstrap_for_startup() exits(2) with a clear message if
+    # BEEMUU_ADMIN_PASSWORD is unset, so we never silently start insecure.
+    bootstrap.bootstrap_for_startup()
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"beemuu-api listening on http://{args.host}:{args.port}")
