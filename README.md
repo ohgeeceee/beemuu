@@ -1,5 +1,10 @@
 # BeeEmUu
 
+> **One app, one repo, one domain.** BeeMuu is a single application — Tauri shell,
+> web frontend, and Python backend all live in [github.com/ohgeeceee/beemuu](https://github.com/ohgeeceee/beemuu)
+> and serve from `beemuu.com` / `api.beemuu.com`. No sibling repos, no separate
+> frontend or backend products, no second domain.
+
 > **Independent, community-owned diagnostic software for BMW vehicles.**
 > Read and clear faults. Stream live data. Log a driving session and replay it.
 > K+DCAN, ENET, and a built-in simulator. No dealer subscription, no phone tether,
@@ -40,6 +45,20 @@ The desktop app is organized into ten tabs. Every one of these is real code in
 | **Diagnostics** | Run an individual diagnostic job against one ECU (as opposed to scanning the whole car). |
 | **Snapshots** | Bundle VIN + fault memory + freeze frames + recent live values into one JSON artifact for sharing or analysis. |
 | **Backend** | Local status of the bundled read-only API (`/api/health`, `/api/dashboard`), plus the live hosted build status from `beemuu.com` (`/api/stats`, `/api/landing-content`). |
+
+### Where the hosted app lives
+
+BeeMuu has exactly one production deployment. The web frontend and the Python
+backend are two surfaces of the **same application**, not two products:
+
+| Surface | URL | What it is |
+|---------|-----|------------|
+| Landing page + hosted admin panel | `https://beemuu.com` | Static frontend served by nginx from `/var/www/beemuu/frontend/` (and `/admin`) on the NJ Spectrum VPS. |
+| Hosted backend API | `https://api.beemuu.com` | Same `backend/` Python app, served by `beemuu-prod-api.service` and reverse-proxied via nginx `/api/*`. The desktop app and the hosted page both talk to this same backend over `/api/*`. |
+
+There is no separate "frontend repo" and no separate "backend repo", and there
+is no second domain. The retired `montanablotter.com` / `beemuu.montanablotter.com`
+hosting is gone; do not reference it.
 
 The optional **Python core** in `bmw_diag/` is a standalone library you can use
 from any Python 3.11+ project without the desktop app. Same transport layer,
