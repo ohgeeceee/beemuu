@@ -118,6 +118,68 @@ class TestSeedOne(unittest.TestCase):
             )
 
 
+class TestValidateCode(unittest.TestCase):
+    """Code-shape validation. SAE codes must be 5 chars (letter + 4 hex);
+    BMW-specific codes accept 4-6 hex chars (B58 era uses 6-hex groupings
+    like '120308' for charging pressure)."""
+
+    def setUp(self) -> None:
+        self.db_path = _fresh_db()
+
+    def _ok(self, code: str, category: str) -> None:
+        seed.seed_one(
+            self.db_path,
+            code=code,
+            category=category,
+            title="x",
+            description=None,
+            likely_causes=None,
+            severity=None,
+            source="seed:test",
+            verified=1,
+            now=0,
+        )
+
+    def _bad(self, code: str, category: str) -> None:
+        with self.assertRaises(ValueError):
+            self._ok(code, category)
+
+    def test_sae_codes_5_chars(self) -> None:
+        self._ok("P0171", "powertrain")
+        self._ok("B0001", "body")
+        self._ok("C0035", "chassis")
+        self._ok("U0100", "network")
+
+    def test_sae_rejects_wrong_letter(self) -> None:
+        self._bad("X0171", "powertrain")
+
+    def test_sae_rejects_short(self) -> None:
+        self._bad("P171", "powertrain")
+
+    def test_sae_rejects_long(self) -> None:
+        self._bad("P01710", "powertrain")
+
+    def test_bmw_accepts_4_hex(self) -> None:
+        self._ok("29E0", "bmw-specific")
+        self._ok("2A82", "bmw-specific")
+
+    def test_bmw_accepts_6_hex(self) -> None:
+        """B58-era codes use 6-hex groupings (e.g. '120308' for charging
+        pressure control: too low). Source: research/bmw_diag_dim01_dtcs.md."""
+        self._ok("120308", "bmw-specific")
+        self._ok("ABCDEF", "bmw-specific")
+
+    def test_bmw_rejects_too_short(self) -> None:
+        self._bad("2A8", "bmw-specific")
+
+    def test_bmw_rejects_too_long(self) -> None:
+        self._bad("ABCDEFG", "bmw-specific")
+
+    def test_bmw_rejects_non_hex(self) -> None:
+        self._bad("ZZZZ", "bmw-specific")
+        self._bad("2A8Z", "bmw-specific")
+
+
 class TestSeedMany(unittest.TestCase):
     """seed_many() iterates an iterable of dicts, all-or-nothing in a transaction."""
 
