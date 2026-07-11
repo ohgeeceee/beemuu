@@ -224,6 +224,68 @@ class TestAdminSessionCookie(AdminRoutesBase):
             self.assertEqual(e.code, 400)
 
 
+class TestAdminShellPages(AdminRoutesBase):
+    """Per-section pages (PR 2): every nav target returns 200 with the
+    layout chrome, breadcrumbs, and aria-current on the active link."""
+
+    SECTIONS = [
+        ("/admin/", "Dashboard", "admin-tile-value"),
+        ("/admin/dtc/", "DTC", "DTC catalog"),
+        ("/admin/submissions/", "Submissions", "DTC submissions"),
+        ("/admin/community/", "Community", "Community profiles"),
+        ("/admin/hunts/", "Hunts", "Hunt challenges"),
+        ("/admin/leaderboard/", "Leaderboard", "Leaderboard"),
+        ("/admin/audit/", "Audit log", "Audit log"),
+    ]
+
+    def _login_token(self) -> str:
+        data = urlencode({"username": "admin", "password": "test-pw"}).encode()
+        try:
+            resp = _post(f"{self.base}/admin/login", data=data)
+            return resp.headers.get("Set-Cookie", "").split(";", 1)[0].split("=", 1)[1]
+        except HTTPError as e:
+            self.assertEqual(e.code, 302)
+            return e.headers.get("Set-Cookie", "").split(";", 1)[0].split("=", 1)[1]
+
+    def test_each_section_renders_when_authed(self) -> None:
+        token = self._login_token()
+        headers = {"Cookie": f"beemuu_admin_session={token}"}
+        for path, breadcrumb, expected_fragment in self.SECTIONS:
+            with self.subTest(path=path):
+                with _get(f"{self.base}{path}", headers=headers) as resp:
+                    self.assertEqual(resp.status, 200, f"{path}: {resp.status}")
+                    body = resp.read().decode("utf-8")
+                    self.assertIn(breadcrumb, body, f"{path}: missing breadcrumb {breadcrumb!r}")
+                    self.assertIn(expected_fragment, body, f"{path}: missing content fragment {expected_fragment!r}")
+                    # Layout chrome always present.
+                    self.assertIn("admin-breadcrumbs", body)
+                    self.assertIn("admin-shell", body)
+                    # Active link must be marked; only one per page.
+                    self.assertEqual(body.count('aria-current="page"'), 1,
+                                     f"{path}: expected exactly one aria-current")
+
+    def test_each_section_redirects_when_unauthed(self) -> None:
+        for path, _breadcrumb, _fragment in self.SECTIONS:
+            with self.subTest(path=path):
+                try:
+                    _get(f"{self.base}{path}")
+                    self.fail(f"{path}: expected redirect")
+                except HTTPError as e:
+                    self.assertIn(e.code, (301, 302))
+                    loc = e.headers.get("Location", "")
+                    self.assertIn("/admin/login", loc)
+                    self.assertIn(f"next=", loc)
+
+    def test_unknown_admin_section_returns_404(self) -> None:
+        token = self._login_token()
+        try:
+            with _get(f"{self.base}/admin/nope/",
+                      headers={"Cookie": f"beemuu_admin_session={token}"}) as resp:
+                self.assertEqual(resp.status, 404)
+        except HTTPError as e:
+            self.assertEqual(e.code, 404)
+
+
 class TestAdminLogout(AdminRoutesBase):
     def test_logout_clears_cookie_and_revokes_session(self) -> None:
         # Log in (302 = success)

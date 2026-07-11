@@ -1,0 +1,20 @@
+<section class="admin-page-intro">
+    <h2>Community profiles</h2>
+    <p class="admin-page-meta">
+        TOML profiles under <code>community/profiles/</code> that show up in
+        the hosted panel's preset list. Reviewers can disable a profile without
+        deleting the file.
+    </p>
+</section>
+<section class="admin-empty-state">
+    <h3>Coming in PR 4</h3>
+    <p>
+        Read-only render of each <code>.toml</code> file with a "disable /
+        enable" toggle and a "view raw" link.
+    </p>
+    <p class="admin-empty-state-api">
+        API contract (PR 4): <code>GET /admin/api/community/profiles</code>,
+        <code>GET /admin/api/community/profiles/&lt;slug&gt;</code>,
+        <code>POST /admin/api/community/profiles/&lt;slug&gt;/toggle</code>.
+    </p>
+</section>

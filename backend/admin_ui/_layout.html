@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="noindex,nofollow">
+    <title>{{TITLE}}</title>
+    <link rel="stylesheet" href="/admin/static/admin.css">
+</head>
+<body class="admin-shell">
+    <header class="admin-header">
+        <a href="/admin/" class="admin-brand">Beemuu Admin</a>
+        <nav class="admin-nav" aria-label="Sections">
+            <a href="/admin/"{{ACTIVE_DASHBOARD}}>Dashboard</a>
+            <a href="/admin/dtc/"{{ACTIVE_DTC}}>DTC</a>
+            <a href="/admin/submissions/"{{ACTIVE_SUBMISSIONS}}>Submissions</a>
+            <a href="/admin/community/"{{ACTIVE_COMMUNITY}}>Community</a>
+            <a href="/admin/hunts/"{{ACTIVE_HUNTS}}>Hunts</a>
+            <a href="/admin/leaderboard/"{{ACTIVE_LEADERBOARD}}>Leaderboard</a>
+            <a href="/admin/audit/"{{ACTIVE_AUDIT}}>Audit log</a>
+        </nav>
+        <form method="post" action="/admin/logout" class="admin-logout">
+            <button type="submit">Sign out</button>
+        </form>
+    </header>
+    <nav class="admin-breadcrumbs" aria-label="Breadcrumbs">
+        <a href="/admin/">Admin</a>
+        <span class="admin-breadcrumb-sep" aria-hidden="true">/</span>
+        <span class="admin-breadcrumb-current">{{BREADCRUMB}}</span>
+    </nav>
+    <main class="admin-main">
+        {{CONTENT}}
+    </main>
+    <script src="/admin/static/admin.js" defer></script>
+</body>
+</html>

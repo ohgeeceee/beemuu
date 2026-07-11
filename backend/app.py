@@ -143,14 +143,24 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/app.css" and method == "GET":
             self._file(FRONTEND / "app.css", "text/css; charset=utf-8")
             return
-        # Admin panel
-        if path == "/admin" or path == "/admin/":
-            # Always land on the dashboard if signed in, else on the login form.
-            admin_id = self._current_admin_id()
-            if admin_id is not None:
-                self._file(ADMIN_UI / "index.html", "text/html; charset=utf-8")
-            else:
-                self._redirect("/admin/login?next=%2Fadmin%2F")
+        # Admin shell pages — every section gets its own page rendered through
+        # the shared _layout.html template. Auth-gated; the dispatcher in
+        # _dispatch_authed_admin_page handles the 302 to /admin/login.
+        admin_sections = {
+            "/admin/": ("dashboard", "Dashboard"),
+            "/admin/dtc/": ("dtc", "DTC"),
+            "/admin/submissions/": ("submissions", "Submissions"),
+            "/admin/community/": ("community", "Community"),
+            "/admin/hunts/": ("hunts", "Hunts"),
+            "/admin/leaderboard/": ("leaderboard", "Leaderboard"),
+            "/admin/audit/": ("audit", "Audit log"),
+        }
+        if path in admin_sections and method == "GET":
+            section_key, breadcrumb = admin_sections[path]
+            if self._current_admin_id() is None:
+                self._redirect(f"/admin/login?next={urllib.parse.quote(path)}")
+                return
+            self._render_page(section_key, breadcrumb)
             return
         if path == "/admin/login" and method == "GET":
             # If already signed in, skip the form.
@@ -250,6 +260,58 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Location", location)
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
+
+    # Mapping of section key → (CSS class for `aria-current`, content file).
+    # Kept here (not in admin_sections dict) so content files aren't repeated
+    # in two places — the dispatcher above only needs the URL→key map.
+    _SECTION_CONTENT = {
+        "dashboard": "dashboard",
+        "dtc": "dtc",
+        "submissions": "submissions",
+        "community": "community",
+        "hunts": "hunts",
+        "leaderboard": "leaderboard",
+        "audit": "audit",
+    }
+
+    def _render_page(self, section_key: str, breadcrumb: str) -> None:
+        """Render an admin shell page from _layout.html + a content fragment.
+
+        Substitutes {{TITLE}}, {{BREADCRUMB}}, {{CONTENT}}, and one
+        {{ACTIVE_<SECTION>}} per nav link (which becomes ` aria-current="page"`
+        on the matching <a>). All other placeholders are left empty so we
+        don't ship a partial template by accident.
+        """
+        try:
+            layout = (ADMIN_UI / "_layout.html").read_text(encoding="utf-8")
+            content_name = self._SECTION_CONTENT.get(section_key, section_key)
+            content = (ADMIN_UI / f"_{content_name}.html").read_text(encoding="utf-8")
+        except OSError:
+            self._json({"error": "missing admin asset"}, status=500)
+            return
+
+        active_marker = ' aria-current="page"'
+        replacements = {
+            "{{TITLE}}": f"Beemuu Admin — {breadcrumb}",
+            "{{BREADCRUMB}}": breadcrumb,
+            "{{CONTENT}}": content,
+            "{{ACTIVE_DASHBOARD}}": active_marker if section_key == "dashboard" else "",
+            "{{ACTIVE_DTC}}": active_marker if section_key == "dtc" else "",
+            "{{ACTIVE_SUBMISSIONS}}": active_marker if section_key == "submissions" else "",
+            "{{ACTIVE_COMMUNITY}}": active_marker if section_key == "community" else "",
+            "{{ACTIVE_HUNTS}}": active_marker if section_key == "hunts" else "",
+            "{{ACTIVE_LEADERBOARD}}": active_marker if section_key == "leaderboard" else "",
+            "{{ACTIVE_AUDIT}}": active_marker if section_key == "audit" else "",
+        }
+        for key, value in replacements.items():
+            layout = layout.replace(key, value)
+        body = layout.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _json(self, payload: dict, status: int = 200) -> None:
         body = json.dumps(payload, sort_keys=True).encode("utf-8")

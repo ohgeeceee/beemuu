@@ -1,0 +1,36 @@
+<section class="admin-tiles" aria-label="Summary">
+    <article class="admin-tile">
+        <h2>DTC submissions</h2>
+        <p class="admin-tile-value" data-source="/admin/api/stats/dtc-submissions">—</p>
+        <p class="admin-tile-meta">Pending community submissions</p>
+    </article>
+    <article class="admin-tile">
+        <h2>Diagnostic sessions</h2>
+        <p class="admin-tile-value" data-source="/admin/api/stats/diag-sessions">—</p>
+        <p class="admin-tile-meta">Logged in the last 30 days</p>
+    </article>
+    <article class="admin-tile">
+        <h2>Community profiles</h2>
+        <p class="admin-tile-value" data-source="/admin/api/stats/community-profiles">—</p>
+        <p class="admin-tile-meta">TOML profiles on disk</p>
+    </article>
+    <article class="admin-tile">
+        <h2>Leaderboard size</h2>
+        <p class="admin-tile-value" data-source="/admin/api/stats/leaderboard-size">—</p>
+        <p class="admin-tile-meta">Distinct handles scored</p>
+    </article>
+</section>
+<section class="admin-recent">
+    <h2>Recent activity</h2>
+    <table class="admin-table" id="admin-recent-table">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>IP</th>
+            </tr>
+        </thead>
+        <tbody><tr><td colspan="4" class="admin-empty">Loading…</td></tr></tbody>
+    </table>
+</section>

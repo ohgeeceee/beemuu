@@ -1,0 +1,21 @@
+<section class="admin-page-intro">
+    <h2>DTC catalog</h2>
+    <p class="admin-page-meta">
+        Browse, edit, and disable diagnostic trouble codes stored in the local
+        catalog. Pending community submissions are reviewed on the
+        <a href="/admin/submissions/">Submissions</a> page.
+    </p>
+</section>
+<section class="admin-empty-state">
+    <h3>Coming in PR 3</h3>
+    <p>
+        List/search by code prefix, edit titles and severity, toggle the
+        <code>enabled</code> and <code>verified</code> flags. Every edit is
+        written to the audit log.
+    </p>
+    <p class="admin-empty-state-api">
+        API contract (PR 3): <code>GET /admin/api/dtc?prefix=&amp;page=</code>,
+        <code>GET /admin/api/dtc/&lt;code&gt;</code>,
+        <code>POST /admin/api/dtc/&lt;code&gt;</code>.
+    </p>
+</section>

@@ -1,0 +1,20 @@
+<section class="admin-page-intro">
+    <h2>DTC submissions</h2>
+    <p class="admin-page-meta">
+        Community-submitted DTC descriptions awaiting review. Approving a
+        submission promotes it into the <a href="/admin/dtc/">DTC catalog</a>;
+        rejecting it preserves the submission for audit.
+    </p>
+</section>
+<section class="admin-empty-state">
+    <h3>Coming in PR 3</h3>
+    <p>
+        Sortable queue with status filter (pending / approved / rejected),
+        reviewer notes, and a one-click approve / reject action.
+    </p>
+    <p class="admin-empty-state-api">
+        API contract (PR 3): <code>GET /admin/api/submissions?status=&amp;page=</code>,
+        <code>POST /admin/api/submissions/&lt;id&gt;/approve</code>,
+        <code>POST /admin/api/submissions/&lt;id&gt;/reject</code>.
+    </p>
+</section>

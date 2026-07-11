@@ -1,0 +1,21 @@
+<section class="admin-page-intro">
+    <h2>Hunt challenges</h2>
+    <p class="admin-page-meta">
+        Bug-bounty / gamified hunt challenges. Each challenge has a slug, a
+        title, a point value, and a payload blob that ships to clients.
+    </p>
+</section>
+<section class="admin-empty-state">
+    <h3>Coming in PR 4</h3>
+    <p>
+        Create / edit / enable / disable challenges. Soft-delete by setting
+        <code>enabled = 0</code>; the row stays so historical leaderboard
+        entries still resolve.
+    </p>
+    <p class="admin-empty-state-api">
+        API contract (PR 4): <code>GET /admin/api/hunts</code>,
+        <code>POST /admin/api/hunts</code>,
+        <code>POST /admin/api/hunts/&lt;id&gt;</code>,
+        <code>POST /admin/api/hunts/&lt;id&gt;/toggle</code>.
+    </p>
+</section>

@@ -255,3 +255,78 @@ body.admin-shell { display: flex; flex-direction: column; }
 .admin-table .col-time { font-family: var(--mono); color: var(--muted); white-space: nowrap; }
 .admin-table .col-ip { font-family: var(--mono); color: var(--muted); }
 .admin-table .col-action { font-family: var(--mono); }
+
+/* ----- breadcrumbs + per-section pages (PR 2) ----- */
+
+.admin-breadcrumbs {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 8px 24px;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+}
+
+.admin-breadcrumbs a {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.admin-breadcrumbs a:hover { color: var(--text); }
+
+.admin-breadcrumb-sep { margin: 0 6px; opacity: 0.5; }
+.admin-breadcrumb-current { color: var(--text); font-weight: 500; }
+
+.admin-page-intro { margin-bottom: 24px; }
+.admin-page-intro h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 600;
+}
+.admin-page-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    max-width: 720px;
+}
+.admin-page-meta code,
+.admin-empty-state code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--panel-2);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--text);
+}
+
+.admin-empty-state {
+    background: var(--panel);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    text-align: center;
+}
+
+.admin-empty-state h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+}
+
+.admin-empty-state p {
+    margin: 8px auto;
+    max-width: 600px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.admin-empty-state-api {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+}

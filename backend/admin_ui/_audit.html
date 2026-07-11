@@ -1,0 +1,17 @@
+<section class="admin-page-intro">
+    <h2>Audit log</h2>
+    <p class="admin-page-meta">
+        Every privileged action taken through the admin panel is recorded here
+        with timestamp, admin id, action, target, and originating IP.
+    </p>
+</section>
+<section class="admin-empty-state">
+    <h3>Coming in PR 5</h3>
+    <p>
+        Filter by action prefix, target substring, or admin id. Paginated with
+        cursor-based scrolling. Read-only.
+    </p>
+    <p class="admin-empty-state-api">
+        API contract (PR 5): <code>GET /admin/api/audit?action_prefix=&amp;target=&amp;admin_id=&amp;before_id=&amp;limit=</code>.
+    </p>
+</section>
