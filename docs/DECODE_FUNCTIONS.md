@@ -15,6 +15,21 @@ want to unlock more DID data.
 | `temp_u8` | 1 byte | `raw − 40` | `f64` | Temperatures (OBD 0x05, 0x0F) |
 | `percent_a` | 1 byte | `raw × (100/255)` | `f64` | Load, throttle (OBD 0x04, 0x11) |
 | `u24` | 3 bytes BE | `raw` | `u32` | Mileage (freeze frame) |
+| `u16_tenths` | 2 bytes BE | `raw × 0.1` | `f64` | BMW DIDs: battery V (4002), HPFP MPa (44F0), boost kPa (4367) |
+| `u16_div100` | 2 bytes BE | `raw × 0.01` | `f64` | BMW DIDs: MAF kg/h (4077), ambient kPa (4003), torque Nm (4501/4508/4509/400C) |
+| `s16` | 2 bytes BE | `raw as i16` | `f64` | Signed 16-bit passthrough (foundation) |
+| `s16_div4` | 2 bytes BE | `raw / 4.0` | `f64` | DME temperature (DID 4001, signed, 0.25°C resolution) |
+| `s16_div100` | 2 bytes BE | `raw × 0.01` | `f64` | Engine torque (DID 4500), ambient air °C (DID 4016) |
+| `u8_div100` | 1 byte | `raw × 0.01` | `f64` | Lambda (DID 400B), injection ms (DID 4363) |
+| `u8_div4` | 1 byte | `raw / 4.0` | `f64` | Alternate DME temp scaling (DID 4001-u8 variant) |
+
+> **Note (2026-07-11):** All v0.3.0 roadmap decoders are now implemented
+> (see PRs landing on `main` after this commit). The detailed "Missing Decode
+> Functions" sections below are kept as reference for the derivation, conflict
+> resolution, and edge-case notes — but every function listed there ships in
+> v0.3.0. No code path changes needed for these to be used: TOML profiles just
+> reference the decode name and the existing `decode_from_str`/`decode_to_str`
+> round-trip picks them up.
 
 ## Missing Decode Functions (v0.3.0 Roadmap)
 
