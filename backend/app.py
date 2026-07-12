@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import bootstrap, db, schematics
+from . import bootstrap, cross_links, db, schematics
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -160,7 +160,15 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_dtc_search(parse_qs(parsed.query))
             return
         if parsed.path.startswith("/api/dtc/"):
-            code = parsed.path[len("/api/dtc/"):]
+            # Match /api/dtc/<code>/schematics before the bare
+            # /api/dtc/<code> lookup (the bare path is a prefix of
+            # the longer one).
+            tail = parsed.path[len("/api/dtc/"):]
+            if tail.endswith("/schematics"):
+                code = tail[: -len("/schematics")].rstrip("/")
+                self._handle_dtc_schematics(code, parse_qs(parsed.query))
+                return
+            code = tail
             self._handle_dtc_by_code(code)
             return
         # Read-only schematics catalog (CC0 wiring diagrams).
@@ -168,7 +176,13 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_schematics_list(parse_qs(parsed.query))
             return
         if parsed.path.startswith("/api/schematics/"):
-            slug = parsed.path[len("/api/schematics/"):]
+            tail = parsed.path[len("/api/schematics/"):]
+            # /api/schematics/<slug>/links  (sub-path before bare slug lookup).
+            if tail.endswith("/links"):
+                slug = tail[: -len("/links")].rstrip("/")
+                self._handle_schematic_links(slug, parse_qs(parsed.query))
+                return
+            slug = tail
             self._handle_schematic_by_slug(slug)
             return
         if parsed.path in ("/", "/index.html"):
@@ -301,6 +315,38 @@ class Handler(BaseHTTPRequestHandler):
             db_path, series=series, system=system, q=q, limit=limit
         )
         self._json({"count": len(rows), "results": rows})
+
+    def _handle_dtc_schematics(self, code: str, query: dict) -> None:
+        # Cross-link lookup: given a DTC code, return every schematic that
+        # references it. Optional `?include_disabled=1` to see links to
+        # codes that have been soft-deleted in the catalog.
+        code = code.strip().upper()
+        if not code:
+            self._json({"error": "code is required"}, status=400)
+            return
+        include_disabled = query.get(
+            "include_disabled", ["0"]
+        )[0] in ("1", "true", "yes")
+        db_path = db._resolve_path(None)  # noqa: SLF001
+        results = cross_links.list_links_for_dtc(
+            db_path, code, include_disabled=include_disabled
+        )
+        self._json({"code": code, "count": len(results), "results": results})
+
+    def _handle_schematic_links(self, slug: str, query: dict) -> None:
+        # Symmetric to _handle_dtc_schematics.
+        slug = slug.strip()
+        if not slug:
+            self._json({"error": "slug is required"}, status=400)
+            return
+        include_disabled = query.get(
+            "include_disabled", ["0"]
+        )[0] in ("1", "true", "yes")
+        db_path = db._resolve_path(None)  # noqa: SLF001
+        results = cross_links.list_links_for_schematic(
+            db_path, slug, include_disabled=include_disabled
+        )
+        self._json({"slug": slug, "count": len(results), "results": results})
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"{self.address_string()} - {fmt % args}")
