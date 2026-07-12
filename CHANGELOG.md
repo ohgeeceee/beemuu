@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- N/A
+- Schematics catalog (PR #N of the schematics MVP series): CC0 wiring
+  diagram SVGs are now first-class catalog items with their own table
+  (`schematics`), API endpoints (`GET /api/schematics`,
+  `GET /api/schematics/<slug>`), and a seeded CC0 set of three diagrams
+  (RCD 3302 retrofit for e89 Z4, CAS3 connector pinout for e90,
+  N54 DME power tree for e60). Files are served by nginx from
+  `/static/schematics/<slug>.svg`. The viewer UI and DTC cross-links
+  ship in follow-up PRs.
 
 ### Changed
 - N/A

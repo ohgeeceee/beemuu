@@ -107,6 +107,28 @@ CREATE TABLE IF NOT EXISTS audit_log (
     at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_at ON audit_log(at DESC);
+
+CREATE TABLE IF NOT EXISTS schematics (
+    id INTEGER PRIMARY KEY,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    series TEXT NOT NULL,
+    system TEXT NOT NULL,
+    subsys TEXT,
+    model TEXT,
+    year_from INTEGER,
+    year_to INTEGER,
+    file_path TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    width_px INTEGER,
+    height_px INTEGER,
+    source_url TEXT,
+    license TEXT NOT NULL,
+    tags TEXT,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_schematics_series ON schematics(series);
+CREATE INDEX IF NOT EXISTS idx_schematics_system ON schematics(system);
 """
 
 

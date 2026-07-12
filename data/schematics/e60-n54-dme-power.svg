@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Schematic: N54 DME main relay + power distribution (e60 reference)
+  Series:    e60 (5 Series, 2003-2010)
+  License:   CC0 (public-domain dedication) — drawn from generic BMW
+             electrical reference knowledge. Verify against your specific
+             model-year wiring diagram.
+  Notes:     N54 used in e60 535i/535xi (and e90/e92). MSD80 / MSV70 DME
+             variants. Power flow: battery → main relay → DME pinout.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"
+     width="800" height="600" font-family="Helvetica, Arial, sans-serif">
+  <title>N54 DME power distribution (e60 5 Series reference)</title>
+  <desc>Generic CC0 power-tree from battery through main relay to N54 DME
+        (MSD80 / MSV70). Includes terminal designations KL30, KL15, KL50
+        and ground return paths.</desc>
+
+  <rect x="0" y="0" width="800" height="600" fill="#fafafa"/>
+  <text x="20" y="30" font-size="18" font-weight="bold" fill="#222">
+    N54 DME — Main Relay &amp; Power Distribution (e60 reference)
+  </text>
+  <text x="20" y="50" font-size="11" fill="#555">
+    License: CC0  •  Drawn from generic BMW electrical reference  •  Verify against MY-specific wiring diagram
+  </text>
+
+  <!-- Battery -->
+  <rect x="60" y="100" width="120" height="80" fill="#fff8e0" stroke="#a33" stroke-width="2" rx="6"/>
+  <text x="120" y="135" font-size="13" font-weight="bold" fill="#a33" text-anchor="middle">Battery</text>
+  <text x="120" y="152" font-size="10" fill="#a33" text-anchor="middle">12V lead-acid</text>
+  <line x1="120" y1="180" x2="120" y2="220" stroke="#a33" stroke-width="3"/>
+  <text x="125" y="200" font-size="10" fill="#a33">+</text>
+  <line x1="85" y1="180" x2="85" y2="220" stroke="#333" stroke-width="3"/>
+  <text x="80" y="200" font-size="10" fill="#333" text-anchor="end">−</text>
+
+  <!-- +12V rail -->
+  <line x1="120" y1="220" x2="700" y2="220" stroke="#a33" stroke-width="3"/>
+  <text x="125" y="212" font-size="12" font-weight="bold" fill="#a33">KL30 (always +12V)</text>
+
+  <!-- Ground rail -->
+  <line x1="85" y1="220" x2="85" y2="540" stroke="#333" stroke-width="3"/>
+  <line x1="85" y1="540" x2="700" y2="540" stroke="#333" stroke-width="3"/>
+  <text x="90" y="558" font-size="12" font-weight="bold" fill="#333">GND (chassis / W20)</text>
+
+  <!-- Main relay box -->
+  <rect x="220" y="260" width="180" height="160" fill="#e8efff" stroke="#234" stroke-width="2" rx="8"/>
+  <text x="310" y="285" font-size="14" font-weight="bold" fill="#234" text-anchor="middle">DME Main Relay</text>
+  <text x="310" y="302" font-size="10" fill="#234" text-anchor="middle">(K6320, 5-pin ISO)</text>
+
+  <!-- Relay internal: coil + contact -->
+  <rect x="245" y="330" width="60" height="60" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="275" y="365" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">Coil</text>
+  <line x1="245" y1="350" x2="305" y2="350" stroke="#444" stroke-width="1.5"/>
+  <line x1="245" y1="370" x2="305" y2="370" stroke="#444" stroke-width="1.5"/>
+  <rect x="335" y="330" width="50" height="60" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="360" y="365" font-size="11" font-weight="bold" fill="#222" text-anchor="middle">Switch</text>
+  <line x1="335" y1="345" x2="385" y2="345" stroke="#444" stroke-width="1.5"/>
+  <line x1="335" y1="345" x2="385" y2="375" stroke="#444" stroke-width="1.5"/>
+  <circle cx="385" cy="375" r="3" fill="#444"/>
+
+  <!-- Pin labels for relay -->
+  <text x="245" y="318" font-size="9" fill="#222">30</text>
+  <text x="296" y="318" font-size="9" fill="#222" text-anchor="end">85</text>
+  <text x="335" y="318" font-size="9" fill="#222">86</text>
+  <text x="385" y="318" font-size="9" fill="#222" text-anchor="end">87</text>
+  <text x="385" y="408" font-size="9" fill="#222" text-anchor="end">87a</text>
+
+  <!-- Wires from KL30 to pin 30 -->
+  <line x1="120" y1="220" x2="245" y2="220" stroke="#a33" stroke-width="2"/>
+  <line x1="245" y1="220" x2="245" y2="330" stroke="#a33" stroke-width="2"/>
+  <text x="180" y="280" font-size="10" fill="#a33">battery +12V</text>
+
+  <!-- Pin 86 to ground -->
+  <line x1="335" y1="345" x2="335" y2="540" stroke="#333" stroke-width="2"/>
+  <text x="340" y="450" font-size="10" fill="#333">coil − (GND)</text>
+
+  <!-- Pin 85 from DME control -->
+  <line x1="296" y1="350" x2="296" y2="460" stroke="#444" stroke-width="2"/>
+  <text x="297" y="430" font-size="9" fill="#222">control</text>
+
+  <!-- Pin 87 -> DME pin 1 -->
+  <line x1="385" y1="375" x2="600" y2="375" stroke="#a33" stroke-width="2"/>
+
+  <!-- DME box -->
+  <rect x="560" y="320" width="180" height="200" fill="#d0f0d0" stroke="#262" stroke-width="2" rx="8"/>
+  <text x="650" y="345" font-size="14" font-weight="bold" fill="#262" text-anchor="middle">DME (MSD80)</text>
+  <text x="650" y="362" font-size="10" fill="#262" text-anchor="middle">N54 engine controller</text>
+
+  <circle cx="600" cy="375" r="5" fill="#fff" stroke="#262" stroke-width="1.5"/>
+  <text x="595" y="378" font-size="9" text-anchor="end">1</text>
+  <text x="590" y="378" font-size="9" text-anchor="end" fill="#a33">KL87 in</text>
+
+  <circle cx="600" cy="410" r="5" fill="#fff" stroke="#262" stroke-width="1.5"/>
+  <text x="595" y="413" font-size="9" text-anchor="end">2</text>
+  <text x="590" y="413" font-size="9" text-anchor="end" fill="#a33">KL15 in</text>
+
+  <circle cx="600" cy="445" r="5" fill="#fff" stroke="#262" stroke-width="1.5"/>
+  <text x="595" y="448" font-size="9" text-anchor="end">3</text>
+  <text x="590" y="448" font-size="9" text-anchor="end" fill="#333">GND</text>
+
+  <circle cx="600" cy="480" r="5" fill="#fff" stroke="#262" stroke-width="1.5"/>
+  <text x="595" y="483" font-size="9" text-anchor="end">4</text>
+  <text x="590" y="483" font-size="9" text-anchor="end" fill="#174">PT-CAN H</text>
+
+  <circle cx="600" cy="510" r="5" fill="#fff" stroke="#262" stroke-width="1.5"/>
+  <text x="595" y="513" font-size="9" text-anchor="end">5</text>
+  <text x="590" y="513" font-size="9" text-anchor="end" fill="#174">PT-CAN L</text>
+
+  <!-- KL15 rail -->
+  <line x1="600" y1="410" x2="700" y2="410" stroke="#a33" stroke-width="2"/>
+  <line x1="700" y1="220" x2="700" y2="410" stroke="#a33" stroke-width="2"/>
+  <text x="705" y="320" font-size="10" fill="#a33">KL15</text>
+  <text x="690" y="232" font-size="9" fill="#a33">from CAS</text>
+
+  <!-- DME GND -->
+  <line x1="600" y1="445" x2="85" y2="445" stroke="#333" stroke-width="2"/>
+  <line x1="85" y1="445" x2="85" y2="540" stroke="#333" stroke-width="2"/>
+
+  <!-- PT-CAN labels -->
+  <text x="660" y="475" font-size="10" fill="#174">→ INKA / CAS / EGS</text>
+  <text x="660" y="505" font-size="10" fill="#174">via twisted pair</text>
+
+  <!-- Boot sequence note -->
+  <rect x="60" y="265" width="150" height="100" fill="#fff8e0" stroke="#bb7" stroke-width="1" rx="4"/>
+  <text x="70" y="285" font-size="11" font-weight="bold" fill="#863">Boot sequence</text>
+  <text x="70" y="305" font-size="10" fill="#333">1. KL15 from CAS key</text>
+  <text x="70" y="318" font-size="10" fill="#333">   wakes DME.</text>
+  <text x="70" y="338" font-size="10" fill="#333">2. DME drives pin 1</text>
+  <text x="70" y="351" font-size="10" fill="#333">   low to energize coil</text>
+  <text x="70" y="364" font-size="9" font-weight="bold" fill="#a00" font-style="italic">("unlatch" via DME).</text>
+
+  <!-- Diagnostic note -->
+  <rect x="60" y="380" width="150" height="150" fill="#f8f0ff" stroke="#a6a" stroke-width="1" rx="4"/>
+  <text x="70" y="400" font-size="11" font-weight="bold" fill="#836">Diagnostic tip</text>
+  <text x="70" y="420" font-size="10" fill="#333">If DME doesn't wake:</text>
+  <text x="70" y="435" font-size="10" fill="#333">• check pin 3 GND (less</text>
+  <text x="70" y="447" font-size="10" fill="#333">  than 1 Ω to chassis)</text>
+  <text x="70" y="467" font-size="10" fill="#333">• measure pin 2 for</text>
+  <text x="70" y="479" font-size="10" fill="#333">  +12V when key on</text>
+  <text x="70" y="491" font-size="10" fill="#333">• jump pin 30 → pin 87</text>
+  <text x="70" y="503" font-size="10" fill="#333">  to bypass relay</text>
+  <text x="70" y="521" font-size="9" font-style="italic" fill="#a00">(testing only).</text>
+
+  <!-- Footer legend -->
+  <rect x="20" y="565" width="760" height="28" fill="#f4f4f4" stroke="#888" stroke-width="1" rx="3"/>
+  <line x1="40" y1="580" x2="60" y2="580" stroke="#a33" stroke-width="3"/>
+  <text x="65" y="584" font-size="10" fill="#333">+12V supply</text>
+  <line x1="160" y1="580" x2="180" y2="580" stroke="#333" stroke-width="3"/>
+  <text x="185" y="584" font-size="10" fill="#333">GND return</text>
+  <line x1="265" y1="580" x2="285" y2="580" stroke="#174" stroke-width="3"/>
+  <text x="290" y="584" font-size="10" fill="#333">PT-CAN bus</text>
+  <line x1="375" y1="580" x2="395" y2="580" stroke="#444" stroke-width="3" stroke-dasharray="3,3"/>
+  <text x="400" y="584" font-size="10" fill="#333">control / signal</text>
+  <text x="510" y="584" font-size="9" font-style="italic" fill="#666">
+    DME = Digital Motor Electronics  •  KL30 = battery permanent  •  KL15 = ignition on  •  KL87 = relay out
+  </text>
+</svg>
