@@ -61,12 +61,39 @@ journalctl -u beemuu-api -f
 
 ## 2. Install nginx config
 
+For the primary `beemuu.com` deployment:
+
 ```bash
 sudo cp /root/beemuu/ops/beemuu.com.conf /etc/nginx/sites-available/
 sudo ln -sf /etc/nginx/sites-available/beemuu.com.conf /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+For the legacy `montanablotter.com` deployment (if still in use):
+
+```bash
+sudo cp /root/beemuu/ops/beemuu.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/beemuu.com.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### TLS via Let's Encrypt
+
+After the HTTP-only config is in place and DNS resolves to the VPS:
+
+```bash
+sudo certbot --nginx \
+  --non-interactive --agree-tos --no-eff-email \
+  --email admin@beemuu.com \
+  --domains beemuu.com,www.beemuu.com \
+  --redirect
+```
+
+Certbot will edit the vhost to add the HTTPS server block, an HTTP→HTTPS redirect,
+and obtain/renew certificates automatically (a `certbot.timer` systemd unit is
+installed by the `python3-certbot-nginx` package).
 
 ## 3. Verify deployment
 
@@ -114,20 +141,24 @@ Re-running is a no-op — every seed is idempotent (UPSERT on the code PK).
 ├── backend/app.py          # Main service
 ├── backend/bootstrap_dtc.py # DTC seed CLI (`python -m backend.bootstrap_dtc`)
 ├── backend/seed*.py        # Seed sources (auto-registered)
-├── frontend/               # Static assets
+├── frontend/               # Static assets (the hosted dashboard at beemuu.montanablotter.com)
 │   ├── index.html
 │   ├── app.js
 │   └── app.css
 ├── ops/
-│   ├── beemuu-api.service  # systemd unit
-│   ├── beemuu.com.conf     # nginx vhost (HTTP-only base; certbot adds HTTPS)
-│   └── bootstrap.sh        # DTC seed runner
+│   ├── beemuu-api.service              # systemd unit
+│   ├── beemuu.montanablotter.com.conf  # nginx vhost (legacy/montanablotter.com)
+│   ├── beemuu.com.conf                 # nginx vhost (beemuu.com apex + www)
+│   └── bootstrap.sh                    # DTC seed runner
 └── [rest of repo]
 ```
 
 ## Endpoints
 
-The VPS exposes (production API surface):
+- `https://beemuu.com/` and `https://www.beemuu.com/` — production frontend (TLS via Let's Encrypt)
+- `https://beemuu.com/api/health` — health check
+- `https://beemuu.com/api/dashboard` — JSON metrics
+- `https://beemuu.montanablotter.com/...` — legacy/alternate deployment (same code, different host)
 
 - `https://beemuu.com/` — public landing page (HTML)
 - `https://beemuu.com/admin/` — admin panel UI
