@@ -13,9 +13,38 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def _git_last_commit_date(repo_root: Path, rel_path: Path) -> str:
+    """Return YYYY-MM-DD of the last commit touching rel_path.
+
+    Uses `git log -1 --format=%cI` so the result is the same on every
+    OS and every checkout, regardless of filesystem mtime behavior.
+    Falls back to the file's mtime (UTC date) if git is unavailable
+    or the file has never been committed.
+    """
+    try:
+        r = subprocess.run(
+            ["git", "log", "-1", "--format=%cI", "--", str(rel_path)],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        iso = r.stdout.strip()
+        if iso and r.returncode == 0:
+            return datetime.fromisoformat(iso).strftime("%Y-%m-%d")
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+        pass
+    # Fallback: filesystem mtime, UTC. Still correct on a single host,
+    # just not reproducible across machines / checkout styles.
+    return datetime.fromtimestamp(
+        rel_path.stat().st_mtime, tz=timezone.utc
+    ).strftime("%Y-%m-%d")
 
 try:
     import tomllib  # py3.11+
@@ -119,9 +148,7 @@ def parse_thread(path: Path) -> dict | None:
         "config_path": str(meta.get("config_path", "") or ""),
         "config_checksum": str(meta.get("config_checksum", "") or ""),
         "replies": reply_count,
-        "last_modified": datetime.fromtimestamp(
-            path.stat().st_mtime, tz=timezone.utc
-        ).strftime("%Y-%m-%d"),
+        "last_modified": _git_last_commit_date(ROOT, path),
     }
 
 
