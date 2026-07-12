@@ -22,26 +22,34 @@ from pathlib import Path
 def _git_last_commit_date(repo_root: Path, rel_path: Path) -> str:
     """Return YYYY-MM-DD of the last commit touching rel_path.
 
-    Uses `git log -1 --format=%cI` so the result is the same on every
-    OS and every checkout, regardless of filesystem mtime behavior.
-    Falls back to the file's mtime (UTC date) if git is unavailable
-    or the file has never been committed.
+    Uses `git log -1 --format=%cI --date=iso-strict` and extracts the
+    date prefix (first 10 chars). This avoids depending on
+    `datetime.fromisoformat`, which has subtle behavior differences
+    across Python versions and rejects some git 2.x output formats
+    (e.g. with a trailing 'Z', or with a space instead of 'T'). The
+    date prefix is always `YYYY-MM-DD` regardless of locale, git
+    version, or checkout style.
+
+    Falls back to filesystem mtime (UTC) if git is unavailable or
+    returns empty output. If that also fails, returns today's UTC
+    date as a last resort — the script's idempotency check will
+    then flag the file as changed and the CI error message tells
+    the user to run the script manually.
     """
     try:
         r = subprocess.run(
-            ["git", "log", "-1", "--format=%cI", "--", str(rel_path)],
+            ["git", "log", "-1", "--format=%cI", "--date=iso-strict", "--", str(rel_path)],
             cwd=repo_root,
             capture_output=True,
             text=True,
             timeout=10,
         )
         iso = r.stdout.strip()
-        if iso and r.returncode == 0:
-            return datetime.fromisoformat(iso).strftime("%Y-%m-%d")
-    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+        if iso and r.returncode == 0 and len(iso) >= 10 and iso[:4].isdigit() and iso[4] == "-" and iso[7] == "-":
+            return iso[:10]
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
-    # Fallback: filesystem mtime, UTC. Still correct on a single host,
-    # just not reproducible across machines / checkout styles.
+    # Fallback: filesystem mtime, UTC.
     return datetime.fromtimestamp(
         rel_path.stat().st_mtime, tz=timezone.utc
     ).strftime("%Y-%m-%d")

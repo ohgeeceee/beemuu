@@ -144,21 +144,47 @@ def test_regenerated_index_is_byte_stable_under_mtime_change(forum_index, tmp_pa
 
 
 def test_git_last_commit_date_falls_back_to_mtime(forum_index, tmp_path):
-    """If git is unavailable or file has no commits, fall back to mtime.
-
-    The fallback is less deterministic than the git path but still
-    correct on a single host (and lets the script work outside a
-    git checkout, e.g. during initial scaffolding).
+    """If git is unavailable or the file isn't in the index, fall back
+    to filesystem mtime. The fallback is less deterministic than the
+    git path (the mtime depends on checkout behavior) but still
+    correct on a single host, and lets the script work outside a
+    git checkout, e.g. during initial scaffolding.
     """
-    # tmp_path is not a git repo, so subprocess.run returns empty
     fake_file = tmp_path / "nope.md"
     fake_file.write_text("x", encoding="utf-8")
-
-    # We can't easily make `git` itself unavailable, but we can pass
-    # a path that doesn't exist in git's index. The helper should
+    # The file is in /tmp, which is not a git repo. The helper should
     # fall through to the mtime path.
     date = forum_index._git_last_commit_date(tmp_path, fake_file)
     today = time.strftime("%Y-%m-%d")
     assert date == today, (
         f"expected fallback to mtime (today={today}), got {date!r}"
+    )
+
+
+def test_handles_unusual_git_output_gracefully(forum_index, tmp_path, monkeypatch):
+    """Regression: the helper must not depend on `datetime.fromisoformat`
+    parsing git's full ISO output. Older git versions and some Python
+    versions disagree on what counts as strict ISO 8601. The fix is
+    to extract just the YYYY-MM-DD prefix and let the rest fall on
+    the floor. This test simulates git returning garbage / non-strict
+    output and asserts the helper still returns a sane date.
+    """
+    # Monkeypatch subprocess.run to return a non-strict ISO timestamp
+    import subprocess
+    def fake_run(*args, **kwargs):
+        r = subprocess.CompletedProcess(
+            args=args[0] if args else kwargs.get('args', []),
+            returncode=0,
+            stdout="2026-07-11 11:59:32 -0700\n",   # space, not T
+            stderr="",
+        )
+        return r
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    fake_file = tmp_path / "welcome.md"
+    fake_file.write_text("x", encoding="utf-8")
+    date = forum_index._git_last_commit_date(tmp_path, fake_file)
+    assert date == "2026-07-11", (
+        f"expected to extract YYYY-MM-DD prefix from non-strict ISO "
+        f"output, got {date!r}"
     )
