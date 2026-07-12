@@ -11,18 +11,39 @@ from unittest import mock
 from backend import auth, bootstrap, db
 
 
-def _fresh_db() -> Path:
-    tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-    p = Path(tmp.name) / "boot.db"
+class _PinnedTempDir:
+    """Hold a reference to a TemporaryDirectory so Windows doesn't garbage-collect
+    it out from under an open SQLite connection mid-test.
+
+    The plain `tempfile.TemporaryDirectory()` returned by `_fresh_db()`
+    would be unreferenced the moment that function returned, so the directory
+    could be deleted at any GC tick later in the test. Tests must keep this
+    object alive (typically via setUp()) until the database connection is closed.
+    """
+
+    def __init__(self) -> None:
+        self._td = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.path = Path(self._td.name)
+
+    def cleanup(self) -> None:
+        self._td.cleanup()
+
+
+def _fresh_db() -> tuple[_PinnedTempDir, Path]:
+    tmp = _PinnedTempDir()
+    p = tmp.path / "boot.db"
     db.init_db(p)
-    return p
+    return tmp, p
 
 
 class TestBootstrapAdmin(unittest.TestCase):
     """bootstrap_admin() creates the first admin from env var or fails loud."""
 
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        self._tmp, self.db_path = _fresh_db()
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
 
     def test_creates_admin_when_env_set_and_no_admin_exists(self) -> None:
         with mock.patch.dict(os.environ, {"BEEMUU_ADMIN_PASSWORD": "sup3r-secret"}):
@@ -86,7 +107,10 @@ class TestBootstrapEntryPoint(unittest.TestCase):
     """bootstrap_for_startup() is the single entry the server's main() calls."""
 
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        self._tmp, self.db_path = _fresh_db()
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
 
     def test_returns_db_path(self) -> None:
         with mock.patch.dict(os.environ, {"BEEMUU_ADMIN_PASSWORD": "x"}):
