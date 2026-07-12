@@ -16,8 +16,12 @@ from . import db, seed
 # Importing the seed modules is what registers their run() functions in the
 # SOURCES registry. Without this, --list shows nothing and the bootstrap
 # is a no-op. Centralize the import here so callers don't have to remember.
-from . import seed_bmw  # noqa: F401 — registers via @register_source
+# Import order matters: generic SAE seeds first, then BMW-specific seeds
+# last so that on any code collision the BMW-specific row wins (it carries
+# richer provenance and overrides the generic fallback).
 from . import seed_dtcs  # noqa: F401 — registers via @register_source
+from . import seed_bmw  # noqa: F401 — registers via @register_source
+from . import seed_bmw_dim01  # noqa: F401 — registers via @register_source
 
 
 def main() -> None:

@@ -36,8 +36,10 @@ VALID_CATEGORIES = frozenset({"powertrain", "body", "chassis", "network", "bmw-s
 
 # SAE J2012 standard codes: letter + 4 hex (P0171, B0001, U0100, etc.)
 _SAE_CODE = re.compile(r"^[PBCU][0-9A-Fa-f]{4}$")
-# BMW-specific 4-hex codes: 29E0, 2A82, etc.
-_BMW_CODE = re.compile(r"^[0-9A-Fa-f]{4}$")
+# BMW-specific hex codes: 29E0, 2A82, etc. The OEM hex length is 4 (most
+# common) but B58-era powertrain codes use 6-hex groupings (e.g. "120308"
+# for "charging pressure control: too low"), so we accept 4–6 hex chars.
+_BMW_CODE = re.compile(r"^[0-9A-Fa-f]{4,6}$")
 
 
 def _validate_code(code: str, category: str) -> None:
@@ -45,7 +47,9 @@ def _validate_code(code: str, category: str) -> None:
         raise ValueError(f"DTC code must be a non-empty string; got {code!r}")
     if category == "bmw-specific":
         if not _BMW_CODE.match(code):
-            raise ValueError(f"BMW-specific code must be 4 hex chars; got {code!r}")
+            raise ValueError(
+                f"BMW-specific code must be 4–6 hex chars; got {code!r}"
+            )
     else:
         if not _SAE_CODE.match(code):
             raise ValueError(
