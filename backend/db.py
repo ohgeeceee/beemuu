@@ -129,6 +129,16 @@ CREATE TABLE IF NOT EXISTS schematics (
 );
 CREATE INDEX IF NOT EXISTS idx_schematics_series ON schematics(series);
 CREATE INDEX IF NOT EXISTS idx_schematics_system ON schematics(system);
+
+CREATE TABLE IF NOT EXISTS schematic_link (
+    schematic_slug TEXT NOT NULL REFERENCES schematics(slug),
+    code TEXT NOT NULL,
+    note TEXT,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (schematic_slug, code)
+);
+CREATE INDEX IF NOT EXISTS idx_schematic_link_code ON schematic_link(code);
+CREATE INDEX IF NOT EXISTS idx_schematic_link_slug ON schematic_link(schematic_slug);
 """
 
 

@@ -23,6 +23,7 @@ from . import seed_dtcs  # noqa: F401 — registers via @register_source
 from . import seed_bmw  # noqa: F401 — registers via @register_source
 from . import seed_bmw_dim01  # noqa: F401 — registers via @register_source
 from . import seed_schematics  # noqa: F401 — registers via @register_source
+from . import seed_cross_links  # noqa: F401 — registers via @register_source
 
 
 def main() -> None:
@@ -56,10 +57,14 @@ def main() -> None:
         n_schematics = conn.execute(
             "SELECT COUNT(*) FROM schematics"
         ).fetchone()[0]
+        n_links = conn.execute(
+            "SELECT COUNT(*) FROM schematic_link"
+        ).fetchone()[0]
     elapsed = time.time() - t0
     print(
         f"done in {elapsed:.2f}s — {n_dtc} total DTCs "
-        f"({n_bmw} BMW-specific), {n_schematics} schematics"
+        f"({n_bmw} BMW-specific), {n_schematics} schematics, "
+        f"{n_links} DTC↔schematic links"
     )
 
 
