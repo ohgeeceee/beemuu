@@ -12,6 +12,7 @@ Run manually before opening a thread PR:
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,16 +26,23 @@ def _git_last_commit_date(repo_root: Path, rel_path: Path) -> str:
     Uses `git log -1 --format=%cI --date=iso-strict` and extracts the
     date prefix (first 10 chars). This avoids depending on
     `datetime.fromisoformat`, which has subtle behavior differences
-    across Python versions and rejects some git 2.x output formats
-    (e.g. with a trailing 'Z', or with a space instead of 'T'). The
-    date prefix is always `YYYY-MM-DD` regardless of locale, git
-    version, or checkout style.
+    across Python versions.
+
+    IMPORTANT: this requires the full git history. If the repo was
+    cloned with `--depth=1` (the default for actions/checkout without
+    an explicit `fetch-depth: 0`), `git log` returns nothing and the
+    helper silently falls back to filesystem mtime, which on a CI
+    runner is the checkout timestamp — making every CI run produce
+    a different `last_modified` than what's committed.
+
+    The callers (`forum_index.py` and CI) should ensure full history
+    is available. If you can't change the checkout, set the
+    `BEEMUU_FORUM_INDEX_LAST_MODIFIED_FALLBACK=error` env var to make
+    this helper raise instead of silently returning mtime — that
+    surfaces the misconfiguration instead of producing a phantom diff.
 
     Falls back to filesystem mtime (UTC) if git is unavailable or
-    returns empty output. If that also fails, returns today's UTC
-    date as a last resort — the script's idempotency check will
-    then flag the file as changed and the CI error message tells
-    the user to run the script manually.
+    returns empty output.
     """
     try:
         r = subprocess.run(
@@ -47,6 +55,15 @@ def _git_last_commit_date(repo_root: Path, rel_path: Path) -> str:
         iso = r.stdout.strip()
         if iso and r.returncode == 0 and len(iso) >= 10 and iso[:4].isdigit() and iso[4] == "-" and iso[7] == "-":
             return iso[:10]
+        # git returned empty output — usually a shallow clone.
+        if os.environ.get("BEEMUU_FORUM_INDEX_LAST_MODIFIED_FALLBACK") == "error":
+            raise RuntimeError(
+                f"git log returned empty for {rel_path}; the repo is "
+                f"likely a shallow clone (--depth=1). Either set "
+                f"fetch-depth: 0 in actions/checkout, or unset "
+                f"BEEMUU_FORUM_INDEX_LAST_MODIFIED_FALLBACK to allow "
+                f"the mtime fallback."
+            )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     # Fallback: filesystem mtime, UTC.
