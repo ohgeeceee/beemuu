@@ -341,8 +341,92 @@ async function showFreezeFrame(code) {
   } catch (e) {
     body.innerHTML = `<span class='muted'>No freeze frame available (${e})</span>`;
   }
-  // Also load second opinion for this DTC
-  await loadOpinion(code);
+  // Also load second opinion + schematics for this DTC. These are
+  // async and independent of each other; we run them both and the UI
+  // surfaces each panel as data arrives.
+  await Promise.all([
+    loadOpinion(code),
+    loadSchematics(code),
+  ]);
+}
+
+/* ---------- related schematics (CC0 wiring diagrams) ----------
+ *
+ * Renders the cross-link list for the active DTC into the
+ * #schematics-panel. The panel is mounted in index.html below the
+ * freeze-frame and second-opinion panels. The Tauri command
+ * `fetch_dtc_schematics` calls the hosted backend over HTTPS; on
+ * error (network or 4xx) the panel degrades gracefully with a
+ * one-line message.
+ */
+async function loadSchematics(code) {
+  const panel = $("schematics-panel");
+  const body = $("schematics-body");
+  const codeEl = $("schematics-code");
+  if (!panel || !body) return;
+  panel.classList.remove("hidden");
+  codeEl.textContent = code || "";
+  body.innerHTML = "<span class='muted'>Looking up related wiring diagrams…</span>";
+  try {
+    const result = await invoke("fetch_dtc_schematics", { code });
+    renderSchematics(result);
+  } catch (e) {
+    body.innerHTML =
+      `<span class='sch-error'>Schematics unavailable: ${escapeHtml(String(e))}</span>`;
+  }
+}
+
+function renderSchematics(result) {
+  const body = $("schematics-body");
+  const code = (result?.code || "").toUpperCase();
+  const items = result?.results || [];
+  if (!items.length) {
+    body.innerHTML =
+      `<span class='sch-empty'>No CC0 schematics curated for ${escapeHtml(code)} yet.</span>`;
+    return;
+  }
+  const cards = items.map((r) => {
+    const title = r.schematic?.title || r.schematic_slug || "(unknown)";
+    const meta = [
+      r.schematic?.series,
+      r.schematic?.system,
+      yearRange(r.schematic),
+    ].filter(Boolean).join(" · ");
+    const license = r.schematic?.license || "CC0";
+    // The relative URL the API hands back is relative to api.beemuu.com.
+    // For the desktop app, we want to open it in the user's browser;
+    // we don't try to render the SVG inline (out of scope for the
+    // sidebar — that's the hosted schematics viewer's job).
+    const rawUrl = r.schematic?.url || "";
+    const absoluteUrl = rawUrl.startsWith("http")
+      ? rawUrl
+      : `https://api.beemuu.com${rawUrl}`;
+    const note = r.note ? `<div class="sch-note">"${escapeHtml(r.note)}"</div>` : "";
+    const dtcMissing = r.dtc === null;
+    const linkClass = dtcMissing ? "sch-link disabled" : "sch-link";
+    const linkAttrs = dtcMissing
+      ? `aria-disabled="true" title="Referenced DTC not yet in catalog"`
+      : `target="_blank" rel="noopener"`;
+    const linkTitle = dtcMissing
+      ? "Referenced DTC not yet in catalog"
+      : `Open ${title} (${license})`;
+    return `
+      <li class="sch-card">
+        <div class="sch-title">${escapeHtml(title)}</div>
+        <a class="${escapeHtml(linkClass)}" ${linkAttrs} href="${escapeHtml(absoluteUrl)}" title="${escapeHtml(linkTitle)}">Open</a>
+        <div class="sch-meta">${escapeHtml(meta)} · ${escapeHtml(license)}</div>
+        ${note}
+      </li>`;
+  }).join("");
+  body.innerHTML = `<ul class="sch-list">${cards}</ul>`;
+}
+
+function yearRange(s) {
+  if (!s) return "";
+  if (s.year_from && s.year_to) return `${s.year_from}–${s.year_to}`;
+  if (s.year_from) return `${s.year_from}–`;
+  if (s.year_to) return `–${s.year_to}`;
+  return "";
 }
 
 async function loadOpinion(code) {
