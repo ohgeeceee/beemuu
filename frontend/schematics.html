@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BeeEmUu — Schematics</title>
+  <link rel="stylesheet" href="/schematics.css">
+</head>
+<body class="sch">
+  <header class="sch-top">
+    <div class="sch-brand">
+      <a href="/" class="sch-link-quiet">← BeeEmUu</a>
+      <h1>Wiring Schematics</h1>
+      <p class="sch-tag">CC0 community diagrams — pan, zoom, click to inspect.</p>
+    </div>
+  </header>
+
+  <main class="sch-main">
+    <!-- LIST VIEW -->
+    <section id="view-list" class="sch-view" aria-label="Schematic list">
+      <div class="sch-filters">
+        <label class="sch-field">
+          <span>Series</span>
+          <select id="filter-series" aria-label="Filter by series">
+            <option value="">all</option>
+          </select>
+        </label>
+        <label class="sch-field">
+          <span>System</span>
+          <select id="filter-system" aria-label="Filter by system">
+            <option value="">all</option>
+          </select>
+        </label>
+        <label class="sch-field sch-field-grow">
+          <span>Search</span>
+          <input id="filter-q" type="search" placeholder="title or tag…" aria-label="Search by title or tag">
+        </label>
+        <button id="btn-refresh" type="button" class="sch-btn">Refresh</button>
+      </div>
+      <div id="grid" class="sch-grid" aria-live="polite">
+        <p class="sch-empty">Loading…</p>
+      </div>
+    </section>
+
+    <!-- VIEWER (per-slug) -->
+    <section id="view-detail" class="sch-view hidden" aria-label="Schematic viewer">
+      <div class="sch-detail-bar">
+        <button id="btn-back" type="button" class="sch-btn">← Back to list</button>
+        <h2 id="detail-title" class="sch-h2">…</h2>
+        <span class="sch-tag-spacer"></span>
+        <a id="detail-link" class="sch-link" href="#" target="_blank" rel="noopener">Open raw</a>
+      </div>
+      <div class="sch-stage" id="stage" tabindex="0" aria-label="Schematic stage; use arrow keys, +/- to zoom, 0 to fit">
+        <div class="sch-stage-placeholder">Loading…</div>
+      </div>
+      <aside class="sch-meta" aria-label="Schematic metadata">
+        <dl id="detail-meta"></dl>
+      </aside>
+    </section>
+  </main>
+
+  <script src="/vendor/svg-pan-zoom.min.js"></script>
+  <script src="/schematics.js"></script>
+</body>
+</html>
