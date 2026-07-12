@@ -112,3 +112,105 @@ label = "B58 3.0 turbo I6 (DME 8.x, F/G-series) [community, OBDb-verified DIDs]"
   decode = "temp_u8"
   min = -40.0
   max = 60.0
+
+  # ---- v0.3.0 new decode functions ----
+  # See docs/DECODE_FUNCTIONS.md for derivation + verification notes.
+  # All DIDs below are OBDb-sourced (CC-BY-SA 4.0) and validated against the
+  # new decoders in src-tauri/src/data/live.rs.
+  #
+  # Conflict resolution applied here:
+  # - DID 4001 (DME temp): exposed via s16_div4 (signed, sub-degree
+  #   resolution). The u8_div4 alternate (DID 4001-u8) is intentionally
+  #   omitted -- keep one source of truth per channel.
+  # - DID 4002 (battery V): preferred over DID 4013-u8_div100 which claims
+  #   the same channel with lower precision (0.1V vs 0.01V).
+
+  [[profile.param]]
+  id = "battery_v"
+  label = "Battery voltage (DME)"
+  unit = "V"
+  target = 0x12
+  query = "did:4002"
+  decode = "u16_tenths"
+  min = 8.0
+  max = 16.0
+
+  [[profile.param]]
+  id = "hpfp_rail"
+  label = "HPFP rail pressure"
+  unit = "MPa"
+  target = 0x12
+  query = "did:44F0"
+  decode = "u16_tenths"
+  min = 0.0
+  max = 25.5
+
+  [[profile.param]]
+  id = "boost_cmd"
+  label = "Boost command (relative)"
+  unit = "kPa"
+  target = 0x12
+  query = "did:4367"
+  decode = "u16_tenths"
+  min = -100.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "maf"
+  label = "Mass air flow"
+  unit = "kg/h"
+  target = 0x12
+  query = "did:4077"
+  decode = "u16_div100"
+  min = 0.0
+  max = 655.35
+
+  [[profile.param]]
+  id = "ambient_pres"
+  label = "Ambient pressure (DME)"
+  unit = "kPa"
+  target = 0x12
+  query = "did:4003"
+  decode = "u16_div100"
+  min = 60.0
+  max = 110.0
+
+  [[profile.param]]
+  id = "dme_temp"
+  label = "DME temperature (signed, 0.25C resolution)"
+  unit = "C"
+  target = 0x12
+  query = "did:4001"
+  decode = "s16_div4"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "eng_torque"
+  label = "Engine torque (signed)"
+  unit = "Nm"
+  target = 0x12
+  query = "did:4500"
+  decode = "s16_div100"
+  min = -327.68
+  max = 327.67
+
+  [[profile.param]]
+  id = "lambda_1"
+  label = "Lambda bank 1"
+  unit = ""
+  target = 0x12
+  query = "did:400B"
+  decode = "u8_div100"
+  min = 0.5
+  max = 1.5
+
+  [[profile.param]]
+  id = "inj_time"
+  label = "Injection time (per cylinder)"
+  unit = "ms"
+  target = 0x12
+  query = "did:4363"
+  decode = "u8_div100"
+  min = 0.0
+  max = 2.55

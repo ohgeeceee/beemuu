@@ -1,9 +1,9 @@
-"""CLI entry point for the DTC bootstrap. Run with:
+"""CLI entry point for the seed bootstrap. Run with:
 
     python -m backend.bootstrap_dtc [--db-path PATH]
 
-Runs every registered seed source. Idempotent. Intended to be called from
-ops/bootstrap.sh or directly after a fresh deploy.
+Runs every registered seed source (DTC seeds + schematics seeds). Idempotent.
+Intended to be called from ops/bootstrap.sh or directly after a fresh deploy.
 """
 from __future__ import annotations
 
@@ -16,8 +16,13 @@ from . import db, seed
 # Importing the seed modules is what registers their run() functions in the
 # SOURCES registry. Without this, --list shows nothing and the bootstrap
 # is a no-op. Centralize the import here so callers don't have to remember.
-from . import seed_bmw  # noqa: F401 — registers via @register_source
+# Import order matters: generic SAE seeds first, then BMW-specific seeds
+# last so that on any code collision the BMW-specific row wins (it carries
+# richer provenance and overrides the generic fallback).
 from . import seed_dtcs  # noqa: F401 — registers via @register_source
+from . import seed_bmw  # noqa: F401 — registers via @register_source
+from . import seed_bmw_dim01  # noqa: F401 — registers via @register_source
+from . import seed_schematics  # noqa: F401 — registers via @register_source
 
 
 def main() -> None:
@@ -41,17 +46,20 @@ def main() -> None:
     db_path_arg = Path(args.db_path) if args.db_path else None
     resolved = db._resolve_path(db_path_arg)  # noqa: SLF001
     db.init_db(resolved)
-    print(f"bootstrapping DTC seed data into {resolved}")
+    print(f"bootstrapping seed data into {resolved}")
     seed.run_bootstrap(resolved)
     with db.get_conn(resolved) as conn:
         n_dtc = conn.execute("SELECT COUNT(*) FROM dtc").fetchone()[0]
         n_bmw = conn.execute(
             "SELECT COUNT(*) FROM dtc WHERE category = 'bmw-specific'"
         ).fetchone()[0]
+        n_schematics = conn.execute(
+            "SELECT COUNT(*) FROM schematics"
+        ).fetchone()[0]
     elapsed = time.time() - t0
     print(
         f"done in {elapsed:.2f}s — {n_dtc} total DTCs "
-        f"({n_bmw} BMW-specific)"
+        f"({n_bmw} BMW-specific), {n_schematics} schematics"
     )
 
 

@@ -73,8 +73,8 @@ sudo systemctl reload nginx
 For the legacy `montanablotter.com` deployment (if still in use):
 
 ```bash
-sudo cp /root/beemuu/ops/beemuu.montanablotter.com.conf /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/beemuu.montanablotter.com.conf /etc/nginx/sites-enabled/
+sudo cp /root/beemuu/ops/beemuu.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/beemuu.com.conf /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -99,10 +99,10 @@ installed by the `python3-certbot-nginx` package).
 
 ```bash
 # Health check
-curl -s https://beemuu.montanablotter.com/api/health | jq
+curl -s https://beemuu.com/api/health | jq
 
-# Dashboard
-curl -s https://beemuu.montanablotter.com/api/dashboard | jq
+# Stats (live counters)
+curl -s https://beemuu.com/api/stats | jq
 ```
 
 ## 4. Manage service
@@ -160,6 +160,17 @@ Re-running is a no-op — every seed is idempotent (UPSERT on the code PK).
 - `https://beemuu.com/api/dashboard` — JSON metrics
 - `https://beemuu.montanablotter.com/...` — legacy/alternate deployment (same code, different host)
 
+- `https://beemuu.com/` — public landing page (HTML)
+- `https://beemuu.com/admin/` — admin panel UI
+- `https://beemuu.com/api/health` — `{ok, service, version, time}`
+- `https://beemuu.com/api/stats` — live counters: users, DTCs, sessions, contact messages, breakdowns by system/status, server time
+- `https://beemuu.com/api/landing-content` — landing page content (version, motto, GitHub/Discord URLs, counters)
+
+> Note: the desktop app's "hosted dashboard" panel talks to `/api/stats` and
+> `/api/landing-content`. The `/api/dashboard` endpoint from the GitHub-repo
+> `backend/app.py` is not the same surface as the production VPS and is not
+> exposed publicly; if you need it locally, point the Tauri command at a
+> local backend on `127.0.0.1:8765` instead.
 ## Troubleshooting
 
 - **Port 8765 in use**: `lsof -i :8765` then kill the process

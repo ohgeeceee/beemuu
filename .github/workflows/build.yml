@@ -15,7 +15,14 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 pulls the full git history. The forum_index
+      # check below calls `git log -- <path>` to derive each thread's
+      # last-modified date; without full history the log returns empty
+      # and the script falls back to filesystem mtime, which on the
+      # runner equals checkout time (today), making every CI run fail.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
@@ -25,3 +32,28 @@ jobs:
 
       - name: Check TOML formatting (basic)
         run: node scripts/lint-toml.js
+
+      # Regenerate the community/forum index from thread files and fail
+      # the build if the committed index.json doesn't match what the
+      # script produces. Runners come with Python 3.12+ on Ubuntu-latest;
+      # tomllib is stdlib.
+      #
+      # `set -x` plus an `od -c` dump of the regenerated file are on
+      # here so the next time this step fails we can see exactly which
+      # byte of the regenerated output doesn't match the committed
+      # version (the diff shows in the log verbatim). This is diagnostic
+      # scaffolding while the underlying cause is investigated; can be
+      # dropped once the check is reliably green across platforms.
+      - name: Check community/forum/index.json is up to date
+        run: |
+          set -x
+          python3 --version
+          python3 -c "import sys; print('default encoding:', sys.getdefaultencoding())"
+          git --version
+          python3 scripts/forum_index.py
+          python3 -c "import sys; sys.stdout.buffer.write(open('community/forum/index.json','rb').read())" | od -c | head -50
+          git diff community/forum/index.json
+          if ! git diff --quiet community/forum/index.json; then
+            echo "::error::community/forum/index.json is out of date. Run 'python3 scripts/forum_index.py' and commit the result."
+            exit 1
+          fi

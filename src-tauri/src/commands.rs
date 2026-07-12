@@ -945,9 +945,10 @@ pub fn list_exports() -> Result<Vec<ExportFile>, String> {
 
 #[tauri::command]
 pub async fn fetch_hosted_dashboard(
-    url: Option<String>,
-) -> Result<crate::hosted::HostedDashboard, String> {
-    crate::hosted::fetch(url.as_deref()).await
+    stats_url: Option<String>,
+    landing_url: Option<String>,
+) -> Result<crate::hosted::HostedSnapshot, String> {
+    crate::hosted::fetch(stats_url.as_deref(), landing_url.as_deref()).await
 }
 
 /* ---------------- Backend Dashboard ---------------- */

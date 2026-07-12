@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Schematic: RCD 3302 head-unit: power + K-CAN tap
+  Series:    e89 (Z4)
+  License:   CC0 (public-domain dedication) — drawn from generic automotive
+             knowledge; no OEM material reproduced.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"
+     width="800" height="500" font-family="Helvetica, Arial, sans-serif">
+  <title>RCD 3302 head-unit power + K-CAN tap (e89 Z4)</title>
+  <desc>Hand-drawn CC0 schematic: 12V supply via fuse F23, ground, and K-CAN
+        bus termination for an aftermarket RCD 3302 retrofit.</desc>
+
+  <!-- Border / title -->
+  <rect x="0" y="0" width="800" height="500" fill="#fafafa" stroke="none"/>
+  <text x="20" y="30" font-size="18" font-weight="bold" fill="#222">
+    RCD 3302 — Power &amp; K-CAN Tap (e89 Z4, generic retrofit)
+  </text>
+  <text x="20" y="50" font-size="11" fill="#555">
+    License: CC0  •  No OEM material reproduced  •  Verify connector pinout against your specific harness
+  </text>
+
+  <!-- Power rail -->
+  <line x1="100" y1="120" x2="700" y2="120" stroke="#a33" stroke-width="3"/>
+  <text x="105" y="112" font-size="13" font-weight="bold" fill="#a33">+12V (KL30, switched via ignition)</text>
+
+  <!-- Ground rail -->
+  <line x1="100" y1="420" x2="700" y2="420" stroke="#333" stroke-width="3"/>
+  <text x="105" y="438" font-size="13" font-weight="bold" fill="#333">GND (chassis ground, &lt; 0.1 Ω)</text>
+
+  <!-- Fuse F23 -->
+  <rect x="170" y="100" width="60" height="40" fill="#fff" stroke="#444" stroke-width="2" rx="4"/>
+  <line x1="200" y1="100" x2="200" y2="140" stroke="#444" stroke-width="2"/>
+  <text x="195" y="170" font-size="11" fill="#222" text-anchor="middle">F23 (10A)</text>
+
+  <!-- RCD 3302 box -->
+  <rect x="320" y="180" width="200" height="160" fill="#e8efff" stroke="#234" stroke-width="2" rx="8"/>
+  <text x="420" y="200" font-size="14" font-weight="bold" fill="#234" text-anchor="middle">RCD 3302</text>
+  <text x="420" y="216" font-size="10" fill="#234" text-anchor="middle">head-unit</text>
+
+  <!-- 4-pin connector -->
+  <circle cx="345" cy="240" r="5" fill="#fff" stroke="#234" stroke-width="1.5"/>
+  <text x="335" y="244" font-size="9" fill="#234" text-anchor="end">1</text>
+  <circle cx="345" cy="275" r="5" fill="#fff" stroke="#234" stroke-width="1.5"/>
+  <text x="335" y="279" font-size="9" fill="#234" text-anchor="end">2</text>
+  <circle cx="345" cy="310" r="5" fill="#fff" stroke="#234" stroke-width="1.5"/>
+  <text x="335" y="314" font-size="9" fill="#234" text-anchor="end">3</text>
+  <circle cx="345" cy="345" r="5" fill="#fff" stroke="#234" stroke-width="1.5"/>
+  <text x="335" y="349" font-size="9" fill="#234" text-anchor="end">4</text>
+
+  <!-- Wires: F23 -> pin 1 (+12V) -->
+  <line x1="230" y1="120" x2="230" y2="240" stroke="#a33" stroke-width="2"/>
+  <line x1="230" y1="240" x2="340" y2="240" stroke="#a33" stroke-width="2"/>
+  <text x="245" y="160" font-size="10" fill="#a33">+12V</text>
+
+  <!-- pin 2 -> GND -->
+  <line x1="345" y1="275" x2="450" y2="275" stroke="#333" stroke-width="2"/>
+  <line x1="450" y1="275" x2="450" y2="420" stroke="#333" stroke-width="2"/>
+  <text x="465" y="290" font-size="10" fill="#333">GND</text>
+
+  <!-- pin 3 = K-CAN H -->
+  <line x1="345" y1="310" x2="500" y2="310" stroke="#174" stroke-width="2"/>
+  <text x="460" y="305" font-size="10" fill="#174">K-CAN H (pin 3)</text>
+
+  <!-- pin 4 = K-CAN L -->
+  <line x1="345" y1="345" x2="500" y2="345" stroke="#06a" stroke-width="2"/>
+  <text x="460" y="362" font-size="10" fill="#06a">K-CAN L (pin 4)</text>
+
+  <!-- Twisted-pair note -->
+  <text x="500" y="330" font-size="9" font-style="italic" fill="#666">
+    keep twisted pair &lt; 0.5 m
+  </text>
+
+  <!-- K-CAN bus terminator -->
+  <line x1="500" y1="310" x2="660" y2="310" stroke="#174" stroke-width="2"/>
+  <line x1="500" y1="345" x2="660" y2="345" stroke="#06a" stroke-width="2"/>
+  <rect x="610" y="295" width="60" height="65" fill="#fff" stroke="#222" stroke-width="1.5" rx="4"/>
+  <line x1="635" y1="295" x2="635" y2="360" stroke="#222" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="640" y1="360" x2="640" y2="395" stroke="#222" stroke-width="1.5"/>
+  <text x="640" y="412" font-size="9" fill="#222" text-anchor="middle">120 Ω</text>
+  <text x="640" y="288" font-size="9" fill="#222" text-anchor="middle">bus terminator</text>
+
+  <!-- Notes box -->
+  <rect x="20" y="200" width="130" height="200" fill="#fff8e0" stroke="#bb7" stroke-width="1" rx="4"/>
+  <text x="30" y="220" font-size="11" font-weight="bold" fill="#863">Notes</text>
+  <text x="30" y="240" font-size="10" fill="#333">• F23: 10A fuse slot in</text>
+  <text x="30" y="252" font-size="10" fill="#333">   passenger fuse box.</text>
+  <text x="30" y="270" font-size="10" fill="#333">• K-CAN terminates at</text>
+  <text x="30" y="282" font-size="10" fill="#333">   each end with 120 Ω.</text>
+  <text x="30" y="300" font-size="10" fill="#333">• Confirm pin numbers</text>
+  <text x="30" y="312" font-size="10" fill="#333">   against your harness.</text>
+  <text x="30" y="330" font-size="10" fill="#333">• Do not tap K-CAN in</text>
+  <text x="30" y="342" font-size="10" fill="#333">   parallel mid-bus; use</text>
+  <text x="30" y="354" font-size="10" fill="#333">   an in-line splice.</text>
+  <text x="30" y="378" font-size="9" font-style="italic" fill="#666">Always disconnect</text>
+  <text x="30" y="390" font-size="9" font-style="italic" fill="#666">battery before splicing.</text>
+
+  <!-- Legend -->
+  <rect x="450" y="450" width="340" height="40" fill="#f4f4f4" stroke="#888" stroke-width="1" rx="3"/>
+  <line x1="465" y1="470" x2="495" y2="470" stroke="#a33" stroke-width="3"/>
+  <text x="500" y="474" font-size="10" fill="#333">+12V</text>
+  <line x1="555" y1="470" x2="585" y2="470" stroke="#333" stroke-width="3"/>
+  <text x="590" y="474" font-size="10" fill="#333">GND</text>
+  <line x1="625" y1="470" x2="655" y2="470" stroke="#174" stroke-width="3"/>
+  <text x="660" y="474" font-size="10" fill="#333">K-CAN H</text>
+  <line x1="720" y1="470" x2="750" y2="470" stroke="#06a" stroke-width="3"/>
+  <text x="755" y="474" font-size="10" fill="#333">K-CAN L</text>
+</svg>
