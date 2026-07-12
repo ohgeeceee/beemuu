@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import bootstrap, db
+from . import bootstrap, db, schematics
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -163,6 +163,14 @@ class Handler(BaseHTTPRequestHandler):
             code = parsed.path[len("/api/dtc/"):]
             self._handle_dtc_by_code(code)
             return
+        # Read-only schematics catalog (CC0 wiring diagrams).
+        if parsed.path == "/api/schematics":
+            self._handle_schematics_list(parse_qs(parsed.query))
+            return
+        if parsed.path.startswith("/api/schematics/"):
+            slug = parsed.path[len("/api/schematics/"):]
+            self._handle_schematic_by_slug(slug)
+            return
         if parsed.path in ("/", "/index.html"):
             self._file(FRONTEND / "index.html", "text/html; charset=utf-8")
             return
@@ -222,6 +230,52 @@ class Handler(BaseHTTPRequestHandler):
             return
         db_path = db._resolve_path(None)  # noqa: SLF001
         rows = search_dtc(db_path, category=category, q=q, limit=limit)
+        self._json({"count": len(rows), "results": rows})
+
+    def _handle_schematic_by_slug(self, slug: str) -> None:
+        # urlparse keeps the query out of .path, so re-parse self.path to
+        # pick up any extra flags (none today, but consistent with DTC).
+        parsed = urlparse(self.path)
+        _ = parse_qs(parsed.query)  # reserved for future flags
+        slug = slug.strip()
+        if not slug:
+            self._json({"error": "slug is required"}, status=400)
+            return
+        db_path = db._resolve_path(None)  # noqa: SLF001
+        result = schematics.get_schematic_by_slug(db_path, slug)
+        if result is None:
+            self._json({"error": "not found", "slug": slug}, status=404)
+            return
+        # Verify the file actually exists on disk; otherwise the catalog is
+        # lying. Returns 503 (Service Unavailable) since the row exists but
+        # the asset is missing — distinct from "not in catalog".
+        asset = ROOT / result["file_path"]
+        if not asset.is_file():
+            self._json(
+                {"error": "asset missing", "slug": slug, "path": result["file_path"]},
+                status=503,
+            )
+            return
+        self._json(result)
+
+    def _handle_schematics_list(self, query: dict) -> None:
+        def _first(key: str) -> str | None:
+            v = query.get(key)
+            return v[0] if v else None
+
+        series = _first("series")
+        system = _first("system")
+        q = _first("q")
+        limit_raw = _first("limit")
+        try:
+            limit = int(limit_raw) if limit_raw else 100
+        except ValueError:
+            self._json({"error": "limit must be an integer"}, status=400)
+            return
+        db_path = db._resolve_path(None)  # noqa: SLF001
+        rows = schematics.list_schematics(
+            db_path, series=series, system=system, q=q, limit=limit
+        )
         self._json({"count": len(rows), "results": rows})
 
     def log_message(self, fmt: str, *args: object) -> None:
