@@ -180,6 +180,30 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/app.css":
             self._file(FRONTEND / "app.css", "text/css; charset=utf-8")
             return
+        # Schematics viewer (schematic list + per-slug viewer). Hosted at
+        # the root to match the admin dashboard pattern; assets vendored
+        # under frontend/vendor/ so the page works offline.
+        if parsed.path in ("/schematics.html", "/schematics"):
+            self._file(FRONTEND / "schematics.html", "text/html; charset=utf-8")
+            return
+        if parsed.path == "/schematics.js":
+            self._file(
+                FRONTEND / "schematics.js",
+                "application/javascript; charset=utf-8",
+            )
+            return
+        if parsed.path == "/schematics.css":
+            self._file(
+                FRONTEND / "schematics.css",
+                "text/css; charset=utf-8",
+            )
+            return
+        if parsed.path == "/vendor/svg-pan-zoom.min.js":
+            self._file(
+                FRONTEND / "vendor" / "svg-pan-zoom.min.js",
+                "application/javascript; charset=utf-8",
+            )
+            return
         self._json({"error": "not found"}, status=404)
 
     def _handle_dtc_by_code(self, code: str) -> None:
