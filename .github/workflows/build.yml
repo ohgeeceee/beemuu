@@ -15,7 +15,14 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 pulls the full git history. The forum_index
+      # check below calls `git log -- <path>` to derive each thread's
+      # last-modified date; without full history the log returns empty
+      # and the script falls back to filesystem mtime, which on the
+      # runner equals checkout time (today), making every CI run fail.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:

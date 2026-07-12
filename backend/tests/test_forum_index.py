@@ -188,3 +188,58 @@ def test_handles_unusual_git_output_gracefully(forum_index, tmp_path, monkeypatc
         f"expected to extract YYYY-MM-DD prefix from non-strict ISO "
         f"output, got {date!r}"
     )
+
+
+def test_shallow_clone_surfaces_with_env_var(forum_index, tmp_path, monkeypatch):
+    """Regression: when git returns empty (shallow clone), the helper
+    silently falls back to filesystem mtime, which on CI equals the
+    checkout time and produces a phantom diff. With the
+    BEEMUU_FORUM_INDEX_LAST_MODIFIED_FALLBACK=error env var set, the
+    helper raises instead, surfacing the misconfiguration.
+
+    Background: this caught the actual CI failure on 2026-07-12 where
+    actions/checkout@v5's default `fetch-depth: 1` made `git log`
+    return empty and the script silently wrote today's date into
+    `last_modified`.
+    """
+    import subprocess
+    def fake_run(*args, **kwargs):
+        r = subprocess.CompletedProcess(
+            args=args[0] if args else kwargs.get('args', []),
+            returncode=0,
+            stdout="",   # shallow clone: empty output
+            stderr="",
+        )
+        return r
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setenv("BEEMUU_FORUM_INDEX_LAST_MODIFIED_FALLBACK", "error")
+
+    fake_file = tmp_path / "welcome.md"
+    fake_file.write_text("x", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="shallow clone"):
+        forum_index._git_last_commit_date(tmp_path, fake_file)
+
+
+def test_shallow_clone_falls_back_to_mtime_by_default(forum_index, tmp_path, monkeypatch):
+    """Without the env var, the helper should silently fall back to
+    filesystem mtime (today's date in most CI scenarios). This is
+    the lenient default that keeps contributors productive even when
+    the checkout is shallow.
+    """
+    import subprocess
+    def fake_run(*args, **kwargs):
+        r = subprocess.CompletedProcess(
+            args=args[0] if args else kwargs.get('args', []),
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+        return r
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.delenv("BEEMUU_FORUM_INDEX_LAST_MODIFIED_FALLBACK", raising=False)
+
+    fake_file = tmp_path / "welcome.md"
+    fake_file.write_text("x", encoding="utf-8")
+    date = forum_index._git_last_commit_date(tmp_path, fake_file)
+    today = time.strftime("%Y-%m-%d")
+    assert date == today
