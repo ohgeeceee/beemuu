@@ -951,6 +951,26 @@ pub async fn fetch_hosted_dashboard(
     crate::hosted::fetch(stats_url.as_deref(), landing_url.as_deref()).await
 }
 
+/* ---------------- Schematics Sidebar ----------------
+ *
+ * PROTECTED PATH: this command hits the network. Per CLAUDE.md it MUST
+ * be async, return a Result, and never block the webview. The shared
+ * module `crate::schematics` is read-only over HTTPS — no adapter I/O,
+ * no ECU probes, no writes.
+ *
+ * Returns the cross-link list for one DTC code; the front-end renders
+ * each row as a card in the "Related schematics" panel beside the
+ * freeze-frame / second-opinion panels.
+ */
+
+#[tauri::command]
+pub async fn fetch_dtc_schematics(
+    code: String,
+    api_base_url: Option<String>,
+) -> Result<crate::schematics::SchematicsForDtc, String> {
+    crate::schematics::fetch_for_code(&code, api_base_url.as_deref()).await
+}
+
 /* ---------------- Backend Dashboard ---------------- */
 
 #[tauri::command]
