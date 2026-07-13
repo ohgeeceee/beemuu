@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -153,12 +154,16 @@ def test_git_last_commit_date_falls_back_to_mtime(forum_index, tmp_path):
     fake_file = tmp_path / "nope.md"
     fake_file.write_text("x", encoding="utf-8")
     # The file is in /tmp, which is not a git repo. The helper should
-    # fall through to the mtime path.
+    # fall through to the mtime path. Compare against the file's own
+    # mtime in UTC — the helper's contract — instead of `time.strftime`
+    # (local time) so the assertion is stable across midnight UTC vs
+    # local time boundaries on the dev machine.
     date = forum_index._git_last_commit_date(tmp_path, fake_file)
-    today = time.strftime("%Y-%m-%d")
-    assert date == today, (
-        f"expected fallback to mtime (today={today}), got {date!r}"
-    )
+
+    expected = datetime.fromtimestamp(
+        fake_file.stat().st_mtime, tz=timezone.utc
+    ).strftime("%Y-%m-%d")
+    assert date == expected
 
 
 def test_handles_unusual_git_output_gracefully(forum_index, tmp_path, monkeypatch):
@@ -240,6 +245,11 @@ def test_shallow_clone_falls_back_to_mtime_by_default(forum_index, tmp_path, mon
 
     fake_file = tmp_path / "welcome.md"
     fake_file.write_text("x", encoding="utf-8")
+    # Compare against the file's own mtime in UTC — the helper's
+    # contract — so the assertion is stable across midnight UTC vs
+    # local time boundaries on the dev machine.
     date = forum_index._git_last_commit_date(tmp_path, fake_file)
-    today = time.strftime("%Y-%m-%d")
-    assert date == today
+    expected = datetime.fromtimestamp(
+        fake_file.stat().st_mtime, tz=timezone.utc
+    ).strftime("%Y-%m-%d")
+    assert date == expected

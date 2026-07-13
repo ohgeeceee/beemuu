@@ -303,11 +303,12 @@ mod tests {
             "https://dev.example.com/api/dtc/29E0/schematics",
         );
     }
-}
 
-/// Local helper used by `override_url_trims_trailing_slash`. Mirrors
-/// the real `urlencoded` behavior for the path-segment cases the test
-/// exercises (no special chars).
-fn schematics_code_safe(code: &str) -> String {
-    code.to_string()
+    /// Local helper used by `override_url_trims_trailing_slash`. Mirrors
+    /// the real `urlencoded` behavior for the path-segment cases the test
+    /// exercises (no special chars). Lives inside the `#[cfg(test)] mod`
+    /// so non-test builds don't see it as dead code.
+    fn schematics_code_safe(code: &str) -> String {
+        code.to_string()
+    }
 }

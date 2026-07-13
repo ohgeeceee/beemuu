@@ -59,7 +59,14 @@ struct OpinionEntry {
 #[derive(Deserialize, Debug)]
 struct OpinionFile {
     dtc: String,
+    /// Some TOML files in `community/opinions/` carry a human-readable
+    /// `dtc_text` field for documentation. We deserialize it (so the
+    /// reader doesn't fail on a structural mismatch) but don't surface
+    /// it in the UI yet — the runtime already gets `dtc_text` from the
+    /// frontend via `query(...)`. Remove the `#[allow]` only if/when the
+    /// field gains a caller.
     #[serde(default)]
+    #[allow(dead_code)]
     dtc_text: String,
     #[serde(default)]
     opinion: Vec<OpinionEntry>,
