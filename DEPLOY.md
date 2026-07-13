@@ -1,5 +1,21 @@
 # BeeEmUu VPS Deployment Guide
 
+> ⚠️ **This document is historical reference, not active instructions.**
+> The path/service/port assumptions in this file (repo at `/root/beemuu`,
+> systemd unit `beemuu-api.service`, port 8765, `montanablotter.com`
+> install block, etc.) do not match the current production deployment.
+> Actual production runs at `/var/www/beemuu` with systemd unit
+> `beemuu-prod-api.service` on port 8766, and the nginx vhost + cert
+> management are outside this repo.
+>
+> For now, treat this doc as the design intent (what the *next*
+> deployment would look like under the repo's existing files) — not
+> what you'll run on a fresh host. The `montanablotter.com` install
+> block at §2 is removed; that host was retired on 2026-07-11.
+>
+> Follow-up: a `docs/deploy-production.md` capturing what production
+> actually does. Tracked separately.
+
 ## Prerequisites
 - VPS running Ubuntu 20.04+ with systemd and nginx
 - Git repo cloned to `/root/beemuu`
@@ -70,14 +86,9 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-For the legacy `montanablotter.com` deployment (if still in use):
-
-```bash
-sudo cp /root/beemuu/ops/beemuu.com.conf /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/beemuu.com.conf /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
+> The previous `montanablotter.com` install block was removed when that
+> host was decommissioned (see CLAUDE.md). The legacy
+> `ops/beemuu.montanablotter.com.conf` file no longer exists in the repo.
 
 ### TLS via Let's Encrypt
 
@@ -141,13 +152,12 @@ Re-running is a no-op — every seed is idempotent (UPSERT on the code PK).
 ├── backend/app.py          # Main service
 ├── backend/bootstrap_dtc.py # DTC seed CLI (`python -m backend.bootstrap_dtc`)
 ├── backend/seed*.py        # Seed sources (auto-registered)
-├── frontend/               # Static assets (the hosted dashboard at beemuu.montanablotter.com)
+├── frontend/               # Static assets (the hosted dashboard at beemuu.com)
 │   ├── index.html
 │   ├── app.js
 │   └── app.css
 ├── ops/
 │   ├── beemuu-api.service              # systemd unit
-│   ├── beemuu.montanablotter.com.conf  # nginx vhost (legacy/montanablotter.com)
 │   ├── beemuu.com.conf                 # nginx vhost (beemuu.com apex + www)
 │   └── bootstrap.sh                    # DTC seed runner
 └── [rest of repo]
@@ -158,7 +168,6 @@ Re-running is a no-op — every seed is idempotent (UPSERT on the code PK).
 - `https://beemuu.com/` and `https://www.beemuu.com/` — production frontend (TLS via Let's Encrypt)
 - `https://beemuu.com/api/health` — health check
 - `https://beemuu.com/api/dashboard` — JSON metrics
-- `https://beemuu.montanablotter.com/...` — legacy/alternate deployment (same code, different host)
 
 - `https://beemuu.com/` — public landing page (HTML)
 - `https://beemuu.com/admin/` — admin panel UI
