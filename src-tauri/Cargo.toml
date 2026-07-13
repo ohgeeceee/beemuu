@@ -18,7 +18,7 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serialport = "4"
-toml = "0.8"
+toml = "0.8.23"
 # Used by `hosted::fetch` to pull build health from the VPS over HTTPS.
 # rustls-tls avoids the OpenSSL native dep; json enables direct deserialization.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
