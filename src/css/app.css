@@ -415,3 +415,30 @@ body[data-theme="dark"] .dash-section-title {
   background: #0f1825;
   border-color: #2a3545;
 }
+
+/* ---------- mode selector + collapsed connection ---------- */
+.app-mode {
+  padding: 5px 6px; border-radius: 3px; border: 1px solid var(--border);
+  font-size: 12px; background: #fff; color: var(--text); margin-left: 4px;
+}
+#btn-conn-adv { margin-left: 4px; }
+.conn-opts { transition: opacity .12s ease; }
+
+/* ---------- vehicle info share / export dropdown ---------- */
+.share-export { position: relative; display: inline-flex; }
+.share-menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30;
+  background: #fff; border: 1px solid var(--border); border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(20,36,61,.18); padding: 4px; min-width: 180px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.share-menu.hidden { display: none; }
+.share-item {
+  text-align: left; padding: 7px 10px; border: none; background: transparent;
+  font-size: 13px; cursor: pointer; border-radius: 3px; color: var(--text);
+}
+.share-item:hover:not(:disabled) { background: var(--blue-light); }
+.share-item:disabled { opacity: .4; cursor: default; }
+body[data-theme="dark"] .share-menu { background: #161f2e; border-color: #2a3545; }
+body[data-theme="dark"] .share-item { color: #cdd7e3; }
+body[data-theme="dark"] .share-item:hover:not(:disabled) { background: #1d2b3d; }

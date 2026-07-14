@@ -49,6 +49,7 @@ function saveSettings() {
       connPort: $("conn-port").value,
       connDcan: $("conn-dcan").value,
       connAddr: $("conn-addr").value,
+      connOptsOpen: !($("conn-kdcan-opts").classList.contains("hidden") || $("conn-enet-opts").classList.contains("hidden")),
       liveProfile: $("live-profile").value,
       logProfile: $("log-profile").value,
       trafficAuto: $("traffic-auto").checked,
@@ -59,31 +60,105 @@ function saveSettings() {
 async function loadSettings() {
   try {
     const raw = localStorage.getItem("beeemuu_settings");
-    if (!raw) return;
-    const s = JSON.parse(raw);
-    if (s.connKind) $("conn-kind").value = s.connKind;
-    if (s.connDcan) $("conn-dcan").value = s.connDcan;
-    if (s.connAddr) $("conn-addr").value = s.connAddr;
-    if (s.liveProfile) $("live-profile").value = s.liveProfile;
-    if (s.logProfile) $("log-profile").value = s.logProfile;
-    if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
-    const kind = $("conn-kind").value;
-    $("conn-kdcan-opts").classList.toggle("hidden", kind !== "kdcan");
-    $("conn-enet-opts").classList.toggle("hidden", kind !== "enet");
-    if (kind === "kdcan") {
-      await refreshPorts();
-      if (s.connPort) $("conn-port").value = s.connPort;
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s.connKind) $("conn-kind").value = s.connKind;
+      if (s.connDcan) $("conn-dcan").value = s.connDcan;
+      if (s.connAddr) $("conn-addr").value = s.connAddr;
+      if (s.liveProfile) $("live-profile").value = s.liveProfile;
+      if (s.logProfile) $("log-profile").value = s.logProfile;
+      if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
+      const kind = $("conn-kind").value;
+      // Restore the collapsed/expanded connection options state.
+      const open = s.connOptsOpen && (kind === "kdcan" || kind === "enet");
+      $("conn-kdcan-opts").classList.toggle("hidden", !(open && kind === "kdcan"));
+      $("conn-enet-opts").classList.toggle("hidden", !(open && kind === "enet"));
+      $("btn-conn-adv").setAttribute("aria-expanded", String(!!open));
+      if (kind === "kdcan") {
+        await refreshPorts();
+        if (s.connPort) $("conn-port").value = s.connPort;
+      }
     }
+    // Restore mode selection (default Basic).
+    let mode = "basic";
+    try { const m = localStorage.getItem("beeemuu_mode"); if (m) mode = m; } catch (_) {}
+    $("app-mode").value = mode;
   } catch (_) {}
 }
 
 /* ---------------- tabs ---------------- */
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
+    if (tab.classList.contains("hidden")) return; // disabled by current mode
     document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     tab.classList.add("active");
     $("view-" + tab.dataset.view).classList.add("active");
+  });
+});
+
+/* ---------------- basic / advanced / developer mode ---------------- */
+const MODE_RANK = { basic: 1, advanced: 2, developer: 3 };
+
+function applyMode(mode) {
+  const rank = MODE_RANK[mode] || 1;
+  document.querySelectorAll(".tab[data-mode]").forEach((tab) => {
+    const show = MODE_RANK[tab.dataset.mode] <= rank;
+    tab.classList.toggle("hidden", !show);
+  });
+  // If the active tab is now hidden, fall back to the first visible tab.
+  const active = document.querySelector(".tab.active");
+  if (!active || active.classList.contains("hidden")) {
+    const first = document.querySelector(".tab:not(.hidden)");
+    if (first) first.click();
+  } else {
+    // keep current view in sync (in case view was hidden then shown)
+    $("view-" + active.dataset.view).classList.add("active");
+  }
+  try { localStorage.setItem("beeemuu_mode", mode); } catch (_) {}
+}
+
+$("app-mode").addEventListener("change", () => applyMode($("app-mode").value));
+
+/* ---------------- connection options collapse ---------------- */
+$("btn-conn-adv").addEventListener("click", () => {
+  const kd = $("conn-kdcan-opts");
+  const en = $("conn-enet-opts");
+  const hidden = kd.classList.contains("hidden") && en.classList.contains("hidden");
+  // Reveal only the options relevant to the currently selected kind.
+  const kind = $("conn-kind").value;
+  kd.classList.toggle("hidden", !(hidden && kind === "kdcan"));
+  en.classList.toggle("hidden", !(hidden && kind === "enet"));
+  if (kind === "kdcan" && hidden) refreshPorts();
+  $("btn-conn-adv").setAttribute("aria-expanded", String(hidden));
+  saveSettings();
+});
+
+/* ---------------- vehicle info share / export menu ---------------- */
+$("btn-info-share").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const menu = $("info-share-menu");
+  const open = menu.classList.toggle("hidden");
+  $("btn-info-share").setAttribute("aria-expanded", String(!open));
+});
+document.addEventListener("click", (e) => {
+  const menu = $("info-share-menu");
+  if (!menu.classList.contains("hidden") && !e.target.closest(".share-export")) {
+    menu.classList.add("hidden");
+    $("btn-info-share").setAttribute("aria-expanded", "false");
+  }
+});
+document.querySelectorAll("#info-share-menu .share-item").forEach((item) => {
+  item.addEventListener("click", () => {
+    const action = item.dataset.action;
+    if (item.disabled) return;
+    $("info-share-menu").classList.add("hidden");
+    $("btn-info-share").setAttribute("aria-expanded", "false");
+    if (action === "read") doReadVehicle();
+    else if (action === "report") doExportReport();
+    else if (action === "snapshot") doExportSnapshot();
+    else if (action === "secure") doSecureShare();
+    else if (action === "story") doGenerateStory();
   });
 });
 
@@ -491,7 +566,7 @@ function switchOpinionTab(btn) {
 
 /* ---------- secure snapshot share ---------- */
 
-$("btn-info-secure-share").addEventListener("click", async () => {
+async function doSecureShare() {
   if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
   try {
     setStatus("Preparing secure share…");
@@ -509,7 +584,7 @@ $("btn-info-secure-share").addEventListener("click", async () => {
     log("Secure share failed: " + e);
     setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
   }
-});
+}
 
 $("btn-read-faults").addEventListener("click", readFaults);
 
@@ -1577,7 +1652,7 @@ $("log-profile").addEventListener("change", buildLogParams);
 /* ---------------- vehicle info ---------------- */
 let lastVehicleInfo = null;
 
-$("btn-info-read").addEventListener("click", async () => {
+async function doReadVehicle() {
   if (!connected) { log("Connect first."); return; }
   const body = $("info-body");
   body.innerHTML = "<p class='muted'>Reading…</p>";
@@ -1585,16 +1660,13 @@ $("btn-info-read").addEventListener("click", async () => {
     const info = await invoke("read_vehicle_info");
     lastVehicleInfo = info;
     renderVehicleInfo(info);
-    $("btn-info-export").disabled = false;
-    $("btn-info-snapshot").disabled = false;
-    $("btn-info-secure-share").disabled = false;
-    $("btn-info-story").disabled = false;
+    setInfoActionsEnabled(true);
   } catch (e) {
     body.innerHTML = `<p class='muted'>Read failed: ${e}</p>`;
   }
-});
+}
 
-$("btn-info-snapshot").addEventListener("click", async () => {
+async function doExportSnapshot() {
   if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
   try {
     setStatus("Exporting session snapshot…");
@@ -1607,15 +1679,15 @@ $("btn-info-snapshot").addEventListener("click", async () => {
     log("Snapshot export failed: " + e);
     setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
   }
-});
+}
 
 /* ---------------- diagnostic story mode ---------------- */
 
 let lastSnapshotForStory = null;
 
-$("btn-info-story").addEventListener("click", async () => {
+async function doGenerateStory() {
   await generateStoryFromCurrent();
-});
+}
 
 $("btn-story-from-snapshot").addEventListener("click", async () => {
   if (!lastSnapshotForStory) { log("Load a snapshot first."); return; }
@@ -1723,20 +1795,39 @@ function copyStoryText() {
 
 /* ---------------- session snapshot export / import ---------------- */
 
-$("btn-info-snapshot").addEventListener("click", async () => {
-  if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
-  try {
-    setStatus("Exporting session snapshot…");
-    const json = await invoke("export_session");
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const path = await invoke("export_text", { filename: `beeemuu-session-${stamp}.json`, content: json });
-    log("Snapshot saved: " + path);
-    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
-  } catch (e) {
-    log("Snapshot export failed: " + e);
-    setStatus(sessionReplay ? "Session replay (offline)" : "Connected");
+// The Vehicle Info share menu drives these; no standalone buttons remain,
+// so we toggle the menu items' disabled state instead of button.disabled.
+function setInfoActionsEnabled(on) {
+  document.querySelectorAll("#info-share-menu .share-item").forEach((el) => {
+    if (el.dataset.action === "read") return; // Read is always available when connected
+    el.disabled = !on;
+  });
+}
+
+async function doExportReport() {
+  if (!lastVehicleInfo) return;
+  const i = lastVehicleInfo;
+  let txt = "BeeEmUu Vehicle Report\n" + "=".repeat(40) + "\n";
+  txt += `Generated: ${new Date().toString()}\n\n`;
+  txt += `VIN: ${i.vin || "unavailable"}\n`;
+  if (i.decode) {
+    txt += `WMI: ${i.decode.wmi}\nManufacturer: ${i.decode.manufacturer}\n`;
+    txt += `Model year: ${i.decode.model_year || "unknown"}\nPlant: ${i.decode.plant}\nSerial: ${i.decode.serial}\n`;
   }
-});
+  txt += `Mileage: ${i.mileage_km != null ? i.mileage_km + " km" : "unavailable"}\n\n`;
+  txt += "Modules:\n";
+  for (const m of modules) {
+    txt += `  [${m.present ? "x" : " "}] ${m.name} (0x${m.address.toString(16).toUpperCase().padStart(2, "0")}) - ${m.description}`;
+    txt += m.present ? ` | faults: ${m.fault_count ?? 0}${m.ident ? " | " + m.ident : "\n"}` : "\n";
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  try {
+    const path = await invoke("export_text", { filename: `beeemuu-vehicle-${stamp}.txt`, content: txt });
+    log("Saved: " + path);
+  } catch (e) {
+    log("Export failed: " + e);
+  }
+}
 
 function loadSnapshot(data) {
   sessionReplay = true;
@@ -1768,10 +1859,10 @@ function loadSnapshot(data) {
       suggested_profile: data.vehicle_info.suggested_profile,
     };
     renderVehicleInfo(lastVehicleInfo);
-    $("btn-info-export").disabled = false;
-    $("btn-info-snapshot").disabled = true;
-    $("btn-info-secure-share").disabled = false;
-    $("btn-info-story").disabled = false;
+    // Snapshot loaded from file: re-export allowed, but not overwrite the source.
+    setInfoActionsEnabled(true);
+    const snapItem = document.querySelector('#info-share-menu .share-item[data-action="snapshot"]');
+    if (snapItem) snapItem.disabled = true;
   }
 
   if (data.traffic) {
@@ -1840,31 +1931,6 @@ function renderVehicleInfo(info) {
   html += "</div>";
   $("info-body").innerHTML = html;
 }
-
-$("btn-info-export").addEventListener("click", async () => {
-  if (!lastVehicleInfo) return;
-  const i = lastVehicleInfo;
-  let txt = "BeeEmUu Vehicle Report\n" + "=".repeat(40) + "\n";
-  txt += `Generated: ${new Date().toString()}\n\n`;
-  txt += `VIN: ${i.vin || "unavailable"}\n`;
-  if (i.decode) {
-    txt += `WMI: ${i.decode.wmi}\nManufacturer: ${i.decode.manufacturer}\n`;
-    txt += `Model year: ${i.decode.model_year || "unknown"}\nPlant: ${i.decode.plant}\nSerial: ${i.decode.serial}\n`;
-  }
-  txt += `Mileage: ${i.mileage_km != null ? i.mileage_km + " km" : "unavailable"}\n\n`;
-  txt += "Modules:\n";
-  for (const m of modules) {
-    txt += `  [${m.present ? "x" : " "}] ${m.name} (0x${m.address.toString(16).toUpperCase().padStart(2, "0")}) - ${m.description}`;
-    txt += m.present ? ` | faults: ${m.fault_count ?? 0}${m.ident ? " | " + m.ident : ""}\n` : "\n";
-  }
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  try {
-    const path = await invoke("export_text", { filename: `beeemuu-vehicle-${stamp}.txt`, content: txt });
-    log("Saved: " + path);
-  } catch (e) {
-    log("Export failed: " + e);
-  }
-});
 
 /* ---------------- session + security ---------------- */
 function fillSecurityEcus() {
@@ -2172,6 +2238,8 @@ document.querySelectorAll(".tab").forEach((tab) => {
   fillSecurityEcus();
   setStatus("Disconnected");
   await loadSettings();
+  applyMode($("app-mode").value);
+  setInfoActionsEnabled(false); // nothing read yet
 })();
 
 async function loadLogProfiles() {

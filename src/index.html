@@ -27,6 +27,7 @@
         <option value="kdcan">K+DCAN cable</option>
         <option value="enet">ENET cable</option>
       </select>
+      <button id="btn-conn-adv" class="btn btn-small" type="button" aria-expanded="false" title="Show cable/port options">⚙ Connection</button>
       <span id="conn-kdcan-opts" class="conn-opts hidden">
         <select id="conn-port"></select>
         <select id="conn-dcan">
@@ -39,6 +40,11 @@
         <input type="text" id="conn-addr" value="169.254.16.11:6801" size="18" />
       </span>
       <button id="btn-connect" class="btn btn-primary">Connect</button>
+      <select id="app-mode" class="app-mode" title="Show more or fewer features">
+        <option value="basic">Basic</option>
+        <option value="advanced">Advanced</option>
+        <option value="developer">Developer</option>
+      </select>
       <button id="btn-theme" title="Toggle dark mode">🌙</button>
       <button id="btn-about" class="btn" title="About &amp; license">ⓘ</button>
     </div>
@@ -46,16 +52,16 @@
 
   <!-- Tab bar -->
   <nav class="tabbar">
-    <button class="tab active" data-view="vehicle">Vehicle Test</button>
-    <button class="tab" data-view="live">Live Data</button>
-    <button class="tab" data-view="logging">Logging</button>
-    <button class="tab" data-view="explorer">Parameter Explorer</button>
-    <button class="tab" data-view="hunt">Hunt <span id="hunt-tab-pts" class="hunt-tab-pts hidden">0</span></button>
-    <button class="tab" data-view="info">Vehicle Info</button>
-    <button class="tab" data-view="service">Service Functions</button>
-    <button class="tab" data-view="diagnostics">Diagnostics</button>
-    <button class="tab" data-view="snapshots">Snapshots</button>
-    <button class="tab" data-view="backend">Backend</button>
+    <button class="tab active" data-view="vehicle" data-mode="basic">Vehicle Test</button>
+    <button class="tab" data-view="live" data-mode="basic">Live Data</button>
+    <button class="tab" data-view="logging" data-mode="advanced">Logging</button>
+    <button class="tab" data-view="explorer" data-mode="developer">Parameter Explorer</button>
+    <button class="tab" data-view="hunt" data-mode="developer">Hunt <span id="hunt-tab-pts" class="hunt-tab-pts hidden">0</span></button>
+    <button class="tab" data-view="info" data-mode="basic">Vehicle Info</button>
+    <button class="tab" data-view="service" data-mode="advanced">Service Functions</button>
+    <button class="tab" data-view="diagnostics" data-mode="advanced">Diagnostics</button>
+    <button class="tab" data-view="snapshots" data-mode="advanced">Snapshots</button>
+    <button class="tab" data-view="backend" data-mode="developer">Backend</button>
   </nav>
 
   <main class="content">
@@ -191,12 +197,15 @@
       <div class="panel">
         <div class="panel-head">
           <span>Vehicle information</span>
-          <span>
-            <button id="btn-info-read" class="btn btn-small btn-primary">Read vehicle</button>
-            <button id="btn-info-export" class="btn btn-small" disabled>Export report</button>
-            <button id="btn-info-snapshot" class="btn btn-small" disabled>Export snapshot</button>
-            <button id="btn-info-secure-share" class="btn btn-small" disabled>🔒 Secure Share</button>
-            <button id="btn-info-story" class="btn btn-small" disabled>Generate Story</button>
+          <span class="share-export">
+            <button id="btn-info-share" class="btn btn-small btn-primary" type="button" aria-expanded="false">Share / Export ▾</button>
+            <span id="info-share-menu" class="share-menu hidden">
+              <button class="share-item" data-action="read">Read vehicle</button>
+              <button class="share-item" data-action="report">Export report</button>
+              <button class="share-item" data-action="snapshot">Export snapshot</button>
+              <button class="share-item" data-action="secure">🔒 Secure share</button>
+              <button class="share-item" data-action="story">Generate story</button>
+            </span>
           </span>
         </div>
         <div id="info-body" class="info-body">
