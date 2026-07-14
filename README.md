@@ -39,7 +39,6 @@ The desktop app is organized into ten tabs. Every one of these is real code in
 | **Live Data** | Real-time gauges from per-engine profiles (N52, N54, N55, N62, B58…). Toggle continuous polling at ~250 ms. |
 | **Logging** | Record a session at ~4 Hz, export to CSV, replay with scrubber and markers. JSONL stored in `~/beeemuu-sessions/`. |
 | **Parameter Explorer** | Probe KWP2000 local IDs or UDS DIDs to discover what data the car exposes — the workbench for adding new parameters. |
-| **Hunt** | Gamified reverse-engineering on top of the Explorer: points for new identifiers, mapped bytes, merged contributions, plus a public leaderboard. |
 | **Vehicle Info** | Read VIN, decode it, read odometer — uses `protocol::read_vin`, the correct UDS/KWP split. |
 | **Service Functions** | Battery registration, CBS reset, DPF/adaptations where the ECU firmware supports them. High-risk functions stay gated. |
 | **Diagnostics** | Run an individual diagnostic job against one ECU (as opposed to scanning the whole car). |
@@ -120,24 +119,65 @@ The connectors dropdown autodetects cable type on first scan. There's no
 
 ## What's coming
 
-The roadmap is public and discussed item-by-item. See [`ROADMAP.md`](ROADMAP.md).
+The roadmap is the canonical source of truth for planned work —
+[`ROADMAP.md`](ROADMAP.md) lists every item with a confidence label
+(`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
+section over the roadmap; it is a *summary*, not the spec.
 
-Highlights from v0.3.0 ("Real Car") and beyond:
+The active release cycle is **v0.4.0 — "Tuner Friendly"** (target date
+not yet set). Items currently 🟢 Ready and queued for this cycle:
 
-- **Diagnostic Story mode** *(in progress)* — turn a snapshot into a mechanic's
-  narrative report. "N55 + 8% fuel trim at idle → smoke-test the intake
-  tract, $80–150 at an indie shop." Local model, no cloud.
-- **Adaptive Drift Tracker** — plot how long-term fuel trims and adaptation
-  values move session-over-session. Predicts when an N55 is about to throw 29E0.
-- **Community Oracle** *(research)* — opt-in, anonymized pattern matching.
-  "42 other N55 owners saw this exact DTC set — 80% fixed it by replacing
-  the HPFP."
-- **Tuning Fingerprint Detector** *(research)* — compare live data
-  distributions against a stock baseline. Useful when buying used.
+- **Histograms of logged channels** — distribution of values over a
+  CSV log (knock retard, boost error, etc.). Client-side; no protocol
+  change.
+- **`u8_enum` decoder + enum tables** — the one decoder from the v0.3.0
+  list that did *not* ship (gear position, engine state, knock state
+  as named strings, not numbers). Spec in
+  [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8.
+- **CBS reset for EGS / DSC** — extend the existing CBS reset to other
+  modules. (`src-tauri/src/data/service_functions.rs`.)
+- **$5 AliExpress ENET cable pinout doc** — link-only doc PR for
+  hobbyists who don't want to buy a $60 BMW cable.
+- **README/roadmap drift cleanup** *(this PR)* — fix the "What's coming"
+  bullets below so they stop contradicting the shipped state.
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.3.0** (2026-07-11),
-"Community Intelligence" — Parameter Hunt, Community Oracle, DTC Opinions,
-Diagnostic Story, and the VPS-hosted backend. See
+Larger items (log merge, custom math channels, knock visualisation,
+real-car B58/N55 F-series validation, OBDLink MX+ support) are 🟡 and
+will move to 🟢 once the prerequisites land. See [`ROADMAP.md`](ROADMAP.md)
+for full status.
+
+### Recently shipped (v0.3.0 — 2026-07-11)
+
+For context — these are already in the binary and are *not* "coming":
+
+- **Diagnostic Story** ✅ — turn a session snapshot into a mechanic's
+  narrative report. Local model, no cloud.
+  ([`src-tauri/src/story.rs`](src-tauri/src/story.rs))
+- **Community Oracle** ✅ — opt-in pattern matching across anonymised
+  community data ("42 N55 owners saw this DTC set — 80% replaced the
+  HPFP"). ([`src-tauri/src/oracle.rs`](src-tauri/src/oracle.rs))
+- **DTC Opinions** ✅ — opinionated explainers for specific codes
+  (when to fix immediately vs. monitor vs. ignore).
+  ([`src-tauri/src/opinions.rs`](src-tauri/src/opinions.rs))
+- **VPS-hosted backend** ✅ — full read-only deployment with admin
+  panel, DTC bootstrap, and 44-test suite. ([`backend/`](backend/))
+
+### Ideas being explored (not on the roadmap yet)
+
+These are not promised and not scheduled. They are mentioned in
+[`LAUNCH_POST.md`](LAUNCH_POST.md) as long-term direction. They will
+appear in [`ROADMAP.md`](ROADMAP.md) only after a public Discussion
+thread — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) for
+the "no feature without a Discussion" rule.
+
+- **Adaptive Drift Tracker** — plot long-term fuel trims and adaptation
+  values over time to predict when an N55 is about to throw 29E0.
+- **Tuning Fingerprint Detector** — compare live-data distributions
+  against a stock baseline (useful when buying used).
+
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.3.0**
+(2026-07-11), "Community Intelligence" — Community Oracle, DTC
+Opinions, Diagnostic Story, and the VPS-hosted backend. See
 [`RELEASE_NOTES_v0.3.0.md`](RELEASE_NOTES_v0.3.0.md).
 
 ---

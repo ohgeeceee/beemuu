@@ -11,9 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Schematics deploy: `ops/beemuu.com.conf` now serves `/static/schematics/`
   from disk (CC0 wiring-diagram SVGs), and `docs/deploy-schematics.md`
   carries the end-to-end rollout runbook. See PR #51.
+- v0.4.0 roadmap scope published in `ROADMAP.md` ("Tuner Friendly"
+  cycle) with explicit Ready / Needs-research / Deferred split.
+- `docs/v0.4.0_first_pr.md` — spec for the v0.4.0 first PR (README
+  drift cleanup).
 
 ### Changed
-- N/A
+- README § "What's coming" rewritten so shipped features (Diagnostic
+  Story, Community Oracle, DTC Opinions, VPS backend) are labelled
+  ✅ shipped and removed from the "coming" list; aspirational items
+  (Adaptive Drift Tracker, Tuning Fingerprint Detector) are moved to
+  a clearly-labelled "ideas being explored, not on the roadmap"
+  subsection. No code change.
 
 ### Fixed
 - N/A

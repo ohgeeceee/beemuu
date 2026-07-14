@@ -15,20 +15,23 @@ promised in any order — contributors are welcome to grab anything marked
 
 ---
 
-## v0.3.0 — "Real Car" (Target: TBD)
+## v0.3.0 — "Real Car" (Shipped 2026-07-11)
 
-### 🔴 Decode Functions
+### ✅ Decode Functions (done in v0.3.0 — keep this section historical)
 
-| Item | Status | Why it matters |
-|------|--------|---------------|
-| Add `u16_tenths` | 🟢 Ready | Unlocks battery voltage (4002), HPFP rail (44F0), boost command (4367) |
-| Add `u16_div100` | 🟢 Ready | Unlocks mass-air flow (4077), ambient pressure (4003) |
-| Add `s16_div4` | 🟢 Ready | Unlocks DME temperature (4001) — note sign bit |
-| Add `s16_div100` | 🟢 Ready | Unlocks engine torque (4500), ambient air temp (4016) |
-| Add `u8_enum` | 🟢 Ready | Unlocks gear position (DA0A), clutch switch (DA0F), engine state (4004) |
-| Add `u8_div100` | 🟢 Ready | Unlocks lambda (400B), injection time (4363) |
+The six new decoders landed before v0.3.0 cut. They are live in
+`src-tauri/src/data/live.rs` (see `enum Decode` + unit tests at the bottom
+of that file), and the corresponding DIDs are already uncommented in
+`community/profiles/b58.toml` and `community/profiles/n55.toml`.
 
-**Impact:** ~40% of OBDb DID data becomes usable. Currently commented out in `profiles/b58.toml` and `profiles/n55.toml`.
+| Item | Status | Notes |
+|------|--------|-------|
+| Add `u16_tenths` | ✅ Done | Battery voltage (4002), HPFP rail (44F0), boost command (4367) |
+| Add `u16_div100` | ✅ Done | Mass-air flow (4077), ambient pressure (4003) |
+| Add `s16_div4` | ✅ Done | DME temperature (4001) — signed |
+| Add `s16_div100` | ✅ Done | Engine torque (4500), ambient air temp (4016) |
+| Add `u8_div100` | ✅ Done | Lambda (400B), injection time (4363) |
+| Add `u8_enum` | 🟡 Deferred | Spec'd in `docs/DECODE_FUNCTIONS.md` § 8; requires per-DID enum table in TOML profile. Genuinely extra work — *not* just "uncomment lines." Pull forward if a contributor wants it. |
 
 ### ⭐ Real-Car Validation
 
@@ -86,36 +89,51 @@ See `research/bmw_diag_dim07_local_ids.md` for the exhaustive search results.
 
 ---
 
-## v0.4.0 — "Tuner Friendly" (Future)
+## v0.4.0 — "Tuner Friendly" (Target: TBD)
 
-### ⭐ Data Logging & Analysis
+**Premise.** v0.3.0 shipped the decoder foundation (six new numeric decoders
++ uncommented B58/N55 DIDs). v0.4.0 builds *tuner-facing* features on top
+of that foundation — features that only make sense once real numbers like
+HPFP rail, boost command, lambda bank, and engine torque are actually
+readable. The first PR in this cycle is a small docs fix; see
+`docs/v0.4.0_first_pr.md`.
 
-| Item | Status | Notes |
-|------|--------|-------|
-| Log file merge/comparison | 🟡 Needs research | Compare two logs side-by-side (before/after tune) |
-| Custom math channels | 🟡 Needs research | User-defined formulas: `map - baro`, `rail / load`, etc. |
-| Histograms | 🟢 Ready | Distribution of values over a log (e.g., knock retard) |
-| Trigger-based logging | 🟡 Needs research | Start logging when DTC appears or threshold crossed |
-| Cloud sync (opt-in) | 🟡 Needs research | Anonymous log upload for community analytics |
-
-### ⭐ Tuning & Diagnostics
+### ✅ Ready (small, can ship in any order)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Knock detection visualization | 🟡 Needs research | Requires KWP2000 local ID or UDS DID |
-| Injector duty cycle | 🟡 Needs research | Needs new decode function |
-| AFR / lambda bank readout | 🟡 Needs research | Needs new decode function + wideband correlation |
-| Adaptation value readout | 🟡 Needs research | Fuel trims, idle adaptations, etc. |
-| CBS reset for all modules | 🟢 Ready | Extend existing CBS reset to EGS, DSC, etc. |
+| README profile-listing fix | 🟢 Ready | Verify no other "in v0.3.0 / coming soon" claim is stale. First PR. |
+| Histograms of logged channels | 🟢 Ready | Operates on existing CSV log output; client-side (no protocol change). |
+| `u8_enum` decoder + enum tables | 🟢 Spec'd | Genuinely new work; spec already in `docs/DECODE_FUNCTIONS.md` § 8. |
+| CBS reset for EGS / DSC | 🟢 Ready | Extends existing CBS reset (`src-tauri/src/data/service_functions.rs`) — verify scope first. |
+| $5 AliExpress ENET cable pinout doc | 🟢 Ready | Doc-only; link from `README.md` hardware section. |
 
-### ⭐ Hardware
+### 🟡 Needs research (larger, defer if scope is tight)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| OBDLink MX+ support | 🟡 Needs research | USB + BLE; popular with iOS users |
-| Vgate iCar Pro support | 🟡 Needs research | Cheap BLE adapter; needs protocol testing |
-| BMW ENET cable (DIY) | 🟢 Ready | Document $5 AliExpress cable pinout |
-| Raspberry Pi CAN bridge | 🟡 Needs research | Pi + CAN hat as OBD-to-ENET bridge for E-series |
+| Log file merge / comparison | 🟡 | Before/after diffing; client-side over CSV. |
+| Custom math channels | 🟡 | `map - baro`, `rail / load` etc.; needs safe expression sandbox. |
+| Knock detection visualisation | 🟡 | DIDs exist (DME-side); mostly a UI affordance over existing data. |
+| AFR / lambda bank readout polish | 🟡 | Decoder exists (400B); needs the wider lambda + O2 readiness story. |
+| Adaptation / fuel trim readout | 🟡 | Likely a new decode; needs real-car evidence. |
+| Injector duty cycle | 🟡 | Needs new decode; not in current table. |
+| Real-car validation B58 F/G | 🟡 | Owner with ENET + F/G chassis. **Hardest blocker.** |
+| Real-car validation N55 F-series | 🟡 | Same as above. |
+| Trigger-based logging | 🟡 | Threshold / DTC-crossed autostart. |
+| OBDLink MX+ support | 🟡 | USB + BLE; popular with iOS users (natural tuner audience). |
+| ENET/DoIP auto-detection | 🟡 | Detect adapter without manual selection. |
+
+### Deferred to v0.5.0+
+
+These are explicitly **not** v0.4.0 work:
+
+- Cloud sync (opt-in log upload) — needs privacy + ops story first.
+- Raspberry Pi CAN bridge — hardware project of its own.
+- Plugin system for custom decoders — community governance work before code.
+- Bootmod3 / MHD integration — legal risk; not appropriate scope.
+- Multi-language UI — translation coordination problem.
+- Web-based shared-log viewer — needs hosted backend work first.
 
 ---
 
@@ -141,4 +159,4 @@ See `research/bmw_diag_dim07_local_ids.md` for the exhaustive search results.
 
 ---
 
-*Last updated: 2026-07-06. This is a living document — open a PR to suggest changes.*
+*Last updated: 2026-07-14. v0.3.0 decode-fn rows flipped to ✅ Done; v0.4.0 rewritten with explicit Ready / Needs-research / Deferred split.*
