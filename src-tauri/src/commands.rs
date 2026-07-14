@@ -140,8 +140,6 @@ pub fn save_freeze_schema(
         fields: rust_fields,
     };
     freeze::registry().register_for(address, schema);
-    // Parameter Hunt: +100 for a confirmed freeze-frame schema.
-    crate::hunt::record_schema(address);
     Ok(())
 }
 
@@ -287,8 +285,6 @@ pub fn probe_range(
         return Err("Range too large (max 512 per scan)".into());
     }
     with_transport(&state, |t| {
-        // Simulator discoveries are practice runs: logged, but 0 points.
-        let practice = t.name().to_ascii_lowercase().contains("sim");
         let mut found = Vec::new();
         for id in start..=end {
             if let Ok(data) = probe_read(t, &mode, address, id) {
@@ -300,9 +296,6 @@ pub fn probe_range(
                 found.push(ProbeResult { id, hex });
             }
         }
-        // Parameter Hunt: +10 per never-before-seen responding identifier.
-        let ids: Vec<u16> = found.iter().map(|f| f.id).collect();
-        crate::hunt::record_discoveries(address, &mode, &ids, practice);
         Ok(found)
     })
 }
@@ -620,8 +613,6 @@ pub fn add_to_profile(profile_id: String, spec: AddParamSpec) -> Result<(), Stri
     };
     live::add_param_to_profile(&profile_id, param)
         .ok_or_else(|| format!("Unknown profile '{}'", profile_id))?;
-    // Parameter Hunt: +50 for mapping an unknown byte to a physical value.
-    crate::hunt::record_mapping(spec.address, &spec.mode, spec.id, &spec.label);
     Ok(())
 }
 
@@ -937,20 +928,6 @@ pub fn list_exports() -> Result<Vec<ExportFile>, String> {
     Ok(files)
 }
 
-/* ---------------- Hosted (Remote) Dashboard ----------------
- *
- * PROTECTED PATH: this command touches the network. Per CLAUDE.md it MUST
- * be async, return a Result, and never block the webview.
- */
-
-#[tauri::command]
-pub async fn fetch_hosted_dashboard(
-    stats_url: Option<String>,
-    landing_url: Option<String>,
-) -> Result<crate::hosted::HostedSnapshot, String> {
-    crate::hosted::fetch(stats_url.as_deref(), landing_url.as_deref()).await
-}
-
 /* ---------------- Schematics Sidebar ----------------
  *
  * PROTECTED PATH: this command hits the network. Per CLAUDE.md it MUST
@@ -969,30 +946,6 @@ pub async fn fetch_dtc_schematics(
     api_base_url: Option<String>,
 ) -> Result<crate::schematics::SchematicsForDtc, String> {
     crate::schematics::fetch_for_code(&code, api_base_url.as_deref()).await
-}
-
-/* ---------------- Backend Dashboard ---------------- */
-
-#[tauri::command]
-pub fn backend_dashboard(state: tauri::State<'_, AppState>) -> Result<crate::backend_dashboard::BackendDashboard, String> {
-    let (connected, transport_name) = {
-        let guard = state.transport.lock().unwrap();
-        (guard.is_some(), guard.as_ref().map(|t| t.name().to_string()))
-    };
-    let traffic = state.traffic.lock().unwrap().snapshot();
-    let profile_count = live::profile_list().len();
-    let export_count = list_exports()?.len();
-
-    Ok(crate::backend_dashboard::BackendDashboard {
-        generated_at_secs: crate::backend_dashboard::now_secs(),
-        connected,
-        transport_name,
-        profile_count,
-        export_count,
-        traffic: crate::backend_dashboard::summarize_traffic(&traffic),
-        community: crate::community::report(),
-        hunt: crate::hunt::status(),
-    })
 }
 
 /* ---------------- Community Oracle ---------------- */
@@ -1041,23 +994,6 @@ pub fn anonymize_snapshot(
 ) -> Result<String, String> {
     let json = crate::anonymize::export_json(&snapshot);
     Ok(json)
-}
-
-/* ---------------- Parameter Hunt ---------------- */
-
-#[tauri::command]
-pub fn hunt_status() -> crate::hunt::HuntStatus {
-    crate::hunt::status()
-}
-
-#[tauri::command]
-pub fn hunt_leaderboard() -> Vec<crate::hunt::LeaderboardEntry> {
-    crate::hunt::leaderboard()
-}
-
-#[tauri::command]
-pub fn hunt_set_alias(alias: String) -> Result<(), String> {
-    crate::hunt::set_alias(&alias)
 }
 
 /* ---------------- Virtual Second Opinion ---------------- */

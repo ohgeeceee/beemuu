@@ -19,6 +19,33 @@
 #
 # Restore a backup:
 #   gunzip -c /var/backups/beemuu/beemuu-YYYYMMDD-HHMMSS.db.gz \
+#     | sqlite3 /var/www/beemuu/data/beemuu.db
+
+set -euo pipefail
+
+# Resolve the live DB path. Resolution order:
+#   1. BEEMUU_DB_PATH explicit override (always wins)
+#   2. BEEMUU_DATA_DIR/beemuu.db — the var the running service already sets
+#      via EnvironmentFile=/etc/beemuu/beemuu.env, so when this script is run
+#      with the same env file sourced (or under `sudo -E`), it Just Works
+#   3. Literal prod default fallback: /var/www/beemuu/data/beemuu.db
+#      (matches prod systemd unit WorkingDirectory=/var/www/beemuu
+#       and the prod backend's BEEMUU_DATA_DIR=…/data layout).
+#   4. Old fallback: /var/www/beemuu/backend/data/beemuu.db
+#      (kept for any host still running the in-repo layout)
+DB_PATH=""
+if [[ -n "${BEEMUU_DB_PATH:-}" ]]; then
+    DB_PATH="$BEEMUU_DB_PATH"
+elif [[ -n "${BEEMUU_DATA_DIR:-}" ]]; then
+    DB_PATH="${BEEMUU_DATA_DIR%/}/beemuu.db"
+elif [[ -f "/var/www/beemuu/data/beemuu.db" ]]; then
+    DB_PATH="/var/www/beemuu/data/beemuu.db"
+elif [[ -f "/var/www/beemuu/backend/data/beemuu.db" ]]; then
+    DB_PATH="/var/www/beemuu/backend/data/beemuu.db"
+else
+    DB_PATH="/var/www/beemuu/data/beemuu.db"
+fi
+
 #     | sqlite3 /var/www/beemuu/backend/data/beemuu.db
 
 set -euo pipefail
@@ -32,6 +59,7 @@ RETAIN_DAYS="${BEEMUU_BACKUP_RETAIN_DAYS:-14}"
 if [[ ! -f "$DB_PATH" ]]; then
     echo "FATAL: DB not found at $DB_PATH" >&2
     echo "       Override with BEEMUU_DB_PATH=/path/to/beemuu.db" >&2
+    echo "       (or set BEEMUU_DATA_DIR so the script can locate the live DB)" >&2
     exit 1
 fi
 

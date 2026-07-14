@@ -9,6 +9,24 @@ is gone", so it's set up to be boring and reliable.
 
 | Component | Path |
 |---|---|
+| Live database | **`/var/www/beemuu/data/beemuu.db`** — set in prod by `BEEMUU_DATA_DIR=/var/www/beemuu/data` in `/etc/beemuu/beemuu.env` |
+| Backup directory | `/var/backups/beemuu/` (override via `BEEMUU_BACKUP_DIR`) |
+| Retention | 14 days (override via `BEEMUU_BACKUP_RETAIN_DAYS`) |
+| Cron log | `/var/log/beemuu-backup.log` |
+| Service that writes the DB | `beemuu-prod-api.service`, listens on `127.0.0.1:8766` |
+
+The script resolves the live DB path with this precedence:
+
+1. `BEEMUU_DB_PATH` (explicit override, always wins)
+2. `${BEEMUU_DATA_DIR}/beemuu.db` — same env var the running service uses, so
+   if you source `/etc/beemuu/beemuu.env` first (or run with `sudo -E`) the
+   script picks the right path automatically
+3. `/var/www/beemuu/data/beemuu.db` (literal prod default)
+4. `/var/www/beemuu/backend/data/beemuu.db` (fallback for hosts still on
+   the in-repo layout)
+
+If none of these resolve to a real file, the script exits with a loud
+`FATAL: DB not found at <path>` and a hint about the env vars.
 | Live database | `/var/www/beemuu/backend/data/beemuu.db` (override via `BEEMUU_DB_PATH`) |
 | Backup directory | `/var/backups/beemuu/` (override via `BEEMUU_BACKUP_DIR`) |
 | Retention | 14 days (override via `BEEMUU_BACKUP_RETAIN_DAYS`) |

@@ -6,7 +6,6 @@
   <title>BeeEmUu Diagnostics</title>
   <link rel="stylesheet" href="css/app.css" />
   <link rel="stylesheet" href="css/explorer.css" />
-  <link rel="stylesheet" href="css/hunt.css" />
 </head>
 <body>
   <!-- Top header band -->
@@ -27,6 +26,7 @@
         <option value="kdcan">K+DCAN cable</option>
         <option value="enet">ENET cable</option>
       </select>
+      <button id="btn-conn-adv" class="btn btn-small" type="button" aria-expanded="false" title="Show cable/port options">⚙ Connection</button>
       <span id="conn-kdcan-opts" class="conn-opts hidden">
         <select id="conn-port"></select>
         <select id="conn-dcan">
@@ -39,6 +39,11 @@
         <input type="text" id="conn-addr" value="169.254.16.11:6801" size="18" />
       </span>
       <button id="btn-connect" class="btn btn-primary">Connect</button>
+      <select id="app-mode" class="app-mode" title="Show more or fewer features">
+        <option value="basic">Basic</option>
+        <option value="advanced">Advanced</option>
+        <option value="developer">Developer</option>
+      </select>
       <button id="btn-theme" title="Toggle dark mode">🌙</button>
       <button id="btn-about" class="btn" title="About &amp; license">ⓘ</button>
     </div>
@@ -46,16 +51,14 @@
 
   <!-- Tab bar -->
   <nav class="tabbar">
-    <button class="tab active" data-view="vehicle">Vehicle Test</button>
-    <button class="tab" data-view="live">Live Data</button>
-    <button class="tab" data-view="logging">Logging</button>
-    <button class="tab" data-view="explorer">Parameter Explorer</button>
-    <button class="tab" data-view="hunt">Hunt <span id="hunt-tab-pts" class="hunt-tab-pts hidden">0</span></button>
-    <button class="tab" data-view="info">Vehicle Info</button>
-    <button class="tab" data-view="service">Service Functions</button>
-    <button class="tab" data-view="diagnostics">Diagnostics</button>
-    <button class="tab" data-view="snapshots">Snapshots</button>
-    <button class="tab" data-view="backend">Backend</button>
+    <button class="tab active" data-view="vehicle" data-mode="basic">Vehicle Test</button>
+    <button class="tab" data-view="live" data-mode="basic">Live Data</button>
+    <button class="tab" data-view="logging" data-mode="advanced">Logging</button>
+    <button class="tab" data-view="explorer" data-mode="developer">Parameter Explorer</button>
+    <button class="tab" data-view="info" data-mode="basic">Vehicle Info</button>
+    <button class="tab" data-view="service" data-mode="advanced">Service Functions</button>
+    <button class="tab" data-view="diagnostics" data-mode="advanced">Diagnostics</button>
+    <button class="tab" data-view="snapshots" data-mode="advanced">Snapshots</button>
   </nav>
 
   <main class="content">
@@ -191,12 +194,15 @@
       <div class="panel">
         <div class="panel-head">
           <span>Vehicle information</span>
-          <span>
-            <button id="btn-info-read" class="btn btn-small btn-primary">Read vehicle</button>
-            <button id="btn-info-export" class="btn btn-small" disabled>Export report</button>
-            <button id="btn-info-snapshot" class="btn btn-small" disabled>Export snapshot</button>
-            <button id="btn-info-secure-share" class="btn btn-small" disabled>🔒 Secure Share</button>
-            <button id="btn-info-story" class="btn btn-small" disabled>Generate Story</button>
+          <span class="share-export">
+            <button id="btn-info-share" class="btn btn-small btn-primary" type="button" aria-expanded="false">Share / Export ▾</button>
+            <span id="info-share-menu" class="share-menu hidden">
+              <button class="share-item" data-action="read">Read vehicle</button>
+              <button class="share-item" data-action="report">Export report</button>
+              <button class="share-item" data-action="snapshot">Export snapshot</button>
+              <button class="share-item" data-action="secure">🔒 Secure share</button>
+              <button class="share-item" data-action="story">Generate story</button>
+            </span>
           </span>
         </div>
         <div id="info-body" class="info-body">
@@ -307,69 +313,6 @@
               <button id="btn-schema-load" class="btn btn-small">Reload saved</button>
             </div>
             <div class="schema-preview" id="schema-preview"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ PARAMETER HUNT ============ -->
-    <section id="view-hunt" class="view">
-      <div class="hunt-cols">
-        <div class="hunt-left">
-          <div class="panel hunt-score-panel">
-            <div class="panel-head">
-              <span>🏆 Parameter Hunt</span>
-              <span class="hunt-alias-row">
-                <input type="text" id="hunt-alias" placeholder="Your hunter alias" maxlength="32" size="14" />
-                <button id="btn-hunt-alias" class="btn btn-small">Save</button>
-              </span>
-            </div>
-            <div class="hunt-score-body">
-              <div class="hunt-score-big">
-                <div class="hunt-points" id="hunt-points">0</div>
-                <div class="hunt-points-label">points <span id="hunt-rank" class="hunt-rank"></span></div>
-              </div>
-              <div class="hunt-stats">
-                <div class="hunt-stat"><span id="hunt-discovered">0</span><label>IDs discovered <em>+10</em></label></div>
-                <div class="hunt-stat"><span id="hunt-mapped">0</span><label>bytes mapped <em>+50</em></label></div>
-                <div class="hunt-stat"><span id="hunt-schemas">0</span><label>schemas saved <em>+100</em></label></div>
-                <div class="hunt-stat"><span id="hunt-merged">0</span><label>PRs merged <em>+500</em></label></div>
-              </div>
-            </div>
-            <p class="hunt-hint muted">Points are earned automatically while you
-              reverse-engineer in the Parameter Explorer. Simulator runs count as
-              practice (0 pts). Publish your score by adding your alias to
-              <code>community/hunt/leaderboard.json</code> in a pull request.</p>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><span>Monthly challenges <span id="hunt-month" class="muted"></span></span></div>
-            <div id="hunt-challenges" class="hunt-challenges">
-              <p class="muted">No active challenges.</p>
-            </div>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><span>Badges</span></div>
-            <div id="hunt-badges" class="hunt-badges"></div>
-          </div>
-        </div>
-        <div class="hunt-right">
-          <div class="panel">
-            <div class="panel-head">
-              <span>Global leaderboard</span>
-              <button id="btn-hunt-refresh" class="btn btn-small">Refresh</button>
-            </div>
-            <table class="hunt-lb-table">
-              <thead><tr><th>#</th><th>Hunter</th><th>Points</th><th>Merged</th><th>Note</th></tr></thead>
-              <tbody id="hunt-lb-rows">
-                <tr><td colspan="5" class="muted">Loading…</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><span>Recent activity</span></div>
-            <ul id="hunt-feed" class="hunt-feed">
-              <li class="muted">No discoveries yet. Open the Parameter Explorer and scan a range.</li>
-            </ul>
           </div>
         </div>
       </div>
@@ -498,29 +441,6 @@
         </div>
       </div>
     </section>
-
-    <!-- ============ BACKEND DASHBOARD ============ -->
-    <section id="view-backend" class="view">
-      <div class="panel" style="height:100%">
-        <div class="panel-head">
-          <span>Backend Dashboard</span>
-          <button id="btn-dash-refresh" class="btn btn-small btn-primary">Refresh</button>
-        </div>
-        <div id="dash-body" class="dash-body" style="padding:14px;overflow-y:auto;flex:1">
-          <p class="muted">Click Refresh to load backend status.</p>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-top:12px">
-        <div class="panel-head">
-          <span>Hosted build status — beemuu.com</span>
-          <button id="btn-hosted-refresh" class="btn btn-small btn-primary">Refresh</button>
-        </div>
-        <div id="hosted-body" class="dash-body" style="padding:14px;overflow-y:auto;flex:1">
-          <p class="muted">Click Refresh to fetch VPS dashboard.</p>
-        </div>
-      </div>
-    </section>
   </main>
 
   <footer class="statusbar">
@@ -561,7 +481,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/gauges.js"></script>
-  <script src="js/hunt.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
