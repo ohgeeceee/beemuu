@@ -27,6 +27,11 @@ The script resolves the live DB path with this precedence:
 
 If none of these resolve to a real file, the script exits with a loud
 `FATAL: DB not found at <path>` and a hint about the env vars.
+| Live database | `/var/www/beemuu/backend/data/beemuu.db` (override via `BEEMUU_DB_PATH`) |
+| Backup directory | `/var/backups/beemuu/` (override via `BEEMUU_BACKUP_DIR`) |
+| Retention | 14 days (override via `BEEMUU_BACKUP_RETAIN_DAYS`) |
+| Cron log | `/var/log/beemuu-backup.log` |
+| Service that writes the DB | `beemuu-prod-api.service` (runs the same Python code as `backend/app.py`) |
 
 ## Install (one-time, on the prod host)
 

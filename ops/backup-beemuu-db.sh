@@ -46,6 +46,13 @@ else
     DB_PATH="/var/www/beemuu/data/beemuu.db"
 fi
 
+#     | sqlite3 /var/www/beemuu/backend/data/beemuu.db
+
+set -euo pipefail
+
+# Defaults match the actual production layout (see DEPLOY.md "historical
+# reference" banner and ops/beemuu-api.service notes).
+DB_PATH="${BEEMUU_DB_PATH:-/var/www/beemuu/backend/data/beemuu.db}"
 BACKUP_DIR="${BEEMUU_BACKUP_DIR:-/var/backups/beemuu}"
 RETAIN_DAYS="${BEEMUU_BACKUP_RETAIN_DAYS:-14}"
 
