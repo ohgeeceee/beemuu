@@ -124,13 +124,19 @@ $("app-mode").addEventListener("change", () => applyMode($("app-mode").value));
 $("btn-conn-adv").addEventListener("click", () => {
   const kd = $("conn-kdcan-opts");
   const en = $("conn-enet-opts");
-  const hidden = kd.classList.contains("hidden") && en.classList.contains("hidden");
-  // Reveal only the options relevant to the currently selected kind.
+  const anyOpen = !kd.classList.contains("hidden") || !en.classList.contains("hidden");
+  // Toggle: if anything is open, collapse all; otherwise reveal the options
+  // relevant to the currently selected connection kind.
   const kind = $("conn-kind").value;
-  kd.classList.toggle("hidden", !(hidden && kind === "kdcan"));
-  en.classList.toggle("hidden", !(hidden && kind === "enet"));
-  if (kind === "kdcan" && hidden) refreshPorts();
-  $("btn-conn-adv").setAttribute("aria-expanded", String(hidden));
+  if (anyOpen) {
+    kd.classList.add("hidden");
+    en.classList.add("hidden");
+  } else {
+    kd.classList.toggle("hidden", kind !== "kdcan");
+    en.classList.toggle("hidden", kind !== "enet");
+    if (kind === "kdcan") refreshPorts();
+  }
+  $("btn-conn-adv").setAttribute("aria-expanded", String(!anyOpen));
   saveSettings();
 });
 
@@ -165,9 +171,14 @@ document.querySelectorAll("#info-share-menu .share-item").forEach((item) => {
 /* ---------------- connection ---------------- */
 $("conn-kind").addEventListener("change", async () => {
   const kind = $("conn-kind").value;
-  $("conn-kdcan-opts").classList.toggle("hidden", kind !== "kdcan");
-  $("conn-enet-opts").classList.toggle("hidden", kind !== "enet");
-  if (kind === "kdcan") await refreshPorts();
+  // Only surface the cable/port options if the connection panel is expanded
+  // (⚙ Connection clicked). Otherwise keep them collapsed behind the button.
+  const advOpen =
+    !$("conn-kdcan-opts").classList.contains("hidden") ||
+    !$("conn-enet-opts").classList.contains("hidden");
+  $("conn-kdcan-opts").classList.toggle("hidden", !(advOpen && kind === "kdcan"));
+  $("conn-enet-opts").classList.toggle("hidden", !(advOpen && kind === "enet"));
+  if (advOpen && kind === "kdcan") await refreshPorts();
   saveSettings();
 });
 $("conn-dcan").addEventListener("change", saveSettings);
