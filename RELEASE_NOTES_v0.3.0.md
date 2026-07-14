@@ -1,30 +1,12 @@
 # BeeEmUu v0.3.0 Release Notes
 
-> **Community Intelligence.** Hunt the bytes. Surface the patterns. Tell the
-> story. This release turns the v0.2.0 data layer into something you can
-> *play with* — and ships a complete hosted backend so you can run it on your
-> own VPS.
+> **Community Intelligence.** Surface the patterns. Tell the story. This
+> release turns the v0.2.0 data layer into something you can play with —
+> Oracle-driven pattern matching, opinionated DTC explainers, and a Story
+> generator that turns a session into a mechanic's narrative — and ships a
+> complete hosted backend so you can run it on your own VPS.
 
 ## What's New
-
-### 🎮 Parameter Hunt — Gamified Reverse Engineering
-Turn the Parameter Explorer into a game. Discover new responding identifiers,
-map unknown bytes to physical values, save confirmed freeze-frame schemas —
-and earn points, badges, and a place on the global leaderboard.
-
-- **+10** per new responding identifier discovered
-- **+50** per unknown byte mapped to a physical value
-- **+100** per confirmed freeze-frame schema saved
-- **+500** per contribution merged into a release (via the leaderboard file)
-
-11 badges, monthly challenges, a recent-activity feed, and award toasts.
-Simulator runs are logged as practice and score 0 points — your real-car
-work is what counts. Offline-first: your ledger persists locally; the
-leaderboard and challenges ship as static community files updated via PR
-(same pattern as the Oracle and Story modules).
-
-New files: `src-tauri/src/hunt.rs`, `src/js/hunt.js`, `src/css/hunt.css`,
-`community/hunt/leaderboard.json`, `community/hunt/challenges.json`.
 
 ### 🔮 Community Oracle
 Opt-in pattern matching across anonymized community data. When you read a
@@ -115,15 +97,14 @@ parser, and a logger.
 
 These are structural, not bugs — see `ROADMAP.md` for the path forward.
 
-- E-series KWP2000 local identifiers remain unmapped in open sources. Use
-  the Parameter Explorer, or contribute your own findings to the Hunt
-  leaderboard.
+- E-series KWP2000 local identifiers remain unmapped in open sources.
+  Use the Parameter Explorer and contribute findings via PR.
 - ~40% of OBDb DID data needs new decode functions (`u16_tenths`,
   `u16_div100`, `s16_div4`, `s16_div100`, `u8_enum`, `u8_div100`).
   Spec'd in `docs/DECODE_FUNCTIONS.md`; implementation is the next
   blocker for v0.3.x.
-- Freeze-frame schema is simulator-only; real-car layouts need community
-  contribution (the Hunt leaderboard +500 per schema is the incentive).
+- Freeze-frame schema is simulator-only; real-car layouts still need
+  community contribution (spec'd in `community/freeze_schemas.toml`).
 - Real-car validation of B58 and N55 F-series UDS DIDs still needs owners
   with ENET adapters — see `ROADMAP.md` § Real-Car Validation.
 
@@ -131,7 +112,7 @@ These are structural, not bugs — see `ROADMAP.md` for the path forward.
 
 ### From v0.2.0 (data-only)
 Restart the app — `community/` files load at runtime with no recompile.
-Hunt, Oracle, Opinions, and Story all work offline against the shipped
+Oracle, Opinions, and Story all work offline against the shipped
 community files.
 
 ### From v0.2.0 (full install)
@@ -163,9 +144,9 @@ python -m backend.bootstrap_dtc   # seed DTCs
 ## Contributors
 
 - **ohgeeceee** — Creator, maintainer, all v0.3.0 work in this release
-  (Parameter Hunt, Oracle, Opinions, Story, VPS backend, deploy
-  artifacts, `bmw_diag/` extraction, security.rs rewrite, KWP2000 +
-  UDS Python modules, documentation overhaul).
+  (Oracle, Opinions, Story, VPS backend, deploy artifacts, `bmw_diag/`
+  extraction, security.rs rewrite, KWP2000 + UDS Python modules,
+  documentation overhaul).
 - **OBDb** ([github.com/obdb/Vehicle-Parameter](https://github.com/obdb/Vehicle-Parameter))
   — CC-BY-SA 4.0 open database providing UDS DID labels and PID mappings
   (continued from v0.2.0).
