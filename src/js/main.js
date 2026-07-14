@@ -836,7 +836,6 @@ $("btn-probe").addEventListener("click", async () => {
       ul.appendChild(li);
     }
     setStatus(`Probe complete — ${results.length} identifiers answered`);
-    if (window.Hunt) Hunt.poke(); // Parameter Hunt: new discoveries may have scored
   } catch (e) {
     ul.innerHTML = `<li class='tree-empty'>Probe failed: ${e}</li>`;
     setStatus("Connected");
@@ -896,7 +895,6 @@ $("btn-add-to-profile").addEventListener("click", async () => {
   try {
     await invoke("add_to_profile", { profileId: $("exp-add-profile").value, spec });
     $("exp-add-status").textContent = "Added.";
-    if (window.Hunt) Hunt.poke(); // Parameter Hunt: +50 for a mapped byte
     // Refresh profile selectors so the new param is available.
     await Promise.all([loadProfiles(), loadLogProfiles(), fillShareProfiles()]);
   } catch (e) {
@@ -1106,7 +1104,6 @@ async function saveSchema() {
   try {
     await invoke("save_freeze_schema", { address: addr, fields });
     log(`Schema saved for 0x${addr.toString(16).toUpperCase().padStart(2, "0")}`);
-    if (window.Hunt) Hunt.poke(); // Parameter Hunt: +100 for a confirmed schema
   } catch (e) {
     log("Save schema failed: " + e);
   }
@@ -2347,102 +2344,3 @@ $("snapshot-load-file").addEventListener("change", async (e) => {
   };
   reader.readAsText(file);
 });
-
-/* ---------------- backend dashboard ---------------- */
-function dashMetric(label, value) {
-  return `<div class="dash-metric"><span>${label}</span><strong>${value}</strong></div>`;
-}
-
-function fmtTarget(target) {
-  return target == null ? "—" : `0x${target.toString(16).toUpperCase().padStart(2, "0")}`;
-}
-
-async function refreshBackendDashboard() {
-  const body = $("dash-body");
-  body.innerHTML = "<p class='muted'>Loading backend status…</p>";
-  try {
-    const d = await invoke("backend_dashboard");
-    const generated = d.generated_at_secs ? new Date(d.generated_at_secs * 1000).toLocaleString() : "unknown";
-    body.innerHTML =
-      `<div class="dash-grid">` +
-      dashMetric("Connection", d.connected ? "Connected" : "Disconnected") +
-      dashMetric("Transport", d.transport_name || "—") +
-      dashMetric("Profiles", d.profile_count) +
-      dashMetric("Exports", d.export_count) +
-      dashMetric("Traffic entries", d.traffic.entries) +
-      dashMetric("Traffic failures", d.traffic.failed) +
-      dashMetric("Average latency", `${d.traffic.avg_ms} ms`) +
-      dashMetric("Last target", fmtTarget(d.traffic.last_target)) +
-      dashMetric("Hunt points", d.hunt.points) +
-      dashMetric("Community profiles", d.community.profiles) +
-      dashMetric("Fault texts", d.community.dtc_texts) +
-      dashMetric("Freeze schemas", d.community.freeze_schemas) +
-      `</div>` +
-      `<div class="dash-section"><div class="dash-section-title">Last backend error</div><pre>${d.traffic.last_detail || "None"}</pre></div>` +
-      `<div class="dash-section"><div class="dash-section-title">Community data source</div><pre>${d.community.dir || "built-ins only"}</pre></div>` +
-      `<p class="muted">Generated ${generated}</p>`;
-    log("Backend dashboard refreshed");
-  } catch (e) {
-    body.innerHTML = `<p class='muted'>Dashboard failed: ${e}</p>`;
-    log("Backend dashboard failed: " + e);
-  }
-}
-
-$("btn-dash-refresh").addEventListener("click", refreshBackendDashboard);
-
-/* ---------------- hosted (remote) dashboard ---------------- */
-async function refreshHostedDashboard() {
-  const body = $("hosted-body");
-  const btn = $("btn-hosted-refresh");
-  body.innerHTML = "<p class='muted'>Fetching VPS stats…</p>";
-  btn.disabled = true;
-  try {
-    // Two URLs: stats + landing-content. Both default to https://beemuu.com.
-    // Pass null for each to use the Rust-side default.
-    const d = await invoke("fetch_hosted_dashboard", {
-      statsUrl: null,
-      landingUrl: null,
-    });
-
-    const s = d.stats || {};
-    const l = d.landing || {};
-    const c = l.counters || {};
-
-    // DTC-by-system: render as a simple key→count list, sorted descending.
-    const dtcBySystem = s.dtc_by_system || {};
-    const dtcRows = Object.entries(dtcBySystem)
-      .sort((a, b) => b[1] - a[1])
-      .map(([system, count]) =>
-        `<li><strong>${escapeHtml(system)}</strong>: ${count}</li>`
-      )
-      .join("");
-
-    body.innerHTML =
-      `<div class="dash-grid">` +
-      dashMetric("Service", "beemuu-api") +
-      dashMetric("Version", s.version || "—") +
-      dashMetric("Users", s.users ?? 0) +
-      dashMetric("DTCs", s.dtc ?? 0) +
-      dashMetric("Sessions", s.diagnostic_sessions ?? 0) +
-      dashMetric("Contact msgs", s.contact_messages ?? 0) +
-      dashMetric("Systems supported", c.systems_supported ?? 0) +
-      dashMetric("Server time", s.server_time || "—") +
-      `</div>` +
-      `<div class="dash-section"><div class="dash-section-title">DTCs by system</div>` +
-      (dtcRows
-        ? `<ul>${dtcRows}</ul>`
-        : `<p class='muted'>No DTCs recorded yet.</p>`) +
-      `</div>` +
-      `<div class="dash-section"><div class="dash-section-title">Motto</div>` +
-      `<p>${escapeHtml(l.motto || "")}</p></div>` +
-      `<p class="muted">Source: beemuu.com/api/stats + beemuu.com/api/landing-content · fetched ${escapeHtml(new Date((d.fetched_at_secs || 0) * 1000).toLocaleString())}</p>`;
-    log("Hosted dashboard refreshed");
-  } catch (e) {
-    body.innerHTML = `<p class='muted'>Hosted dashboard offline: ${escapeHtml(String(e))}</p>`;
-    log("Hosted dashboard failed: " + e);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-$("btn-hosted-refresh").addEventListener("click", refreshHostedDashboard);
