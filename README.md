@@ -113,7 +113,8 @@ dropdown for your first scan. You don't need a car to learn the UI.
 | F-series / G-series | ENET/DoIP cable (RJ45 from OBD port to laptop NIC) | UDS over DoIP | discovered via UDP broadcast on 13400, typically `169.254.x.x` |
 
 The connectors dropdown autodetects cable type on first scan. There's no
-"buy our cable" upsell.
+"buy our cable" upsell. Building your own ENET cable? The DIY pinout is in
+[`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md).
 
 ---
 
@@ -136,8 +137,9 @@ not yet set). Items currently 🟢 Ready and queued for this cycle:
   [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8.
 - **CBS reset for EGS / DSC** — extend the existing CBS reset to other
   modules. (`src-tauri/src/data/service_functions.rs`.)
-- **$5 AliExpress ENET cable pinout doc** — link-only doc PR for
-  hobbyists who don't want to buy a $60 BMW cable.
+- **$5 AliExpress ENET cable pinout doc** ✅ — shipped in PR #61.
+  See [`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md)
+  for the OBD-II → RJ45 wiring + 100 Ω termination.
 - **README/roadmap drift cleanup** *(this PR)* — fix the "What's coming"
   bullets below so they stop contradicting the shipped state.
 
@@ -161,6 +163,19 @@ For context — these are already in the binary and are *not* "coming":
   ([`src-tauri/src/opinions.rs`](src-tauri/src/opinions.rs))
 - **VPS-hosted backend** ✅ — full read-only deployment with admin
   panel, DTC bootstrap, and 44-test suite. ([`backend/`](backend/))
+
+### v0.4.0 "Tuner Friendly" — first items shipped
+
+- **`u8_enum` decoder** ✅ (PR #60) — the one decoder from the
+  v0.3.0 list that genuinely didn't ship. Maps raw bytes to named
+  labels (gear, engine state, knock detection) via a per-parameter
+  TOML map. Foundation for the rest of v0.4.
+  ([`src-tauri/src/data/live.rs`](src-tauri/src/data/live.rs),
+  [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8)
+- **$5 AliExpress ENET cable pinout doc** ✅ (PR #61) — DIY OBD-II →
+  RJ45 wiring + 100 Ω termination, for hobbyists who'd rather
+  solder than pay $60 for the official cable.
+  ([`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md))
 
 ### Ideas being explored (not on the roadmap yet)
 

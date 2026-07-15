@@ -106,7 +106,7 @@ readable. The first PR in this cycle is a small docs fix; see
 | Histograms of logged channels | 🟢 Ready | Operates on existing CSV log output; client-side (no protocol change). |
 | `u8_enum` decoder + enum tables | 🟢 Spec'd | Genuinely new work; spec already in `docs/DECODE_FUNCTIONS.md` § 8. |
 | CBS reset for EGS / DSC | 🟢 Ready | Extends existing CBS reset (`src-tauri/src/data/service_functions.rs`) — verify scope first. |
-| $5 AliExpress ENET cable pinout doc | 🟢 Ready | Doc-only; link from `README.md` hardware section. |
+| `$5 AliExpress ENET cable pinout doc` | ✅ Done | Doc-only; `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
 
 ### 🟡 Needs research (larger, defer if scope is tight)
 
