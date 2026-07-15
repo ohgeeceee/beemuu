@@ -329,6 +329,72 @@ body[data-theme="dark"] .opinion-card .op-note { color: #9fb2c8; }
 
 /* ---------- histogram modal (Logging tab) ---------- */
 .histogram-modal { max-width: 760px; width: 92%; }
+
+/* ---------- log-diff modal (v0.6.0, Logging tab) ---------- */
+.log-diff-modal { max-width: 920px; width: 95%; }
+.log-diff-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.log-diff-controls label {
+  font-size: 13px;
+  color: var(--text-muted, #6b7a8f);
+}
+.log-diff-controls select {
+  padding: 4px 8px;
+  background: var(--bg-input, #1a2230);
+  color: var(--text, #e6edf6);
+  border: 1px solid var(--border, #2a3648);
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 180px;
+}
+.log-diff-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #2a3648);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.log-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 12px;
+}
+.log-diff-table th,
+.log-diff-table td {
+  padding: 5px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--border, #2a3648);
+  white-space: nowrap;
+}
+.log-diff-table th:first-child,
+.log-diff-table td:first-child {
+  text-align: left;
+  white-space: normal;
+}
+.log-diff-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-input, #1a2230);
+  color: var(--text-muted, #6b7a8f);
+  font-weight: 500;
+}
+.log-diff-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+/* Severity from v0.5.0 — reuse the severity colours so a
+ * channel with Δmean in the warning tier lights up amber,
+ * and a |Δmean| > 2σ over a sustained run reads as
+ * critical. Tiers: |Δmean| < 0.5σ → plain, < 2σ → warning,
+ * >= 2σ → critical. The thresholds use the larger series'
+ * stdDev so a noisy channel doesn't false-positive. */
+.log-diff-table .cell-warning { color: #f4b400; }
+.log-diff-table .cell-critical { color: #e05545; font-weight: 600; }
 .histogram-controls {
   display: flex;
   align-items: center;

@@ -1415,6 +1415,7 @@ function startLogging() {
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
   $("btn-log-histogram").disabled = false;
+  $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
   $("log-scrubber").disabled = false;
   $("log-status").textContent = "Recording…";
@@ -1582,6 +1583,7 @@ function restoreSession() {
   $("log-status").textContent = "Restored saved session.";
   $("btn-log-export").disabled = false;
   $("btn-log-histogram").disabled = false;
+  $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
   $("btn-log-clear-markers").disabled = logSeries.markers.length === 0;
   $("log-scrubber").disabled = logSeries.totalDuration === 0;
@@ -1758,6 +1760,167 @@ $("histogram-close").addEventListener("click", () => {
   $("histogram-overlay").classList.add("hidden");
   if (histChart) { histChart.destroy(); histChart = null; }
 });
+
+// v0.6.0 PR #1 — Compare logs modal: button + select + recompute + close.
+$("btn-log-diff").addEventListener("click", showLogDiffModal);
+$("log-diff-source-a").addEventListener("change", renderLogDiffTable);
+$("log-diff-source-b").addEventListener("change", renderLogDiffTable);
+$("log-diff-recompute").addEventListener("click", renderLogDiffTable);
+$("log-diff-close").addEventListener("click", () => {
+  $("log-diff-overlay").classList.add("hidden");
+});
+
+/* ---------------- log-diff modal (v0.6.0 PR #1) ---------------------
+ *
+ * Compares two saved log sessions (from localStorage) channel by
+ * channel. Source A and Source B selects list every saved session
+ * the user has; we compute per-channel stats (n / mean / σ / max)
+ * for each side and render the deltas in a sticky-header table.
+ * The current in-memory live session is also a valid pick (we
+ * auto-include "Current session" as the first option on each
+ * side so a record-then-replay workflow just works).
+ */
+function getDiffableSessions() {
+  // The currently-in-memory live session is one option.
+  // Plus every saved snapshot from localStorage.
+  const live = {
+    key: "__live__",
+    label: "Current session",
+    timestamp: 0,
+    seriesMap: new Map(),
+  };
+  for (const [id, s] of logSeries) {
+    live.seriesMap.set(id, s.getAllData());
+  }
+  const liveNonEmpty = live.seriesMap.size > 0;
+  const sessions = [];
+  if (liveNonEmpty) sessions.push(live);
+  try {
+    for (const k of Object.keys(localStorage).sort()) {
+      if (!k.startsWith("beeemuu-log-session-")) continue;
+      const data = JSON.parse(localStorage.getItem(k));
+      if (!data || !data.series) continue;
+      const map = new Map();
+      for (const s of data.series) {
+        if (s.data && s.data.length) map.set(s.id, s.data);
+      }
+      if (map.size === 0) continue;
+      sessions.push({
+        key: k,
+        label: new Date(data.timestamp || 0).toLocaleString(),
+        timestamp: data.timestamp || 0,
+        seriesMap: map,
+      });
+    }
+  } catch (e) { /* localStorage fail-soft */ }
+  return sessions;
+}
+
+function renderLogDiffTable() {
+  const selA = $("log-diff-source-a");
+  const selB = $("log-diff-source-b");
+  const keyA = selA.value;
+  const keyB = selB.value;
+  const tbody = $("log-diff-tbody");
+  const summary = $("log-diff-summary");
+  tbody.innerHTML = "";
+  if (!keyA || !keyB) {
+    summary.textContent = "Select two sources to compare.";
+    return;
+  }
+  const sessions = getDiffableSessions();
+  const a = sessions.find((s) => s.key === keyA);
+  const b = sessions.find((s) => s.key === keyB);
+  if (!a || !b) {
+    summary.textContent = "Selected source not available.";
+    return;
+  }
+  // Union of channel IDs across A and B.
+  const channels = new Set();
+  for (const id of a.seriesMap.keys()) channels.add(id);
+  for (const id of b.seriesMap.keys()) channels.add(id);
+  if (channels.size === 0) {
+    summary.textContent = "Neither source has channel data.";
+    return;
+  }
+  let counted = 0;
+  for (const id of channels) {
+    const dataA = a.seriesMap.get(id) || [];
+    const dataB = b.seriesMap.get(id) || [];
+    const r = window.LogDiff.diffSeries(dataA, dataB);
+    const d = window.LogDiff.statsDelta(r.statsA, r.statsB);
+    // Pull a friendly label / unit from whichever side has it.
+    // The label lives on the LogSeries, not the saved payload,
+    // so we lose it for saved sessions. Fall back to the channel id.
+    const labelA = (() => {
+      const s = logSeries.get(id);
+      return s ? s.label : id;
+    })();
+    const fmtN = (v) => Number.isFinite(v) ? Math.round(v).toString() : "—";
+    const fmt = (v) => Number.isFinite(v) ? v.toFixed(2) : "—";
+    const sev = (() => {
+      if (!d) return "";
+      // Use the larger of the two stdDevs as the noise floor.
+      const noise = Math.max(r.statsA.stdDev, r.statsB.stdDev);
+      if (!Number.isFinite(noise) || noise <= 0) return "";
+      const ratio = Math.abs(d.meanΔ) / noise;
+      if (ratio >= 2) return "cell-critical";
+      if (ratio >= 0.5) return "cell-warning";
+      return "";
+    })();
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td>${escapeHtml(labelA)}</td>` +
+      `<td>${fmtN(r.statsA.n)}</td>` +
+      `<td>${fmt(r.statsA.mean)}</td>` +
+      `<td>${fmt(r.statsA.stdDev)}</td>` +
+      `<td>${fmt(r.statsA.max)}</td>` +
+      `<td>${fmtN(r.statsB.n)}</td>` +
+      `<td>${fmt(r.statsB.mean)}</td>` +
+      `<td>${fmt(r.statsB.stdDev)}</td>` +
+      `<td>${fmt(r.statsB.max)}</td>` +
+      `<td class="${sev}">${d ? fmt(d.meanΔ) : "—"}</td>` +
+      `<td>${d ? fmt(d.stdDevΔ) : "—"}</td>` +
+      `<td>${d ? fmt(d.maxΔ) : "—"}</td>`;
+    tbody.appendChild(tr);
+    counted++;
+  }
+  summary.textContent = `Compared ${counted} channel(s) between "${a.label}" and "${b.label}".`;
+}
+
+function showLogDiffModal() {
+  const sessions = getDiffableSessions();
+  if (sessions.length < 2) {
+    log("Compare logs needs at least two saved sessions (or one saved + a live recording).");
+    return;
+  }
+  const selA = $("log-diff-source-a");
+  const selB = $("log-diff-source-b");
+  const prevA = selA.value;
+  const prevB = selB.value;
+  function fill(sel) {
+    sel.innerHTML = "";
+    for (const s of sessions) {
+      const opt = document.createElement("option");
+      opt.value = s.key;
+      opt.textContent = `${s.label}${s.seriesMap.size ? ` (${s.seriesMap.size} ch)` : ""}`;
+      sel.appendChild(opt);
+    }
+  }
+  fill(selA);
+  fill(selB);
+  if (prevA && sessions.some((s) => s.key === prevA)) selA.value = prevA;
+  if (prevB && sessions.some((s) => s.key === prevB)) selB.value = prevB;
+  // Defaults: A = live (index 0), B = most recent saved (index 1).
+  if (selA.selectedIndex < 0) selA.selectedIndex = 0;
+  if (selB.selectedIndex < 0) selB.selectedIndex = Math.min(1, sessions.length - 1);
+  // Pick two distinct sources so the diff is meaningful.
+  if (selA.value === selB.value && sessions.length >= 2) {
+    selB.selectedIndex = sessions.length - 1 === selA.selectedIndex ? 0 : sessions.length - 1;
+  }
+  $("log-diff-overlay").classList.remove("hidden");
+  renderLogDiffTable();
+}
 $("log-scrubber").addEventListener("input", (e) => {
   logSeries.paused = true;
   logSeries.scrubTime = parseFloat(e.target.value);

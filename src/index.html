@@ -142,6 +142,7 @@
             <button id="btn-log-start" class="btn btn-small btn-primary">Start recording</button>
             <button id="btn-log-export" class="btn btn-small" disabled>Export CSV</button>
             <button id="btn-log-histogram" class="btn btn-small" disabled>Histogram</button>
+            <button id="btn-log-diff" class="btn btn-small" disabled>Compare logs</button>
             <button id="btn-log-clear" class="btn btn-small" disabled>Clear</button>
             <input type="file" id="log-load-file" accept=".csv,text/csv" class="hidden" />
             <button id="btn-log-load" class="btn btn-small">Load session</button>
@@ -515,8 +516,56 @@
     </div>
   </div>
 
+  <!-- v0.6.0 Log-merge / comparison modal (Logging tab) -->
+  <div id="log-diff-overlay" class="modal-overlay hidden">
+    <div class="modal log-diff-modal">
+      <div class="modal-head">
+        <span class="brand-badge">⇄</span>
+        <div>
+          <div class="brand-title">Compare logs</div>
+          <div class="brand-sub">Per-channel stats diff between two loaded logs</div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="log-diff-controls">
+          <label for="log-diff-source-a">Source A:</label>
+          <select id="log-diff-source-a"></select>
+          <label for="log-diff-source-b">Source B:</label>
+          <select id="log-diff-source-b"></select>
+          <button id="log-diff-recompute" class="btn btn-small">Recompute</button>
+        </div>
+        <div class="log-diff-table-wrap">
+          <table class="log-diff-table">
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th>A — n</th>
+                <th>A — mean</th>
+                <th>A — σ</th>
+                <th>A — max</th>
+                <th>B — n</th>
+                <th>B — mean</th>
+                <th>B — σ</th>
+                <th>B — max</th>
+                <th>Δmean</th>
+                <th>Δσ</th>
+                <th>Δmax</th>
+              </tr>
+            </thead>
+            <tbody id="log-diff-tbody"></tbody>
+          </table>
+        </div>
+        <div id="log-diff-summary" class="muted"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="log-diff-close" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/histogram.js"></script>
+  <script src="js/log_diff.js"></script>
   <script src="js/live_format.js"></script>
   <script src="js/gauges.js"></script>
   <script src="js/main.js"></script>
