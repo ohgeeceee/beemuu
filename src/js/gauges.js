@@ -68,8 +68,17 @@ class Gauge {
     if (this.textOverride !== null) {
       // Text mode: a centered label with a smaller unit/description row.
       // Font auto-shrinks long labels (e.g. "Cranking") so they fit.
+      // Severity-bearing labels (Light / Moderate / Severe / etc.)
+      // get a coloured fillStyle so the eye lands on them
+      // immediately. Pure JS, no CSS dependency — colours live in
+      // the canvas layer. The CSS class is also surfaced for the
+      // Logging-tab channel label via the gauge's container
+      // element (handled by main.js, not here).
       let fontPx = 22;
-      ctx.fillStyle = "#e8f0f8";
+      const sev = window.LiveFormat.severityClass(this.textOverride);
+      if (sev === "severity-critical") ctx.fillStyle = "#e05545";
+      else if (sev === "severity-warning") ctx.fillStyle = "#f4b400";
+      else ctx.fillStyle = "#e8f0f8";
       ctx.textAlign = "center";
       while (fontPx > 12) {
         ctx.font = `600 ${fontPx}px 'Segoe UI', sans-serif`;
@@ -80,6 +89,18 @@ class Gauge {
       ctx.fillStyle = "#7d92a8";
       ctx.font = "11px 'Segoe UI', sans-serif";
       ctx.fillText(this.unit, cx, cy + 30);
+      // Persist the severity class on the canvas's parent element
+      // so the Logging-tab channel label can pick it up via CSS.
+      // The canvas itself doesn't carry a class; the gauge's
+      // container (set by main.js when it instantiates the
+      // gauge) holds the class for CSS targeting.
+      if (this.canvas && this.canvas.parentElement) {
+        this.canvas.parentElement.classList.remove(
+          "severity-critical",
+          "severity-warning",
+        );
+        if (sev) this.canvas.parentElement.classList.add(sev);
+      }
       return;
     }
 

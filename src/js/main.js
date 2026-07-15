@@ -695,6 +695,14 @@ function ensureGauge(v) {
   $("gauge-grid").appendChild(cell);
   const g = new Gauge(canvas, v);
   gauges.set(v.id, g);
+  // v0.5.0 PR #3 — set the initial severity class on the gauge
+  // cell based on the current v.text. The Gauge's draw() method
+  // will keep this in sync as the text changes (see gauges.js).
+  const sev = window.LiveFormat.severityClass(v.text);
+  if (sev) {
+    cell.classList.add(sev);
+    label.classList.add(sev);
+  }
   return g;
 }
 
@@ -1299,6 +1307,12 @@ async function buildLogParams() {
     const s = logSeries.get(v.id);
     const row = document.createElement("label");
     row.className = "log-param";
+    // v0.5.0 PR #3 — flag severity-bearing enum channels in the
+    // Logging tab channel list. The class is sourced from the
+    // current v.text at row-build time (real-time updates would
+    // require per-tick row updates — left as a follow-up).
+    const sev = window.LiveFormat.severityClass(v.text);
+    if (sev) row.classList.add(sev);
     row.innerHTML =
       `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${v.id}" />` +
       `<span class="swatch" style="background:${s.color}"></span>` +

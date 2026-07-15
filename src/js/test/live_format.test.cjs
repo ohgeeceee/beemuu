@@ -12,7 +12,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { csvCell, clampGaugeValue } = require("../live_format.js");
+const { csvCell, clampGaugeValue, severityClass } = require("../live_format.js");
 
 test("csvCell — numeric point emits two-decimal string", () => {
   assert.equal(csvCell({ x: 0, y: 3.14159 }), "3.14");
@@ -64,4 +64,71 @@ test("clampGaugeValue — NaN propagates", () => {
   // NaN behavior is a property of Math.min/max on NaN inputs, not our
   // helper. Documenting it so a future change doesn't silently flip it.
   assert.ok(Number.isNaN(clampGaugeValue(NaN, 0, 10)));
+});
+
+// ---- severityClass (v0.5.0 PR #3) -----------------------------------
+//
+// Maps an enum-style label to a CSS class for severity styling. Used
+// by the gauge canvas (different fillStyle) and the Logging-tab
+// channel display (class on the label span) when a LiveValue.text is
+// severity-bearing.
+
+test("severityClass — null / undefined / empty returns empty class", () => {
+  assert.equal(severityClass(null), "");
+  assert.equal(severityClass(undefined), "");
+  assert.equal(severityClass(""), "");
+  // Non-string input should also be safe (defensive: caller may pass
+  // a number or object by mistake).
+  assert.equal(severityClass(0), "");
+  assert.equal(severityClass({}), "");
+});
+
+test("severityClass — informational labels return empty class", () => {
+  // The "None" state from knock_detect (DID 401F) must NOT trigger
+  // severity styling. Same for the gear-position labels, the engine-
+  // state labels, and any other non-severity enum.
+  assert.equal(severityClass("None"), "");
+  assert.equal(severityClass("P/N"), "");
+  assert.equal(severityClass("Off"), "");
+  assert.equal(severityClass("Cranking"), "");
+  assert.equal(severityClass("Running"), "");
+  assert.equal(severityClass("Idle"), "");
+  assert.equal(severityClass("Overrun"), "");
+  assert.equal(severityClass("Shutdown"), "");
+  assert.equal(severityClass("Error"), ""); // EGS sentinel — not severity
+});
+
+test("severityClass — critical keywords return severity-critical", () => {
+  assert.equal(severityClass("Severe"), "severity-critical");
+  assert.equal(severityClass("severe"), "severity-critical");
+  assert.equal(severityClass("SEVERE"), "severity-critical");
+  assert.equal(severityClass("Critical"), "severity-critical");
+  assert.equal(severityClass("Fault"), "severity-critical");
+});
+
+test("severityClass — warning keywords return severity-warning", () => {
+  assert.equal(severityClass("Light"), "severity-warning");
+  assert.equal(severityClass("Moderate"), "severity-warning");
+  assert.equal(severityClass("Warning"), "severity-warning");
+  assert.equal(severityClass("light"), "severity-warning");
+  assert.equal(severityClass("MODERATE"), "severity-warning");
+});
+
+test("severityClass — exact match only, not substring", () => {
+  // Deliberate behaviour: "none of the above" must NOT count as
+  // "None". Future severity-bearing enums must be added to the
+  // keyword lists explicitly.
+  assert.equal(severityClass("none of the above"), "");
+  assert.equal(severityClass("Lightly loaded"), "");
+  assert.equal(severityClass("Warning: low oil"), ""); // substring, not exact
+  assert.equal(severityClass("Critical fault code"), "");
+});
+
+test("severityClass — unknown enum label returns empty class", () => {
+  // A future contributor adds a new enum (say, "TBD" or "Reserved")
+  // and doesn't update the keyword lists. The class falls back to
+  // empty — no severity styling, but no crash either.
+  assert.equal(severityClass("TBD"), "");
+  assert.equal(severityClass("Reserved"), "");
+  assert.equal(severityClass("0xFF"), "");
 });
