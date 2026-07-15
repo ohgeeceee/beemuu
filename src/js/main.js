@@ -1386,6 +1386,7 @@ function startLogging() {
   $("btn-log-start").textContent = "Stop recording";
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
+  $("btn-log-histogram").disabled = false;
   $("btn-log-clear").disabled = false;
   $("log-scrubber").disabled = false;
   $("log-status").textContent = "Recording…";
@@ -1552,6 +1553,7 @@ function restoreSession() {
   updatePlayButton();
   $("log-status").textContent = "Restored saved session.";
   $("btn-log-export").disabled = false;
+  $("btn-log-histogram").disabled = false;
   $("btn-log-clear").disabled = false;
   $("btn-log-clear-markers").disabled = logSeries.markers.length === 0;
   $("log-scrubber").disabled = logSeries.totalDuration === 0;
@@ -1623,6 +1625,111 @@ $("btn-log-export").addEventListener("click", async () => {
 $("btn-log-play").addEventListener("click", togglePlay);
 $("btn-log-step-back").addEventListener("click", () => stepTime(-1));
 $("btn-log-step-forward").addEventListener("click", () => stepTime(1));
+
+/* ---------------- histogram modal ----------------
+ *
+ * Histograms work off the same `LogSession` that powers the line
+ * chart. For each channel that has numeric y-values we expose a
+ * dropdown choice; channels that returned a string `text` (the
+ * u8_enum decoder from PR #60) are skipped — there's no
+ * distribution to plot over a small enum set anyway. The chart
+ * itself uses Chart.js bar mode, so it reuses the library that's
+ * already loaded for the line chart.
+ */
+let histChart = null;
+function showHistogramModal() {
+  // Populate channel dropdown with channels that have any data.
+  // Enum-style channels (text !== null) are filtered out — they
+  // don't have a meaningful numeric distribution.
+  const sel = $("histogram-channel");
+  const prev = sel.value;
+  sel.innerHTML = "";
+  const channels = [];
+  for (const [id, s] of logSeries.entries()) {
+    const all = s.getAllData();
+    if (!all.length) continue;
+    channels.push({ id, label: s.label, unit: s.unit, n: all.length });
+  }
+  if (channels.length === 0) {
+    log("No logged channels with data.");
+    return;
+  }
+  for (const c of channels) {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = `${c.label}${c.unit ? " (" + c.unit + ")" : ""} — ${c.n} samples`;
+    sel.appendChild(opt);
+  }
+  if (prev && channels.some(c => c.id === prev)) sel.value = prev;
+  $("histogram-overlay").classList.remove("hidden");
+  renderHistogram();
+}
+function renderHistogram() {
+  const sel = $("histogram-channel");
+  const id = sel.value;
+  if (!id) return;
+  const series = logSeries.get(id);
+  if (!series) return;
+  const ys = series.getAllData().map(p => p.y).filter(v => typeof v === "number" && Number.isFinite(v));
+  const binCount = parseInt($("histogram-bins").value, 10) || 20;
+  const result = window.beeemuuHistogram.histogram(ys, binCount);
+  // Bar chart: one bar per bin, label at the bin midpoint.
+  const labels = [];
+  for (let i = 0; i < result.counts.length; i++) {
+    const mid = (result.binEdges[i] + result.binEdges[i + 1]) / 2;
+    labels.push(formatBinLabel(mid, result.binEdges[i], result.binEdges[i + 1], series.unit));
+  }
+  const ctx = $("histogram-chart").getContext("2d");
+  if (histChart) histChart.destroy();
+  histChart = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets: [{ label: series.label, data: result.counts, backgroundColor: "#4da3ff" }] },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: series.label + (series.unit ? " (" + series.unit + ")" : "") } },
+        y: { title: { display: true, text: "samples" }, beginAtZero: true, ticks: { precision: 0 } },
+      },
+    },
+  });
+  // Stats readout
+  const s = result.stats;
+  const fmt = (v) => (Number.isFinite(v) ? v.toFixed(2) : "—");
+  $("histogram-stats").innerHTML = [
+    `<span><b>n</b> ${s.n}</span>`,
+    `<span><b>min</b> ${fmt(s.min)}${series.unit ? " " + series.unit : ""}</span>`,
+    `<span><b>max</b> ${fmt(s.max)}${series.unit ? " " + series.unit : ""}</span>`,
+    `<span><b>mean</b> ${fmt(s.mean)}${series.unit ? " " + series.unit : ""}</span>`,
+    `<span><b>median</b> ${fmt(s.median)}${series.unit ? " " + series.unit : ""}</span>`,
+    `<span><b>std dev</b> ${fmt(s.stdDev)}${series.unit ? " " + series.unit : ""}</span>`,
+  ].join("");
+  $("histogram-dropped").textContent = result.dropped > 0
+    ? `${result.dropped} non-finite sample(s) dropped (NaN / undefined / failed read).`
+    : "";
+}
+function formatBinLabel(mid, lo, hi, unit) {
+  // Short labels for narrow ranges, more precision when the bin
+  // is wide. Aim for 3 significant digits in the mid value.
+  const range = hi - lo;
+  let digits;
+  if (range === 0) digits = 0;
+  else if (range >= 100) digits = 0;
+  else if (range >= 10) digits = 1;
+  else if (range >= 1) digits = 2;
+  else digits = 3;
+  const s = mid.toFixed(digits);
+  return unit ? `${s} ${unit}` : s;
+}
+$("btn-log-histogram").addEventListener("click", showHistogramModal);
+$("histogram-channel").addEventListener("change", renderHistogram);
+$("histogram-bins").addEventListener("change", renderHistogram);
+$("histogram-close").addEventListener("click", () => {
+  $("histogram-overlay").classList.add("hidden");
+  if (histChart) { histChart.destroy(); histChart = null; }
+});
 $("log-scrubber").addEventListener("input", (e) => {
   logSeries.paused = true;
   logSeries.scrubTime = parseFloat(e.target.value);

@@ -141,6 +141,7 @@
           <span>
             <button id="btn-log-start" class="btn btn-small btn-primary">Start recording</button>
             <button id="btn-log-export" class="btn btn-small" disabled>Export CSV</button>
+            <button id="btn-log-histogram" class="btn btn-small" disabled>Histogram</button>
             <button id="btn-log-clear" class="btn btn-small" disabled>Clear</button>
             <input type="file" id="log-load-file" accept=".csv,text/csv" class="hidden" />
             <button id="btn-log-load" class="btn btn-small">Load session</button>
@@ -479,7 +480,43 @@
     </div>
   </div>
 
+  <!-- Histogram modal (Logging tab) -->
+  <div id="histogram-overlay" class="modal-overlay hidden">
+    <div class="modal histogram-modal">
+      <div class="modal-head">
+        <span class="brand-badge">▥</span>
+        <div>
+          <div class="brand-title">Histogram</div>
+          <div class="brand-sub">Distribution of a logged channel's values</div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="histogram-controls">
+          <label for="histogram-channel">Channel:</label>
+          <select id="histogram-channel"></select>
+          <label for="histogram-bins">Bins:</label>
+          <select id="histogram-bins">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div class="histogram-chart-wrap">
+          <canvas id="histogram-chart"></canvas>
+        </div>
+        <div id="histogram-stats" class="histogram-stats"></div>
+        <div id="histogram-dropped" class="muted"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="histogram-close" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="js/histogram.js"></script>
   <script src="js/live_format.js"></script>
   <script src="js/gauges.js"></script>
   <script src="js/main.js"></script>

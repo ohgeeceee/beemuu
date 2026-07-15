@@ -312,6 +312,46 @@ body[data-theme="dark"] .opinion-card .op-note { color: #9fb2c8; }
   font-weight: 700;
   margin-bottom: 12px;
 }
+
+/* ---------- histogram modal (Logging tab) ---------- */
+.histogram-modal { max-width: 760px; width: 92%; }
+.histogram-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.histogram-controls label {
+  font-size: 13px;
+  color: var(--text-muted, #6b7a8f);
+}
+.histogram-controls select {
+  padding: 4px 8px;
+  background: var(--bg-input, #1a2230);
+  color: var(--text, #e6edf6);
+  border: 1px solid var(--border, #2a3648);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.histogram-chart-wrap {
+  position: relative;
+  height: 340px;
+  margin-bottom: 12px;
+}
+.histogram-stats {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px 18px;
+  padding: 10px 12px;
+  background: var(--bg-input, #1a2230);
+  border: 1px solid var(--border, #2a3648);
+  border-radius: 4px;
+}
+.histogram-stats span { color: var(--text, #e6edf6); }
+.histogram-stats span b { color: var(--text-muted, #6b7a8f); font-weight: 500; }
 .story-sev-critical { background: #fbeaea; color: #c0392b; }
 .story-sev-warning { background: #fff3e0; color: #d9822b; }
 .story-sev-info { background: #e3f2fd; color: #2f6db3; }
