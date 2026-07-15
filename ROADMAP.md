@@ -89,7 +89,7 @@ See `research/bmw_diag_dim07_local_ids.md` for the exhaustive search results.
 
 ---
 
-## v0.4.0 — "Tuner Friendly" (Target: TBD)
+## v0.4.0 — "Tuner Friendly" (Shipped 2026-07-15)
 
 **Premise.** v0.3.0 shipped the decoder foundation (six new numeric decoders
 + uncommented B58/N55 DIDs). v0.4.0 builds *tuner-facing* features on top
@@ -102,10 +102,10 @@ readable. The first PR in this cycle is a small docs fix; see
 
 | Item | Status | Notes |
 |------|--------|-------|
-| README profile-listing fix | 🟢 Ready | Verify no other "in v0.3.0 / coming soon" claim is stale. First PR. |
-| Histograms of logged channels | 🟢 Ready | Operates on existing CSV log output; client-side (no protocol change). |
-| `u8_enum` decoder + enum tables | 🟢 Spec'd | Genuinely new work; spec already in `docs/DECODE_FUNCTIONS.md` § 8. |
-| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #63 so a future contributor can add chassis-validated routine IDs for EGS (0x18) and DSC (0x29). No routine IDs invented without real-car validation — wrong IDs could brick NV memory on those modules. |
+| README profile-listing fix | ✅ Done | Doc-only; README + ROADMAP + CHANGELOG drift fix. Shipped in PR #59. |
+| Histograms of logged channels | ✅ Done | Pure client-side; 13 unit tests. Shipped in PR #62. |
+| `u8_enum` decoder + enum tables | ✅ Done | Includes per-parameter enum-map TOML parsing, frontend wiring (PRs #64–66), and 9 unit tests. Shipped in PR #60 (+ #64/#65/#66 for the frontend). |
+| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #67 so a future contributor can add chassis-validated routine IDs for EGS (0x18) and DSC (0x29). No routine IDs invented without real-car validation — wrong IDs could brick NV memory on those modules. |
 | `$5 AliExpress ENET cable pinout doc` | ✅ Done | Doc-only; `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
 
 ### 🟡 Needs research (larger, defer if scope is tight)
@@ -159,4 +159,4 @@ These are explicitly **not** v0.4.0 work:
 
 ---
 
-*Last updated: 2026-07-14. v0.3.0 decode-fn rows flipped to ✅ Done; v0.4.0 rewritten with explicit Ready / Needs-research / Deferred split.*
+*Last updated: 2026-07-15. v0.4.0 marked shipped; the five Ready items now show ✅ Done. v0.4.0 release notes at [`RELEASE_NOTES_v0.4.0.md`](RELEASE_NOTES_v0.4.0.md).*
