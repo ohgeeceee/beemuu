@@ -610,6 +610,11 @@ pub fn add_to_profile(profile_id: String, spec: AddParamSpec) -> Result<(), Stri
         decode,
         min: spec.min,
         max: spec.max,
+        // The Parameter Explorer doesn't edit enum maps (UI is out of scope
+        // for this change); users who want enum display should edit the
+        // profile TOML directly and restart the app. Setting None keeps the
+        // "Explorer → add to profile" round-trip honest.
+        enum_map: None,
     };
     live::add_param_to_profile(&profile_id, param)
         .ok_or_else(|| format!("Unknown profile '{}'", profile_id))?;

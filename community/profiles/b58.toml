@@ -214,3 +214,31 @@ label = "B58 3.0 turbo I6 (DME 8.x, F/G-series) [community, OBDb-verified DIDs]"
   decode = "u8_div100"
   min = 0.0
   max = 2.55
+
+  # ---- v0.4.0 enum display (u8_enum) ----
+  # Single-byte DID values rendered as named labels rather than hex.
+  # All mappings below are community best-effort from OBDb/forum sources.
+  # Verify against your own car using Parameter Explorer before trusting.
+  # See docs/DECODE_FUNCTIONS.md §8 for the contract and confidence rules.
+
+  [[profile.param]]
+  id = "gear"
+  label = "Gear position (EGS) [community, OBDb]"
+  unit = ""
+  target = 0x12
+  query = "did:DA0A"
+  decode = "u8_enum"
+  min = 0.0
+  max = 15.0
+  enum_map = { "0x00" = "P/N", "0x01" = "1", "0x02" = "2", "0x03" = "3", "0x04" = "4", "0x05" = "5", "0x06" = "6", "0x07" = "7", "0x08" = "8", "0x0F" = "Error" }
+
+  [[profile.param]]
+  id = "engine_state"
+  label = "Engine state [community, OBDb]"
+  unit = ""
+  target = 0x12
+  query = "did:4004"
+  decode = "u8_enum"
+  min = 0.0
+  max = 5.0
+  enum_map = { "0x00" = "Off", "0x01" = "Cranking", "0x02" = "Running", "0x03" = "Idle", "0x04" = "Overrun", "0x05" = "Shutdown" }

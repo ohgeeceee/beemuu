@@ -74,6 +74,12 @@ struct ParamToml {
     decode: String,
     min: f64,
     max: f64,
+    /// Optional lookup table for `decode = "u8_enum"`. Keys are hex strings
+    /// (`"0x00"`, `"0x0F"`); values are human-readable labels. Omitting this
+    /// for an enum param is allowed — `decode_enum_lookup` will simply
+    /// return `None` and the UI can fall back to the raw hex.
+    #[serde(default)]
+    enum_map: Option<std::collections::BTreeMap<String, String>>,
 }
 
 #[derive(Deserialize)]
@@ -152,6 +158,7 @@ fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
                 p.id, pr.id, pr.query, pr.decode
             ));
         };
+        let enum_map = parse_enum_map(pr.decode == "u8_enum", &pr.id, pr.enum_map.as_ref())?;
         params.push(live::LiveParam {
             id: pr.id.clone(),
             label: pr.label.clone(),
@@ -161,9 +168,59 @@ fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
             decode,
             min: pr.min,
             max: pr.max,
+            enum_map,
         });
     }
     Ok(live::Profile { id: p.id, label: p.label, params })
+}
+
+/// Parse an inline enum-map table from TOML into the runtime `EnumMap`.
+/// `is_enum_decode` distinguishes "user forgot the map" (allowed) from
+/// "user supplied a broken map" (an error). Keys must be hex strings
+/// (`"0x00"`, `"0F"`, `15`); decimal `9` is also accepted because serde's
+/// TOML integers will deserialize into a string map only if the TOML
+/// key is itself a string.
+fn parse_enum_map(
+    is_enum_decode: bool,
+    param_id: &str,
+    raw: Option<&std::collections::BTreeMap<String, String>>,
+) -> Result<Option<live::EnumMap>, String> {
+    let Some(map) = raw else {
+        // No map at all. Allowed for every decode variant; the UI will
+        // render raw hex for enums in that case.
+        return Ok(None);
+    };
+    if map.is_empty() {
+        return if is_enum_decode {
+            // An empty map on an enum param is meaningless; let the caller
+            // decide. We surface this as None so the absence is explicit.
+            Ok(None)
+        } else {
+            Ok(None)
+        };
+    }
+    let mut entries = Vec::with_capacity(map.len());
+    for (k, v) in map {
+        let key_bytes = if let Some(stripped) = k.strip_prefix("0x").or_else(|| k.strip_prefix("0X")) {
+            u8::from_str_radix(stripped, 16)
+        } else {
+            u8::from_str_radix(k, 16)
+        }
+        .map_err(|e| {
+            format!(
+                "param '{param_id}': enum key '{k}' is not valid hex (0xNN): {e}"
+            )
+        })?;
+        entries.push((key_bytes, v.clone()));
+    }
+    // Sort by raw byte for deterministic nearest-label fallback. The TOML
+    // renderer will write them back out in this order so round-trips are
+    // stable across diffs.
+    entries.sort_by_key(|(k, _)| *k);
+    Ok(Some(live::EnumMap {
+        entries,
+        fallback_nearest: true,
+    }))
 }
 
 fn build_schema(s: SchemaToml) -> Result<(u8, freeze::FreezeSchema), String> {

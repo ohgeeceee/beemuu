@@ -15,11 +15,12 @@ want to unlock more DID data.
 | `temp_u8` | 1 byte | `raw − 40` | `f64` | Temperatures (OBD 0x05, 0x0F) |
 | `percent_a` | 1 byte | `raw × (100/255)` | `f64` | Load, throttle (OBD 0x04, 0x11) |
 | `u24` | 3 bytes BE | `raw` | `u32` | Mileage (freeze frame) |
+| `u8_enum` | 1 byte | raw → label | `String` | Gear (DA0A), engine state (4004); see `EnumMap` in `data/live.rs` |
 
-## Missing Decode Functions (v0.3.0 Roadmap)
+## Missing Decode Functions (v0.4.0 Roadmap)
 
-These ~8 functions block ~40% of OBDb DID data. Each is well-scoped and
-documented below.
+These ~8 functions are still unimplemented and block ~5% of the remaining
+OBDb DID data. Each is well-scoped and documented below.
 
 ---
 

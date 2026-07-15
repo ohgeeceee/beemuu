@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `u8_enum` decode function + `EnumMap` type, with TOML round-trip and a
+  per-DID inline `enum_map = { 0xNN = "label", ... }` field on profile
+  params. Wired into `b58.toml` with `DA0A` gear position and `4004` engine
+  state as the first two named-enum live values. 35 unit tests, no
+  protected-path changes. See `.hermes/plans/u8_enum_plan.md`.
 - Schematics deploy: `ops/beemuu.com.conf` now serves `/static/schematics/`
   from disk (CC0 wiring-diagram SVGs), and `docs/deploy-schematics.md`
   carries the end-to-end rollout runbook. See PR #51.

@@ -50,6 +50,50 @@ pub enum Decode {
     U8Div100,
     /// u8 / 4.0 (alternate DME temp scaling; u8 variant)
     U8Div4,
+    /// u8 → named label resolved from the `LiveParam::enum_map`. Decode returns
+    /// `None` (use `decode_enum_lookup` for the actual text).
+    U8Enum,
+}
+
+/// Per-parameter lookup table for `Decode::U8Enum`. Stored on the
+/// `LiveParam` so community TOML can ship engine-specific maps without any
+/// Rust change. See `docs/DECODE_FUNCTIONS.md` §8 for the spec.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EnumMap {
+    /// Ordered entries; preserves the TOML key order so serialization is
+    /// stable across round-trips and reviewable diffs.
+    pub entries: Vec<(u8, String)>,
+    /// If true and the raw byte is not in `entries`, render the nearest
+    /// entry by absolute distance as a heuristic. Defaults to `true` in the
+    /// TOML loader; explicit `false` is opt-in via a future field.
+    pub fallback_nearest: bool,
+}
+
+impl EnumMap {
+    /// Resolve a raw byte to its label. Returns `None` if the map is empty
+    /// (caller decides how to render a totally unknown enum). Otherwise
+    /// returns either an exact match or the "closest" entry by absolute
+    /// distance — both wrapped as `0xNN (label)` for visibility.
+    pub fn resolve(&self, raw: u8) -> Option<String> {
+        if self.entries.is_empty() {
+            return None;
+        }
+        if let Some((_, label)) = self.entries.iter().find(|(k, _)| *k == raw) {
+            return Some(format!("0x{raw:02X} ({label})"));
+        }
+        if self.fallback_nearest {
+            // Nearest by absolute distance, tie-break on first-encountered.
+            let (_best_key, best_label) = self
+                .entries
+                .iter()
+                .min_by_key(|(k, _)| raw.abs_diff(*k))
+                .map(|(k, l)| (*k, l.clone()))
+                .expect("non-empty: checked above");
+            Some(format!("0x{raw:02X} ({best_label})"))
+        } else {
+            Some(format!("0x{raw:02X}"))
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -62,10 +106,14 @@ pub struct LiveParam {
     pub decode: Decode,
     pub min: f64,
     pub max: f64,
+    /// Lookup table for `Decode::U8Enum`. `None` means "no map shipped";
+    /// callers should render the raw byte in that case.
+    pub enum_map: Option<EnumMap>,
 }
 
 impl LiveParam {
-    /// Convenience constructor for the built-in tables.
+    /// Convenience constructor for the built-in tables. Defaults to
+    /// `enum_map: None`; use `with_enum_map` to attach one.
     fn new(
         id: &str,
         label: &str,
@@ -85,7 +133,15 @@ impl LiveParam {
             decode,
             min,
             max,
+            enum_map: None,
         }
+    }
+
+    /// Builder for the small handful of built-in enum params.
+    #[allow(dead_code)]
+    fn with_enum_map(mut self, map: EnumMap) -> Self {
+        self.enum_map = Some(map);
+        self
     }
 }
 
@@ -210,7 +266,24 @@ pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
                 None
             }
         }
+        Decode::U8Enum => None, // text values; use `decode_enum_lookup` instead
     }
+}
+
+/// Resolve a `Decode::U8Enum` raw byte to a human-readable label via the
+/// `LiveParam::enum_map`. `None` means "no label known" (not an error — the
+/// UI is expected to fall back to the raw hex itself).
+///
+/// Returns `None` for empty input or for any other `Decode` variant, so
+/// callers can use this unconditionally for every param and only branch on
+/// `Some` to render text.
+pub fn decode_enum_lookup(param: &LiveParam, data: &[u8]) -> Option<String> {
+    if param.decode != Decode::U8Enum {
+        return None;
+    }
+    let raw = *data.first()?;
+    let map = param.enum_map.as_ref()?;
+    map.resolve(raw)
 }
 
 /// Parse a decode name from TOML (e.g. "temp_u8", "u16_quarter").
@@ -231,6 +304,7 @@ pub fn decode_from_str(s: &str) -> Option<Decode> {
         "s16" => Decode::S16,
         "s16_div4" => Decode::S16Div4,
         "s16_div100" => Decode::S16Div100,
+        "u8_enum" => Decode::U8Enum,
         _ => return None,
     })
 }
@@ -272,6 +346,7 @@ fn decode_to_str(d: Decode) -> &'static str {
         Decode::S16 => "s16",
         Decode::S16Div4 => "s16_div4",
         Decode::S16Div100 => "s16_div100",
+        Decode::U8Enum => "u8_enum",
     }
 }
 
@@ -294,7 +369,22 @@ pub fn profile_to_toml(id: &str) -> Option<String> {
         out.push_str(&format!("query = {:?}\n", query_to_str(param.query)));
         out.push_str(&format!("decode = {:?}\n", decode_to_str(param.decode)));
         out.push_str(&format!("min = {}\n", param.min));
-        out.push_str(&format!("max = {}\n\n", param.max));
+        out.push_str(&format!("max = {}\n", param.max));
+        if let Some(map) = &param.enum_map {
+            // Inline table form — the same shape that ParamToml expects back
+            // on deserialize. Keys are quoted hex strings; values are
+            // string literals. This keeps the TOML diff-reviewable and
+            // round-trips through `community::import_profiles_str`.
+            out.push_str("enum_map = { ");
+            for (i, (key, label)) in map.entries.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                out.push_str(&format!("\"0x{key:02X}\" = {label:?}"));
+            }
+            out.push_str(" }\n");
+        }
+        out.push('\n');
     }
     Some(out)
 }
@@ -479,6 +569,7 @@ mod tests {
             "temp_u8", "u16", "u8", "u8_tenths", "u8_div100", "u8_div4",
             "u16_quarter", "percent_a", "u16_milli", "u16_times10",
             "u16_tenths", "u16_div100", "s16", "s16_div4", "s16_div100",
+            "u8_enum",
         ];
         for name in names {
             let d = decode_from_str(name)
@@ -493,5 +584,252 @@ mod tests {
         assert_eq!(decode_from_str("not_a_real_decoder"), None);
         assert_eq!(decode_from_str(""), None);
         assert_eq!(decode_from_str("U16_TENTHS"), None); // case-sensitive
+    }
+
+    // ---- u8_enum + EnumMap ----
+
+    fn gear_map() -> EnumMap {
+        EnumMap {
+            entries: vec![
+                (0x00, "P/N".to_string()),
+                (0x01, "1".to_string()),
+                (0x02, "2".to_string()),
+                (0x03, "3".to_string()),
+                (0x04, "4".to_string()),
+                (0x05, "5".to_string()),
+                (0x06, "6".to_string()),
+                (0x0F, "Error".to_string()),
+            ],
+            fallback_nearest: true,
+        }
+    }
+
+    #[test]
+    fn u8_enum_exact_lookup() {
+        let map = gear_map();
+        assert_eq!(map.resolve(0x03).as_deref(), Some("0x03 (3)"));
+        assert_eq!(map.resolve(0x00).as_deref(), Some("0x00 (P/N)"));
+        assert_eq!(map.resolve(0x0F).as_deref(), Some("0x0F (Error)"));
+    }
+
+    #[test]
+    fn u8_enum_unknown_byte_falls_back_to_nearest_label() {
+        // 0x07 is not in the gear map; nearest known by absolute distance
+        // is 0x06 (distance 1) — ties on 0x08 (also distance 1) but
+        // first-encountered wins, which is 0x06 (listed first).
+        let map = gear_map();
+        assert_eq!(map.resolve(0x07).as_deref(), Some("0x07 (6)"));
+        // 0x09 is equidistant from 0x08 (not in map) → nearest is 0x0F (Error, dist 6)
+        // vs 0x06 (6) → first wins, so 0x06.
+        assert_eq!(map.resolve(0x09).as_deref(), Some("0x09 (6)"));
+    }
+
+    #[test]
+    fn u8_enum_empty_map_returns_none() {
+        let map = EnumMap {
+            entries: vec![],
+            fallback_nearest: true,
+        };
+        assert_eq!(map.resolve(0x03), None);
+    }
+
+    #[test]
+    fn u8_enum_no_nearest_fallback() {
+        let map = EnumMap {
+            entries: vec![(0x00, "P/N".to_string())],
+            fallback_nearest: false,
+        };
+        assert_eq!(map.resolve(0x00).as_deref(), Some("0x00 (P/N)"));
+        assert_eq!(map.resolve(0x05).as_deref(), Some("0x05"));
+    }
+
+    #[test]
+    fn decode_for_u8_enum_is_none() {
+        // Numeric decode is meaningless for text values; the contract is
+        // "use decode_enum_lookup instead".
+        assert_eq!(decode(Decode::U8Enum, &[0x03]), None);
+    }
+
+    #[test]
+    fn decode_enum_lookup_wires_through_live_param() {
+        let param = LiveParam::new(
+            "gear",
+            "Gear (EGS)",
+            "",
+            0x12,
+            Query::Did(0xDA0A),
+            Decode::U8Enum,
+            0.0,
+            15.0,
+        )
+        .with_enum_map(gear_map());
+        assert_eq!(
+            decode_enum_lookup(&param, &[0x03]).as_deref(),
+            Some("0x03 (3)")
+        );
+        assert_eq!(
+            decode_enum_lookup(&param, &[0x07]).as_deref(),
+            Some("0x07 (6)")
+        );
+        // Empty buffer → no label, no panic.
+        assert_eq!(decode_enum_lookup(&param, &[]), None);
+        // Non-enum param → no label, no panic.
+        let numeric = LiveParam::new(
+            "rpm",
+            "RPM",
+            "rpm",
+            0x12,
+            Query::Obd(0x0C),
+            Decode::U16Quarter,
+            0.0,
+            8000.0,
+        );
+        assert_eq!(decode_enum_lookup(&numeric, &[0x01, 0x2C]), None);
+        // Enum param without a map → no label (UI falls back to raw hex).
+        let no_map = LiveParam::new(
+            "gear",
+            "Gear (EGS)",
+            "",
+            0x12,
+            Query::Did(0xDA0A),
+            Decode::U8Enum,
+            0.0,
+            15.0,
+        );
+        assert_eq!(decode_enum_lookup(&no_map, &[0x03]), None);
+    }
+
+    #[test]
+    fn profile_to_toml_includes_enum_map() {
+        let profile = Profile {
+            id: "test_enum".into(),
+            label: "Test enum".into(),
+            params: vec![LiveParam::new(
+                "gear",
+                "Gear (EGS)",
+                "",
+                0x12,
+                Query::Did(0xDA0A),
+                Decode::U8Enum,
+                0.0,
+                15.0,
+            )
+            .with_enum_map(EnumMap {
+                entries: vec![(0x00, "P/N".to_string()), (0x03, "3".to_string())],
+                fallback_nearest: true,
+            })],
+        };
+        add_profile(profile);
+        let s = profile_to_toml("test_enum").expect("profile exists");
+        assert!(s.contains("decode = \"u8_enum\""), "got:\n{s}");
+        assert!(
+            s.contains("enum_map = {"),
+            "missing enum_map header; got:\n{s}"
+        );
+        assert!(s.contains("\"0x00\" = \"P/N\""), "got:\n{s}");
+        assert!(s.contains("\"0x03\" = \"3\""), "got:\n{s}");
+    }
+
+    #[test]
+    fn community_loader_parses_enum_map_table() {
+        // End-to-end: a TOML fragment with an inline enum_map is parsed by
+        // the community loader into a LiveParam whose enum_map resolves the
+        // expected labels at runtime.
+        let toml = r#"
+[[profile]]
+id = "loader_enum_test"
+label = "Loader enum test"
+
+  [[profile.param]]
+  id = "gear"
+  label = "Gear (EGS)"
+  unit = ""
+  target = 0x12
+  query = "did:DA0A"
+  decode = "u8_enum"
+  min = 0.0
+  max = 15.0
+  enum_map = { "0x00" = "P/N", "0x03" = "3", "0x0F" = "Error" }
+"#;
+        // import_profiles_str returns the profile *labels* as confirmation
+        // that each profile loaded — not the id. Find by id afterwards.
+        let _labels = crate::community::import_profiles_str(toml).expect("TOML parses");
+        let params = crate::data::live::profile_params("loader_enum_test")
+            .expect("profile registered");
+        assert_eq!(params.len(), 1);
+        let param = &params[0];
+        assert_eq!(param.decode, Decode::U8Enum);
+        let map = param
+            .enum_map
+            .as_ref()
+            .expect("enum_map should be attached");
+        assert_eq!(map.resolve(0x03).as_deref(), Some("0x03 (3)"));
+        assert_eq!(map.resolve(0x00).as_deref(), Some("0x00 (P/N)"));
+        // Unknown byte → nearest label fallback (0x01 vs 0x00 distance 1,
+        // vs 0x03 distance 2 → nearest is 0x00).
+        assert_eq!(map.resolve(0x01).as_deref(), Some("0x01 (P/N)"));
+    }
+
+    #[test]
+    fn community_loader_rejects_bad_enum_key() {
+        // Non-hex key should be reported as a parsing error so misconfigurations
+        // don't silently degrade.
+        let toml = r#"
+[[profile]]
+id = "loader_enum_bad"
+label = "Loader enum bad"
+
+  [[profile.param]]
+  id = "gear"
+  label = "Gear"
+  unit = ""
+  target = 0x12
+  query = "did:DA0A"
+  decode = "u8_enum"
+  min = 0.0
+  max = 15.0
+  enum_map = { "not_hex" = "wat" }
+"#;
+        let err = crate::community::import_profiles_str(toml)
+            .expect_err("bad hex key should error");
+        assert!(err.contains("not_hex"), "got: {err}");
+        assert!(err.contains("0xNN"), "got: {err}");
+    }
+
+    #[test]
+    fn shipped_b58_profile_gear_enum_loads() {
+        // End-to-end: the on-disk b58.toml (the one shipped in
+        // community/profiles/) must parse cleanly and expose the new
+        // gear / engine_state enum params exactly as written. If this
+        // fails, the profile loader is broken and every B58 user gets a
+        // silent failure at startup.
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("community")
+            .join("profiles")
+            .join("b58.toml");
+        let toml = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        crate::community::import_profiles_str(&toml)
+            .unwrap_or_else(|e| panic!("b58.toml failed to parse: {e}"));
+        let params = profile_params("b58").expect("b58 profile registered");
+        let gear = params
+            .iter()
+            .find(|p| p.id == "gear")
+            .expect("gear param present");
+        assert_eq!(gear.decode, Decode::U8Enum);
+        let map = gear.enum_map.as_ref().expect("gear enum map shipped");
+        assert_eq!(map.resolve(0x03).as_deref(), Some("0x03 (3)"));
+        assert_eq!(map.resolve(0x00).as_deref(), Some("0x00 (P/N)"));
+        assert_eq!(map.resolve(0x0F).as_deref(), Some("0x0F (Error)"));
+
+        let state = params
+            .iter()
+            .find(|p| p.id == "engine_state")
+            .expect("engine_state param present");
+        assert_eq!(state.decode, Decode::U8Enum);
+        let smap = state.enum_map.as_ref().expect("engine_state enum map shipped");
+        assert_eq!(smap.resolve(0x02).as_deref(), Some("0x02 (Running)"));
+        assert_eq!(smap.resolve(0x04).as_deref(), Some("0x04 (Overrun)"));
     }
 }
