@@ -238,6 +238,26 @@ pub fn read_live_data(
                 live::Query::Local(id) => protocol::read_local_ident(t, def.target, id),
             };
             if let Ok(data) = data {
+                // For U8Enum the value comes from the per-parameter
+                // enum_map, not the numeric decoder. The numeric
+                // pipeline returns None for it; we resolve the label
+                // here and surface it as `text`.
+                if matches!(def.decode, live::Decode::U8Enum) {
+                    if let Some(label) =
+                        live::decode_enum_string(def.decode, &data, &def.enum_map)
+                    {
+                        out.push(live::LiveValue {
+                            id: def.id.clone(),
+                            label: def.label.clone(),
+                            unit: def.unit.clone(),
+                            value: 0.0,
+                            min: def.min,
+                            max: def.max,
+                            text: Some(label),
+                        });
+                    }
+                    continue;
+                }
                 if let Some(value) = live::decode(def.decode, &data) {
                     out.push(live::LiveValue {
                         id: def.id.clone(),
@@ -246,6 +266,7 @@ pub fn read_live_data(
                         value,
                         min: def.min,
                         max: def.max,
+                        text: None,
                     });
                 }
             }
@@ -610,6 +631,9 @@ pub fn add_to_profile(profile_id: String, spec: AddParamSpec) -> Result<(), Stri
         decode,
         min: spec.min,
         max: spec.max,
+        // Parameter Explorer's "Add to profile" doesn't carry an enum
+        // map yet; future enhancement can accept one in AddParamSpec.
+        enum_map: std::collections::HashMap::new(),
     };
     live::add_param_to_profile(&profile_id, param)
         .ok_or_else(|| format!("Unknown profile '{}'", profile_id))?;

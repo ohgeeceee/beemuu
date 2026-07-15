@@ -74,6 +74,20 @@ struct ParamToml {
     decode: String,
     min: f64,
     max: f64,
+    /// Optional u8 -> label enum map used by `decode = "u8_enum"`.
+    /// `#[serde(default)]` keeps older TOML files (without this key)
+    /// parsing cleanly. The TOML key is `enum`; the Rust field is
+    /// `enum_` because `enum` is a reserved word.
+    ///
+    /// We deserialize into `HashMap<String, String>` first because the
+    /// `toml` crate's inline-table keys are typed as strings — there is
+    /// no syntax that gives us u8 keys directly. `build_profile`
+    /// parses the string keys into u8 and silently drops any key that
+    /// doesn't parse as a byte value (e.g. `"256"`, `"-1"`,
+    /// `"banana"`). See the test below for the expected user-facing
+    /// TOML syntax.
+    #[serde(default, rename = "enum")]
+    enum_: std::collections::HashMap<String, String>,
 }
 
 #[derive(Deserialize)]
@@ -140,6 +154,24 @@ fn category_files(dir: &Path, single: &str, subdir: &str) -> Vec<PathBuf> {
 
 // ---- Shared builders (used by both file load and in-app import) ------------
 
+/// Convert the TOML `enum = { ... }` map (string keys, as the `toml`
+/// crate forces on us) into the runtime `HashMap<u8, String>` that
+/// `decode_enum_string` expects. Keys that don't parse as a byte
+/// (e.g. `"256"`, `"-1"`, `"banana"`) are dropped — they could only
+/// have come from a typo in a community profile and silent dropping
+/// matches the project's "best-effort, never fatal" stance on TOML
+/// loading. Warnings would be nicer, but LoadReport doesn't expose a
+/// per-field channel today; revisit if this becomes a real problem.
+fn parse_enum_map(raw: &std::collections::HashMap<String, String>) -> std::collections::HashMap<u8, String> {
+    let mut out = std::collections::HashMap::with_capacity(raw.len());
+    for (k, v) in raw {
+        if let Ok(byte) = k.parse::<u8>() {
+            out.insert(byte, v.clone());
+        }
+    }
+    out
+}
+
 /// Convert a parsed profile into a runtime profile, or an error naming the bad field.
 fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
     let mut params = Vec::with_capacity(p.param.len());
@@ -152,6 +184,10 @@ fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
                 p.id, pr.id, pr.query, pr.decode
             ));
         };
+        // Enum maps live per-parameter, not per-profile. Convert the
+        // raw `HashMap<String, String>` from TOML into the
+        // `HashMap<u8, String>` that the runtime uses.
+        let enum_map = parse_enum_map(&pr.enum_);
         params.push(live::LiveParam {
             id: pr.id.clone(),
             label: pr.label.clone(),
@@ -161,6 +197,7 @@ fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
             decode,
             min: pr.min,
             max: pr.max,
+            enum_map,
         });
     }
     Ok(live::Profile { id: p.id, label: p.label, params })
@@ -291,4 +328,94 @@ pub fn save_freeze_schema(address: u8, fields: &[freeze::FreezeField]) -> Result
         out.push_str(&format!("decimals = {}\n\n", f.decimals));
     }
     std::fs::write(path, out).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A profile TOML with a `u8_enum` parameter and an `enum = { ... }`
+    /// map must parse and surface the map on `ParamToml.enum_`. The
+    /// `toml` crate types inline-table keys as strings, so we check
+    /// the raw string-keyed view here. The `parse_enum_map` unit test
+    /// verifies the `String -> u8` conversion downstream.
+    #[test]
+    fn enum_map_parses_from_toml() {
+        let toml = r#"
+[[profile]]
+id = "test_enum"
+label = "Enum test profile"
+
+  [[profile.param]]
+  id = "gear"
+  label = "Gear position"
+  unit = ""
+  target = 0x12
+  query = "did:DA0A"
+  decode = "u8_enum"
+  min = 0.0
+  max = 15.0
+  enum = { "0" = "P/N", "1" = "1", "15" = "Error" }
+"#;
+        let parsed: ProfilesFile = toml::from_str(toml).expect("TOML should parse");
+        assert_eq!(parsed.profile.len(), 1);
+        let profile = &parsed.profile[0];
+        assert_eq!(profile.id, "test_enum");
+        assert_eq!(profile.param.len(), 1);
+        let param = &profile.param[0];
+        assert_eq!(param.id, "gear");
+        assert_eq!(param.enum_.get("0").map(String::as_str), Some("P/N"));
+        assert_eq!(param.enum_.get("1").map(String::as_str), Some("1"));
+        assert_eq!(param.enum_.get("15").map(String::as_str), Some("Error"));
+        assert_eq!(param.enum_.get("7"), None);
+    }
+
+    /// Older TOML files without an `enum` key must still parse. This is
+    /// the `#[serde(default)]` contract — adding the field must not
+    /// break existing community profiles.
+    #[test]
+    fn legacy_toml_without_enum_key_still_parses() {
+        let toml = r#"
+[[profile]]
+id = "legacy"
+label = "Legacy profile"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 8000.0
+"#;
+        let parsed: ProfilesFile = toml::from_str(toml).expect("legacy TOML should parse");
+        let param = &parsed.profile[0].param[0];
+        assert_eq!(param.id, "rpm");
+        assert!(param.enum_.is_empty(), "legacy profiles must default to empty enum map");
+    }
+
+    /// `parse_enum_map` must drop keys that aren't valid u8 values.
+    /// In practice this means out-of-range bytes (`"256"`, `"-1"`)
+    /// and non-numeric strings (`"banana"`). They could only come
+    /// from a typo in a community profile.
+    #[test]
+    fn parse_enum_map_drops_invalid_byte_keys() {
+        let mut raw = std::collections::HashMap::new();
+        raw.insert("0".to_string(), "P/N".to_string());
+        raw.insert("1".to_string(), "1".to_string());
+        // All of these must be dropped:
+        raw.insert("256".to_string(), "Overflow".to_string());
+        raw.insert("-1".to_string(), "Negative".to_string());
+        raw.insert("banana".to_string(), "Fruit".to_string());
+        raw.insert("3.14".to_string(), "Pi".to_string());
+
+        let parsed = parse_enum_map(&raw);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed.get(&0).map(String::as_str), Some("P/N"));
+        assert_eq!(parsed.get(&1).map(String::as_str), Some("1"));
+        assert!(!parsed.values().any(|v| v == "Overflow" || v == "Negative"
+            || v == "Fruit" || v == "Pi"));
+    }
 }

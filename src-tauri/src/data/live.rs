@@ -50,6 +50,9 @@ pub enum Decode {
     U8Div100,
     /// u8 / 4.0 (alternate DME temp scaling; u8 variant)
     U8Div4,
+    /// u8 looked up against a per-parameter enum map (u8 -> label).
+    /// Returns a string, not a number; see `decode_enum_string`.
+    U8Enum,
 }
 
 #[derive(Clone)]
@@ -62,6 +65,10 @@ pub struct LiveParam {
     pub decode: Decode,
     pub min: f64,
     pub max: f64,
+    /// Optional per-parameter enum map used by [`Decode::U8Enum`].
+    /// Empty for all numeric variants; only non-empty when the decode
+    /// is [`Decode::U8Enum`].
+    pub enum_map: std::collections::HashMap<u8, String>,
 }
 
 impl LiveParam {
@@ -85,6 +92,10 @@ impl LiveParam {
             decode,
             min,
             max,
+            // Built-in profiles never use enum maps; only community
+            // TOML files can populate this. Empty map keeps
+            // decode_enum_string as a no-op for built-ins.
+            enum_map: std::collections::HashMap::new(),
         }
     }
 }
@@ -97,6 +108,12 @@ pub struct LiveValue {
     pub value: f64,
     pub min: f64,
     pub max: f64,
+    /// String label for enum-style parameters (gear position, engine
+    /// state, knock state, etc.). `None` for numeric parameters.
+    /// When present, the frontend should prefer this over `value`
+    /// (which will be 0.0 for enums).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
 }
 
 #[derive(Clone)]
@@ -210,7 +227,31 @@ pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
                 None
             }
         }
+        // U8Enum returns a string label, not a number. The numeric
+        // pipeline always returns None for it; callers must use
+        // `decode_enum_string` to resolve the label.
+        Decode::U8Enum => None,
     }
+}
+
+/// Resolve a [`Decode::U8Enum`] (or future enum variants) against a
+/// per-parameter label map. Returns `None` for any other variant, for
+/// empty input, and for bytes that aren't in the map.
+///
+/// This deliberately stays separate from [`decode`] so the numeric
+/// pipeline can keep returning `Option<f64>` without inventing a
+/// string-or-number union type. The caller in `commands.rs::read_live_data`
+/// branches on the variant and calls the right function.
+pub fn decode_enum_string(
+    decode: Decode,
+    data: &[u8],
+    enum_map: &std::collections::HashMap<u8, String>,
+) -> Option<String> {
+    if !matches!(decode, Decode::U8Enum) {
+        return None;
+    }
+    let byte = data.first().copied()?;
+    enum_map.get(&byte).cloned()
 }
 
 /// Parse a decode name from TOML (e.g. "temp_u8", "u16_quarter").
@@ -231,6 +272,7 @@ pub fn decode_from_str(s: &str) -> Option<Decode> {
         "s16" => Decode::S16,
         "s16_div4" => Decode::S16Div4,
         "s16_div100" => Decode::S16Div100,
+        "u8_enum" => Decode::U8Enum,
         _ => return None,
     })
 }
@@ -272,6 +314,7 @@ fn decode_to_str(d: Decode) -> &'static str {
         Decode::S16 => "s16",
         Decode::S16Div4 => "s16_div4",
         Decode::S16Div100 => "s16_div100",
+        Decode::U8Enum => "u8_enum",
     }
 }
 
@@ -493,5 +536,85 @@ mod tests {
         assert_eq!(decode_from_str("not_a_real_decoder"), None);
         assert_eq!(decode_from_str(""), None);
         assert_eq!(decode_from_str("U16_TENTHS"), None); // case-sensitive
+    }
+
+    // ---- u8_enum decoder (v0.4.0) ----
+    //
+    // Enums are resolved against a per-parameter map (u8 -> label) loaded
+    // from TOML. Unknown bytes map to None (the caller can fall back to
+    // showing the raw hex if it wants). The variant is gated so non-u8
+    // decoders cannot accidentally be used as enums.
+
+    fn gear_map() -> std::collections::HashMap<u8, String> {
+        let mut m = std::collections::HashMap::new();
+        m.insert(0x00, "P/N".to_string());
+        m.insert(0x01, "1".to_string());
+        m.insert(0x02, "2".to_string());
+        m.insert(0x03, "3".to_string());
+        m.insert(0x04, "4".to_string());
+        m.insert(0x05, "5".to_string());
+        m.insert(0x06, "6".to_string());
+        m.insert(0x0F, "Error".to_string());
+        m
+    }
+
+    #[test]
+    fn u8_enum_known_byte_resolves_to_label() {
+        let m = gear_map();
+        // DID DA0A (gear position): 0x00 = P/N
+        assert_eq!(
+            decode_enum_string(Decode::U8Enum, &[0x00], &m),
+            Some("P/N".to_string())
+        );
+        // 0x03 = "3"
+        assert_eq!(
+            decode_enum_string(Decode::U8Enum, &[0x03], &m),
+            Some("3".to_string())
+        );
+        // 0x0F = "Error"
+        assert_eq!(
+            decode_enum_string(Decode::U8Enum, &[0x0F], &m),
+            Some("Error".to_string())
+        );
+    }
+
+    #[test]
+    fn u8_enum_unknown_byte_returns_none() {
+        // Byte not in the enum map -> None (caller can fall back to hex)
+        let m = gear_map();
+        assert_eq!(decode_enum_string(Decode::U8Enum, &[0x07], &m), None);
+        assert_eq!(decode_enum_string(Decode::U8Enum, &[0xAB], &m), None);
+    }
+
+    #[test]
+    fn u8_enum_empty_buffer_returns_none() {
+        let m = gear_map();
+        assert_eq!(decode_enum_string(Decode::U8Enum, &[], &m), None);
+    }
+
+    #[test]
+    fn u8_enum_empty_map_returns_none_for_any_byte() {
+        // No entries at all -> every byte is unknown
+        let m = std::collections::HashMap::new();
+        assert_eq!(decode_enum_string(Decode::U8Enum, &[0x00], &m), None);
+        assert_eq!(decode_enum_string(Decode::U8Enum, &[0xFF], &m), None);
+    }
+
+    #[test]
+    fn u8_enum_only_applies_to_u8_enum_variant() {
+        // Even with a populated enum map, asking a numeric decoder for its
+        // "enum string" must return None — the variant gates the behaviour.
+        let m = gear_map();
+        assert_eq!(decode_enum_string(Decode::U8, &[0x00], &m), None);
+        assert_eq!(decode_enum_string(Decode::U16, &[0x00, 0x00], &m), None);
+        assert_eq!(decode_enum_string(Decode::U8Div100, &[0x64], &m), None);
+    }
+
+    #[test]
+    fn u8_enum_roundtrips_via_decode_from_str_and_to_str() {
+        let d = decode_from_str("u8_enum")
+            .expect("decode_from_str(\"u8_enum\") should succeed");
+        assert_eq!(d, Decode::U8Enum);
+        assert_eq!(decode_to_str(Decode::U8Enum), "u8_enum");
     }
 }
