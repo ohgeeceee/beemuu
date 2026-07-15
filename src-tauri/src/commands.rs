@@ -379,18 +379,39 @@ pub fn list_service_functions() -> Vec<service_functions::ServiceFunction> {
     service_functions::SERVICE_FUNCTIONS.to_vec()
 }
 
+/// One routineControl call. The Rust side resolves `module_label`
+/// at runtime (via `effective_module_label`) so the JSON the UI
+/// receives always has the human-readable name filled in, never the
+/// empty-string default marker.
 #[tauri::command]
 pub fn run_service_function(
     state: tauri::State<'_, AppState>,
     id: String,
+    // Index into `service.routines`. Defaults to 0 (single-routine
+    // services) for backwards compatibility with any UI that still
+    // sends only `id`. The UI built in v0.4.0 always sends an
+    // explicit index.
+    module_index: Option<usize>,
 ) -> Result<String, String> {
     let sf = service_functions::SERVICE_FUNCTIONS
         .iter()
         .find(|s| s.id == id)
         .ok_or("Unknown service function")?;
+    let idx = module_index.unwrap_or(0);
+    let routine = sf.routines.get(idx).ok_or_else(|| {
+        format!(
+            "service {} has only {} routine(s); module_index {} is out of range",
+            sf.id,
+            sf.routines.len(),
+            idx
+        )
+    })?;
     with_transport(&state, |t| {
-        protocol::routine(t, sf.target, 0x01, sf.routine)?;
-        Ok(format!("{} completed successfully", sf.label))
+        protocol::routine(t, routine.target, 0x01, routine.routine)?;
+        Ok(format!(
+            "{} completed successfully ({} @ 0x{:02X})",
+            sf.label, routine.module_label, routine.target
+        ))
     })
 }
 

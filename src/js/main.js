@@ -763,36 +763,50 @@ async function loadServiceFunctions() {
   const list = await invoke("list_service_functions");
   const el = $("service-list");
   el.innerHTML = "";
+  // v0.4.0: each ServiceFunction carries a list of routines
+  // (one per module address). Render one row per (service,
+  // routine) pair so a single service that exists on multiple
+  // modules shows one button per module. moduleIndex goes to
+  // the backend so it can pick the right target + routine.
   for (const sf of list) {
-    const item = document.createElement("div");
-    item.className = "service-item";
-    item.innerHTML =
-      `<div class="service-info">` +
-      `<div class="service-label">${sf.label}</div>` +
-      `<div class="service-desc">${sf.description}</div>` +
-      `</div>` +
-      `<span class="risk-tag risk-${sf.risk}">${sf.risk === "high" ? "ACTUATES HARDWARE" : "RESET"}</span>`;
-    const btn = document.createElement("button");
-    btn.className = "btn";
-    btn.textContent = "Run";
-    btn.addEventListener("click", async () => {
-      if (!connected) { log("Connect first."); return; }
-      const warning = sf.risk === "high"
-        ? `"${sf.label}" actuates vehicle hardware.\n\n${sf.description}\n\nProceed?`
-        : `Run "${sf.label}"?`;
-      if (!confirm(warning)) return;
-      btn.disabled = true;
-      try {
-        const msg = await invoke("run_service_function", { id: sf.id });
-        log(msg);
-      } catch (e) {
-        log("Service function failed: " + e);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-    item.appendChild(btn);
-    el.appendChild(item);
+    for (let i = 0; i < sf.routines.length; i++) {
+      const r = sf.routines[i];
+      const item = document.createElement("div");
+      item.className = "service-item";
+      const labelWithModule = sf.routines.length > 1
+        ? `${sf.label} (${r.moduleLabel})`
+        : sf.label;
+      item.innerHTML =
+        `<div class="service-info">` +
+        `<div class="service-label">${labelWithModule}</div>` +
+        `<div class="service-desc">${sf.description}</div>` +
+        `</div>` +
+        `<span class="risk-tag risk-${sf.risk}">${sf.risk === "high" ? "ACTUATES HARDWARE" : "RESET"}</span>`;
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.textContent = "Run";
+      btn.addEventListener("click", async () => {
+        if (!connected) { log("Connect first."); return; }
+        const warning = sf.risk === "high"
+          ? `"${labelWithModule}" actuates vehicle hardware.\n\n${sf.description}\n\nProceed?`
+          : `Run "${labelWithModule}"?`;
+        if (!confirm(warning)) return;
+        btn.disabled = true;
+        try {
+          const msg = await invoke("run_service_function", {
+            id: sf.id,
+            moduleIndex: i,
+          });
+          log(msg);
+        } catch (e) {
+          log("Service function failed: " + e);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+      item.appendChild(btn);
+      el.appendChild(item);
+    }
   }
 }
 

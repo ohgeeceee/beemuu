@@ -38,6 +38,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that bites the unwary.
 - `docs/hardware/README.md` — index page for the new hardware-docs
   directory.
+- Histogram viewer for the Logging tab (`src/js/histogram.js` +
+  13 unit tests + modal UI). Operates over the existing
+  `LogSession` data; reuses Chart.js bar mode (no new deps).
+  Channels whose `LiveValue.text` is set (u8_enum from PR #60)
+  are filtered out — no numeric distribution to plot.
+- `ServiceFunction` extended to carry `routines: &[ModuleRoutine]`
+  instead of a single `(target, routine)` pair
+  (`src-tauri/src/data/service_functions.rs`, 8 new unit tests).
+  The existing six entries stay byte-identical in shape; the new
+  `ModuleRoutine[]` field is the path forward for adding
+  chassis-validated EGS / DSC CBS resets without inventing
+  routine IDs. The Rust `run_service_function` command takes a
+  `module_index: Option<usize>` (defaults to 0 for back-compat);
+  the UI now renders one row per (service × module) and sends
+  the index on invocation.
 
 ### Changed
 - README § "What's coming" rewritten so shipped features (Diagnostic
