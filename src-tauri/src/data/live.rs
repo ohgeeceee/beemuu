@@ -254,6 +254,30 @@ pub fn decode_enum_string(
     enum_map.get(&byte).cloned()
 }
 
+/// Resolve a [`Decode::U8Enum`] and return the display string for any
+/// payload, known or unknown. Returns `None` only when the param is not
+/// a U8Enum or the wire returned an empty buffer — i.e. "no usable
+/// sample at all." Known bytes map to their label; unknown bytes map to
+/// the sentinel `format!("0x{:02X} ?", byte)` so the gauge surfaces the
+/// fact that the live byte isn't covered by the map instead of going
+/// silently to zero.
+pub fn decode_enum_string_or_unknown(
+    decode: Decode,
+    data: &[u8],
+    enum_map: &std::collections::HashMap<u8, String>,
+) -> Option<String> {
+    if !matches!(decode, Decode::U8Enum) {
+        return None;
+    }
+    let byte = *data.first()?;
+    Some(
+        enum_map
+            .get(&byte)
+            .cloned()
+            .unwrap_or_else(|| format!("0x{byte:02X} ?")),
+    )
+}
+
 /// Parse a decode name from TOML (e.g. "temp_u8", "u16_quarter").
 pub fn decode_from_str(s: &str) -> Option<Decode> {
     Some(match s {
@@ -616,5 +640,70 @@ mod tests {
             .expect("decode_from_str(\"u8_enum\") should succeed");
         assert_eq!(d, Decode::U8Enum);
         assert_eq!(decode_to_str(Decode::U8Enum), "u8_enum");
+    }
+
+    // ---- decode_enum_string_or_unknown ----
+    // Wider-stance sibling of decode_enum_string: instead of returning
+    // None for a missing byte, returns the sentinel "0xNN ?" so the
+    // gauge renders an explicit unknown state. Empty buffer still
+    // returns None (no byte to even quote).
+
+    #[test]
+    fn u8_enum_or_unknown_known_byte_resolves_to_label() {
+        let m = gear_map();
+        assert_eq!(
+            decode_enum_string_or_unknown(Decode::U8Enum, &[0x03], &m),
+            Some("3".to_string())
+        );
+        assert_eq!(
+            decode_enum_string_or_unknown(Decode::U8Enum, &[0x0F], &m),
+            Some("Error".to_string())
+        );
+    }
+
+    #[test]
+    fn u8_enum_or_unknown_unknown_byte_returns_sentinel() {
+        let m = gear_map();
+        assert_eq!(
+            decode_enum_string_or_unknown(Decode::U8Enum, &[0x07], &m),
+            Some("0x07 ?".to_string())
+        );
+        assert_eq!(
+            decode_enum_string_or_unknown(Decode::U8Enum, &[0xAB], &m),
+            Some("0xAB ?".to_string())
+        );
+    }
+
+    #[test]
+    fn u8_enum_or_unknown_empty_buffer_returns_none() {
+        let m = gear_map();
+        assert_eq!(decode_enum_string_or_unknown(Decode::U8Enum, &[], &m), None);
+    }
+
+    #[test]
+    fn u8_enum_or_unknown_empty_map_returns_sentinel_for_every_byte() {
+        // No entries at all -> every byte is unknown, so every byte
+        // gets the sentinel rather than None. This is the whole point
+        // of the helper: an enum that maps "nothing" should still
+        // surface bytes as 0xNN ? rather than disappear.
+        let m = std::collections::HashMap::<u8, String>::new();
+        assert_eq!(
+            decode_enum_string_or_unknown(Decode::U8Enum, &[0x00], &m),
+            Some("0x00 ?".to_string())
+        );
+        assert_eq!(
+            decode_enum_string_or_unknown(Decode::U8Enum, &[0xFF], &m),
+            Some("0xFF ?".to_string())
+        );
+    }
+
+    #[test]
+    fn u8_enum_or_unknown_gated_to_u8_enum_variant() {
+        let m = gear_map();
+        assert_eq!(decode_enum_string_or_unknown(Decode::U8, &[0x00], &m), None);
+        assert_eq!(
+            decode_enum_string_or_unknown(Decode::U16, &[0x00, 0x00], &m),
+            None
+        );
     }
 }

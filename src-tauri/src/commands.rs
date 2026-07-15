@@ -241,10 +241,13 @@ pub fn read_live_data(
                 // For U8Enum the value comes from the per-parameter
                 // enum_map, not the numeric decoder. The numeric
                 // pipeline returns None for it; we resolve the label
-                // here and surface it as `text`.
+                // here and surface it as `text`. Unknown bytes (e.g.
+                // a gear value the profile didn't anticipate) get a
+                // `0xNN ?` sentinel so the gauge renders an explicit
+                // "unknown state" rather than going silently to zero.
                 if matches!(def.decode, live::Decode::U8Enum) {
                     if let Some(label) =
-                        live::decode_enum_string(def.decode, &data, &def.enum_map)
+                        live::decode_enum_string_or_unknown(def.decode, &data, &def.enum_map)
                     {
                         out.push(live::LiveValue {
                             id: def.id.clone(),
