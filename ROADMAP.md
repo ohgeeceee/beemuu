@@ -157,6 +157,30 @@ These are explicitly **not** v0.5.0 or v0.6.0 work:
 
 ---
 
+## Ready to Claim (🟢 — open a PR when you want it)
+
+These items have lived on the ROADMAP for multiple cycles as 🟢-
+Ready and have not been claimed. They're real, well-scoped, and not
+in conflict with the active v0.6.0 cycle.
+
+> **If you're new to the project, start here.** These are the lowest-
+> risk ways to land a first PR.
+
+| Item | Where to start | Notes |
+|------|----------------|-------|
+| Dark/light theme toggle | `src/css/app.css` (CSS variables exist) + toggle button in `src/index.html` | Small. UI only; no Rust touched. |
+| Save/load workspace layout | `src/js/` + Tauri settings persistence, or `~/beeemuu/` JSON | Mid-sized. Remembers which gauges the user had open. |
+| Export PNG/SVG from charts | Extends the existing `Chart.js` lines | Mid-sized. Good first Chart.js PR. |
+| Real-time data logging to disk | Extends the existing `LogSession` | Mid-sized. Touches the Logging tab only. |
+| KWP2000 slow-module timeout fix | `src-tauri/src/protocol/kwp2000.rs` — **protected path**, flag the PR header | Small backend fix; CIC and slow modules time out today. |
+| ISO-TP multi-frame (FF/CF/FC) | New module under `src-tauri/src/protocol/` — **protected path**, flag the PR header | Required for full VIN and full DTC list over UDS. |
+| Gauge theming (M colors for S55, etc.) | `src/js/gauges.js` + per-profile `theme.css` | Small. Pure UI. |
+| OBD-II PID auto-discovery | New tab in `src/index.html` | Small. |
+| N20/N26 engine profile | New `community/profiles/n20.toml` (clone `b58.toml`, mark DIDs `[needs verification]`) | Small. Needs a tester. |
+| S55 engine profile | New `community/profiles/s55.toml` | Small. High-performance N55 variant; oil temp critical. |
+
+---
+
 ## Backlog — Nice to Have
 
 | Item | Why it would be cool | Complexity |
