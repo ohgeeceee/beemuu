@@ -271,3 +271,48 @@ label = "N55 3.0 turbo I6 (MSD81/MEVD17.2) [community, oil temp unverified]"
   enum = { "0" = "None", "1" = "Light", "2" = "Moderate", "3" = "Severe" }
   min = 0.0
   max = 3.0
+
+
+  # ---- v0.5.0 fuel-trim / adaptation (N55 F/G-series only) ----
+  # Source: docs/TECH_SPECS.md § "Adaptation Drift Tracker" — the
+  # project's own spec documents the N55 DIDs as 0x1201 (long-term
+  # fuel trim) and 0x1202 (idle adaptation). Scaling per the same
+  # spec is percent; the existing `s16_div100` decoder covers the
+  # range (-327.68% to +327.67%) without changes.
+  #
+  # Like the v0.4.0 enum DIDs above, these are marked
+  # `[needs verification]` pending real-car validation. The
+  # fuel-trim meanings are well-documented (LTFT for 0x1201 is the
+  # long-term learned correction; 0x1202 is the idle-air learned
+  # value), but the byte-level encoding (signed vs unsigned,
+  # multiplier, byte order) needs chassis-confirmed test data
+  # before the markers come off.
+  #
+  # KWP2000 (E-series N55) will NOT respond to these UDS DIDs —
+  # same caveat as the v0.4.0 enum DIDs above. The N55 E-series
+  # row at the top of the file already warns about this.
+  #
+  # B58 fuel-trim DIDs are deliberately NOT added: they are not
+  # documented in this repo's TECH_SPECS.md and we don't have a
+  # reliable community source for them. Adding guesses would
+  # brick the v0.5.0 cycle's "[needs verification]" discipline.
+
+  [[profile.param]]
+  id = "ltft_bank1"
+  label = "Long-term fuel trim, bank 1 (DME) [needs verification, UDS only]"
+  unit = "%"
+  target = 0x12
+  query = "did:1201"
+  decode = "s16_div100"
+  min = -25.0
+  max = 25.0
+
+  [[profile.param]]
+  id = "idle_adaptation"
+  label = "Idle adaptation (DME) [needs verification, UDS only]"
+  unit = "%"
+  target = 0x12
+  query = "did:1202"
+  decode = "s16_div100"
+  min = -25.0
+  max = 25.0
