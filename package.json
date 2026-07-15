@@ -10,6 +10,7 @@
     "build": "tauri build",
     "test:dtc": "node --test server/dtc/test/*.test.js",
     "test:histogram": "node --test src/js/*.test.js"
+    "test:js": "node --test src/js/test/*.test.cjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"
