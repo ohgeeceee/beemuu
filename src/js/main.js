@@ -720,7 +720,12 @@ $("live-profile").addEventListener("change", () => {
 async function pollOnce() {
   try {
     const values = await invoke("read_live_data", { profile: $("live-profile").value });
-    for (const v of values) ensureGauge(v).set(v.value);
+    for (const v of values) {
+      // Enum params (gear, engine state, etc.) have v.text set and
+      // v.value = 0.0; numeric params have v.text undefined. The
+      // Gauge renders text when given a label override.
+      ensureGauge(v).set(v.value, v.text);
+    }
   } catch (e) {
     log("Live data: " + e);
     stopPolling();
@@ -1347,7 +1352,11 @@ async function logTick() {
     for (const v of values) {
       const s = logSeries.get(v.id);
       if (!s) continue;
-      const point = { x: t, y: v.value };
+      // Numeric params: y carries the number. Enum params: y stays 0.0
+      // for the chart and the label rides on `text`, which the CSV
+      // honours below. The chart line remains numeric for both kinds
+      // because categories over time are a separate UX problem.
+      const point = { x: t, y: v.value, text: v.text };
       if (logSeries.paused) {
         s.bufferPush(point);
       } else {
@@ -1581,7 +1590,18 @@ function buildLogCsv() {
   let csv = "time_s," + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(",") + "\n";
   for (let i = 0; i < rows; i++) {
     const t = allData[i]?.x ?? "";
-    csv += [t.toFixed ? t.toFixed(2) : t, ...enabled.map(([, s]) => s.getAllData()[i]?.y ?? "")].join(",") + "\n";
+    let row = t.toFixed ? t.toFixed(2) : t;
+    for (const [, s] of enabled) {
+      const p = s.getAllData()[i];
+      // Enum labels (when point.text is set) are emitted as quoted CSV
+      // strings; numerics keep the existing two-decimal format.
+      row += "," + (p
+        ? (p.text !== undefined && p.text !== null
+            ? JSON.stringify(p.text)
+            : (p.y ?? "").toFixed(2))
+        : "");
+    }
+    csv += row + "\n";
   }
   return csv;
 }
