@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Frontend wiring for `LiveValue.text` enum labels (backend in PR #60).
+  `Gauge.set(value, label?)` enters text mode when a label is present:
+  dial, ticks, and needle are hidden and the label is drawn centred with
+  the unit underneath. `pollOnce` and `logTick` pass `v.text` through,
+  and `buildLogCsv` emits the label in a quoted CSV cell so a gear-change
+  log exports `0.00,"P/N",0.00,"1",...` rather than `0.00,0,0.00,1,...`.
+  Numeric gauges and the chart are unchanged for non-enum params.
 - Schematics deploy: `ops/beemuu.com.conf` now serves `/static/schematics/`
   from disk (CC0 wiring-diagram SVGs), and `docs/deploy-schematics.md`
   carries the end-to-end rollout runbook. See PR #51.
