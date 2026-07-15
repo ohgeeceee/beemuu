@@ -1592,6 +1592,14 @@ function buildLogCsv() {
     const t = allData[i]?.x ?? "";
     let row = t.toFixed ? t.toFixed(2) : t;
     for (const [, s] of enabled) {
+      const p = s.getAllData()[i];
+      // Enum labels (when point.text is set) are emitted as quoted CSV
+      // strings; numerics keep the existing two-decimal format.
+      row += "," + (p
+        ? (p.text !== undefined && p.text !== null
+            ? JSON.stringify(p.text)
+            : (p.y ?? "").toFixed(2))
+        : "");
       // Shared with the test harness (`src/js/test/live_format.test.cjs`)
       // and Gauge.set in gauges.js. Keep the rule in one place.
       row += "," + window.LiveFormat.csvCell(s.getAllData()[i]);
