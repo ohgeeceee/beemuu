@@ -1600,6 +1600,9 @@ function buildLogCsv() {
             ? JSON.stringify(p.text)
             : (p.y ?? "").toFixed(2))
         : "");
+      // Shared with the test harness (`src/js/test/live_format.test.cjs`)
+      // and Gauge.set in gauges.js. Keep the rule in one place.
+      row += "," + window.LiveFormat.csvCell(s.getAllData()[i]);
     }
     csv += row + "\n";
   }
