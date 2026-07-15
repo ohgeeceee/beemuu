@@ -105,7 +105,7 @@ readable. The first PR in this cycle is a small docs fix; see
 | README profile-listing fix | 🟢 Ready | Verify no other "in v0.3.0 / coming soon" claim is stale. First PR. |
 | Histograms of logged channels | 🟢 Ready | Operates on existing CSV log output; client-side (no protocol change). |
 | `u8_enum` decoder + enum tables | 🟢 Spec'd | Genuinely new work; spec already in `docs/DECODE_FUNCTIONS.md` § 8. |
-| CBS reset for EGS / DSC | 🟢 Ready | Extends existing CBS reset (`src-tauri/src/data/service_functions.rs`) — verify scope first. |
+| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #63 so a future contributor can add chassis-validated routine IDs for EGS (0x18) and DSC (0x29). No routine IDs invented without real-car validation — wrong IDs could brick NV memory on those modules. |
 | `$5 AliExpress ENET cable pinout doc` | ✅ Done | Doc-only; `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
 
 ### 🟡 Needs research (larger, defer if scope is tight)
