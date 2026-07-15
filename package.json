@@ -1,6 +1,6 @@
 {
   "name": "beeemuu",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Independent OBD2 diagnostic dashboard for BMW vehicles - K+DCAN and ENET",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -9,7 +9,7 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "test:dtc": "node --test server/dtc/test/*.test.js",
-    "test:histogram": "node --test src/js/*.test.js"
+    "test:histogram": "node --test src/js/*.test.js",
     "test:js": "node --test src/js/test/*.test.cjs"
   },
   "devDependencies": {
