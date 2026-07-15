@@ -105,7 +105,7 @@ instructions, contributors.
 
 ---
 
-## v0.5.0 — "Ground Truth" (Active cycle)
+## v0.5.0 — "Ground Truth" (Shipped 2026-07-15)
 
 **Premise.** v0.4.0 finished the decoder + UI plumbing for tuner-style
 work. What's missing isn't more plumbing — it's **real-car evidence**
@@ -117,20 +117,15 @@ features that real-car owners actually need first.
 See [`docs/v0.5.0_plan.md`](docs/v0.5.0_plan.md) for the full cycle
 plan. Summary below.
 
-### 🟢 Ready — the three-PR spine
+### ✅ Ready — all three shipped
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Real-car u8_enum validation harness | 🟢 Ready | Doc-only. Checklist for an F/G owner with ENET adapter to validate the `[needs verification]` enum DIDs from PR #60. |
-| Real-car fuel-trim / adaptation readout | 🟢 Ready | Adds the fuel-trim DIDs (`0x4116` / `0x4117` / `0x4118` on BMW DME) marked `[needs verification]`. Likely no new decoder needed. |
-| Real-car knock-detection visualisation polish | 🟢 Ready | Pure JS; flag severity-bearing `LiveValue.text` values (Moderate / Severe) with a visual indicator. |
-| README profile-listing fix | ✅ Done | Doc-only; README + ROADMAP + CHANGELOG drift fix. Shipped in PR #59. |
-| Histograms of logged channels | ✅ Done | Pure client-side; 13 unit tests. Shipped in PR #62. |
-| `u8_enum` decoder + enum tables | ✅ Done | Includes per-parameter enum-map TOML parsing, frontend wiring (PRs #64–66), and 9 unit tests. Shipped in PR #60 (+ #64/#65/#66 for the frontend). |
-| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #67 so a future contributor can add chassis-validated routine IDs for EGS (0x18) and DSC (0x29). No routine IDs invented without real-car validation — wrong IDs could brick NV memory on those modules. |
-| `$5 AliExpress ENET cable pinout doc` | ✅ Done | Doc-only; `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
+| Real-car u8_enum validation harness | ✅ Done | Doc-only. Checklist for an F/G owner with ENET adapter to validate the `[needs verification]` enum DIDs from PR #60. Shipped in PR #72. |
+| Real-car fuel-trim / adaptation readout | ✅ Done | Adds N55 DIDs (`0x1201` LTFT, `0x1202` idle adaptation). Sourced from the project's own `TECH_SPECS.md`, not forum. Shipped in PR #73. |
+| Real-car knock-detection visualisation polish | ✅ Done | Pure JS; flag severity-bearing `LiveValue.text` values (Moderate / Severe) with amber / red emphasis. Shipped in PR #74. |
 
-### 🟡 Needs research — not in this cycle
+### 🟡 Needs research — not in v0.6.0 cycle
 
 These stay on the v0.5.0 list as 🟡 items; some may move to 🟢 once the
 spine lands and real-car evidence accumulates:
@@ -185,8 +180,4 @@ These are explicitly **not** v0.5.0 or v0.6.0 work:
 
 ---
 
-*Last updated: 2026-07-15. v0.4.0 marked Shipped. v0.5.0 "Ground Truth"
-cycle active; see [`docs/v0.5.0_plan.md`](docs/v0.5.0_plan.md) for
-the cycle plan. v0.5.0 release notes forthcoming at
-[`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md).*
-*Last updated: 2026-07-15. v0.4.0 marked shipped; the five Ready items now show ✅ Done. v0.4.0 release notes at [`RELEASE_NOTES_v0.4.0.md`](RELEASE_NOTES_v0.4.0.md).*
+*Last updated: 2026-07-15. v0.5.0 "Ground Truth" marked Shipped; the three Ready items now show ✅ Done. v0.5.0 release notes at [`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md). The next cycle (v0.6.0) candidates are the 🟡 items below + the Backlog; open a Discussion thread per the no-Discussion-no-roadmap rule.*

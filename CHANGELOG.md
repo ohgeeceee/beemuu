@@ -83,6 +83,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - N/A
 
+## [0.5.0] — 2026-07-15
+
+The "Ground Truth" release. v0.5.0 closes the loop on the v0.3/v0.4
+decoder + UI plumbing by validating the abstractions against real
+hardware, surfacing the small tuner-facing features that depend
+on real-car evidence, and providing the harness for F/G-series
+owners to fill in the remaining `[needs verification]` markers.
+
+### Added
+
+- **Real-car u8_enum validation harness**
+  ([`docs/validation/u8_enum-validation.md`](docs/validation/u8_enum-validation.md))
+  — checklist for an F/G-series owner with an ENET adapter to
+  validate the example enum DIDs (`gear` / `engine_state` /
+  `knock_detect`) shipped in v0.4 (PR #60). Three identical-shape
+  per-DID tables with pass/fail checkboxes, expected-state
+  mappings, and results-submission instructions. Doc-only.
+  See PR #72.
+- **N55 fuel-trim / adaptation DIDs** in
+  [`community/profiles/n55.toml`](community/profiles/n55.toml) —
+  long-term fuel trim (`DID 0x1201`) and idle adaptation
+  (`DID 0x1202`) on N55 F/G-series DME. Both marked
+  `[needs verification]` until an F/G-series owner validates
+  them via the same harness pattern as the u8_enum DIDs. The
+  DIDs are sourced from the project's own
+  [`TECH_SPECS.md`](docs/TECH_SPECS.md) (Adaptation Drift
+  Tracker section), not forum threads. Existing `s16_div100`
+  decoder covers the percent scaling; no new decoder needed.
+  B58 fuel-trim deliberately deferred (no documented source).
+  See PR #73.
+- **Severity-class styling for enum channels** — pure JS / CSS
+  helper `severityClass(text)` in
+  [`src/js/live_format.js`](src/js/live_format.js) maps enum-style
+  labels to `severity-critical` / `severity-warning` / `""` CSS
+  classes. Case-insensitive exact match. The gauge grid and
+  the Logging-tab channel list both apply the class so
+  `knock_detect`'s "Moderate" or "Severe" states get visible
+  amber / red emphasis. 14 unit tests (8 prior + 6 new).
+  See PR #74.
+- **`v0.5.0_first_pr.md`** — spec doc for the v0.5.0 cycle's
+  first PR (the validation harness). Mirrors
+  `v0.4.0_first_pr.md`'s shape.
+
 ## [0.3.0] — 2026-07-11
 
 The "Community Intelligence" release. v0.3.0 turns the v0.2.0 data layer into
