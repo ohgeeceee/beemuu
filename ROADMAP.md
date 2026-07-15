@@ -124,6 +124,11 @@ plan. Summary below.
 | Real-car u8_enum validation harness | 🟢 Ready | Doc-only. Checklist for an F/G owner with ENET adapter to validate the `[needs verification]` enum DIDs from PR #60. |
 | Real-car fuel-trim / adaptation readout | 🟢 Ready | Adds the fuel-trim DIDs (`0x4116` / `0x4117` / `0x4118` on BMW DME) marked `[needs verification]`. Likely no new decoder needed. |
 | Real-car knock-detection visualisation polish | 🟢 Ready | Pure JS; flag severity-bearing `LiveValue.text` values (Moderate / Severe) with a visual indicator. |
+| README profile-listing fix | ✅ Done | Doc-only; README + ROADMAP + CHANGELOG drift fix. Shipped in PR #59. |
+| Histograms of logged channels | ✅ Done | Pure client-side; 13 unit tests. Shipped in PR #62. |
+| `u8_enum` decoder + enum tables | ✅ Done | Includes per-parameter enum-map TOML parsing, frontend wiring (PRs #64–66), and 9 unit tests. Shipped in PR #60 (+ #64/#65/#66 for the frontend). |
+| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #67 so a future contributor can add chassis-validated routine IDs for EGS (0x18) and DSC (0x29). No routine IDs invented without real-car validation — wrong IDs could brick NV memory on those modules. |
+| `$5 AliExpress ENET cable pinout doc` | ✅ Done | Doc-only; `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
 
 ### 🟡 Needs research — not in this cycle
 
@@ -184,3 +189,4 @@ These are explicitly **not** v0.5.0 or v0.6.0 work:
 cycle active; see [`docs/v0.5.0_plan.md`](docs/v0.5.0_plan.md) for
 the cycle plan. v0.5.0 release notes forthcoming at
 [`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md).*
+*Last updated: 2026-07-15. v0.4.0 marked shipped; the five Ready items now show ✅ Done. v0.4.0 release notes at [`RELEASE_NOTES_v0.4.0.md`](RELEASE_NOTES_v0.4.0.md).*
