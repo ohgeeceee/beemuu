@@ -8,7 +8,8 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
-    "test:dtc": "node --test server/dtc/test/*.test.js"
+    "test:dtc": "node --test server/dtc/test/*.test.js",
+    "test:js": "node --test src/js/test/*.test.cjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

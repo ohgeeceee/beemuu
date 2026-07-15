@@ -31,7 +31,9 @@ class Gauge {
       return;
     }
     this.textOverride = null;
-    this.value = Math.max(this.min, Math.min(this.max, value));
+    // Shared with the test harness (`src/js/test/live_format.test.cjs`)
+    // and the CSV exporter in main.js. Keep the rule in one place.
+    this.value = window.LiveFormat.clampGaugeValue(value, this.min, this.max);
   }
 
   /* Called on an animation loop: ease displayed value toward target.
