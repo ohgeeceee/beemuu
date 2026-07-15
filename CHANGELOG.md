@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `community/profiles/n55.toml`: `gear` (DA0A), `engine_state`
   (4004), `knock_detect` (401F). Marked `[needs verification]`
   pending real-car validation.
+- `docs/hardware/enet-cable-pinout.md` — DIY OBD-II → RJ45 wiring
+  for the $5 AliExpress BMW ENET cable (F/G-series). Covers the
+  pinout (3, 11, 12, 13 ↔ 1, 2, 3, 6), the 100 Ω termination
+  resistor, verification steps, and the Rx/Tx-crossed failure mode
+  that bites the unwary.
+- `docs/hardware/README.md` — index page for the new hardware-docs
+  directory.
 
 ### Changed
 - README § "What's coming" rewritten so shipped features (Diagnostic
