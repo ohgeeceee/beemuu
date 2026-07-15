@@ -295,7 +295,8 @@ Mark unverified enum entries with `[needs verification]` in the TOML.
 
 **Implementation hint:** Unlike numeric decodes, `u8_enum` requires a lookup table
 per-DID. The cleanest approach is to store the enum map in the TOML profile
-and have the backend resolve it at runtime:
+and have the backend resolve it at runtime. The map is a TOML inline table of
+**quoted decimal byte keys** (`"0"`, `"1"`, …) → label strings:
 
 ```toml
 # Example profile entry
@@ -306,19 +307,27 @@ unit = ""
 target = 0x18
 query = "did:DA0A"
 decode = "u8_enum"
-enum = { 0x00 = "P/N", 0x01 = "1", 0x02 = "2", 0x03 = "3", 0x04 = "4", 0x05 = "5", 0x06 = "6", 0x0F = "Error" }
+enum = { "0" = "P/N", "1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "15" = "Error" }
 min = 0.0
 max = 15.0
 ```
 
+> **TOML syntax note.** The `toml` crate's inline-table keys are typed
+> as strings — there is no syntax that yields u8 keys directly. The Rust
+> loader first deserializes into `HashMap<String, String>`, then
+> `parse_enum_map` converts each key to `u8` and silently drops any key
+> that doesn't parse as a byte (e.g. `"256"`, `"-1"`, `"banana"`).
+> Quoted decimal keys are the canonical contributor-facing syntax.
+
 ```rust
-// Pseudocode — backend resolves enum at runtime
-decode::u8_enum => {
-    let raw = bytes[0];
-    match profile.enum_map.get(&raw) {
-        Some(label) => label.clone(),
-        None => format!("0x{:02X}", raw),  // fallback to hex string
-    }
+// The numeric `decode()` returns None for U8Enum; the enum pipeline
+// is separate so callers don't have to invent a string-or-number
+// union type. The caller in commands.rs::read_live_data checks the
+// variant and routes to decode_enum_string when appropriate.
+decode_enum_string(Decode::U8Enum, bytes, enum_map) -> Option<String> {
+    if !matches!(decode, Decode::U8Enum) { return None; }
+    let byte = bytes.first().copied()?;
+    enum_map.get(&byte).cloned()  // None when byte isn't in the map
 }
 ```
 

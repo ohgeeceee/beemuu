@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cycle) with explicit Ready / Needs-research / Deferred split.
 - `docs/v0.4.0_first_pr.md` — spec for the v0.4.0 first PR (README
   drift cleanup).
+- `u8_enum` decoder + per-parameter enum-map pipeline
+  (`src-tauri/src/data/live.rs`, `src-tauri/src/community.rs`,
+  `src-tauri/src/commands.rs`). Resolves raw bytes against a
+  `HashMap<u8, String>` loaded from TOML and emits the label as
+  `LiveValue.text`. Six new unit tests + three TOML-loader tests.
+- Example enum DIDs in `community/profiles/b58.toml` and
+  `community/profiles/n55.toml`: `gear` (DA0A), `engine_state`
+  (4004), `knock_detect` (401F). Marked `[needs verification]`
+  pending real-car validation.
 
 ### Changed
 - README § "What's coming" rewritten so shipped features (Diagnostic
@@ -23,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Adaptive Drift Tracker, Tuning Fingerprint Detector) are moved to
   a clearly-labelled "ideas being explored, not on the roadmap"
   subsection. No code change.
+- `docs/DECODE_FUNCTIONS.md` § 8 updated with the actual user-facing
+  TOML syntax (`enum = { "0" = "P/N", ... }`, quoted decimal byte
+  keys) and the `parse_enum_map` rationale.
 
 ### Fixed
 - N/A
