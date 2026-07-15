@@ -13,7 +13,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v0.4.0](https://img.shields.io/badge/release-v0.4.0-success.svg)](RELEASE_NOTES_v0.4.0.md)
+[![v0.5.0](https://img.shields.io/badge/release-v0.5.0-success.svg)](RELEASE_NOTES_v0.5.0.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core with a Python diagnostic backend in `bmw_diag/` — for talking to
@@ -125,32 +125,15 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The active release cycle is **v0.4.0 — "Tuner Friendly"** (target date
-not yet set). Items currently 🟢 Ready and queued for this cycle:
+The previous cycle was **v0.4.0 — "Tuner Friendly"** (shipped
+2026-07-15). The v0.5.0 cycle ("Ground Truth") was the validation
++ real-car-data cycle that followed. See the **v0.5.0 — first
+items shipped** section below for what just landed, and
+[`ROADMAP.md`](ROADMAP.md) for the v0.6.0+ candidates.
 
-- **Histograms of logged channels** — distribution of values over a
-  CSV log (knock retard, boost error, etc.). Client-side; no protocol
-  change.
-- **`u8_enum` decoder + enum tables** — the one decoder from the v0.3.0
-  list that did *not* ship (gear position, engine state, knock state
-  as named strings, not numbers). Spec in
-  [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8.
-- **CBS reset for EGS / DSC** — extend the existing CBS reset to other
-  modules. (`src-tauri/src/data/service_functions.rs`.)
-- **$5 AliExpress ENET cable pinout doc** ✅ — shipped in PR #61.
-  See [`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md)
-  for the OBD-II → RJ45 wiring + 100 Ω termination.
-- **README/roadmap drift cleanup** *(this PR)* — fix the "What's coming"
-  bullets below so they stop contradicting the shipped state.
+### Recently shipped (v0.4.0 — 2026-07-15)
 
-Larger items (log merge, custom math channels, knock visualisation,
-real-car B58/N55 F-series validation, OBDLink MX+ support) are 🟡 and
-will move to 🟢 once the prerequisites land. See [`ROADMAP.md`](ROADMAP.md)
-for full status.
-
-### Recently shipped (v0.3.0 — 2026-07-11)
-
-For context — these are already in the binary and are *not* "coming":
+For context — these are in the binary and are *not* "coming":
 
 - **Diagnostic Story** ✅ — turn a session snapshot into a mechanic's
   narrative report. Local model, no cloud.
@@ -163,19 +146,38 @@ For context — these are already in the binary and are *not* "coming":
   ([`src-tauri/src/opinions.rs`](src-tauri/src/opinions.rs))
 - **VPS-hosted backend** ✅ — full read-only deployment with admin
   panel, DTC bootstrap, and 44-test suite. ([`backend/`](backend/))
-
-### v0.4.0 "Tuner Friendly" — first items shipped
-
-- **`u8_enum` decoder** ✅ (PR #60) — the one decoder from the
-  v0.3.0 list that genuinely didn't ship. Maps raw bytes to named
-  labels (gear, engine state, knock detection) via a per-parameter
-  TOML map. Foundation for the rest of v0.4.
-  ([`src-tauri/src/data/live.rs`](src-tauri/src/data/live.rs),
+- **`u8_enum` decoder + enum tables** ✅ (PR #60 + frontend #64–#66) —
+  the one decoder from the v0.3.0 list that genuinely didn't ship.
+  Maps raw bytes to named labels (gear, engine state, knock
+  detection) via a per-parameter TOML map. Foundation for the
+  rest of v0.4. ([`src-tauri/src/data/live.rs`](src-tauri/src/data/live.rs),
   [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8)
-- **$5 AliExpress ENET cable pinout doc** ✅ (PR #61) — DIY OBD-II →
-  RJ45 wiring + 100 Ω termination, for hobbyists who'd rather
-  solder than pay $60 for the official cable.
-  ([`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md))
+- **Histogram viewer for logged channels** ✅ (PR #62) — pure
+  client-side; reuses Chart.js bar mode. 13 unit tests.
+- **`ServiceFunction` multi-module data shape** ✅ (PR #67) —
+  foundation for chassis-validated EGS/DSC CBS resets. Routine
+  IDs intentionally not invented; defer to real-car testing.
+- **$5 AliExpress ENET cable pinout doc** ✅ (PR #61) — DIY
+  OBD-II → RJ45 wiring + 100 Ω termination. ([`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md))
+
+### v0.5.0 "Ground Truth" — items shipped
+
+- **Real-car u8_enum validation harness** ✅ (PR #72) — checklist
+  for an F/G-series owner with an ENET adapter to validate the
+  example enum DIDs (`gear` / `engine_state` / `knock_detect`)
+  marked `[needs verification]` in PR #60. ([`docs/validation/u8_enum-validation.md`](docs/validation/u8_enum-validation.md))
+- **N55 fuel-trim / adaptation DIDs** ✅ (PR #73) — long-term
+  fuel trim (`DID 0x1201`) and idle adaptation (`DID 0x1202`)
+  on N55 F/G-series DME. Marked `[needs verification]`; the
+  values come from the project's own `TECH_SPECS.md`, not
+  forum-sourced guesses. B58 fuel-trim deliberately deferred
+  (no documented source).
+- **Severity-class styling for enum channels** ✅ (PR #74) —
+  pure JS/CSS helper (`severityClass`) maps enum text to
+  severity tiers (warning / critical). The gauge grid and
+  the Logging-tab channel list both apply the class so
+  `knock_detect`'s "Moderate" or "Severe" states get visible
+  amber / red emphasis. 14 unit tests for the helper.
 
 ### Ideas being explored (not on the roadmap yet)
 
@@ -190,10 +192,10 @@ the "no feature without a Discussion" rule.
 - **Tuning Fingerprint Detector** — compare live-data distributions
   against a stock baseline (useful when buying used).
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.3.0**
-(2026-07-11), "Community Intelligence" — Community Oracle, DTC
-Opinions, Diagnostic Story, and the VPS-hosted backend. See
-[`RELEASE_NOTES_v0.3.0.md`](RELEASE_NOTES_v0.3.0.md).
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.5.0**
+(2026-07-15), "Ground Truth" — u8_enum validation harness,
+fuel-trim DIDs, severity-class styling. See
+[`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md).
 
 ---
 
