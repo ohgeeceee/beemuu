@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Unknown U8Enum bytes now render as `0xNN ?` in the gauge instead of
+  silently disappearing. `live::decode_enum_string_or_unknown` is the
+  wider-stance sibling of `decode_enum_string` — `commands::read_live_data`
+  uses it so every sample produces a `LiveValue`. Five new unit tests.
+  See PR #66.
+- `npm run test:js` runs the new `node --test` harness covering
+  `src/js/live_format.js` (the pure helpers shared between
+  `Gauge.set` and `buildLogCsv`). Eight tests lock down CSV cell
+  formatting (enum labels as quoted JSON strings, numeric `toFixed(2)`,
+  missing-point handling) and gauge numeric-clamp semantics. Add
+  a new helper in `live_format.js`? Add a test alongside it.
+  See PR #65.
 - Frontend wiring for `LiveValue.text` enum labels (backend in PR #60).
   `Gauge.set(value, label?)` enters text mode when a label is present:
   dial, ticks, and needle are hidden and the label is drawn centred with
