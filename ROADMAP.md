@@ -12,6 +12,7 @@ promised in any order — contributors are welcome to grab anything marked
 | 🟡 Needs research | Not well understood yet; needs investigation |
 | 🟢 Ready | Well-scoped; open a PR when you want it |
 | ⭐ High impact | Would significantly improve user experience |
+| ✅ Done | Shipped in the named release |
 
 ---
 
@@ -31,37 +32,27 @@ of that file), and the corresponding DIDs are already uncommented in
 | Add `s16_div4` | ✅ Done | DME temperature (4001) — signed |
 | Add `s16_div100` | ✅ Done | Engine torque (4500), ambient air temp (4016) |
 | Add `u8_div100` | ✅ Done | Lambda (400B), injection time (4363) |
-| Add `u8_enum` | 🟡 Deferred | Spec'd in `docs/DECODE_FUNCTIONS.md` § 8; requires per-DID enum table in TOML profile. Genuinely extra work — *not* just "uncomment lines." Pull forward if a contributor wants it. |
+| Add `u8_enum` | ✅ Done (v0.4.0) | Spec'd in `docs/DECODE_FUNCTIONS.md` § 8; shipped in PR #60 (+ frontend wiring in #64–#66). |
 
 ### ⭐ Real-Car Validation
 
 | Item | Status | Notes |
 |------|--------|-------|
-| B58 F/G-series UDS DID test | 🟡 Needs research | Need owner with ENET adapter + F/G chassis |
-| N55 F-series UDS DID test | 🟡 Needs research | Same as above; F30/F32 owners ideal |
-| N52 E-series KWP2000 local ID hunt | 🟡 Needs research | Use Parameter Explorer; document findings in issue |
-| N54 E-series KWP2000 local ID hunt | 🟡 Needs research | Same as above; E92 335i owners ideal |
-| E-series CAN broadcast frames | 🟡 Needs research | Validate 0x0AA (RPM), 0x1D0 (coolant), 0x545 (oil temp E46) |
-
-### 🔴 New Engine Profiles
-
-| Engine | Protocol | Status | Notes |
-|--------|----------|--------|-------|
-| N20/N26 (F-series 4-cyl) | UDS | 🟢 Ready | Similar to B58 DID set; needs real-car tester |
-| S55 (F80 M3/M4) | UDS | 🟢 Ready | High-performance variant of N55; oil temp critical |
-| N63/S63 (F10/F15 V8 TT) | UDS | 🟡 Needs research | Different DID set; fewer community sources |
-| B48 (G-series 4-cyl) | UDS | 🟡 Needs research | Newer protocol; may need DoIP support |
-| S58 (G80 M3/M4) | UDS | 🟡 Needs research | Newest; limited open-source data |
+| B58 F/G-series UDS DID test | 🟡 | Need owner with ENET adapter + F/G chassis |
+| N55 F-series UDS DID test | 🟡 | Same as above; F30/F32 owners ideal |
+| N52 E-series KWP2000 local ID hunt | 🟡 | Use Parameter Explorer; document findings in issue |
+| N54 E-series KWP2000 local ID hunt | 🟡 | Same as above; E92 335i owners ideal |
+| E-series CAN broadcast frames | 🟡 | Validate 0x0AA (RPM), 0x1D0 (coolant), 0x545 (oil temp E46) |
 
 ### ⭐ Protocol & Transport
 
 | Item | Status | Notes |
 |------|--------|-------|
-| ENET/DoIP auto-detection | 🟡 Needs research | Detect adapter type without manual selection |
+| ENET/DoIP auto-detection | 🟡 | Detect adapter without manual selection |
 | KWP2000 slow-module timeout fix | 🟢 Ready | CIC and other modules timeout on slow responses |
-| BLE adapter support | 🟡 Needs research | Vgate iCar Pro BLE, OBDLink CX, etc. |
-| WiFi adapter support | 🟡 Needs research | Vgate iCar Pro WiFi, OBDLink MX+ WiFi |
-| CAN bus listener mode | 🟡 Needs research | E-series alternative to KWP2000 local IDs |
+| BLE adapter support | 🟡 | Vgate iCar Pro BLE, OBDLink CX, etc. |
+| WiFi adapter support | 🟡 | Vgate iCar Pro WiFi, OBDLink MX+ WiFi |
+| CAN bus listener mode | 🟡 | E-series alternative to KWP2000 local IDs |
 | ISO-TP multi-frame (FF/CF/FC) | 🟢 Ready | Required for long UDS responses (VIN, full DTC list) |
 
 ### UI / UX
@@ -70,10 +61,10 @@ of that file), and the corresponding DIDs are already uncommented in
 |------|--------|-------|
 | Dark/light theme toggle | 🟢 Ready | Currently dark-only; CSS variables exist |
 | Gauge theming | 🟢 Ready | Per-profile color schemes (e.g., M colors for S55) |
-| Mobile-responsive layout | 🟡 Needs research | Tauri supports mobile; needs testing |
+| Mobile-responsive layout | 🟡 | Tauri supports mobile; needs testing |
 | Save/load workspace layout | 🟢 Ready | Remember which gauges user had open |
 | Export PNG/SVG from charts | 🟢 Ready | Useful for forum posts |
-| Real-time data logging to disk | 🟢 Ready | Stream CSV to file instead of in-memory only |
+| Real-time data logging to disk | ✅ Done (v0.4.0) | Stream CSV to file instead of in-memory only |
 
 ### 🟡 Research: E-series Data Desert
 
@@ -81,6 +72,7 @@ The open-source community has no published KWP2000 local identifier table for an
 BMW E-series DME (MSV70, MSV80, MSD80, MSD81, ME9.2). This is a structural gap.
 
 **Possible paths forward:**
+
 - CAN bus broadcast frame decoding (0x0AA, 0x1D0, 0x545, 0x0CE) — bypass KWP2000 entirely
 - Parameter Explorer crowdsourcing — every E-series owner who maps a local ID contributes to a community table
 - BSD protocol documentation — N52 oil condition sensor uses BSD, not KWP2000
@@ -89,44 +81,72 @@ See `research/bmw_diag_dim07_local_ids.md` for the exhaustive search results.
 
 ---
 
-## v0.4.0 — "Tuner Friendly" (Target: TBD)
+## v0.4.0 — "Tuner Friendly" (Shipped 2026-07-15)
 
 **Premise.** v0.3.0 shipped the decoder foundation (six new numeric decoders
-+ uncommented B58/N55 DIDs). v0.4.0 builds *tuner-facing* features on top
++ uncommented B58/N55 DIDs). v0.4.0 built *tuner-facing* features on top
 of that foundation — features that only make sense once real numbers like
 HPFP rail, boost command, lambda bank, and engine torque are actually
-readable. The first PR in this cycle is a small docs fix; see
-`docs/v0.4.0_first_pr.md`.
+readable.
 
-### ✅ Ready (small, can ship in any order)
+### ✅ Ready — all five shipped
 
 | Item | Status | Notes |
 |------|--------|-------|
-| README profile-listing fix | 🟢 Ready | Verify no other "in v0.3.0 / coming soon" claim is stale. First PR. |
-| Histograms of logged channels | 🟢 Ready | Operates on existing CSV log output; client-side (no protocol change). |
-| `u8_enum` decoder + enum tables | 🟢 Spec'd | Genuinely new work; spec already in `docs/DECODE_FUNCTIONS.md` § 8. |
-| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #63 so a future contributor can add chassis-validated routine IDs for EGS (0x18) and DSC (0x29). No routine IDs invented without real-car validation — wrong IDs could brick NV memory on those modules. |
-| `$5 AliExpress ENET cable pinout doc` | ✅ Done | Doc-only; `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
+| README profile-listing fix | ✅ Done | Doc-only; README + ROADMAP + CHANGELOG drift fix. Shipped in PR #59. |
+| Histograms of logged channels | ✅ Done | Pure client-side; 13 unit tests. Shipped in PR #62. |
+| `u8_enum` decoder + enum tables | ✅ Done | Per-parameter enum-map TOML parsing + frontend wiring (PRs #64–#66) + 9 unit tests. Shipped in PR #60. |
+| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #67. Routine IDs need real-car validation, not forum-sourced invention. |
+| `$5 AliExpress ENET cable pinout doc` | ✅ Done | `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
 
-### 🟡 Needs research (larger, defer if scope is tight)
+**Release.** [`RELEASE_NOTES_v0.4.0.md`](RELEASE_NOTES_v0.4.0.md)
+covers the cycle in detail: what's new, known limitations, upgrade
+instructions, contributors.
+
+---
+
+## v0.5.0 — "Ground Truth" (Active cycle)
+
+**Premise.** v0.4.0 finished the decoder + UI plumbing for tuner-style
+work. What's missing isn't more plumbing — it's **real-car evidence**
+and the small features that depend on it. v0.5.0 picks the cycle name
+"Ground Truth" because the work is about validating the abstractions
+we shipped in v0.3 / v0.4 against real hardware, and adding the narrow
+features that real-car owners actually need first.
+
+See [`docs/v0.5.0_plan.md`](docs/v0.5.0_plan.md) for the full cycle
+plan. Summary below.
+
+### 🟢 Ready — the three-PR spine
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Real-car u8_enum validation harness | 🟢 Ready | Doc-only. Checklist for an F/G owner with ENET adapter to validate the `[needs verification]` enum DIDs from PR #60. |
+| Real-car fuel-trim / adaptation readout | 🟢 Ready | Adds the fuel-trim DIDs (`0x4116` / `0x4117` / `0x4118` on BMW DME) marked `[needs verification]`. Likely no new decoder needed. |
+| Real-car knock-detection visualisation polish | 🟢 Ready | Pure JS; flag severity-bearing `LiveValue.text` values (Moderate / Severe) with a visual indicator. |
+
+### 🟡 Needs research — not in this cycle
+
+These stay on the v0.5.0 list as 🟡 items; some may move to 🟢 once the
+spine lands and real-car evidence accumulates:
 
 | Item | Status | Notes |
 |------|--------|-------|
 | Log file merge / comparison | 🟡 | Before/after diffing; client-side over CSV. |
 | Custom math channels | 🟡 | `map - baro`, `rail / load` etc.; needs safe expression sandbox. |
-| Knock detection visualisation | 🟡 | DIDs exist (DME-side); mostly a UI affordance over existing data. |
+| Knock detection visualisation (more) | 🟡 | Spine PR covers severity indicators; full distribution view is later. |
 | AFR / lambda bank readout polish | 🟡 | Decoder exists (400B); needs the wider lambda + O2 readiness story. |
-| Adaptation / fuel trim readout | 🟡 | Likely a new decode; needs real-car evidence. |
+| Adaptation / fuel trim readout (full) | 🟡 | Spine PR adds DIDs; per-bank polish is later. |
 | Injector duty cycle | 🟡 | Needs new decode; not in current table. |
-| Real-car validation B58 F/G | 🟡 | Owner with ENET + F/G chassis. **Hardest blocker.** |
-| Real-car validation N55 F-series | 🟡 | Same as above. |
 | Trigger-based logging | 🟡 | Threshold / DTC-crossed autostart. |
-| OBDLink MX+ support | 🟡 | USB + BLE; popular with iOS users (natural tuner audience). |
+| OBDLink MX+ support | 🟡 | USB + BLE; popular with iOS users. |
 | ENET/DoIP auto-detection | 🟡 | Detect adapter without manual selection. |
+| Real-car validation B58 F/G | 🟡 | Owner with ENET + F/G chassis. **Hardest blocker for next cycles.** |
+| Real-car validation N55 F-series | 🟡 | Same as above. |
 
-### Deferred to v0.5.0+
+### Deferred to v0.6.0+
 
-These are explicitly **not** v0.4.0 work:
+These are explicitly **not** v0.5.0 or v0.6.0 work:
 
 - Cloud sync (opt-in log upload) — needs privacy + ops story first.
 - Raspberry Pi CAN bridge — hardware project of its own.
@@ -153,10 +173,14 @@ These are explicitly **not** v0.4.0 work:
 
 ## How to Claim an Item
 
-1. Open a GitHub issue referencing this roadmap item (e.g., "Working on u16_tenths decode for v0.3.0")
+1. Open a GitHub issue referencing this roadmap item (e.g., "Working on
+   real-car u8_enum validation for v0.5.0")
 2. Comment on the issue so others know it's taken
 3. Open a PR when ready; reference the issue and this roadmap
 
 ---
 
-*Last updated: 2026-07-14. v0.3.0 decode-fn rows flipped to ✅ Done; v0.4.0 rewritten with explicit Ready / Needs-research / Deferred split.*
+*Last updated: 2026-07-15. v0.4.0 marked Shipped. v0.5.0 "Ground Truth"
+cycle active; see [`docs/v0.5.0_plan.md`](docs/v0.5.0_plan.md) for
+the cycle plan. v0.5.0 release notes forthcoming at
+[`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md).*
