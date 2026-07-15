@@ -161,6 +161,20 @@ body {
 .gauge-cell canvas { width: 100%; max-width: 220px; }
 .gauge-label { color: #9fb2c8; font-size: 12px; margin-top: 4px; }
 
+/* v0.5.0 PR #3 — severity-bearing enum channels (Light /
+ * Moderate / Severe etc.) get a coloured label so the eye
+ * lands on them immediately. The same class also drives the
+ * gauge text fillStyle in gauges.js (canvas layer). Two
+ * colour tiers: warning (amber) and critical (red). The
+ * default label colour stays the muted grey when no
+ * severity class applies. */
+.gauge-cell.severity-warning .gauge-label { color: #f4b400; font-weight: 600; }
+.gauge-cell.severity-critical .gauge-label { color: #e05545; font-weight: 600; }
+.log-param.severity-warning { border-left: 3px solid #f4b400; padding-left: 6px; }
+.log-param.severity-critical { border-left: 3px solid #e05545; padding-left: 6px; font-weight: 600; }
+.log-param.severity-warning span:not(.swatch) { color: #f4b400; }
+.log-param.severity-critical span:not(.swatch) { color: #e05545; }
+
 /* ---------- service functions ---------- */
 .service-list { padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 .service-item {

@@ -26,12 +26,61 @@ function clampGaugeValue(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+/* Map an enum-style label to a CSS class name for severity styling.
+ * Used by the gauge canvas (different `fillStyle`) and the
+ * Logging-tab channel display (class on the label span) when a
+ * LiveValue.text is severity-bearing.
+ *
+ * Returns:
+ *   "severity-critical" — text matches a critical keyword
+ *   "severity-warning"  — text matches a warning keyword
+ *   ""                  — text is informational / "None" / unknown
+ *
+ * Matching is case-insensitive and exact — partial matches like
+ * "none of the above" do not count as the "None" state. This is
+ * deliberate: it prevents accidental severity bumps from labels
+ * that happen to contain a keyword.
+ *
+ * Keyword lists are derived from the v0.4.0 example DIDs
+ * (community/profiles/{b58,n55}.toml). New severity-bearing
+ * enums added in the future should extend one of these lists
+ * (or add a new severity tier) — there is no per-DID
+ * configuration because that would push responsibility onto
+ * community-profile contributors, who shouldn't have to think
+ * about UI severity classes. */
+function severityClass(text) {
+  if (typeof text !== "string" || text.length === 0) return "";
+  const lower = text.toLowerCase();
+  // Critical keywords — pre-existing examples: "Severe".
+  // Add new critical-tier enum labels here as the community
+  // adds them.
+  if (
+    lower === "severe" ||
+    lower === "critical" ||
+    lower === "fault"
+  ) {
+    return "severity-critical";
+  }
+  // Warning keywords — pre-existing examples: "Light", "Moderate",
+  // "Warning".
+  if (
+    lower === "light" ||
+    lower === "moderate" ||
+    lower === "warning"
+  ) {
+    return "severity-warning";
+  }
+  // Informational / "None" / unknown. Empty string is the
+  // CSS-class equivalent of "no special styling".
+  return "";
+}
+
 /* Standardised export pattern for both Node (CommonJS test runner) and
  * the browser (window global). The check is defensive: browser context
  * has no `module`. */
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { csvCell, clampGaugeValue };
+  module.exports = { csvCell, clampGaugeValue, severityClass };
 }
 if (typeof window !== "undefined") {
-  window.LiveFormat = { csvCell, clampGaugeValue };
+  window.LiveFormat = { csvCell, clampGaugeValue, severityClass };
 }
