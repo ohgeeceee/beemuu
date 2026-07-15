@@ -222,3 +222,52 @@ label = "N55 3.0 turbo I6 (MSD81/MEVD17.2) [community, oil temp unverified]"
   decode = "u8_div100"
   min = 0.0
   max = 2.55
+
+
+  # ---- v0.4.0 enum decoder examples ----
+  # These three DIDs use the new `u8_enum` decoder. Each maps a raw
+  # byte to a human-readable label via the `enum = { ... }` inline
+  # table. Byte keys must be quoted decimal strings (the `toml`
+  # crate's inline-table keys are typed as strings; see
+  # docs/DECODE_FUNCTIONS.md § 8 for the full rationale).
+  #
+  # Source: OBDb (CC-BY-SA 4.0) for the byte -> state mappings;
+  # values are best-effort and need real-car validation. Mark with
+  # `[needs verification]` in the label until validated.
+  #
+  # NOTE on E-series KWP2000 (E9x/E70/E71 N55): these DIDs are
+  # UDS-only. They will NOT respond on KWP2000. The N55 E-series
+  # row already warns about this at the top of the file.
+
+  [[profile.param]]
+  id = "gear"
+  label = "Gear position (EGS) [UDS only]"
+  unit = ""
+  target = 0x18
+  query = "did:DA0A"
+  decode = "u8_enum"
+  enum = { "0" = "P/N", "1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "15" = "Error" }
+  min = 0.0
+  max = 15.0
+
+  [[profile.param]]
+  id = "engine_state"
+  label = "Engine state (DME) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4004"
+  decode = "u8_enum"
+  enum = { "0" = "Off", "1" = "Cranking", "2" = "Running", "3" = "Idle", "4" = "Overrun", "5" = "Shutdown" }
+  min = 0.0
+  max = 5.0
+
+  [[profile.param]]
+  id = "knock_detect"
+  label = "Knock detection (DME) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:401F"
+  decode = "u8_enum"
+  enum = { "0" = "None", "1" = "Light", "2" = "Moderate", "3" = "Severe" }
+  min = 0.0
+  max = 3.0
