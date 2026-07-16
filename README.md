@@ -13,7 +13,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v0.5.0](https://img.shields.io/badge/release-v0.5.0-success.svg)](RELEASE_NOTES_v0.5.0.md)
+[![v0.6.0](https://img.shields.io/badge/release-v0.6.0-success.svg)](RELEASE_NOTES_v0.6.0.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core with a Python diagnostic backend in `bmw_diag/` — for talking to
@@ -125,13 +125,14 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The previous cycle was **v0.4.0 — "Tuner Friendly"** (shipped
-2026-07-15). The v0.5.0 cycle ("Ground Truth") was the validation
-+ real-car-data cycle that followed. See the **v0.5.0 — first
-items shipped** section below for what just landed, and
-[`ROADMAP.md`](ROADMAP.md) for the v0.6.0+ candidates.
+The previous cycle was **v0.5.0 — "Ground Truth"** (shipped
+2026-07-15). The v0.6.0 cycle ("Real Hardware") was the
+first-uses-of-validated-pipeline cycle that followed. See
+the **v0.6.0 — items shipped** section below for what just
+landed, and [`ROADMAP.md`](ROADMAP.md) for the v0.7.0+
+candidates.
 
-### Recently shipped (v0.4.0 — 2026-07-15)
+### Recently shipped (v0.5.0 — 2026-07-15)
 
 For context — these are in the binary and are *not* "coming":
 
@@ -159,25 +160,44 @@ For context — these are in the binary and are *not* "coming":
   IDs intentionally not invented; defer to real-car testing.
 - **$5 AliExpress ENET cable pinout doc** ✅ (PR #61) — DIY
   OBD-II → RJ45 wiring + 100 Ω termination. ([`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md))
-
-### v0.5.0 "Ground Truth" — items shipped
-
-- **Real-car u8_enum validation harness** ✅ (PR #72) — checklist
-  for an F/G-series owner with an ENET adapter to validate the
-  example enum DIDs (`gear` / `engine_state` / `knock_detect`)
-  marked `[needs verification]` in PR #60. ([`docs/validation/u8_enum-validation.md`](docs/validation/u8_enum-validation.md))
 - **N55 fuel-trim / adaptation DIDs** ✅ (PR #73) — long-term
   fuel trim (`DID 0x1201`) and idle adaptation (`DID 0x1202`)
   on N55 F/G-series DME. Marked `[needs verification]`; the
   values come from the project's own `TECH_SPECS.md`, not
-  forum-sourced guesses. B58 fuel-trim deliberately deferred
-  (no documented source).
+  forum-sourced guesses.
 - **Severity-class styling for enum channels** ✅ (PR #74) —
   pure JS/CSS helper (`severityClass`) maps enum text to
-  severity tiers (warning / critical). The gauge grid and
-  the Logging-tab channel list both apply the class so
-  `knock_detect`'s "Moderate" or "Severe" states get visible
-  amber / red emphasis. 14 unit tests for the helper.
+  severity tiers (warning / critical). `knock_detect`'s
+  "Moderate" or "Severe" states get visible amber / red
+  emphasis. 14 unit tests for the helper.
+- **Real-car u8_enum validation harness** ✅ (PR #72) —
+  checklist for an F/G-series owner with an ENET adapter to
+  validate the example enum DIDs (`gear` / `engine_state` /
+  `knock_detect`) marked `[needs verification]`.
+  ([`docs/validation/u8_enum-validation.md`](docs/validation/u8_enum-validation.md))
+
+### v0.6.0 "Real Hardware" — items shipped
+
+- **Log-merge / comparison modal** ✅ (PR #77) — pure
+  client-side over CSV; per-channel mean / std-dev / max deltas;
+  side-by-side rendering on the Logging tab. The "before vs.
+  after my tune" workflow, which is the single most common
+  tuner use case. 16 unit tests for the math.
+- **Real-car injector-time validation harness** ✅ (PR #80) —
+  checklist for an F/G-series owner to validate the
+  pre-existing `inj_time` channel (`DID 0x4363`, ms per
+  cylinder) on B58 / N55 by comparing against ISTA at three
+  steady-state points (idle / cruise / WOT). Plus the
+  retroactive `[needs verification, UDS only]` marker on
+  the `inj_time` labels in both profile TOMLs — matching the
+  v0.5.0 PR #73 discipline. ([`docs/validation/injector-validation.md`](docs/validation/injector-validation.md))
+- **OBD-II mode 01 PID auto-discovery** ✅ (PR #81) — new
+  `protocol::scan_obd2_pids()` helper walks SAE J1979 PID
+  bitmasks to report which standard OBD-II PIDs a single ECU
+  actually responds to. Surfaced on the Vehicle Test tab via
+  a "Scan OBD-II PIDs" button that renders the supported set
+  as a grid of monospace hex cells. Useful diagnostic before
+  opening Parameter Explorer. 5 new unit tests.
 
 ### Ideas being explored (not on the roadmap yet)
 
@@ -192,10 +212,10 @@ the "no feature without a Discussion" rule.
 - **Tuning Fingerprint Detector** — compare live-data distributions
   against a stock baseline (useful when buying used).
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.5.0**
-(2026-07-15), "Ground Truth" — u8_enum validation harness,
-fuel-trim DIDs, severity-class styling. See
-[`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md).
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.6.0**
+(2026-07-16), "Real Hardware" — log-merge modal, injector-time
+validation harness, OBD-II PID auto-discovery. See
+[`RELEASE_NOTES_v0.6.0.md`](RELEASE_NOTES_v0.6.0.md).
 
 ---
 

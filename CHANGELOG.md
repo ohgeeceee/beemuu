@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Placeholder for v0.7.0+ work.
+
+## [0.6.0] - 2026-07-16
+
+### Added
 - OBD-II mode 01 PID auto-discovery
   ([`src-tauri/src/protocol/mod.rs`](src-tauri/src/protocol/mod.rs))
   — new `scan_obd2_pids()` helper walks SAE J1979 PID bitmasks
