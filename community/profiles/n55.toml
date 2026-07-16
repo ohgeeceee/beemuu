@@ -215,7 +215,7 @@ label = "N55 3.0 turbo I6 (MSD81/MEVD17.2) [community, oil temp unverified]"
 
   [[profile.param]]
   id = "inj_time"
-  label = "Injection time (per cylinder)"
+  label = "Injection time (per cylinder) [needs verification, UDS only]"
   unit = "ms"
   target = 0x12
   query = "did:4363"

@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Real-car injector-time validation harness
+  ([`docs/validation/injector-validation.md`](docs/validation/injector-validation.md))
+  — checklist for an F/G-series owner to validate the
+  `inj_time` channel (DID `0x4363`, target `0x12`) on B58 /
+  N55 by comparing against ISTA at three steady-state points
+  (idle / cruise / WOT). Mirrors the v0.5.0 PR #72 u8_enum
+  harness shape. Doc-only.
+- The `inj_time` labels in
+  [`community/profiles/b58.toml`](community/profiles/b58.toml)
+  and [`community/profiles/n55.toml`](community/profiles/n55.toml)
+  now carry the `[needs verification, UDS only]` marker,
+  matching the v0.5.0 PR #73 discipline for the example
+  enum / fuel-trim DIDs. The DID, decode, and range are
+  unchanged — only the label is updated.
 - Unknown U8Enum bytes now render as `0xNN ?` in the gauge instead of
   silently disappearing. `live::decode_enum_string_or_unknown` is the
   wider-stance sibling of `decode_enum_string` — `commands::read_live_data`
