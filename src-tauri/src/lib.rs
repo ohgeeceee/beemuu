@@ -71,6 +71,7 @@ pub fn run() {
             commands::connect,
             commands::disconnect,
             commands::scan_modules,
+            commands::list_supported_pids,
             commands::read_faults,
             commands::read_freeze_frame,
             commands::get_freeze_schema,

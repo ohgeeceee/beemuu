@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- OBD-II mode 01 PID auto-discovery
+  ([`src-tauri/src/protocol/mod.rs`](src-tauri/src/protocol/mod.rs))
+  — new `scan_obd2_pids()` helper walks SAE J1979 PID bitmasks
+  (`0x00 / 0x20 / 0x40 / 0x60`) to report which standard OBD-II
+  PIDs a single ECU actually responds to. Stop-at-first-zero
+  bitmask byte keeps the scan bounded; bitmask PIDs that fail
+  their own probe are skipped per-block. Wrapped in a new
+  Tauri command `list_supported_pids(address)` and surfaced
+  on the Vehicle Test tab via a "Scan OBD-II PIDs" button
+  that renders the supported set as a grid of monospace
+  hex cells. Five new unit tests in `protocol/mod.rs` cover
+  the bitmask decoder (MSB-first), the multi-block walk, the
+  empty bitmask case, and the "bitmask says yes but data read
+  fails" drop-on-mismatch case. See PR #81.
 - Real-car injector-time validation harness
   ([`docs/validation/injector-validation.md`](docs/validation/injector-validation.md))
   — checklist for an F/G-series owner to validate the
