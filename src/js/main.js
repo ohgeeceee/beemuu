@@ -343,6 +343,7 @@ async function selectModule(address) {
   $("btn-export-faults").disabled = false;
   $("btn-clear-faults").disabled = sessionReplay;
   $("freeze-panel").classList.add("hidden");
+  showObdPidPanel();
   await readFaults();
   await loadOracle(address);
 }
@@ -598,6 +599,39 @@ async function doSecureShare() {
 }
 
 $("btn-read-faults").addEventListener("click", readFaults);
+
+/* ---------------- OBD-II PID scan ---------------- */
+// Show the OBD-II panel only when a present ECU is selected. Hidden
+// alongside the rest of the detail panels when nothing is selected.
+function showObdPidPanel() {
+  const panel = $("obd-pid-panel");
+  if (!panel) return;
+  const present = modules.find((m) => m.address === selectedAddress)?.present;
+  panel.classList.toggle("hidden", !present);
+}
+
+$("btn-obd-pid-scan").addEventListener("click", async () => {
+  if (selectedAddress == null) { log("Select a control unit first."); return; }
+  if (!connected) { log("Connect first."); return; }
+  showObdPidPanel();
+  const body = $("obd-pid-body");
+  body.innerHTML = `<span class="muted">Scanning OBD-II PIDs on 0x${selectedAddress.toString(16).toUpperCase().padStart(2, "0")}…</span>`;
+  try {
+    const pids = await invoke("list_supported_pids", { address: selectedAddress });
+    if (!pids || pids.length === 0) {
+      body.innerHTML = `<span class="muted">No OBD-II PIDs responded. The ECU may not implement mode 01 (BMW-specific DME modules often don't), or the adapter is not in OBD-II mode.</span>`;
+      return;
+    }
+    const cells = pids
+      .map((p) => `<span class="obd-pid-cell" title="PID 0x${p.toString(16).toUpperCase().padStart(2, "0")}">0x${p.toString(16).toUpperCase().padStart(2, "0")}</span>`)
+      .join("");
+    body.innerHTML = `<span>${pids.length} PID${pids.length === 1 ? "" : "s"} responded:</span><div class="obd-pid-grid">${cells}</div>`;
+    log(`OBD-II scan complete: ${pids.length} PID(s) supported on 0x${selectedAddress.toString(16).toUpperCase().padStart(2, "0")}`);
+  } catch (e) {
+    body.innerHTML = `<span class="muted">Scan failed: ${e}</span>`;
+    log("OBD-II scan failed: " + e);
+  }
+});
 
 $("btn-clear-faults").addEventListener("click", async () => {
   if (selectedAddress == null) return;

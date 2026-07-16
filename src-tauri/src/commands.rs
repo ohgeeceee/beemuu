@@ -109,6 +109,22 @@ pub fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuInfo>, S
     })
 }
 
+/// OBD-II mode 01 PID scan on a single ECU. Returns the set of PIDs the
+/// ECU actually responds to (`0x00..=0x7F`). Used by the Vehicle Test
+/// tab's "Scan OBD-II PIDs" button to answer "what does this module
+/// actually support?" before the user opens Parameter Explorer.
+///
+/// Protected path: touches `protocol::scan_obd2_pids` (the OBD-II / UDS
+/// byte surface). Flagged at the top of the PR description per the
+/// project's protected-path discipline.
+#[tauri::command]
+pub fn list_supported_pids(
+    state: tauri::State<'_, AppState>,
+    address: u8,
+) -> Result<Vec<u8>, String> {
+    with_transport(&state, |t| protocol::scan_obd2_pids(t, address))
+}
+
 #[tauri::command]
 pub fn read_faults(state: tauri::State<'_, AppState>, address: u8) -> Result<Vec<Dtc>, String> {
     with_transport(&state, |t| protocol::read_dtcs(t, address))

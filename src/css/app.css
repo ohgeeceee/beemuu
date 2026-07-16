@@ -275,6 +275,26 @@ body[data-theme="dark"] .opinion-tab { background: #161f2e; border-color: #3a2a1
 body[data-theme="dark"] .opinion-tab.active { background: #f5a623; color: #1f1a10; }
 body[data-theme="dark"] .opinion-card { background: #161f2e; border-color: #3a2a1a; }
 
+/* ----- OBD-II PID scan panel ----- */
+.obd-pid-panel { border-top: 2px solid #6c5ce7; background: #f4f1ff; }
+.obd-pid-panel.hidden { display: none; }
+.obd-pid-head { padding: 8px 12px; font-weight: 600; font-size: 13px; color: #3d348b; display: flex; justify-content: space-between; align-items: center; }
+.obd-pid-body { padding: 8px 12px 12px; font-size: 12px; color: var(--text); }
+.obd-pid-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.obd-pid-cell {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid #c8c0e8;
+  color: #3d348b;
+}
+body[data-theme="dark"] .obd-pid-panel { background: #1a1730; border-top-color: #8e7dd6; }
+body[data-theme="dark"] .obd-pid-head { color: #c8b9ff; }
+body[data-theme="dark"] .obd-pid-cell { background: #2a2440; border-color: #4a3f70; color: #c8b9ff; }
+
 /* ----- Schematics sidebar (CC0 wiring-diagram links) ----- */
 .schematics-panel { border-top: 2px solid #1e6f9f; background: #f0f7fb; }
 .schematics-panel.hidden { display: none; }

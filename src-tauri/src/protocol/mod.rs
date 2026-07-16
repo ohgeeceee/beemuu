@@ -136,6 +136,80 @@ pub fn read_obd_pid(t: &mut dyn Transport, target: u8, pid: u8) -> PResult<Vec<u
     }
 }
 
+/// Scan OBD-II mode 01 PIDs `0x00..=0x7F` and return the set the ECU
+/// actually responds to.
+///
+/// Algorithm: per SAE J1979, PID `0x00` returns a 4-byte bitmask where
+/// bit `7-n` (MSB-first) of byte `n/8` indicates support for PID `n+1`
+/// through `n+8`. The four bitmask blocks (PIDs 0x00, 0x20, 0x40, 0x60)
+/// are independent — a real ECU may answer `0x00` (block 1) and `0x40`
+/// (block 3) but not `0x20` (block 2). We probe each bitmask PID
+/// individually; an empty mask byte for a given block skips that
+/// block's data-PID probe but does NOT abort the scan, so we still
+/// catch the higher blocks.
+///
+/// The returned `Vec<u8>` includes both the bitmask PIDs (`0x00`, `0x20`,
+/// `0x40`, `0x60`) and the data PIDs they report as supported.
+/// For PIDs where the bitmask says "supported" but the actual read fails
+/// (rare; the bitmask is usually truthful), we drop the PID from the
+/// returned list. A diagnostic caller that needs the per-PID failure
+/// reason can probe the missing ones individually.
+pub fn scan_obd2_pids(t: &mut dyn Transport, target: u8) -> PResult<Vec<u8>> {
+    let mut supported = Vec::new();
+    // Always include PID 0x00 itself (the bitmask PID).
+    if let Ok(data) = read_obd_pid(t, target, 0x00) {
+        if !data.is_empty() {
+            supported.push(0x00);
+        }
+        // J1979 bitmask is 4 bytes; if the ECU returns fewer, pad with zeros.
+        let mut mask = [0u8; 4];
+        for (i, b) in data.iter().take(4).enumerate() {
+            mask[i] = *b;
+        }
+        // Walk PIDs 0x01..0x20, 0x21..0x40, 0x41..0x60, 0x61..0x80 against
+        // each of the 4 mask bytes. The bitmask PID 0x00 covers 0x01..0x20,
+        // 0x20 covers 0x21..0x40, etc. — but a real ECU may not respond to
+        // every bitmask PID, so we test what we can and stop at the first
+        // unsupported block.
+        for (mask_idx, &mask_byte) in mask.iter().enumerate() {
+            let bitmask_pid = 0x20u8.wrapping_mul(mask_idx as u8);
+            // Probe the bitmask PID itself (0x20, 0x40, 0x60) for
+            // blocks 2-4; PID 0x00 was already probed above. If the
+            // bitmask PID fails, the block is unsupported even if
+            // the previous mask byte said otherwise — skip the inner
+            // loop for this block but continue probing later blocks
+            // (a real ECU may respond to 0x40 even if it didn't to
+            // 0x20).
+            if bitmask_pid != 0 && read_obd_pid(t, target, bitmask_pid).is_err() {
+                continue;
+            }
+            // Record the bitmask PID (0x20/0x40/0x60) as supported —
+            // if the probe above succeeded, it's a real answer.
+            if bitmask_pid != 0 {
+                supported.push(bitmask_pid);
+            }
+            // If both the bitmask PID and the data byte say "nothing
+            // supported in this block," we can short-circuit and skip
+            // remaining higher blocks too: PIDs 0x41..0x60 and
+            // 0x61..0x80 are independent per J1979, but a zero
+            // bitmask byte strongly implies the ECU doesn't bother
+            // with anything in that range.
+            if mask_byte == 0 {
+                continue;
+            }
+            for bit in 0..8 {
+                let pid = (bitmask_pid.wrapping_add(1)).wrapping_add(bit);
+                if mask_byte & (1 << (7 - bit)) != 0 {
+                    if read_obd_pid(t, target, pid).is_ok() {
+                        supported.push(pid);
+                    }
+                }
+            }
+        }
+    }
+    Ok(supported)
+}
+
 /// KWP readDataByLocalIdentifier (21 <id>) -> data bytes after [61, id].
 pub fn read_local_ident(t: &mut dyn Transport, target: u8, id: u8) -> PResult<Vec<u8>> {
     let resp = service(t, target, &[0x21, id])?;
@@ -184,5 +258,116 @@ pub fn routine(t: &mut dyn Transport, target: u8, sub: u8, rid: u16) -> PResult<
         Ok(resp)
     } else {
         Err(format!("Unexpected routine response: {:02X?}", resp))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::transport::{Transport, TransportError};
+    use std::collections::VecDeque;
+
+    /// Minimal mock transport that returns scripted responses keyed by
+    /// request payload. Used to exercise `scan_obd2_pids` without a
+    /// real ECU.
+    struct ScriptedTransport {
+        script: VecDeque<Vec<u8>>,
+    }
+    impl ScriptedTransport {
+        fn new(responses: Vec<Vec<u8>>) -> Self {
+            Self {
+                script: responses.into(),
+            }
+        }
+    }
+    impl Transport for ScriptedTransport {
+        fn name(&self) -> &'static str { "scripted" }
+        fn request(&mut self, _target: u8, _payload: &[u8]) -> Result<Vec<u8>, TransportError> {
+            self.script
+                .pop_front()
+                .ok_or_else(|| TransportError::BadFrame("script exhausted".into()))
+        }
+        fn disconnect(&mut self) {}
+    }
+
+    fn obd_resp(pid: u8, data: &[u8]) -> Vec<u8> {
+        let mut v = vec![0x41, pid];
+        v.extend_from_slice(data);
+        v
+    }
+
+    #[test]
+    fn scan_obd2_pids_returns_empty_when_bitmask_pid_unavailable() {
+        // PID 0x00 returns empty payload → nothing supported.
+        let mut t = ScriptedTransport::new(vec![Vec::new()]);
+        let pids = scan_obd2_pids(&mut t, 0x12).unwrap();
+        assert!(pids.is_empty(), "expected no supported PIDs, got {:?}", pids);
+    }
+
+    #[test]
+    fn scan_obd2_pids_returns_bitmask_pid_only_when_no_data_pids_set() {
+        // Bitmask = 00 00 00 00 → only PID 0x00 itself reported.
+        let mut t = ScriptedTransport::new(vec![obd_resp(0x00, &[0x00, 0x00, 0x00, 0x00])]);
+        let pids = scan_obd2_pids(&mut t, 0x12).unwrap();
+        assert_eq!(pids, vec![0x00]);
+    }
+
+    #[test]
+    fn scan_obd2_pids_decodes_msb_first_bitmask_correctly() {
+        // SAE J1979 bitmask: byte 0 covers PIDs 0x01..0x20, MSB-first.
+        // 0x98 = 1001_1000 → bits 7,4,3 set → PIDs 0x01, 0x04, 0x05 supported.
+        // Byte 1 = 0x00 → stop after first block (no PIDs 0x21+ probed).
+        //
+        // Scripted responses, in order:
+        //   1. PID 0x00 → bitmask [0x98, 0x00, 0x00, 0x00]
+        //   2. PID 0x01 → supported (data, arbitrary)
+        //   3. PID 0x04 → supported
+        //   4. PID 0x05 → supported
+        let mut t = ScriptedTransport::new(vec![
+            obd_resp(0x00, &[0x98, 0x00, 0x00, 0x00]),
+            obd_resp(0x01, &[0x12]),
+            obd_resp(0x04, &[0x34]),
+            obd_resp(0x05, &[0x56]),
+        ]);
+        let pids = scan_obd2_pids(&mut t, 0x12).unwrap();
+        assert_eq!(pids, vec![0x00, 0x01, 0x04, 0x05], "MSB-first decode");
+    }
+
+    #[test]
+    fn scan_obd2_pids_walks_block_2_via_bitmask_pid_0x20() {
+        // Byte 0 = 0x00 → no PIDs 0x01..0x20.
+        // Byte 1 = 0x80 → only PID 0x21 supported.
+        //
+        // Responses:
+        //   1. PID 0x00 → [0x00, 0x80, 0x00, 0x00]
+        //   2. PID 0x20 (block 2 bitmask) → confirm-supported
+        //   3. PID 0x21 → data
+        let mut t = ScriptedTransport::new(vec![
+            obd_resp(0x00, &[0x00, 0x80, 0x00, 0x00]),
+            obd_resp(0x20, &[0x80, 0x00, 0x00, 0x00]),
+            obd_resp(0x21, &[0xAB]),
+        ]);
+        let pids = scan_obd2_pids(&mut t, 0x12).unwrap();
+        assert_eq!(pids, vec![0x00, 0x20, 0x21]);
+    }
+
+    #[test]
+    fn scan_obd2_pids_drops_pids_whose_data_read_fails_despite_bitmask() {
+        // Bitmask says PID 0x05 is supported, but the actual read fails
+        // (e.g. flaky adapter). The scanner should drop it from the
+        // returned list rather than report a misleading "supported."
+        //
+        // Responses:
+        //   1. PID 0x00 → [0xA0, 0x00, 0x00, 0x00]  (bit 7 set → 0x01, bit 5 → 0x03)
+        //   2. PID 0x01 → ok
+        //   3. PID 0x03 → ok (script returns a non-OBD shape, triggers Err)
+        //      We'll model the failure by returning the wrong first byte.
+        let mut t = ScriptedTransport::new(vec![
+            obd_resp(0x00, &[0xA0, 0x00, 0x00, 0x00]),
+            obd_resp(0x01, &[0xFF]),
+            vec![0x00, 0x03, 0xAA], // bad response: leading 0x00 not 0x41
+        ]);
+        let pids = scan_obd2_pids(&mut t, 0x12).unwrap();
+        assert_eq!(pids, vec![0x00, 0x01], "PID 0x03 should be dropped on bad response");
     }
 }
