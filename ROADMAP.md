@@ -157,6 +157,60 @@ These are explicitly **not** v0.5.0 or v0.6.0 work:
 
 ---
 
+## v0.6.0 — "Real Hardware" (Shipped 2026-07-16)
+
+**Premise.** v0.5.0 finished the validation harness and added the
+first real-car-evidence-driven tuner DIDs. v0.6.0 turns those
+validated abstractions into actual workflows: comparing logs
+across sessions, surfacing which OBD-II PIDs a real ECU answers,
+and shipping the `[needs verification]` discipline through to
+the older example channels. Cycle name "Real Hardware" because
+the work is no longer about plumbing — it's about using the
+now-validated pipeline on real data.
+
+See [`docs/v0.6.0_plan.md`](docs/v0.6.0_plan.md) for the full cycle
+plan. Summary below.
+
+### ✅ Ready — all three shipped
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Log-merge / comparison modal | ✅ Done | Pure client-side over CSV; per-channel mean / std-dev / max deltas; side-by-side rendering. Shipped in PR #77. |
+| Real-car injector-time validation harness | ✅ Done | Doc-only + retroactive `[needs verification, UDS only]` marker on the pre-existing `inj_time` channel (DID `0x4363`, `u8_div100`). Plan-vs-actual: no new decoder needed — `inj_time` was already shipped since v0.3.0; the marker discipline was the actual work. Shipped in PR #80. |
+| OBD-II mode 01 PID auto-discovery | ✅ Done | New `protocol::scan_obd2_pids()` helper + `list_supported_pids` Tauri command + Vehicle Test tab panel. 5 new unit tests. Plan-vs-actual: `read_obd_pid` was already shipped; this PR is the thin scan-loop wrapper + UI. Shipped in PR #81. |
+
+### 🟡 Needs research — deferred to v0.7.0+
+
+These stay on the v0.6.0 list as 🟡 items; some may move to 🟢
+once the v0.7.0 spine lands and real-car evidence accumulates:
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Custom math channels | 🟡 | `map - baro`, `rail / load` etc.; needs safe expression sandbox. |
+| Knock detection visualisation (more) | 🟡 | Spine PR covers severity indicators; full distribution view is later. |
+| AFR / lambda bank readout polish | 🟡 | Decoder exists (400B); needs the wider lambda + O2 readiness story. |
+| Adaptation / fuel trim readout (full) | 🟡 | Spine PR adds DIDs; per-bank polish is later. |
+| Injector duty cycle | 🟡 | Plan-vs-actual surfaced: no separate DID exists; the `inj_time` channel (DID `0x4363`, ms) is what the codebase ships. A future contributor with F/G-series access can add a duty-cycle DID once a real source surfaces. |
+| Trigger-based logging | 🟡 | Threshold / DTC-crossed autostart. |
+| OBDLink MX+ support | 🟡 | USB + BLE; popular with iOS users. |
+| ENET/DoIP auto-detection | 🟡 | Detect adapter without manual selection. |
+| Real-car validation B58 F/G | 🟡 | Owner with ENET + F/G chassis. **Hardest blocker for next cycles.** |
+| Real-car validation N55 F-series | 🟡 | Same as above. |
+
+### Deferred to v0.7.0+
+
+These are explicitly **not** v0.7.0 work; they stay deferred until
+a dedicated cycle scope opens:
+
+- Cloud sync (opt-in log upload) — needs privacy + ops story first.
+- Raspberry Pi CAN bridge — hardware project of its own.
+- Plugin system for custom decoders — community governance work before code.
+- Bootmod3 / MHD integration — legal risk; not appropriate scope.
+- Multi-language UI — translation coordination problem.
+- Web-based shared-log viewer — needs hosted backend work first.
+
+---
+
 ## Ready to Claim (🟢 — open a PR when you want it)
 
 These items have lived on the ROADMAP for multiple cycles as 🟢-
@@ -204,4 +258,4 @@ in conflict with the active v0.6.0 cycle.
 
 ---
 
-*Last updated: 2026-07-15. v0.5.0 "Ground Truth" marked Shipped; the three Ready items now show ✅ Done. v0.5.0 release notes at [`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md). The next cycle (v0.6.0) candidates are the 🟡 items below + the Backlog; open a Discussion thread per the no-Discussion-no-roadmap rule.*
+*Last updated: 2026-07-16. v0.6.0 "Real Hardware" marked Shipped; the three Ready items now show ✅ Done with PR references (#77 / #80 / #81). v0.6.0 release notes at [`RELEASE_NOTES_v0.6.0.md`](RELEASE_NOTES_v0.6.0.md). The next cycle (v0.7.0) candidates are the Ready-to-Claim 🟢 pile + ENET/DoIP auto-detection (the highest-leverage protocol work) + the 🟡 items below; open a Discussion thread per the no-Discussion-no-roadmap rule.*
