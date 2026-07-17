@@ -39,7 +39,7 @@ pub fn list_ports() -> Vec<String> {
 }
 
 #[tauri::command]
-pub fn connect(
+pub async fn connect(
     state: tauri::State<'_, AppState>,
     config: TransportConfig,
 ) -> Result<ConnectionInfo, String> {
@@ -60,11 +60,12 @@ pub fn connect(
 }
 
 #[tauri::command]
-pub fn disconnect(state: tauri::State<'_, AppState>) {
+pub async fn disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(mut t) = state.transport.lock().unwrap().take() {
         t.disconnect();
     }
     state.unlocked.lock().unwrap().clear();
+    Ok(())
 }
 
 fn with_transport<T>(
@@ -79,7 +80,7 @@ fn with_transport<T>(
 /// Probe every known ECU address: ident + fault count. This is the
 /// ISTA-style "vehicle test" that builds the module tree.
 #[tauri::command]
-pub fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuInfo>, String> {
+pub async fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuInfo>, String> {
     with_transport(&state, |t| {
         let mut result = Vec::new();
         for def in ecus::ECUS {
@@ -118,7 +119,7 @@ pub fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuInfo>, S
 /// byte surface). Flagged at the top of the PR description per the
 /// project's protected-path discipline.
 #[tauri::command]
-pub fn list_supported_pids(
+pub async fn list_supported_pids(
     state: tauri::State<'_, AppState>,
     address: u8,
 ) -> Result<Vec<u8>, String> {
@@ -126,12 +127,12 @@ pub fn list_supported_pids(
 }
 
 #[tauri::command]
-pub fn read_faults(state: tauri::State<'_, AppState>, address: u8) -> Result<Vec<Dtc>, String> {
+pub async fn read_faults(state: tauri::State<'_, AppState>, address: u8) -> Result<Vec<Dtc>, String> {
     with_transport(&state, |t| protocol::read_dtcs(t, address))
 }
 
 #[tauri::command]
-pub fn read_freeze_frame(
+pub async fn read_freeze_frame(
     state: tauri::State<'_, AppState>,
     address: u8,
     code: String,
@@ -201,7 +202,7 @@ pub fn load_freeze_schemas() -> Result<u32, String> {
 }
 
 #[tauri::command]
-pub fn preview_freeze_frame(
+pub async fn preview_freeze_frame(
     state: tauri::State<'_, AppState>,
     address: u8,
     code: String,
@@ -220,7 +221,7 @@ pub fn preview_freeze_frame(
 }
 
 #[tauri::command]
-pub fn clear_faults(state: tauri::State<'_, AppState>, address: u8) -> Result<(), String> {
+pub async fn clear_faults(state: tauri::State<'_, AppState>, address: u8) -> Result<(), String> {
     with_transport(&state, |t| protocol::clear_dtcs(t, address))
 }
 
@@ -240,7 +241,7 @@ pub fn list_profiles() -> Vec<ProfileInfo> {
 
 /// One polling sweep over a profile's parameters. Frontend calls this on a timer.
 #[tauri::command]
-pub fn read_live_data(
+pub async fn read_live_data(
     state: tauri::State<'_, AppState>,
     profile: String,
 ) -> Result<Vec<live::LiveValue>, String> {
@@ -314,7 +315,7 @@ fn probe_read(t: &mut dyn Transport, mode: &str, address: u8, id: u16) -> Result
 /// Scan a range of identifiers on one ECU, returning only the ones that
 /// answered with data. Used to discover what a real module exposes.
 #[tauri::command]
-pub fn probe_range(
+pub async fn probe_range(
     state: tauri::State<'_, AppState>,
     address: u8,
     mode: String,
@@ -342,7 +343,7 @@ pub fn probe_range(
 
 /// Single raw read for watch mode — poll one ident and see which bytes move.
 #[tauri::command]
-pub fn read_raw(
+pub async fn read_raw(
     state: tauri::State<'_, AppState>,
     address: u8,
     mode: String,
@@ -372,7 +373,7 @@ pub fn watch_start(
 /// Poll the active watch once and return accumulated per-byte statistics
 /// (change count, min/max, volatility, mean delta).
 #[tauri::command]
-pub fn watch_tick(state: tauri::State<'_, AppState>) -> Result<WatchSnapshot, String> {
+pub async fn watch_tick(state: tauri::State<'_, AppState>) -> Result<WatchSnapshot, String> {
     let (address, mode, id) = {
         let guard = state.watch.lock().unwrap();
         let s = guard.as_ref().ok_or("No active watch")?;
@@ -400,7 +401,7 @@ pub fn list_service_functions() -> Vec<service_functions::ServiceFunction> {
 /// receives always has the human-readable name filled in, never the
 /// empty-string default marker.
 #[tauri::command]
-pub fn run_service_function(
+pub async fn run_service_function(
     state: tauri::State<'_, AppState>,
     id: String,
     // Index into `service.routines`. Defaults to 0 (single-routine
@@ -442,7 +443,7 @@ pub struct VehicleInfo {
 }
 
 #[tauri::command]
-pub fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInfo, String> {
+pub async fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInfo, String> {
     with_transport(&state, |t| {
         let vin_str = protocol::read_did(t, 0x12, 0xF190)
             .ok()
@@ -465,7 +466,7 @@ pub fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInf
 /* ---------------- UDS session + security ---------------- */
 
 #[tauri::command]
-pub fn set_session(
+pub async fn set_session(
     state: tauri::State<'_, AppState>,
     address: u8,
     session: u8,
@@ -493,7 +494,7 @@ pub struct SecurityStatus {
 /// The algorithm used is whatever is registered for this ECU address + level;
 /// register real per-ECU algorithms at startup in `lib.rs`.
 #[tauri::command]
-pub fn security_access(
+pub async fn security_access(
     state: tauri::State<'_, AppState>,
     address: u8,
     level: u8,
@@ -572,7 +573,7 @@ fn push_step(
 /// Each step is timed so a healthy cable's round-trip latency is visible —
 /// high latency here is the usual cause of intermittent K+DCAN reads.
 #[tauri::command]
-pub fn connection_test(state: tauri::State<'_, AppState>) -> Result<Vec<TestStep>, String> {
+pub async fn connection_test(state: tauri::State<'_, AppState>) -> Result<Vec<TestStep>, String> {
     use std::time::Instant;
     with_transport(&state, |t| {
         let mut steps = Vec::new();
@@ -844,7 +845,7 @@ pub struct SessionVehicleInfo {
 }
 
 #[tauri::command]
-pub fn export_session(state: tauri::State<'_, AppState>) -> Result<String, String> {
+pub async fn export_session(state: tauri::State<'_, AppState>) -> Result<String, String> {
     use std::time::SystemTime;
 
     let mut guard = state.transport.lock().unwrap();
@@ -1015,7 +1016,7 @@ pub async fn fetch_dtc_schematics(
 /* ---------------- Community Oracle ---------------- */
 
 #[tauri::command]
-pub fn query_oracle(
+pub async fn query_oracle(
     state: tauri::State<'_, AppState>,
     address: u8,
 ) -> Result<crate::oracle::OracleResult, String> {
