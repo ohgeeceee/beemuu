@@ -1,75 +1,132 @@
-# CLAUDE.md — Guardrails for AI agents working on Beemuu
+# CLAUDE.md — Operating rules for AI agents working on Beemuu
 
-Beemuu is an open-source BMW diagnostics tool (Tauri + Rust backend, web frontend,
-plus a Python core in `bmw_diag/`). Code here can flash ECUs and talk to real
-vehicle hardware. Correctness and timing are safety-relevant. Read this file fully
-before making changes.
+Beemuu is an open-source BMW diagnostics tool. The shipping product is a
+**Tauri 2 desktop app**: Rust core (`src-tauri/src`) + web UI (`src/`).
+`backend/` (Python, stdlib-only) is the hosted read-only API behind
+`api.beemuu.com`. Code here can talk to real vehicle hardware, so correctness
+and timing are safety-relevant — but **process friction is not safety**. The
+safety lives in tests, invariants, and the tier gates below, not in requiring
+a human to eyeball every diff.
 
-## Topology — one app, one repo, one domain
+## Autonomy model — act first, ask at the gates
 
-BeeMuu is exactly one application. Do not propose or build a second one.
+**Default behavior: do the work without asking.** Editing files, running
+tests, creating branches, opening PRs, updating PRs, addressing review
+comments, and merging routine changes are all pre-authorized. Do not pause
+for confirmation on routine development work. The only time you stop and ask
+is at a Tier B or Tier C gate below.
 
-- **Repo:** `github.com/ohgeeceee/beemuu` — the only source of truth. No mirrors,
-  no separate "API repo", no separate "frontend repo".
-- **Domains (production):**
-  - `beemuu.com` → landing page + hosted admin panel (static, served by nginx)
-  - `api.beemuu.com` → hosted backend API (Python, served by nginx → `beemuu-prod-api.service`)
-- **Frontend + backend of the same app:** the Tauri webview (`src/`) talks to the
-  Python backend (`bmw_diag/` + `backend/`). The hosted build reuses the same
-  backend over `/api/*`. There is no "frontend-only" or "backend-only" sibling
-  product.
-- **No other VPS / domain.** The retired LA VPS (`montanablotter.com`,
-  `beemuu.montanablotter.com`, `74.208.64.42`) is decommissioned as of 2026-07-11
-  and must not be referenced, reactivated, or rebuilt. The only production host
-  is the NJ Spectrum VPS (`vps3490050.trouble-free.net`, `162.35.175.39`).
+### Tier A — land autonomously (no human review)
 
-If a task seems to require splitting BeeMuu into multiple apps, multiple repos,
-or pointing it at another domain/VPS — stop and ask first. That is almost
-certainly the wrong shape.
+Merge your own PR once checks are green, then move on.
+
+- Docs, README/CHANGELOG/release notes
+- Tests (adding, fixing, wiring into CI)
+- Frontend UI (`src/**`)
+- Community data (`community/**` TOML/JSON profiles, DTC seeds)
+- `backend/**` read-only API and its tests
+- CI workflows, scripts, tooling, `.gitignore`, dependency patch/minor bumps
+- Bug fixes and features outside the protected paths
+
+### Tier B — do all the work, then request one human merge
+
+Open the PR, get tests green, write the review notes, **flag the protected
+path at the top of the PR description**, and wait for a human to merge. Do
+not ping for anything before that point — the PR is the review.
+
+- `src-tauri/src/transport/**` — K+DCAN (serial/FTDI) and ENET/DoIP transport
+- `src-tauri/src/protocol/**` — byte-level UDS/KWP parsing, security access
+- `src-tauri/src/commands.rs` — Tauri command surface / threading boundary
+- Anything that can write to an ECU: routines, flashing, SecurityAccess
+  seed/key logic, VIN/coding writes
+- Bulk deletion of dead code (e.g. dropping `bmw_diag/`, `server/dtc/`)
+- Major-version dependency upgrades
+
+### Tier C — always a human decision (propose, never execute)
+
+- Releases: version bumps, git tags, publishing installers
+- Production: deploys, `ops/**` changes, anything touching the VPS
+- Changes to this file, `.claude/agents/**`, or repo policy
+- Force-push, history rewrites, branch deletion
+- New repos, apps, or domains (see Topology)
 
 ## Golden rules
 
-1. **Never push to `main`.** All work lands as a pull request for human review.
-2. **Never merge a PR that touches code.** Only doc-only PRs may auto-merge.
-3. **Never widen scope.** Make the smallest change that satisfies the task.
-4. **Always add/keep tests passing** (`cargo test` for Rust, `pytest` for `bmw_diag/`).
+1. **No direct pushes to `main`.** Everything lands via PR so CI runs. Tier A
+   PRs you may merge yourself; Tier B/C you may not.
+2. **Tests green before merge, no exceptions.** Run them locally before
+   opening the PR:
+   - `cargo test` (in `src-tauri/`)
+   - `pytest backend/tests/`
+   - `node --test` on the JS suites (`src/js/*.test.js`)
+3. **Smallest change that satisfies the task.** No drive-by refactors.
+4. **Commit style:** follow the repo convention, e.g.
+   `feat(v0.6.0): …`, `fix(v0.6.0): …`, `docs: …`, `chore: …`.
+5. **Never widen a PR's scope after opening.** New findings get new issues.
 
-## Protected paths — extra caution, always human-reviewed, never auto-merged
+## Topology — one app, one repo, one domain
 
-- `src-tauri/src/transport/**` — K+DCAN (serial/FTDI) and ENET/DoIP transport
-- `src-tauri/src/protocol/**` — byte-level UDS/KWP parsing and security access
-- `src-tauri/src/commands.rs` — Tauri command surface / threading boundary
-- `bmw_diag/core/**` — Python protocol, ECU, and interface core
+- **Repo:** `github.com/ohgeeceee/beemuu` — the only source of truth.
+- **Domains (production):**
+  - `beemuu.com` → landing page (static, nginx)
+  - `api.beemuu.com` → hosted backend API (`backend/`, nginx → systemd unit)
+- **Desktop app:** the Tauri webview (`src/`) talks to the **Rust core**
+  (`src-tauri/src`) via `invoke()`. The desktop app calls the hosted API only
+  for DTC schematics (`fetch_dtc_schematics` → `api.beemuu.com`).
+- **Legacy / dead code — do not extend:** `main.py` + `bmw_diag/` (broken
+  PyQt6 shell, superseded by the Rust core) and `server/dtc/` (orphaned
+  Node/Postgres experiment). They exist only until their removal PR lands.
+  Write new protocol work in Rust, new API work in `backend/`.
+- **No other VPS / domain.** The retired LA VPS (`montanablotter.com`,
+  `beemuu.montanablotter.com`, `74.208.64.42`) is decommissioned and must not
+  be referenced or reactivated. The only production host is the NJ Spectrum
+  VPS (`vps3490050.trouble-free.net`, `162.35.175.39`).
 
-If a task requires editing these, still open a PR, but flag it prominently and
-request human review. Do not treat these as routine.
+If a task seems to require splitting Beemuu into multiple apps/repos/domains
+— that's Tier C. Propose it; never start it.
 
-## Hardware & timing invariants (do not break)
+## Hardware & timing invariants
 
-- **Async commands.** Any `#[tauri::command]` that touches the serial port or
-  network transport MUST be `async fn`. Non-async commands run on the main thread;
-  blocking I/O there freezes the entire webview. Async commands taking
-  `tauri::State` must return a `Result` or they fail to compile.
-- **Tester Present keep-alive.** During active diagnostic sessions, a `3E 00` /
-  `3E 80` frame must be sent every 2000–4000 ms on an async/isolated worker.
-  Never let a long-running operation block the event loop, or the ECU drops the
-  session mid-operation.
-- **Protocol/UI decoupling.** Keep serialization, handshake timers, and byte
-  parsing decoupled from the UI render layer. UI rendering can drop bytes or add
-  micro-stutters to serial streams; the comms engine must run asynchronously and
-  isolated.
-- **No hardcoded car IPs.** F/G-series uses DoIP: broadcast UDP discovery to port
-  `13400` and use the VIN/IP the car returns (typically `169.254.x.x`). Broadcast
-  across all active interfaces; never hardcode a target IP.
-- **K+DCAN latency timer is hardware, not software.** Sequential block reads rely
-  on the FTDI VCP latency timer being 1 ms. Do NOT "fix" slow reads by inflating
-  software thread timeouts — detect/alert on the port setting instead.
-- **VIN reads go through `protocol::read_vin`.** It handles the UDS `22 F1 90`
-  (F/G/sim) vs KWP `1A 90` (E-series DME, CAS fallback) split. Don't call a raw
-  DID read.
+These are the project's target invariants. Some are **not yet implemented**
+(tracked as v0.6.0 GitHub issues) — PRs that implement them are the top
+priority, and no change may make the current state worse.
+
+- **Async commands (INVARIANT — migration in progress).** Any
+  `#[tauri::command]` that touches serial or network transport MUST be
+  `async fn` (or offload via `spawn_blocking`). Blocking I/O on the main
+  thread freezes the webview. Today only `fetch_dtc_schematics` is async;
+  `connect`, `scan_modules`, `read_faults`, `read_live_data`, `watch_tick`,
+  `run_service_function`, `security_access` are still sync — the migration
+  issue is the v0.6.0 release blocker. Never add a new sync
+  transport-touching command.
+- **Tester Present keep-alive (NOT YET IMPLEMENTED).** During active
+  diagnostic sessions, `3E 00` / `3E 80` must be sent every 2000–4000 ms on
+  an isolated async worker. Currently `3E` is only sent during autodetect —
+  the keep-alive worker is a planned v0.6.0 issue. Don't add long blocking
+  operations that would stall such a worker.
+- **ISO-TP multi-frame (NOT YET IMPLEMENTED).** FF/CF/FC reassembly per ISO
+  15765-2 is required for full VIN reads and long DTC lists on F/G cars.
+- **Protocol/UI decoupling.** Serialization, handshake timers, and byte
+  parsing stay decoupled from the UI render layer. The comms engine runs
+  asynchronously and isolated; UI polls for state.
+- **No hardcoded car IPs.** F/G-series uses DoIP: broadcast UDP discovery to
+  port `13400` across all active interfaces and use the VIN/IP the car
+  returns (typically `169.254.x.x`). Discovery itself is not yet implemented
+  (users currently enter the IP manually) — implement it, never hardcode
+  around it.
+- **K+DCAN latency timer is hardware, not software.** Sequential block reads
+  rely on the FTDI VCP latency timer being 1 ms. Do NOT "fix" slow reads by
+  inflating software timeouts — detect/alert on the port setting instead.
+- **VIN reads (KNOWN GAP).** All VIN reads must go through
+  `protocol::read_vin`, which handles UDS `22 F1 90` (F/G/sim) vs KWP `1A 90`
+  (E-series DME, CAS fallback). **That function does not exist yet** —
+  `connect`/`read_vehicle_info` currently do a raw UDS DID read, which is
+  broken for E-series cars. Implementing `read_vin` and routing all callers
+  through it is a tracked v0.6.0 issue. Do not add new raw VIN DID reads.
 
 ## PR expectations
 
-- Describe what changed and how you verified it.
+- Describe what changed and how you verified it (test output, simulator run).
 - Link the issue you're resolving.
-- Call out any protected-path changes at the top of the description.
+- Call out any protected-path (Tier B) changes at the top of the description.
+- Tier A: merge when green. Tier B: hand to a human with review notes.
