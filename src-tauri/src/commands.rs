@@ -2,6 +2,7 @@
 
 use crate::analysis::{ByteWatcher, WatchSnapshot};
 use crate::data::{ecus, freeze, live, service_functions, vin};
+use crate::keepalive;
 use crate::protocol::{self, Dtc, EcuInfo, FreezeItem};
 use crate::transport::record::{RecordingTransport, SharedLog, TrafficEntry};
 use crate::transport::{self, Transport, TransportConfig};
@@ -20,10 +21,14 @@ struct WatchSession {
 
 #[derive(Default)]
 pub struct AppState {
-    pub transport: Mutex<Option<Box<dyn Transport>>>,
+    /// Behind an `Arc` so the Tester Present keep-alive worker can share
+    /// the same lock as every command (see `keepalive` module docs).
+    pub transport: Arc<Mutex<Option<Box<dyn Transport>>>>,
     watch: Mutex<Option<WatchSession>>,
     traffic: SharedLog,
     pub unlocked: Mutex<HashSet<u8>>,
+    /// Running Tester Present worker while a non-default session is active.
+    keepalive: Mutex<Option<keepalive::KeepAlive>>,
 }
 
 #[derive(Serialize)]
@@ -44,16 +49,17 @@ pub async fn connect(
     config: TransportConfig,
 ) -> Result<ConnectionInfo, String> {
     let inner = transport::open(&config).map_err(|e| e.to_string())?;
-    // Fresh session: reset the traffic log and wrap the transport so every
-    // request/response from here on is recorded.
+    // Fresh session: stop any keep-alive from a previous connection, reset
+    // the traffic log and wrap the transport so every request/response from
+    // here on is recorded.
+    stop_keepalive(&state);
     state.traffic.lock().unwrap().clear();
     let mut t: Box<dyn Transport> =
         Box::new(RecordingTransport::new(inner, Arc::clone(&state.traffic)));
     let name = t.name().to_string();
-    // Best effort VIN read from DME (DID F190)
-    let vin = protocol::read_did(t.as_mut(), 0x12, 0xF190)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).to_string());
+    // Best-effort VIN read — the UDS (22 F190) / KWP (1A 90) split and the
+    // CAS fallback are handled inside protocol::read_vin.
+    let vin = protocol::read_vin(t.as_mut()).ok();
     let suggested_profile = vin.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
     *state.transport.lock().unwrap() = Some(t);
     Ok(ConnectionInfo { transport_name: name, vin, suggested_profile })
@@ -61,6 +67,7 @@ pub async fn connect(
 
 #[tauri::command]
 pub async fn disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    stop_keepalive(&state);
     if let Some(mut t) = state.transport.lock().unwrap().take() {
         t.disconnect();
     }
@@ -75,6 +82,22 @@ fn with_transport<T>(
     let mut guard = state.transport.lock().unwrap();
     let t = guard.as_mut().ok_or("Not connected")?;
     f(t.as_mut())
+}
+
+/// Stop the Tester Present keep-alive worker, if running.
+fn stop_keepalive(state: &tauri::State<'_, AppState>) {
+    if let Some(ka) = state.keepalive.lock().unwrap().take() {
+        ka.stop();
+    }
+}
+
+/// (Re)start the Tester Present keep-alive worker against `target`. Called
+/// when an ECU enters a non-default diagnostic session so the ECU's
+/// S3server timer never expires while the app is idle (issue #87).
+fn start_keepalive(state: &tauri::State<'_, AppState>, target: u8) {
+    stop_keepalive(state);
+    let ka = keepalive::spawn(Arc::clone(&state.transport), target, keepalive::INTERVAL);
+    *state.keepalive.lock().unwrap() = Some(ka);
 }
 
 /// Probe every known ECU address: ident + fault count. This is the
@@ -445,10 +468,9 @@ pub struct VehicleInfo {
 #[tauri::command]
 pub async fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInfo, String> {
     with_transport(&state, |t| {
-        let vin_str = protocol::read_did(t, 0x12, 0xF190)
-            .ok()
-            .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
-            .filter(|s| s.len() >= 11);
+        // VIN via protocol::read_vin (UDS/KWP split + CAS fallback); the
+        // returned VIN is guaranteed 17 chars, so no length filter needed.
+        let vin_str = protocol::read_vin(t).ok();
         let decode = vin_str.as_deref().map(vin::decode);
         let suggested_profile = vin_str.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
         // Odometer DID (sim 0x1010, u24 km). Real DID varies by cluster.
@@ -473,6 +495,14 @@ pub async fn set_session(
 ) -> Result<(), String> {
     with_transport(&state, |t| protocol::set_session(t, address, session))?;
     state.unlocked.lock().unwrap().remove(&address);
+    // S3server keep-alive: a non-default session needs periodic Tester
+    // Present to survive idle time; the default session must never see
+    // keep-alive frames (issue #87).
+    if session == 0x01 {
+        stop_keepalive(&state);
+    } else {
+        start_keepalive(&state, address);
+    }
     Ok(())
 }
 
@@ -584,10 +614,8 @@ pub async fn connection_test(state: tauri::State<'_, AppState>) -> Result<Vec<Te
         push_step(&mut steps, "DME identification (1A 80)", s, r);
 
         let s = Instant::now();
-        let r = protocol::read_did(t, 0x12, 0xF190)
-            .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
-            .map(|v| if v.is_empty() { "empty".into() } else { v });
-        push_step(&mut steps, "VIN read (22 F190)", s, r);
+        let r = protocol::read_vin(t);
+        push_step(&mut steps, "VIN read (22 F190 / 1A 90)", s, r);
 
         let s = Instant::now();
         let r = protocol::read_obd_pid(t, 0x12, 0x00)
@@ -852,11 +880,8 @@ pub async fn export_session(state: tauri::State<'_, AppState>) -> Result<String,
     let t = guard.as_mut().ok_or("Not connected")?.as_mut();
     let transport_name = t.name().to_string();
 
-    // Vehicle info
-    let vin_str = protocol::read_did(t, 0x12, 0xF190)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
-        .filter(|s| s.len() >= 11);
+    // Vehicle info — VIN via protocol::read_vin (UDS/KWP split + CAS fallback)
+    let vin_str = protocol::read_vin(t).ok();
     let decode = vin_str.as_deref().map(vin::decode);
     let suggested_profile = vin_str.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
     let mileage_km = protocol::read_did(t, 0x12, 0x1010).ok().and_then(|b| {

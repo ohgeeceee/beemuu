@@ -240,6 +240,60 @@ pub fn read_freeze_frame(t: &mut dyn Transport, target: u8, code: &str) -> PResu
     Ok(crate::data::freeze::registry().decode(target, &resp[3..]))
 }
 
+/// Read the vehicle VIN, hiding the UDS/KWP split per car generation:
+///
+///   1. UDS path (F/G-series + simulator): readDataByIdentifier
+///      `22 F1 90` on the DME (0x12).
+///   2. KWP path (E-series): readEcuIdentification `1A 90` on the DME.
+///   3. KWP fallback: the CAS (0x40) owns the VIN on E-series cars — if the
+///      DME doesn't answer or has no VIN, ask the CAS.
+///
+/// Protocol selection is probe-and-fallback, the same detection the
+/// codebase already uses everywhere: `KdcanTransport::auto_detect`
+/// (transport/kdcan.rs) tries D-CAN then K-line, and `identify` /
+/// `scan_modules` probe each ECU and treat "no answer" as "absent". There
+/// is no out-of-band KWP-vs-UDS flag to reuse — a car reveals what it
+/// speaks by answering, so we ask in order and take the first VIN.
+///
+/// ISO-TP (issue #88): on real F/G cars the `62 F1 90` response is 20+
+/// bytes and will arrive multi-frame once ISO 15765-2 FF/CF/FC reassembly
+/// lands in the transport layer. Nothing changes here — `read_did` will
+/// simply start returning the full payload. The KWP `5A 90` path stays
+/// single-frame on K+DCAN.
+pub fn read_vin(t: &mut dyn Transport) -> PResult<String> {
+    read_vin_uds(t, 0x12)
+        .or_else(|_| read_vin_kwp(t, 0x12))
+        .or_else(|_| read_vin_kwp(t, 0x40))
+        .map_err(|_| "VIN not available: UDS 22 F190 and KWP 1A 90 (DME + CAS) all failed".into())
+}
+
+fn read_vin_uds(t: &mut dyn Transport, target: u8) -> PResult<String> {
+    let data = read_did(t, target, 0xF190)?;
+    clean_vin(&data)
+}
+
+/// KWP readEcuIdentification option 0x90 (VIN) -> 5A 90 <17 ASCII bytes>.
+fn read_vin_kwp(t: &mut dyn Transport, target: u8) -> PResult<String> {
+    let resp = service(t, target, &[0x1A, 0x90])?;
+    if resp.first() != Some(&0x5A) || resp.get(1) != Some(&0x90) {
+        return Err(format!("Unexpected VIN ident response: {:02X?}", resp));
+    }
+    clean_vin(&resp[2..])
+}
+
+/// A VIN is exactly 17 printable ASCII chars; ECUs may pad with NULs or
+/// whitespace at either end, which we strip.
+fn clean_vin(raw: &[u8]) -> PResult<String> {
+    let s = String::from_utf8_lossy(raw)
+        .trim_matches(|c: char| c == '\0' || c.is_ascii_whitespace())
+        .to_string();
+    if s.len() == 17 && s.chars().all(|c| c.is_ascii_graphic()) {
+        Ok(s)
+    } else {
+        Err(format!("No VIN in response ({} cleaned bytes)", s.len()))
+    }
+}
+
 /// diagnosticSessionControl (10 session) -> 50 session ...
 pub fn set_session(t: &mut dyn Transport, target: u8, session: u8) -> PResult<()> {
     let resp = service(t, target, &[0x10, session])?;
@@ -369,5 +423,110 @@ mod tests {
         ]);
         let pids = scan_obd2_pids(&mut t, 0x12).unwrap();
         assert_eq!(pids, vec![0x00, 0x01], "PID 0x03 should be dropped on bad response");
+    }
+}
+
+#[cfg(test)]
+mod vin_tests {
+    use super::*;
+    use crate::transport::record::{RecordingTransport, SharedLog};
+    use crate::transport::sim::{SimTransport, VinMode};
+    use std::sync::Arc;
+
+    const SIM_VIN_STR: &str = "WBAVA31050NL12345";
+
+    /// Wrap a sim in the recording transport so the exact requests read_vin
+    /// issued (and their targets / success) can be asserted afterwards.
+    fn recorded_sim(mode: VinMode) -> (RecordingTransport, SharedLog) {
+        let mut sim = SimTransport::new();
+        sim.set_vin_mode(mode);
+        let log: SharedLog = Default::default();
+        let rec = RecordingTransport::new(Box::new(sim), Arc::clone(&log));
+        (rec, log)
+    }
+
+    /// (target, positive) triples for requests with the given payload, e.g.
+    /// "22 F1 90" or "1A 90". `positive` means the ECU did NOT answer with a
+    /// 7F negative response (the transport-level `ok` flag is true for NRCs
+    /// too — a rejected request is still a successful round-trip).
+    fn requests(log: &SharedLog, payload: &str) -> Vec<(u8, bool)> {
+        log.lock()
+            .unwrap()
+            .snapshot()
+            .into_iter()
+            .filter(|e| e.request == payload)
+            .map(|e| (e.target, !e.response.starts_with("7F")))
+            .collect()
+    }
+
+    #[test]
+    fn uds_path_returns_vin() {
+        let (mut t, log) = recorded_sim(VinMode::Uds);
+        let vin = read_vin(&mut t).unwrap();
+        assert_eq!(vin, SIM_VIN_STR);
+        // UDS answered on the DME — the KWP fallback was never needed.
+        assert_eq!(requests(&log, "22 F1 90"), vec![(0x12, true)]);
+        assert!(requests(&log, "1A 90").is_empty(), "KWP path must not be probed when UDS answers");
+    }
+
+    #[test]
+    fn kwp_dme_path_returns_vin() {
+        let (mut t, log) = recorded_sim(VinMode::KwpDme);
+        let vin = read_vin(&mut t).unwrap();
+        assert_eq!(vin, SIM_VIN_STR);
+        // UDS was tried first and rejected, then KWP 1A 90 on the DME answered.
+        assert_eq!(requests(&log, "22 F1 90"), vec![(0x12, false)]);
+        assert_eq!(requests(&log, "1A 90"), vec![(0x12, true)]);
+    }
+
+    #[test]
+    fn kwp_cas_fallback_returns_vin() {
+        let (mut t, log) = recorded_sim(VinMode::KwpCas);
+        let vin = read_vin(&mut t).unwrap();
+        assert_eq!(vin, SIM_VIN_STR);
+        // DME failed both services; CAS (0x40) answered 1A 90.
+        assert_eq!(requests(&log, "22 F1 90"), vec![(0x12, false)]);
+        assert_eq!(requests(&log, "1A 90"), vec![(0x12, false), (0x40, true)]);
+    }
+
+    #[test]
+    fn clean_vin_strips_padding_and_enforces_length() {
+        assert_eq!(clean_vin(b"WBAVA31050NL12345").unwrap(), SIM_VIN_STR);
+        // NUL-padded (common ECU framing) and space-padded forms still parse.
+        assert_eq!(clean_vin(b"\0WBAVA31050NL12345\0\0").unwrap(), SIM_VIN_STR);
+        assert_eq!(clean_vin(b"WBAVA31050NL12345  ").unwrap(), SIM_VIN_STR);
+        // Too short / too long after cleaning is not a VIN.
+        assert!(clean_vin(b"WBAVA3105").is_err());
+        assert!(clean_vin(b"WBAVA31050NL12345XX").is_err());
+        assert!(clean_vin(b"").is_err());
+    }
+
+    /// Call-site guard: every VIN read in the command layer must go through
+    /// protocol::read_vin — no raw `22 F1 90` DID reads outside protocol/
+    /// (CLAUDE.md VIN invariant, issue #89). Static source scan, mirroring
+    /// tests/async_commands.rs.
+    #[test]
+    fn command_layer_has_no_raw_vin_did_reads() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let commands = std::fs::read_to_string(dir.join("src/commands.rs")).unwrap();
+        assert!(
+            !commands.contains("0xF190"),
+            "commands.rs must route VIN reads through protocol::read_vin, not raw 0xF190 DID reads"
+        );
+        assert!(
+            commands.contains("protocol::read_vin"),
+            "commands.rs must call protocol::read_vin"
+        );
+    }
+
+    /// End-to-end through the wrapped recording transport, exactly as
+    /// `connect` / `read_vehicle_info` / `export_session` drive it: the
+    /// VIN surfaces from the same shared transport the commands use.
+    #[test]
+    fn vin_survives_recording_transport_wrapping() {
+        let log: SharedLog = Default::default();
+        let mut t: Box<dyn crate::transport::Transport> =
+            Box::new(RecordingTransport::new(Box::new(SimTransport::new()), Arc::clone(&log)));
+        assert_eq!(read_vin(t.as_mut()).unwrap(), SIM_VIN_STR);
     }
 }
