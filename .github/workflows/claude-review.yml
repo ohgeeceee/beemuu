@@ -38,7 +38,8 @@ jobs:
               - src-tauri/src/transport/**   (K+DCAN / ENET serial + network transport)
               - src-tauri/src/protocol/**    (byte-level parsing, UDS/KWP, security access)
               - src-tauri/src/commands.rs    (Tauri command threading)
-              - bmw_diag/core/**             (Python protocol/interface core)
+              - anything that can write to an ECU (routines, flashing,
+                SecurityAccess seed/key logic, VIN/coding writes)
 
             For those paths, explicitly check:
               - Any Tauri command that does serial/network I/O is `async fn` (blocking I/O

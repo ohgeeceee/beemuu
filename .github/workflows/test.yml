@@ -1,0 +1,78 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Rust core (src-tauri/) ───
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # The cargo workspace lives in src-tauri/, not the repo root —
+          # without this the cache probes the root, finds no Cargo.toml,
+          # and keys the cache wrong (full Tauri rebuild every run).
+          workspaces: src-tauri
+
+      # Bare ubuntu-latest lacks Tauri v2's Linux system libraries
+      # (glib/gtk/webkit2gtk-4.1); building glib-sys etc. fails without
+      # them. Local dev never hits this because Windows provides MSVC +
+      # WebView2 at OS level. Package set per Tauri 2.x prerequisites.
+      # libudev-dev is for libudev-sys, pulled in by the serialport crate.
+      - name: Install Tauri Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test
+
+  # ─── Python backend (backend/tests/) ───
+  # The backend is stdlib-only (no requirements.txt); the only install is
+  # pytest itself. Tests import `from backend import ...`, so pytest runs
+  # from the repo root where the `backend` package is importable.
+  # server/dtc/ is deliberately NOT tested — dead code pending removal
+  # (issue #90).
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: pytest backend/tests/
+        run: python -m pytest backend/tests/ -q
+
+  # ─── Frontend JS unit tests (node --test, builtin runner) ───
+  # Tests require only repo files + node builtins, so no npm ci is needed.
+  # Explicit globs: `node --test <dir>` mis-handles the mixed
+  # .test.js / .test.cjs layout under src/js/ (verified locally on node 24).
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: node --test
+        run: node --test "src/js/**/*.test.js" "src/js/**/*.test.cjs"

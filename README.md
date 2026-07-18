@@ -1,5 +1,7 @@
 # BeeEmUu
 
+[![Tests](https://github.com/ohgeeceee/beemuu/actions/workflows/test.yml/badge.svg)](https://github.com/ohgeeceee/beemuu/actions/workflows/test.yml)
+
 > **One app, one repo, one domain.** BeeMuu is a single application — Tauri shell,
 > web frontend, and Python backend all live in [github.com/ohgeeceee/beemuu](https://github.com/ohgeeceee/beemuu)
 > and serve from `beemuu.com` / `api.beemuu.com`. No sibling repos, no separate
