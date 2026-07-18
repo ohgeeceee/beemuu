@@ -24,6 +24,9 @@ with the same `id` replaces an earlier one).
 | N62 (E-series V8) | `n62.toml` / `example_e70_n62.toml` | KWP2000 |
 | N20 / N26 (F-series 2.0 turbo I4) | `n20.toml` | Community, all UDS entries `[needs verification]` |
 | S55 (F80/F82/F87 M) | `s55.toml` | Community, all UDS entries `[needs verification]`; BMW M tricolor `[profile.theme]` |
+| B48 / B46 (F/G-series 2.0 turbo I4) | `b48.toml` | Community, all UDS entries `[needs verification]` |
+| S58 (G80/G82/F97/F98 M) | `s58.toml` | Community, all UDS entries `[needs verification]`; BMW M tricolor `[profile.theme]` |
+| N57 (F-series 3.0 turbo diesel I6) | `n57.toml` | First diesel profile; DPF/EGR/NOx enum DIDs from DECODE_FUNCTIONS.md § 8 candidate catalog, all `[needs verification]` |
 
 > Contribute only original or community-derived knowledge. Do not include data
 > extracted from ISTA or other proprietary software.
