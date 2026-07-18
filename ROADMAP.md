@@ -211,27 +211,74 @@ a dedicated cycle scope opens:
 
 ---
 
+## v0.7.0 — "Unblockers" (Merged 2026-07-16)
+
+**Premise.** Not a new user-facing capability — remove the friction
+that contributors and F/G users hit daily: hardcoded car IPs, the
+stale Ready-to-Claim pile, and the two missing mainstream engine
+profiles.
+
+See [`docs/v0.7.0_plan.md`](docs/v0.7.0_plan.md) for the full cycle
+plan. Summary below.
+
+### ✅ Ready — all three merged
+
+| Item | Status | Notes |
+|------|--------|-------|
+| ENET/DoIP auto-detection | ✅ Done | UDP broadcast discovery on port 13400; **Discover** button; manual IP entry kept as fallback. Merged in PR #108. |
+| Theme toggle + workspace persistence + per-profile gauge themes | ✅ Done | Dark/light via CSS variables; layout persists in `~/beeemuu-exports/workspace.json`; `[profile.theme]` TOML blocks recolour gauges. Merged in PR #109. |
+| N20/N26 + S55 engine profiles | ✅ Done | `community/profiles/n20.toml` (22 params) + `s55.toml` (25 params, BMW M tricolor `[profile.theme]`); conservative sourcing, every UDS entry `[needs verification]`. Merged in PR #110. |
+
+**Release.** The release cut (version bump + notes) is Tier C and
+tracked separately; the cycle's code is all on `main`.
+
+### 🟡 Needs research — carried into v0.8.0+ consideration
+
+Custom math channels, knock-distribution view, full AFR/lambda story,
+full per-bank adaptation readout, trigger-based logging, OBDLink MX+
+(BLE), and real-car validation of the B58/N55/N20/S55 DID sets all
+remain 🟡 — see the v0.7.0 plan's deferred list. Real-car validation
+is still the hardest cross-cycle blocker.
+
+---
+
+## v0.8.0 — "Service Bay" (Planned)
+
+**Premise.** Turn the diagnostic reader into the service workstation:
+service-function breadth with honest verification status, coverage
+breadth (fault texts, ECU scan table, engine profiles), and the
+data-integrity floor under all of it. See
+[`docs/v0.8.0_plan.md`](docs/v0.8.0_plan.md) for the full cycle plan,
+including the ISTA+ gap analysis and the explicit "what we will NOT
+do" list (flashing, FSC/AOS, coding writes, ISTA corpus, immobiliser).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Data integrity: DTC text rescue + corpus + TOML parse gate | 🟢 Ready | A | `community/dtc_texts.toml` and `CONTRIBUTING.md` are **truncated today**; corpus grows from in-repo sources; new cargo test parses every shipped community TOML in CI. |
+| Service-function breadth + verification status | 🟢 Ready | B | Audit-first routine IDs (in-repo sources only); `[UNVERIFIED]` markers; new `docs/validation/service-functions.md` harness. Protected paths — human merge. |
+| Engine profiles: B48, S58, N57 | 🟢 Ready | A | Repeats the v0.7.0 PR #3 conservative-sourcing pattern; first diesel profile. |
+| ECU scan-table breadth + addressing-model doc | 🟢 Ready | A | Sourced addresses only (evidence-gated); E-vs-F/G addressing documented honestly. |
+
+Cycle starts when the required Discussion thread concludes.
+
+---
+
 ## Ready to Claim (🟢 — open a PR when you want it)
 
 These items have lived on the ROADMAP for multiple cycles as 🟢-
 Ready and have not been claimed. They're real, well-scoped, and not
-in conflict with the active v0.6.0 cycle.
+in conflict with the active v0.8.0 cycle.
 
 > **If you're new to the project, start here.** These are the lowest-
 > risk ways to land a first PR.
 
 | Item | Where to start | Notes |
 |------|----------------|-------|
-| Dark/light theme toggle | `src/css/app.css` (CSS variables exist) + toggle button in `src/index.html` | Small. UI only; no Rust touched. |
-| Save/load workspace layout | `src/js/` + Tauri settings persistence, or `~/beeemuu/` JSON | Mid-sized. Remembers which gauges the user had open. |
-| Export PNG/SVG from charts | Extends the existing `Chart.js` lines | Mid-sized. Good first Chart.js PR. |
-| Real-time data logging to disk | Extends the existing `LogSession` | Mid-sized. Touches the Logging tab only. |
+| Export PNG/SVG from charts | Extends the existing `Chart.js` lines | Mid-sized. Good first Chart.js PR. Useful for forum posts. |
 | KWP2000 slow-module timeout fix | `src-tauri/src/protocol/kwp2000.rs` — **protected path**, flag the PR header | Small backend fix; CIC and slow modules time out today. |
-| ISO-TP multi-frame (FF/CF/FC) | New module under `src-tauri/src/protocol/` — **protected path**, flag the PR header | Required for full VIN and full DTC list over UDS. |
-| Gauge theming (M colors for S55, etc.) | `src/js/gauges.js` + per-profile `theme.css` | Small. Pure UI. |
-| OBD-II PID auto-discovery | New tab in `src/index.html` | Small. |
-| N20/N26 engine profile | New `community/profiles/n20.toml` (clone `b58.toml`, mark DIDs `[needs verification]`) | Small. Needs a tester. |
-| S55 engine profile | New `community/profiles/s55.toml` | Small. High-performance N55 variant; oil temp critical. |
+| Freeze-frame schema coverage | `community/freeze_schemas.toml` (32 lines today) | Pure data; mirror an existing schema block per ECU you can verify. |
 
 ---
 
@@ -258,4 +305,4 @@ in conflict with the active v0.6.0 cycle.
 
 ---
 
-*Last updated: 2026-07-16. v0.6.0 "Real Hardware" marked Shipped; the three Ready items now show ✅ Done with PR references (#77 / #80 / #81). v0.6.0 release notes at [`RELEASE_NOTES_v0.6.0.md`](RELEASE_NOTES_v0.6.0.md). The next cycle (v0.7.0) candidates are the Ready-to-Claim 🟢 pile + ENET/DoIP auto-detection (the highest-leverage protocol work) + the 🟡 items below; open a Discussion thread per the no-Discussion-no-roadmap rule.*
+*Last updated: 2026-07-16. v0.7.0 "Unblockers" marked merged (PRs #108 / #109 / #110); Ready-to-Claim pile pruned of shipped items (theme toggle, workspace persistence, gauge theming, ISO-TP, OBD-II auto-discovery, N20/S55 profiles). v0.8.0 "Service Bay" planned — see [`docs/v0.8.0_plan.md`](docs/v0.8.0_plan.md); open a Discussion thread per the no-Discussion-no-roadmap rule.*
