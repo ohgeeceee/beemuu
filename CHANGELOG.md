@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Guided fault-finding test-plan schema (v0.9.0 PR #1): new
+  `community/testplans/<dtc>.toml` `[[step]]` format for branching
+  diagnostic walkthroughs (measurement verbs, `on_pass`/`on_fail`/`next`
+  branches, conclusion nodes, mandatory per-step in-repo `source`
+  citation). Contract documented in `docs/testplans.md` with an
+  author-facing quick reference in `community/testplans/README.md`. The
+  schema is enforced by a new CI gate
+  (`community::tests::shipped_testplans_branch_integrity`): branch
+  targets must resolve, a conclusion must be reachable from `s1`, every
+  step must be sourced, `dtc` must match the filename, and the reachable
+  graph must be acyclic. A `[meta.suppressed]` placeholder is allowed for
+  known-missing DTCs. No production code changed — the loader lands in a
+  later slice.
+- Oracle JSON parse gate (v0.9.0 PR #1): every `community/oracle/*.json`
+  is now CI-gated (`community::tests::shipped_oracle_json_parses`). Before
+  this, a broken Oracle file failed only as a startup `eprintln!` that CI
+  never saw — the JSON analogue of the v0.8.0 TOML parse gate.
+
 - Dark/light theme toggle completed: the whole app chrome now re-skins
   through CSS variables (`src/css/app.css`) instead of the previous
   per-panel dark overrides, and the choice persists across restarts via

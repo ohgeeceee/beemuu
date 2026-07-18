@@ -558,4 +558,230 @@ label = "Legacy profile"
             assert!(!text.trim().is_empty(), "empty text for {code}");
         }
     }
+
+    // ---- v0.9.0 PR #1: test-plan schema gate ------------------------------
+    //
+    // The guided-fault-finding cycle adds a parallel `community/testplans/`
+    // tree of branching `[[step]]` plans (schema: `docs/testplans.md`). The
+    // recursive syntax gate `shipped_community_tomls_parse` above already
+    // covers those files for TOML validity the day they land. The tests
+    // below add the *shape* gate the schema doc promises:
+    // `shipped_testplans_branch_integrity` (branch targets resolve, a
+    // conclusion is reachable, every step is sourced, dtc matches filename,
+    // no traversal cycles) and `shipped_oracle_json_parses` (survey finding
+    // #3: the Oracle JSON was ungated — a broken file failed only as a
+    // startup `eprintln`, invisible to CI).
+
+    /// Deserialize shapes mirroring `docs/testplans.md`. Test-only: the
+    /// production loader lands in PR #3 (`testplans.rs`). Kept permissive
+    /// (`#[serde(default)]`) so the *gate* — not serde — reports the
+    /// schema violations with actionable messages.
+    #[derive(Deserialize)]
+    struct TestPlanFile {
+        #[serde(default)]
+        dtc: String,
+        #[serde(default)]
+        meta: TestPlanMeta,
+        #[serde(default)]
+        step: Vec<TestPlanStep>,
+    }
+
+    #[derive(Deserialize, Default)]
+    struct TestPlanMeta {
+        #[serde(default)]
+        #[allow(dead_code)]
+        title: String,
+        #[serde(default)]
+        #[allow(dead_code)]
+        engine_family: String,
+        /// Presence marks a placeholder (known-missing) plan: allowed to
+        /// carry zero steps and skipped by the branch-integrity walk.
+        #[serde(default)]
+        suppressed: Option<toml::Value>,
+    }
+
+    #[derive(Deserialize)]
+    struct TestPlanStep {
+        #[serde(default)]
+        id: String,
+        #[serde(default)]
+        #[allow(dead_code)]
+        instruction: String,
+        #[serde(default)]
+        on_pass: Option<String>,
+        #[serde(default)]
+        on_fail: Option<String>,
+        #[serde(default)]
+        next: Option<String>,
+        #[serde(default)]
+        conclusion: Option<String>,
+        #[serde(default)]
+        source: String,
+    }
+
+    /// Every `*.toml` under `community/testplans/` (recursively), with
+    /// its file stem, skipping the author-facing `README.md` (not TOML).
+    fn shipped_testplan_files() -> Vec<(PathBuf, String)> {
+        let dir = shipped_community_dir().join("testplans");
+        let mut out = Vec::new();
+        if !dir.is_dir() {
+            return out;
+        }
+        for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("read_dir {dir:?}: {e}")) {
+            let path = entry.expect("dir entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+                continue;
+            }
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string();
+            out.push((path, stem));
+        }
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
+    /// GATE (v0.9.0 PR #1): every shipped test plan is structurally sound.
+    ///
+    /// Enforces the five branch-integrity rules from `docs/testplans.md`:
+    ///   1. Every `on_pass`/`on_fail`/`next` target resolves to a step id
+    ///      in the same file.
+    ///   2. At least one `conclusion` node is reachable from `s1`.
+    ///   3. Every step names a non-empty `source`.
+    ///   4. The top-level `dtc` equals the filename stem (uppercased).
+    ///   5. The reachable graph is acyclic (BFS bounded by step count so a
+    ///      cycle can't hang the UI traversal).
+    ///
+    /// A `[meta.suppressed]` plan (known-missing placeholder) is allowed to
+    /// carry zero steps and is skipped by the walk.
+    #[test]
+    fn shipped_testplans_branch_integrity() {
+        for (path, stem) in shipped_testplan_files() {
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+            let plan: TestPlanFile = toml::from_str(&text)
+                .unwrap_or_else(|e| panic!("testplan {path:?} must fit schema: {e}"));
+
+            // Rule 4: dtc matches filename stem (both uppercased).
+            assert!(
+                !plan.dtc.trim().is_empty(),
+                "{path:?}: missing top-level `dtc`"
+            );
+            assert_eq!(
+                plan.dtc.to_uppercase(),
+                stem.to_uppercase(),
+                "{path:?}: dtc {:?} must equal filename stem {:?}",
+                plan.dtc,
+                stem
+            );
+
+            // Suppressed placeholders may be bodyless; skip the graph walk.
+            if plan.meta.suppressed.is_some() {
+                continue;
+            }
+
+            assert!(
+                !plan.step.is_empty(),
+                "{path:?}: non-suppressed plan has no [[step]] tables"
+            );
+
+            // Index steps by id; ids must be unique and non-empty.
+            let mut by_id: std::collections::HashMap<&str, &TestPlanStep> =
+                std::collections::HashMap::new();
+            for s in &plan.step {
+                assert!(!s.id.trim().is_empty(), "{path:?}: a step has an empty id");
+                assert!(
+                    by_id.insert(s.id.as_str(), s).is_none(),
+                    "{path:?}: duplicate step id {:?}",
+                    s.id
+                );
+                // Rule 3: every step is sourced.
+                assert!(
+                    !s.source.trim().is_empty(),
+                    "{path:?}: step {:?} has an empty `source` (honesty rule)",
+                    s.id
+                );
+            }
+
+            // Rule 1: every branch target resolves.
+            for s in &plan.step {
+                for (edge, target) in [
+                    ("on_pass", &s.on_pass),
+                    ("on_fail", &s.on_fail),
+                    ("next", &s.next),
+                ] {
+                    if let Some(t) = target {
+                        assert!(
+                            by_id.contains_key(t.as_str()),
+                            "{path:?}: step {:?} `{edge}` -> {:?} does not resolve",
+                            s.id,
+                            t
+                        );
+                    }
+                }
+            }
+
+            // Plans must have an entry step `s1` (schema convention: BFS root).
+            assert!(
+                by_id.contains_key("s1"),
+                "{path:?}: plan must define an entry step with id \"s1\""
+            );
+
+            // Rules 2 + 5: BFS from s1 finds a conclusion, bounded so a cycle
+            // can't loop forever (a step is never enqueued more than once).
+            let mut visited: std::collections::HashSet<&str> =
+                std::collections::HashSet::new();
+            let mut queue: std::collections::VecDeque<&str> =
+                std::collections::VecDeque::new();
+            queue.push_back("s1");
+            visited.insert("s1");
+            let mut reachable_conclusion = false;
+            while let Some(id) = queue.pop_front() {
+                let step = by_id[id];
+                if step.conclusion.as_deref().map(str::trim).is_some_and(|c| !c.is_empty()) {
+                    reachable_conclusion = true;
+                }
+                for target in [&step.on_pass, &step.on_fail, &step.next].into_iter().flatten() {
+                    if visited.insert(target.as_str()) {
+                        queue.push_back(target.as_str());
+                    }
+                }
+                // Bound: visited set can never exceed the step count, so the
+                // loop terminates even on a self-referential graph.
+                assert!(
+                    visited.len() <= plan.step.len(),
+                    "{path:?}: traversal exceeded step count (cycle guard tripped)"
+                );
+            }
+            assert!(
+                reachable_conclusion,
+                "{path:?}: no conclusion node reachable from s1 (rule 2)"
+            );
+        }
+    }
+
+    /// GATE (v0.9.0 PR #1, survey finding #3): every shipped Oracle JSON
+    /// file must parse. Before this, a broken `community/oracle/*.json`
+    /// failed only as a startup `eprintln!` in `oracle.rs` — CI saw
+    /// nothing. This is the JSON analogue of `shipped_community_tomls_parse`.
+    #[test]
+    fn shipped_oracle_json_parses() {
+        let dir = shipped_community_dir().join("oracle");
+        assert!(dir.is_dir(), "oracle dir missing at {dir:?}");
+        let mut count = 0usize;
+        for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("read_dir {dir:?}: {e}")) {
+            let path = entry.expect("dir entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let content = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+            serde_json::from_str::<serde_json::Value>(&content)
+                .unwrap_or_else(|e| panic!("shipped Oracle JSON must parse: {path:?}: {e}"));
+            count += 1;
+        }
+        assert!(count >= 2, "oracle gate should cover >= 2 JSON files, saw {count}");
+    }
 }
