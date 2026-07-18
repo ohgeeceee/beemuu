@@ -29,4 +29,7 @@ address = 0x12
   offset = 2
   width = "u8"
   scale = 1.0
-  bias =
+  bias = -40.0
+  decimals = 0
+  # ^ rescued v0.8.0 PR #1 — file was truncated at `bias =` here;
+  # values restored from the matching example in community/README.md.

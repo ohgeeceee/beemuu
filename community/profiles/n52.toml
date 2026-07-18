@@ -87,4 +87,33 @@ label = "N52 2.5/3.0 NA I6 (MSV70/MSV80) [community, oil temp unverified]"
   id = "speed"
   label = "Vehicle speed"
   unit = "km/h"
-  target
+  target = 0x12
+  query = "obd:0D"
+  decode = "u8"
+  min = 0.0
+  max = 300.0
+
+  # Rescued v0.8.0 PR #1 — this file was truncated mid-key at the speed
+  # param's `target` line. The tail below restores the canonical
+  # emissions-mandated OBD-II block shared by every shipped profile
+  # (b58/n55/n20/s55); all entries verified by design.
+
+  [[profile.param]]
+  id = "volt"
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0
+
+  [[profile.param]]
+  id = "ambient"
+  label = "Ambient temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:46"
+  decode = "temp_u8"
+  min = -40.0
+  max = 60.0

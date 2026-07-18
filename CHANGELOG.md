@@ -34,6 +34,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (track-use criticality noted), and a BMW M tricolor `[profile.theme]`
   block — the first shipping consumer of per-profile gauge themes.
   (v0.7.0 PR #3)
+- Community data rescue: five shipped data files were truncated and
+  silently dead — `community/dtc_texts.toml` (cut mid-string; 0 overlay
+  entries loaded), `community/freeze_schemas.toml` (cut at `bias =`),
+  and the `n52`/`n54`/`n62` profiles (cut mid-parameter). The DTC
+  corpus is rebuilt from in-repo sources (`backend/seed_bmw_dim01.py`,
+  `backend/seed_bmw.py`, `community/opinions/`) to 208 overlay entries;
+  the profiles' tails are restored to the canonical emissions-mandated
+  OBD-II block; freeze-frame values restored from `community/README.md`'s
+  own example. (v0.8.0 PR #1)
+- Community TOML parse gate: new cargo unit tests parse every shipped
+  `community/**/*.toml` (syntax) plus the `dtc_texts.toml` corpus shape,
+  so a broken data file now fails CI's `cargo test` job instead of
+  loading silently. (v0.8.0 PR #1)
+- `CONTRIBUTING.md` completed: the file ended mid-table; the promised
+  Parameter Explorer, code-contribution, and development-setup sections
+  now exist, and the verification-label conventions
+  (`[needs verification]`, `[UNVERIFIED placeholder]`, how labels come
+  off via `docs/validation/` harness reports) are documented.
+  (v0.8.0 PR #1)
 
 ## [0.6.0] - 2026-07-16
 

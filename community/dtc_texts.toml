@@ -1,14 +1,279 @@
 # Community fault-code descriptions. Hex codes, case-insensitive.
-# Overrides the built-in table. See README.md in this folder.
-# Do NOT paste text extracted from ISTA or other proprietary software.
+# Overrides the built-in table in src-tauri/src/data/dtc.rs.
+# See README.md in this folder. Do NOT paste text extracted from ISTA
+# or other proprietary software.
 #
-# Sources: BimmerFest, SpoolStreet, BimmerProfs, M5Board, BabyBMW,
-#          usro.net, AutoExplain, forumbmw.net (public PDF, 2004).
-# All descriptions are community-derived, not extracted from BMW software.
+# v0.8.0 PR #1 — rescued rebuild. The previous revision of this file was
+# truncated mid-string, so the TOML parse failed and ZERO overlay entries
+# loaded (the Diagnostics tab reported the error; nothing else did). The
+# corpus below is rebuilt from in-repo sources only:
+#
+#   - backend/seed_bmw_dim01.py — BMW hex codes curated from
+#     research/bmw_diag_dim01_dtcs.md (community/open references:
+#     BimmerFest, Bimmerforums, M5Board, SpoolStreet, BabyBMW,
+#     BimmerProfs, AutoExplain). Per-code provenance URLs are preserved
+#     in that seed file; they are not repeated here to keep this file
+#     scannable.
+#   - backend/seed_bmw.py — N54/N55/S55/B58-family codes; the title
+#     for 29E0 comes from community/opinions/29E0.toml, the project's
+#     curated source of truth for that code.
+#
+# Discipline:
+#   - Codes already in the built-in table (src-tauri/src/data/dtc.rs)
+#     are deliberately NOT repeated — the overlay would only create
+#     drift; edit the built-in table to change those texts.
+#   - Generic SAE J2012 codes (P/B/C/U format) are out of scope for the
+#     desktop overlay: the desktop app renders BMW-style hex DTCs. The
+#     generic corpus lives in the hosted API (backend/seed_dtcs.py).
+#   - Cross-source conflicts are resolved in favour of the
+#     research-documented dim01 entry, except where a
+#     community/opinions/*.toml file exists (that file wins). Conflicts
+#     seen during the rebuild: 30DA (dim01 "NOx sensor, heating time"
+#     kept over seed_bmw "No bus sleep / wake-up fault"), 29E0
+#     (opinions "Mixture too lean" kept over dim01's rail-pressure
+#     wording).
 
 [dtc]
-# --- MISFIRE ---
-"29CD" = "Misfire cylinder 1"
-"29CE" = "Misfire cylinder 2"
-"29CF" = "Misfire cylinder 3"
-"29D0" = "Misfire cylinder
+
+
+# --- AIRBAG (5) ---
+"93AE" = "ACSM/MRS: side airbag driver, rear"
+"93C3" = "ACSM/MRS: seat-occupancy detector, passenger"
+"93D2" = "ACSM/MRS: telltale lamp for front passenger airbag deactivation"
+"9408" = "ACSM/MRS: under voltage during test"
+"B1000" = "Airbag ECU malfunction (SRS module internal failure)"
+
+# --- BATTERY (2) ---
+"2793" = "DME: Power management, battery"
+"3886" = "System voltage: voltage too high"
+
+# --- BODY (15) ---
+"2F44" = "EWS preventing manipulation (immobilizer)"
+"2F45" = "EWS preventing manipulation (related to 2F44)"
+"A092" = "SHD Standardization"
+"A0B0" = "ECU input brake lights"
+"A0B2" = "CAS: supply, terminal 30E/30L"
+"A10A" = "Body module code (from community PDF)"
+"A114" = "CAS: line fault, electrical steering lock"
+"A118" = "CAS: roadstead signal implausible"
+"A127" = "Body module code (from community PDF)"
+"A375" = "Communication with airbag ECU disturbed"
+"A3AD" = "CAN ID 1D0 error: Engine data"
+"A3AE" = "CAN ID 0AA error: Idle engine speed"
+"A554" = "Alive telephone"
+"A559" = "Clamp 30g_f cutoff"
+"A8B6" = "Error will not cause a warning light"
+
+# --- CAN (18) ---
+"3BD6" = "PT-CAN message vehicle speed checksum wrong/alive check"
+"3BD7" = "PT-CAN no message vehicle speed"
+"3BD8" = "PT-CAN no message transmission data 2"
+"3BD9" = "PT-CAN message DKG status missing"
+"3BDA" = "PT-CAN message transmission data 3 checksum wrong"
+"3BDB" = "PT-CAN no message transmission data 3"
+"3BDC" = "PT-CAN message ETC torque request checksum wrong"
+"3BDD" = "PT-CAN no message ETC torque request"
+"3BDE" = "PT-CAN message twin-clutch gearbox torque request checksum wrong"
+"3BDF" = "PT-CAN no message twin-clutch gearbox torque request"
+"3BE0" = "PT-CAN message gearbox data checksum wrong"
+"D355" = "PT-CAN: Message TORQUE_2 (ID 0x0A9) not received or wrong message length"
+"D356" = "PT-CAN: Message TORQUE_3 (ID 0xAA) not received or wrong message length"
+"D904" = "K CAN wire error"
+"E18C" = "CAN related (from community PDF)"
+"E18F" = "CAN related (from community PDF)"
+"E717" = "CAN message: Dates of engine"
+"E71A" = "CAN message: Torque 3"
+
+# --- COOLING (11) ---
+"279B" = "Map cooling thermostat mechanically stuck (also 2EF4)"
+"2E83" = "Electric coolant pump: communication fault"
+"2E84" = "Cooling system related"
+"2E85" = "Electric coolant pump: communication / cutoff"
+"2E8D" = "Cooling system (from community PDF)"
+"2EE0" = "Cooling system related"
+"2EE1" = "Cooling system related"
+"2EE2" = "Cooling system related"
+"2EE3" = "Cooling system related"
+"2EF4" = "Map cooling thermostat mechanically stuck (same as 279B)"
+"2F0D" = "Cooling system related"
+
+# --- DSC (7) ---
+"51B0" = "DSC signal not plausible: brake pressure signal"
+"5DE0" = "DSC-ECU: ECU-internal plausibility VASP-U_Bit"
+"5DE1" = "DSC-ECU: ECU-internal clockstatus missing clock"
+"5E19" = "DSC: engine management interface"
+"5E1A" = "DSC-ECU: SPI transmission failure multi IC"
+"5E40" = "Wheel speed sensor rear right: signal edge missing"
+"5E5B" = "Stability control - wheel speed sensor general long-term error"
+
+# --- FUEL (10) ---
+"29E0" = "Mixture too lean"
+"29E1" = "Fuel pressure sensor signal"
+"29E2" = "Fuel injection rail, pressure sensor signal"
+"29F3" = "Fuel pressure sensor, electrical"
+"29F4" = "Fuel pressure sensor"
+"29F5" = "Fuel pressure control"
+"2A17" = "DMTL diagnosis module tank leakage, system failure"
+"2A2D" = "DMTL diagnosis module tank leakage, system failure"
+"2AAF" = "Fuel Pump Plausibility"
+"2FD4" = "Fuel system (N20 related)"
+
+# --- HVAC (14) ---
+"9C54" = "AUC sensor (automatic recirculation control)"
+"9C59" = "Evaporator temperature sensor (IHKA)"
+"9C5A" = "Heating heat-exchanger sensor, left (IHKA)"
+"9C5C" = "Heating heat-exchanger sensor, right (IHKA)"
+"9C60" = "SZM button 1 (IHKA)"
+"9C61" = "SZM button 2 (IHKA)"
+"9C62" = "SZM button 3 (IHKA)"
+"9C63" = "SZM button 4 (IHKA)"
+"9C65" = "SZM variant coding 2 (IHKA)"
+"9C70" = "ISupply, SZM (IHKA climate control)"
+"A6CF" = "AUC sensor (IHKA)"
+"E723" = "No message (condensation sensor, 0x2D1), receiver IHKA"
+"E729" = "No message (automatic air recirculation control sensor, 0x2D0), receiver JBE"
+"E72B" = "No message (solar sensor, 0x3D3), receiver IHKA"
+
+# --- LAMBDA (25) ---
+"2AEC" = "NOx sensor self diagnostics"
+"2AF0" = "NOx sensor, heating"
+"2AF2" = "NOx sensor, Lambda linear"
+"2AF4" = "NOx sensor, electrical"
+"2AF6" = "NOx sensor, Lambda binary"
+"2AF9" = "NOx sensor, nox signal: coast mode check"
+"2AFB" = "NOx sensor, Lambda binary (alternate)"
+"2B05" = "NOx sensor, heating (alternate)"
+"2B06" = "NOx sensor, Lambda linear (alternate)"
+"2B07" = "NOx sensor, electrical (alternate)"
+"2B09" = "NOx sensor, Lambda linear (alternate)"
+"2B0A" = "NOx sensor, Lambda binary (alternate)"
+"2B0B" = "NOx sensor, Lambda binary (alternate)"
+"2EAE" = "NOx sensor message missing (timeout)"
+"30D6" = "NOx sensor, plausibility"
+"30D8" = "NOx sensor, sensor damaged"
+"30DA" = "NOx sensor, heating time"
+"30DC" = "NOx sensor, heating"
+"30DE" = "NOx sensor - Lambdaprobe before catalyst, correlation"
+"30E0" = "NOx sensor, offset"
+"30E2" = "NOx sensor, thrust test"
+"30E4" = "NOx sensor, aging"
+"30E6" = "NOx sensor, dynamics"
+"30E9" = "Nitric oxide catalytic converter, aging"
+"30EA" = "DeNox catalytic converter sulfurized"
+
+# --- MISC (7) ---
+"2A98" = "DISA intake manifold runner fault"
+"2AAA" = "Valvetronic eccentric shaft fault"
+"2C57" = "Crankcase ventilation heater fault"
+"CDBB" = "FlexRay communication fault"
+"E094" = "Rail pressure deviation"
+"E095" = "Rail pressure sensor plausibility"
+"E102" = "Injector cylinder 1 fault"
+
+# --- MISFIRE (2) ---
+"29D9" = "Misfire in case of tank filling level too low"
+"29DC" = "Cylinder injection switch-off"
+
+# --- OTHER (10) ---
+"2DC3" = "Engine code (from community PDF)"
+"2DC5" = "Engine code (from community PDF)"
+"2DEC" = "Engine code (from community PDF)"
+"2F4A" = "Engine code (from community PDF)"
+"2F4C" = "Engine code (from community PDF)"
+"2F6C" = "Engine code (from community PDF)"
+"2F9E" = "Engine code (from community PDF)"
+"2FBE" = "Engine code (from community PDF)"
+"30F1" = "Engine code (from community PDF)"
+"30F2" = "Engine code (from community PDF)"
+
+# --- SENSOR (17) ---
+"2774" = "Mass air flow sensor, plausibility: air mass compared with model too high"
+"2775" = "Mass air flow sensor, plausibility: air mass compared with model too low"
+"2778" = "Air mass sensor, signal: implausible period duration, loose contact low frequency"
+"2779" = "Air mass sensor, signal: implausible period duration, loose contact high frequency"
+"277A" = "Air mass sensor, signal: short-circuit or line break (open circuit)"
+"280E" = "Absolute pressure sensor, intake manifold, plausibility: intake-manifold pressure too high"
+"280F" = "Absolute pressure sensor, intake manifold, plausibility: intake-manifold pressure too low"
+"281A" = "Absolute pressure sensor, intake pipe, electrical: short circuit to B+"
+"281B" = "Absolute pressure sensor, intake pipe, electrical: short circuit to earth"
+"283C" = "Ambient pressure sensor, electrical: short to B+ or open circuit"
+"283D" = "Ambient pressure sensor, electrical: short circuit to earth"
+"2841" = "Ambient pressure sensor, overrun: pressure too high"
+"2842" = "Ambient pressure sensor, overrun: pressure too low"
+"284C" = "Ambient pressure sensor, plausibility: pressure too high"
+"284D" = "Ambient pressure sensor, plausibility: pressure too low"
+"284E" = "Ambient pressure sensor, plausibility: pressure implausible"
+"284F" = "Ambient pressure sensor, plausibility: pressure implausible"
+
+# --- THROTTLE (35) ---
+"2710" = "Throttle valve, function: jammed permanently"
+"2711" = "Throttle valve, function: jammed briefly"
+"2714" = "Throttle valve, function: sluggish, too slow"
+"27D9" = "Accelerator pedal module, pedal sensor 1, short circuit to B+"
+"27DA" = "Accelerator pedal module, pedal sensor 1, short circuit to earth"
+"27DB" = "Pedal module, pedal sensor 2, short circuit to B+"
+"27DC" = "Pedal module, pedal sensor 2, short circuit to earth"
+"27E4" = "Accelerator-pedal module, pedal-travel sensor multiple fault"
+"27E8" = "Accelerator pedal module, synchronisation error between signal 1 and 2"
+"28A1" = "Throttle-valve angle - intake-manifold pressure, correlation: limit value not exceeded"
+"28A4" = "Throttle valve, throttle valve potentiometer 1, short to B+ or open circuit"
+"28A5" = "Throttle valve, throttle valve potentiometer 1, short circuit to earth"
+"28A8" = "Throttle valve, throttle potentiometer 2, short circuit to B+"
+"28A9" = "Throttle valve, throttle potentiometer 2, short circuit to earth"
+"28B0" = "Throttle valve: Limp-home operating mode active"
+"28B4" = "Throttle valve, throttle potentiometer: plausibility timing fault between potentiometer 1 and 2"
+"28B8" = "DME, internal fault, activation of throttle valve: short circuit"
+"28B9" = "DME, internal fault, activation of throttle valve: excess temperature or current too high"
+"28BA" = "DME, internal fault, activation of throttle valve: internal communication fault"
+"28BB" = "DME, internal fault, activation of throttle valve: line disconnection"
+"28BC" = "Throttle valve actuator, closing spring test: cancellation of check"
+"28BD" = "Throttle valve actuator, closing spring test: fault during spring check"
+"28C0" = "Throttle valve actuator, opening spring test: cancellation of check"
+"28C1" = "Throttle valve actuator, opening spring test: fault during spring check"
+"28C4" = "Throttle valve, adaptation: emergency running position not adapted"
+"28CC" = "Throttle valve, adaptation: marginal conditions not met"
+"28CD" = "Throttle valve, adaptation: marginal conditions not met; battery voltage too low"
+"28D0" = "Throttle valve, adaptation: initial adaptation, lower limit position not taught in"
+"28D4" = "Throttle valve, adaptation: teach in again, lower limit position not taught in"
+"2906" = "Intake air system: suspicion of leaks between turbocharger and intake valves"
+"2D1C" = "Accelerator pedal module, pedal sensor signal 2"
+"2D25" = "Mass Air Flow Excessive - External Tuning Box Detected"
+"2D58" = "DME digital motor electronics, internal failure: control nominal torque"
+"2D5A" = "Control motor torque limitation"
+"2F8F" = "Throttle/pedal related"
+
+# --- TRANSMISSION (11) ---
+"4F82" = "Transmission error (EGS/GWS)"
+"4FA0" = "SMG: clutch (activation position deviation)"
+"507B" = "Parking brake failure (transmission related)"
+"5088" = "Sensors gear selector switch"
+"5101" = "SMG III: Analyze hydraulic sensor"
+"51A6" = "Transmission related"
+"520A" = "SMG: signal, steering angle is faulty (DSC)"
+"5401" = "SMG: starter enable"
+"6140" = "Transmission code (from community PDF)"
+"CDA7" = "Transmission: status gear reverse"
+"CF33" = "Transmission code (from community PDF)"
+
+# --- TURBO (13) ---
+"120308" = "Charging pressure control: too low (B58)"
+"28A0" = "N55 wastegate adaptation value exceeded"
+"2ABC" = "Charging pressure sensor, electrical"
+"2ABD" = "Intake pressure sensor, re-running"
+"2AD0" = "Gear Control"
+"2D18" = "Boost control, pressure too low (N20/N26/B48/B58)"
+"2D29" = "MAP sensor error (intake manifold pressure)"
+"2D2A" = "Differential pressure sensor, suction pipe: adaptation / throttle angle plausibility"
+"2D2E" = "Angle of throttle valve - intake pipe underpressure"
+"30CF" = "Turbo/boost related"
+"30FE" = "Exhaust fume turbo charger, high pressure side"
+"3100" = "Boost-pressure control, deactivation"
+"CD87" = "E-Wastegate control deviation (B48/B58)"
+
+# --- VANOS (6) ---
+"2A80" = "Inlet VANOS variable cam control test, input signal"
+"2A85" = "Outlet VANOS variable cam control test"
+"2A96" = "Crankshaft sensor, tooth failure"
+"2A99" = "VANOS exhaust: control fault, camshaft stuck (community list)"
+"2A9A" = "Camshaft sensor inlet, signal"
+"3E80" = "Valvetronic actuator, activation: jammed mechanically"
