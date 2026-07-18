@@ -170,8 +170,8 @@ malformed data file fails CI even though the whitespace lint passes.
 - Bugs: [issue tracker](https://github.com/ohgeeceee/beemuu/issues) —
   include your chassis/engine, cable type, and the Diagnostics tab's
   community-load report.
-- Feature ideas: open a
-  [Discussion](https://github.com/ohgeeceee/beemuu/discussions) first —
-  no feature enters the roadmap without a public thread
-  ([`COMMUNITY_FRAMEWORK.md`](../COMMUNITY_FRAMEWORK.md)).
+- Feature ideas: open a PR when the work is done — no Discussion gate
+  ([`COMMUNITY_FRAMEWORK.md`](../COMMUNITY_FRAMEWORK.md) Rule 2). A
+  [Discussion](https://github.com/ohgeeceee/beemuu/discussions) thread
+  is optional when the direction itself is genuinely open.
 - Security: see [`SECURITY.md`](../SECURITY.md) — do not file publicly.

@@ -242,7 +242,7 @@ is still the hardest cross-cycle blocker.
 
 ---
 
-## v0.8.0 — "Service Bay" (Planned)
+## v0.8.0 — "Service Bay" (Merged except PR #2 — pending human merge)
 
 **Premise.** Turn the diagnostic reader into the service workstation:
 service-function breadth with honest verification status, coverage
@@ -252,16 +252,42 @@ data-integrity floor under all of it. See
 including the ISTA+ gap analysis and the explicit "what we will NOT
 do" list (flashing, FSC/AOS, coding writes, ISTA corpus, immobiliser).
 
+### Slice status
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Data integrity: DTC text rescue + corpus + TOML parse gate | ✅ Merged (#114) | A | Corpus rebuilt to 208 overlay entries; every shipped community TOML now parse-gated in CI. |
+| Service-function breadth + verification status | 🟡 PR #117 open — pending human merge | B | `[UNVERIFIED]` markers + write gating; harness doc `docs/validation/service-functions.md`. Tier B — human merges after review. |
+| Engine profiles: B48, S58, N57 | ✅ Merged (#115) | A | First diesel profile; conservative-sourcing pattern repeated. |
+| ECU scan-table breadth + addressing-model doc | ✅ Merged (#116) | A | Table 12 → 17 with OBDb-grounded F/G addresses; `docs/hardware/addressing-model.md`. |
+
+---
+
+## v0.9.0 — "Guided Fault Finding" (Planned)
+
+**Premise.** Close the biggest remaining ISTA+ gap: guided diagnostics.
+Today three flat knowledge bases (3 Opinions files, 2 Oracle JSON files,
+2 Story files) answer "what could this code mean?"; none can walk the
+tech through a branching test plan (check wiring → measure sensor →
+interpret result → branch → conclusion). See
+[`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md) for the full cycle plan,
+including the surface survey, the conservative-sourcing rules, and the
+"what we will NOT do" list (emissions-monitor tampering, VIN/odometer
+fraud, imported ISTA plans, auto-executing writes, unreviewed
+LLM-generated procedures).
+
 ### Planned slices
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Data integrity: DTC text rescue + corpus + TOML parse gate | 🟢 Ready | A | `community/dtc_texts.toml` and `CONTRIBUTING.md` are **truncated today**; corpus grows from in-repo sources; new cargo test parses every shipped community TOML in CI. |
-| Service-function breadth + verification status | 🟢 Ready | B | Audit-first routine IDs (in-repo sources only); `[UNVERIFIED]` markers; new `docs/validation/service-functions.md` harness. Protected paths — human merge. |
-| Engine profiles: B48, S58, N57 | 🟢 Ready | A | Repeats the v0.7.0 PR #3 conservative-sourcing pattern; first diesel profile. |
-| ECU scan-table breadth + addressing-model doc | 🟢 Ready | A | Sourced addresses only (evidence-gated); E-vs-F/G addressing documented honestly. |
+| Test-plan schema + parse-gate extension | 🟢 Ready | A | New `community/testplans/*.toml` `[[step]]` branching format; branch-integrity gate; oracle JSON gate (currently ungated). |
+| Author grounded first-corpus plans | 🟢 Ready | A | ~8–10 DTCs grounded in-repo only (2A82, 29E0–29E2, 30FF, 29CC, 2E81/2E82, P0171, P0300, P0420); known-missing list for the rest. |
+| Plan loader + query command | 🟢 Ready | B | Read-only `get_test_plan`; protected paths (`commands.rs`) — human merge. |
+| Guided-diagnosis walkthrough UI | 🟢 Ready | A | Step-by-step panel in fault detail; live-data measurement deep-links; freeze-frame seeding. |
+| Validation harness + contribution path | 🟢 Ready | A | `docs/validation/testplans.md`; `[needs verification]` plan labels come off only via harness reports. |
 
-Cycle starts when the required Discussion thread concludes.
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2).
 
 ---
 
@@ -305,4 +331,4 @@ in conflict with the active v0.8.0 cycle.
 
 ---
 
-*Last updated: 2026-07-16. v0.7.0 "Unblockers" marked merged (PRs #108 / #109 / #110); Ready-to-Claim pile pruned of shipped items (theme toggle, workspace persistence, gauge theming, ISO-TP, OBD-II auto-discovery, N20/S55 profiles). v0.8.0 "Service Bay" planned — see [`docs/v0.8.0_plan.md`](docs/v0.8.0_plan.md); open a Discussion thread per the no-Discussion-no-roadmap rule.*
+*Last updated: 2026-07-16. v0.8.0 "Service Bay" nearly complete — PRs #1 / #3 / #4 merged (#114 / #115 / #116); PR #2 service functions open as #117 pending human merge (Tier B). v0.9.0 "Guided Fault Finding" planned — see [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatch as PRs directly per `COMMUNITY_FRAMEWORK.md` Rule 2.*

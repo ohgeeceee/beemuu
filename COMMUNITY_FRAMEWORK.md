@@ -19,16 +19,17 @@ These four guidelines govern every interaction in GitHub Issues, GitHub Discussi
 
 ---
 
-### Rule 2: No Feature Is "Accepted" Without Public Discussion
+### Rule 2: Work Lands Directly as Pull Requests
 
-**The Rule:** A feature doesn't enter the roadmap until there's a public GitHub Discussion thread with meaningful community input. The maintainer's job is to synthesize that input, not override it unilaterally.
+**The Rule:** Finished work — features, cycle plans, fixes — lands on GitHub as a pull request as soon as it's done. No Discussion thread, waiting period, or other gate stands between completed work and its PR. The PR itself is where review happens: the reasoning goes in the PR body, the decision in the review comments. GitHub Discussions remains available as an *optional* venue for open-ended questions and early thinking, but it is never a requirement and never a gate.
 
-**Why it matters:** Nothing erodes open-source goodwill faster than a surprise redesign that nobody asked for. Public discussion means decisions carry the community's fingerprints. Even if the final call is yours, everyone saw the reasoning.
+**Why it matters:** Momentum is a feature — a gate between "done" and "proposed" quietly kills contributions and delays fixes nobody disagrees with. Public reasoning still matters exactly as much as it always did; it just lives in the PR, next to the code it describes, instead of in a thread that has to conclude first. Surprise redesigns are still wrong — the defense against them is a visible PR with the trade-offs written down, not a mandatory prequel.
 
 **In Practice:**
-- Label issues that need discussion with `needs-community-input`.
-- Before any major release, publish a "Pending Decisions" thread and give people 7 days to weigh in.
-- Summarize the discussion and the decision in a final comment before closing the thread. Never ghost a thread after making a call.
+- Open the PR when the work is done. Put the reasoning, alternatives considered, and review checklist in the PR body.
+- Use Discussions (optional) only when the direction itself is genuinely open; if a thread exists, link it from the PR.
+- Label issues that would benefit from broader input with `needs-community-input` — the label invites input; it never blocks a PR.
+- When a PR settles a debated question, summarize the decision in the PR before merge. Never ghost a thread after making a call.
 
 ---
 
