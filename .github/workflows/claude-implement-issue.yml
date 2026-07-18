@@ -37,11 +37,12 @@ jobs:
               2. Work on a new branch and open a pull request. NEVER push to main.
                  NEVER merge the PR yourself.
               3. Keep the change as small and focused as the issue requires.
-              4. Add or update tests (`cargo test` for Rust, pytest for bmw_diag) and
-                 make sure they pass locally before opening the PR.
+              4. Add or update tests (`cargo test` for Rust, `pytest backend/tests/`
+                 for the Python backend) and make sure they pass locally before
+                 opening the PR.
               5. If the correct fix requires touching a protected path
                  (src-tauri/src/transport/**, src-tauri/src/protocol/**,
-                 src-tauri/src/commands.rs, or bmw_diag/core/**), STILL open the PR,
+                 src-tauri/src/commands.rs), STILL open the PR,
                  but call it out prominently in the PR description and request human
                  review — these paths talk to real vehicle hardware and must not be
                  auto-merged.

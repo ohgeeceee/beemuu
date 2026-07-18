@@ -44,8 +44,6 @@ jobs:
   # The backend is stdlib-only (no requirements.txt); the only install is
   # pytest itself. Tests import `from backend import ...`, so pytest runs
   # from the repo root where the `backend` package is importable.
-  # server/dtc/ is deliberately NOT tested — dead code pending removal
-  # (issue #90).
   python:
     runs-on: ubuntu-latest
     steps:

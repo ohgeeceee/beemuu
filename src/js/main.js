@@ -2587,7 +2587,6 @@ document.querySelectorAll(".tab").forEach((tab) => {
     if (tab.dataset.view === "logging") buildLogParams();
     if (tab.dataset.view === "diagnostics") { loadCommunityReport(); refreshTraffic(); fillShareProfiles(); }
     if (tab.dataset.view === "snapshots") refreshSnapshots();
-    if (tab.dataset.view === "backend") refreshBackendDashboard();
   });
 });
 
