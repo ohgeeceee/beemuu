@@ -71,7 +71,7 @@ We're not the only BMW diagnostic tool. We're the only one with these commitment
 | **Auditable source.** | This repo is the only source of truth. Read the diffs. Open the PRs. |
 | **Offline by default.** | Reads your car, writes a CSV on disk. Your VIN never leaves your machine unless you export a snapshot and send it yourself. See [`SECURITY.md`](SECURITY.md). |
 | **Data contributions matter.** | DTC texts, DID maps, and engine profiles are first-class contributions. You can add them by editing TOML — no Rust required. See [`CONTRIBUTING.md`](CONTRIBUTING.md). |
-| **Decisions in public.** | Major features are discussed in GitHub Discussions before they ship. The roadmap is a markdown file, not a sales deck. See [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md). |
+| **Decisions in public.** | Work lands directly as pull requests — reasoning in the PR body, decision in the review. The roadmap is a markdown file, not a sales deck. See [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md). |
 | **Real hardware support, not just OBDLink clones.** | K+DCAN cable (FTDI), ENET/DoIP (F/G series), and a simulator that uses the same wire protocol. We don't sell a "premium cable" that does what any $15 part does. |
 
 ---
@@ -216,10 +216,10 @@ For context — these are in the binary and are *not* "coming":
 ### Ideas being explored (not on the roadmap yet)
 
 These are not promised and not scheduled. They are mentioned in
-[`LAUNCH_POST.md`](LAUNCH_POST.md) as long-term direction. They will
-appear in [`ROADMAP.md`](ROADMAP.md) only after a public Discussion
-thread — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) for
-the "no feature without a Discussion" rule.
+[`LAUNCH_POST.md`](LAUNCH_POST.md) as long-term direction. They land
+on [`ROADMAP.md`](ROADMAP.md) when someone does the work and opens a
+PR — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) Rule 2
+(work lands directly as PRs; Discussions are optional, never a gate).
 
 - **Adaptive Drift Tracker** — plot long-term fuel trims and adaptation
   values over time to predict when an N55 is about to throw 29E0.
@@ -252,7 +252,7 @@ mark protected-path changes (transport, protocol parser, command surface).
 From [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md), non-negotiable:
 
 1. Every issue gets a human reply within 48 hours — or a public "slipped" note.
-2. No feature enters the roadmap without a public Discussion thread.
+2. Work lands directly as pull requests — no Discussion thread gates a feature.
 3. Every contributor is named in `CONTRIBUTORS.md` and release notes.
 4. Architecture, security incidents, and the roadmap are public by default.
 

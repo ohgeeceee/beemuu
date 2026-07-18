@@ -286,7 +286,8 @@ LLM-generated procedures).
 | Guided-diagnosis walkthrough UI | 🟢 Ready | A | Step-by-step panel in fault detail; live-data measurement deep-links; freeze-frame seeding. |
 | Validation harness + contribution path | 🟢 Ready | A | `docs/validation/testplans.md`; `[needs verification]` plan labels come off only via harness reports. |
 
-Cycle starts when the required Discussion thread concludes.
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2).
 
 ---
 
@@ -330,4 +331,4 @@ in conflict with the active v0.8.0 cycle.
 
 ---
 
-*Last updated: 2026-07-16. v0.8.0 "Service Bay" nearly complete — PRs #1 / #3 / #4 merged (#114 / #115 / #116); PR #2 service functions open as #117 pending human merge (Tier B). v0.9.0 "Guided Fault Finding" planned — see [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); open a Discussion thread per the no-Discussion-no-roadmap rule.*
+*Last updated: 2026-07-16. v0.8.0 "Service Bay" nearly complete — PRs #1 / #3 / #4 merged (#114 / #115 / #116); PR #2 service functions open as #117 pending human merge (Tier B). v0.9.0 "Guided Fault Finding" planned — see [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatch as PRs directly per `COMMUNITY_FRAMEWORK.md` Rule 2.*
