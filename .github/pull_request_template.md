@@ -18,3 +18,9 @@
 - [ ] Tested against the Simulator (and, if possible, a real car — say which)
 - [ ] No BMW proprietary data or trademarks added
 - [ ] Docs updated if any behavior claims changed
+
+## For release-cut PRs
+
+- [ ] Version bumped in `Cargo.toml`, `package.json`, and `package-lock.json`
+- [ ] Annotated tag created for this release (`git tag -a vX.Y.Z`)
+- [ ] Tag pushed so `release.yml` can build installers (`git push origin vX.Y.Z`)
