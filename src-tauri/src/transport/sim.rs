@@ -4,6 +4,7 @@
 //! Supported services per simulated ECU:
 //!   10 <session> diagnosticSessionControl -> 50 <session> 00 32 01 F4
 //!   1A 80        readEcuIdentification  -> 5A 80 <ident string>
+//!   1A 90        readEcuIdentification (VIN) -> 5A 90 <17-byte VIN> (per VinMode)
 //!   18 02 FF FF  readDTCByStatus (KWP)  -> 58 <count> [hi lo status]*
 //!   12 <hi> <lo> readFreezeFrame        -> 52 <hi> <lo> <env bytes>
 //!   14 FF FF     clearDTC               -> 54
@@ -42,6 +43,29 @@ const SIM_KEY_XOR: u32 = 0x5A_A5_1234;
 /// (ISO 14229-2 typical value).
 const DEFAULT_S3_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// The simulated car's VIN (WBAVA31050NL12345 — a WBA VIN in the valid
+/// 17-char format). Answered via UDS `22 F1 90` and/or KWP `1A 90`
+/// depending on `VinMode`.
+const SIM_VIN: &[u8; 17] = b"WBAVA31050NL12345";
+
+/// VIN personality of the simulated vehicle — which protocol path answers
+/// VIN requests. The default `Uds` preserves the sim's long-standing
+/// behavior; the other variants model E-series KWP cars so the KWP and
+/// CAS-fallback paths of `protocol::read_vin` can be exercised (also handy
+/// for demos of pre-2007 cars).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VinMode {
+    /// UDS `22 F1 90` answers on the DME (F/G-style behavior). The DME and
+    /// CAS also answer KWP `1A 90`, like D-CAN E9x modules that speak both.
+    Uds,
+    /// UDS VIN reads are rejected; the DME answers KWP `1A 90` (E-series
+    /// K-line style).
+    KwpDme,
+    /// The DME has no VIN via either service; only the CAS (0x40) answers
+    /// KWP `1A 90` — the classic E-series fallback.
+    KwpCas,
+}
+
 pub struct SimTransport {
     ecus: Vec<SimEcu>,
     started: Instant,
@@ -55,6 +79,8 @@ pub struct SimTransport {
     last_diag: Instant,
     /// S3server timeout; `DEFAULT_S3_TIMEOUT` in production, shortened by tests.
     s3_timeout: Duration,
+    /// Which VIN protocol path(s) this car answers.
+    vin_mode: VinMode,
 }
 
 impl SimTransport {
@@ -71,7 +97,12 @@ impl SimTransport {
             SimEcu { address: 0x01, ident: "ACSM2 9166087 hw04 sw03.21 ci05", dtcs: vec![], freeze: vec![] },
         ];
         let now = Instant::now();
-        Self { ecus, started: now, session: 0x01, last_seed: 0, unlocked: false, last_diag: now, s3_timeout: DEFAULT_S3_TIMEOUT }
+        Self { ecus, started: now, session: 0x01, last_seed: 0, unlocked: false, last_diag: now, s3_timeout: DEFAULT_S3_TIMEOUT, vin_mode: VinMode::Uds }
+    }
+
+    /// Set the VIN personality (UDS vs KWP DME vs CAS-only fallback).
+    pub fn set_vin_mode(&mut self, mode: VinMode) {
+        self.vin_mode = mode;
     }
 
     /// Current diagnostic session byte — test-only introspection for the
@@ -125,7 +156,7 @@ impl SimTransport {
             // Boost / manifold pressure (u16, mbar)
             0x1009 => ((980.0 + wave * 15.0) as u16).to_be_bytes().to_vec(),
             // VIN
-            0xF190 => b"WBAVA31050NL12345".to_vec(),
+            0xF190 => SIM_VIN.to_vec(),
             // Odometer (u24, km) — 123456 km = 0x01E240
             0x1010 => vec![0x01, 0xE2, 0x40],
             _ => vec![0x00],
@@ -269,10 +300,34 @@ impl Transport for SimTransport {
                 ecu.dtcs.clear();
                 Ok(vec![0x54])
             }
+            [0x1A, 0x90] => {
+                // KWP readEcuIdentification option 0x90: VIN (E-series).
+                // DME and CAS both own a copy — except in KwpCas mode, where
+                // the DME has none and only the CAS (0x40) answers.
+                let has_vin = match (self.vin_mode, target) {
+                    (VinMode::KwpCas, 0x12) => false,
+                    (_, 0x12 | 0x40) => true,
+                    _ => false,
+                };
+                if has_vin {
+                    let mut r = vec![0x5A, 0x90];
+                    r.extend_from_slice(SIM_VIN);
+                    Ok(r)
+                } else {
+                    Ok(vec![0x7F, 0x1A, 0x12]) // subFunctionNotSupported
+                }
+            }
             [0x22, _, _] => {
-                let mut r = vec![0x62, payload[1], payload[2]];
-                r.extend_from_slice(&live.unwrap());
-                Ok(r)
+                let did = u16::from_be_bytes([payload[1], payload[2]]);
+                // In KWP personalities the DME rejects UDS VIN reads, forcing
+                // callers down the KWP 1A 90 path (E-series behavior).
+                if did == 0xF190 && self.vin_mode != VinMode::Uds {
+                    Ok(vec![0x7F, 0x22, 0x31]) // requestOutOfRange
+                } else {
+                    let mut r = vec![0x62, payload[1], payload[2]];
+                    r.extend_from_slice(&live.unwrap());
+                    Ok(r)
+                }
             }
             [0x01, pid] => match obd.unwrap() {
                 Some(data) => {
@@ -342,5 +397,49 @@ mod tests {
         std::thread::sleep(Duration::from_millis(100));
         sim.request(0x12, &[0x1A, 0x80]).unwrap();
         assert_eq!(sim.current_session(), 0x01);
+    }
+
+    /// Default personality: UDS 22 F190 answers, and the DME also answers
+    /// KWP 1A 90 (D-CAN E9x modules speak both).
+    #[test]
+    fn vin_default_mode_answers_uds_and_kwp() {
+        let mut sim = SimTransport::new();
+        let uds = sim.request(0x12, &[0x22, 0xF1, 0x90]).unwrap();
+        assert_eq!(&uds[..3], &[0x62, 0xF1, 0x90]);
+        assert_eq!(&uds[3..], SIM_VIN);
+        let kwp = sim.request(0x12, &[0x1A, 0x90]).unwrap();
+        assert_eq!(&kwp[..2], &[0x5A, 0x90]);
+        assert_eq!(&kwp[2..], SIM_VIN);
+    }
+
+    /// E-series DME personality: UDS VIN read is rejected, KWP 1A 90 on the
+    /// DME answers.
+    #[test]
+    fn vin_kwp_dme_mode_rejects_uds_answers_kwp() {
+        let mut sim = SimTransport::new();
+        sim.set_vin_mode(VinMode::KwpDme);
+        let uds = sim.request(0x12, &[0x22, 0xF1, 0x90]).unwrap();
+        assert_eq!(uds[0], 0x7F, "KWP personality must reject UDS VIN reads");
+        let kwp = sim.request(0x12, &[0x1A, 0x90]).unwrap();
+        assert_eq!(&kwp[..2], &[0x5A, 0x90]);
+        assert_eq!(&kwp[2..], SIM_VIN);
+    }
+
+    /// E-series CAS-fallback personality: the DME has no VIN via either
+    /// service; only the CAS (0x40) answers 1A 90.
+    #[test]
+    fn vin_kwp_cas_mode_only_cas_answers() {
+        let mut sim = SimTransport::new();
+        sim.set_vin_mode(VinMode::KwpCas);
+        let dme_uds = sim.request(0x12, &[0x22, 0xF1, 0x90]).unwrap();
+        assert_eq!(dme_uds[0], 0x7F);
+        let dme_kwp = sim.request(0x12, &[0x1A, 0x90]).unwrap();
+        assert_eq!(dme_kwp[0], 0x7F, "DME must have no VIN in KwpCas mode");
+        let cas_kwp = sim.request(0x40, &[0x1A, 0x90]).unwrap();
+        assert_eq!(&cas_kwp[..2], &[0x5A, 0x90]);
+        assert_eq!(&cas_kwp[2..], SIM_VIN);
+        // Non-VIN-owning modules never answer 1A 90.
+        let other = sim.request(0x60, &[0x1A, 0x90]).unwrap();
+        assert_eq!(other[0], 0x7F);
     }
 }
