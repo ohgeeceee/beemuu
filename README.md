@@ -117,12 +117,30 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The previous cycle was **v0.5.0 — "Ground Truth"** (shipped
-2026-07-15). The v0.6.0 cycle ("Real Hardware") was the
-first-uses-of-validated-pipeline cycle that followed. See
-the **v0.6.0 — items shipped** section below for what just
-landed, and [`ROADMAP.md`](ROADMAP.md) for the v0.7.0+
-candidates.
+The previous cycle was **v0.7.0 — "Unblockers"** (merged
+2026-07-16, PRs #108–#110): ENET/DoIP auto-detection, dark/light
+theme + workspace persistence + per-profile gauge themes, and the
+N20/N26 + S55 engine profiles. The active plan is
+**v0.8.0 — "Service Bay"** ([`docs/v0.8.0_plan.md`](docs/v0.8.0_plan.md)):
+service-function breadth with honest verification status, DTC-text
+rescue + corpus growth, B48/S58/N57 profiles, and ECU scan-table
+breadth — plus an explicit list of what BeeEmUu will **not** do
+(flashing, FSC certs, coding writes) and why. See
+[`ROADMAP.md`](ROADMAP.md) for canonical state.
+
+### Recently merged (v0.7.0 — 2026-07-16)
+
+For context — these are on `main` and are *not* "coming":
+
+- **ENET/DoIP auto-detection** ✅ (PR #108) — UDP broadcast discovery
+  on port 13400 finds the car's IP/VIN; the hardcoded-IP era is over.
+- **Dark/light theme + workspace persistence** ✅ (PR #109) — the
+  whole app chrome re-skins through CSS variables and the layout
+  survives restarts.
+- **Per-profile gauge themes** ✅ (PR #109) — optional
+  `[profile.theme]` TOML blocks recolour live-data gauges.
+- **N20/N26 + S55 profiles** ✅ (PR #110) — the last two mainstream
+  engine gaps closed; S55 ships the first BMW M tricolor theme.
 
 ### Recently shipped (v0.5.0 — 2026-07-15)
 
