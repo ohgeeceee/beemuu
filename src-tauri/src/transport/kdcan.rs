@@ -15,6 +15,14 @@
 //!
 //! The cable echoes every transmitted byte (K-line loopback), so we read
 //! back and discard our own frame before reading the response.
+//!
+//! ISO-TP note (issue #88): no FF/CF/FC reassembly lives here on purpose.
+//! The cable's CAN side (ISO 15765-2) is terminated in its own hardware —
+//! the PC only ever sees the complete length-prefixed messages above, on
+//! both D-CAN and K-line. Long responses (VIN, full fault memory) arrive as
+//! single KWP messages; the framing carries up to 252 payload bytes. Raw
+//! CAN-class transports that DO expose 8-byte frames use
+//! `transport::isotp::IsoTpTransport` instead.
 
 use super::{Result, Transport, TransportError};
 use std::io::{Read, Write};
