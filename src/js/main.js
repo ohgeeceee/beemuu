@@ -959,11 +959,16 @@ async function loadServiceFunctions() {
       const labelWithModule = sf.routines.length > 1
         ? `${sf.label} (${r.moduleLabel})`
         : sf.label;
+      // v0.8.0: `verified === false` means the routine ID has never been
+      // validated on a real chassis (simulator-grade). Render the
+      // [UNVERIFIED] marker; the confirmation below gains a second line.
+      const unverified = sf.verified === false;
       item.innerHTML =
         `<div class="service-info">` +
         `<div class="service-label">${labelWithModule}</div>` +
         `<div class="service-desc">${sf.description}</div>` +
         `</div>` +
+        (unverified ? `<span class="unverified-tag" title="Routine ID not chassis-validated — see docs/validation/service-functions.md">UNVERIFIED</span>` : ``) +
         `<span class="risk-tag risk-${sf.risk}">${sf.risk === "high" ? "ACTUATES HARDWARE" : "RESET"}</span>`;
       const btn = document.createElement("button");
       btn.className = "btn";
@@ -973,7 +978,13 @@ async function loadServiceFunctions() {
         const warning = sf.risk === "high"
           ? `"${labelWithModule}" actuates vehicle hardware.\n\n${sf.description}\n\nProceed?`
           : `Run "${labelWithModule}"?`;
-        if (!confirm(warning)) return;
+        // Write-path discipline (CONTRIBUTING.md): an unverified write
+        // can change ECU state, so the existing risk confirmation gains
+        // a "routine ID not chassis-validated" preamble.
+        const gating = unverified
+          ? `UNVERIFIED routine: the routine ID behind "${labelWithModule}" has NOT been validated on a real chassis — it is a simulator placeholder. On a real car it may invoke a different function, or none.\n\nValidation harness: docs/validation/service-functions.md\n\n`
+          : ``;
+        if (!confirm(gating + warning)) return;
         btn.disabled = true;
         try {
           const msg = await invoke("run_service_function", {

@@ -85,6 +85,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scan-table model holds on both K+DCAN and ENET (HSFZ one-byte src/tgt
   routed by the ZGW; DoIP u16 logical addresses appear only in vehicle
   discovery). (v0.8.0 PR #4)
+- Service-function verification status + `[UNVERIFIED]` write gating
+  (`src-tauri/src/data/service_functions.rs`): `ServiceFunction` gains a
+  `verified` flag; all six existing routines are marked
+  `verified: false` after an audit found their routine IDs
+  (`0x0F01`–`0x0F04`, `0x0A01`/`0x0A02`) are v0.4.0 simulator
+  placeholders with no in-repo chassis grounding (BMW routine IDs are
+  security-sensitive/unpublished per `research/bmw_diag_landscape.md`).
+  No new routine IDs ship — none are grounded in-repo; DPF regen,
+  throttle/Valvetronic adaptation, steering-angle calibration, EGS
+  adaptation reset, and EMF service mode are documented as
+  known-missing instead. The Service Functions UI renders an
+  `UNVERIFIED` tag and prepends a "routine ID not chassis-validated"
+  preamble to the run confirmation; new harness doc
+  `docs/validation/service-functions.md` (referenced from
+  `CONTRIBUTING.md`) is the label-removal path. A new contract test
+  locks every shipped entry to `verified == false` until a harness
+  report lands. (v0.8.0 PR #2)
 
 ## [0.6.0] - 2026-07-16
 
