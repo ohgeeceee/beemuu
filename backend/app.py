@@ -7,10 +7,12 @@ inspection, no vehicle probing, no writes.
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import os
 import sqlite3
 import subprocess
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -20,6 +22,51 @@ from . import bootstrap, cross_links, db, schematics
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
+
+# ---------------------------------------------------------------------------
+# Rate limiting — per-IP sliding-window counter (stdlib only).
+# ---------------------------------------------------------------------------
+
+_RATE_LIMIT = int(os.environ.get("BEEMUU_RATE_LIMIT", "120"))   # requests
+_RATE_WINDOW = int(os.environ.get("BEEMUU_RATE_WINDOW", "60"))  # seconds
+
+
+class _RateLimiter:
+    """Thread-safe sliding-window rate limiter keyed by client IP.
+
+    Each IP is allowed at most *limit* requests within a rolling *window*-second
+    interval. Excess requests receive a 429 response. State is kept entirely in
+    memory; a service restart resets all counters.
+    """
+
+    def __init__(self, limit: int = 120, window: int = 60) -> None:
+        self._limit = limit
+        self._window = window
+        self._lock = threading.Lock()
+        # ip → deque of float timestamps
+        self._buckets: dict[str, collections.deque] = {}
+
+    def is_allowed(self, ip: str) -> bool:
+        """Return True if the request should be served, False if rate-limited."""
+        now = time.monotonic()
+        cutoff = now - self._window
+        with self._lock:
+            bucket = self._buckets.get(ip)
+            if bucket is None:
+                bucket = collections.deque()
+                self._buckets[ip] = bucket
+            # Evict timestamps outside the window
+            while bucket and bucket[0] <= cutoff:
+                bucket.popleft()
+            if len(bucket) >= self._limit:
+                return False
+            bucket.append(now)
+            return True
+
+
+# Module-level singleton; limit / window configurable via env vars so
+# tests can override without patching internals.
+_rate_limiter = _RateLimiter(limit=_RATE_LIMIT, window=_RATE_WINDOW)
 
 
 def _git(*args: str) -> str | None:
@@ -148,6 +195,14 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "BeeEmUuAPI/0.1"
 
     def do_GET(self) -> None:
+        client_ip = self.client_address[0]
+        if not _rate_limiter.is_allowed(client_ip):
+            self._json(
+                {"error": "rate limit exceeded", "retry_after": _RATE_WINDOW},
+                status=429,
+                retry_after=_RATE_WINDOW,
+            )
+            return
         parsed = urlparse(self.path)
         if parsed.path == "/api/health":
             self._json({"ok": True, "service": "beemuu-api", "time": int(time.time())})
@@ -351,12 +406,14 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"{self.address_string()} - {fmt % args}")
 
-    def _json(self, payload: dict, status: int = 200) -> None:
+    def _json(self, payload: dict, status: int = 200, retry_after: int | None = None) -> None:
         body = json.dumps(payload, sort_keys=True).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
+        if retry_after is not None:
+            self.send_header("Retry-After", str(retry_after))
         self.end_headers()
         self.wfile.write(body)
 
