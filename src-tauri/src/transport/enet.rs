@@ -8,6 +8,12 @@
 //!
 //! The gateway (ZGW) answers with an ACK copy (ctrl 0x0002) of the request,
 //! then the ECU response as another 0x0001 message.
+//!
+//! ISO-TP note (issue #88): the ZGW terminates the CAN-side ISO 15765-2
+//! segmentation — every HSFZ message already carries a complete,
+//! reassembled diagnostic payload (u32 length field). No FF/CF/FC machinery
+//! is needed here; it lives in `transport::isotp` for raw CAN-class
+//! transports.
 
 use super::{Result, Transport, TransportError};
 use std::io::{Read, Write};

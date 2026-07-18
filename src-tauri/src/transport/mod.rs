@@ -6,6 +6,7 @@
 
 pub mod kdcan;
 pub mod enet;
+pub mod isotp;
 pub mod record;
 pub mod sim;
 
