@@ -117,15 +117,18 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The previous cycle was **v0.7.0 — "Unblockers"** (merged
-2026-07-16, PRs #108–#110): ENET/DoIP auto-detection, dark/light
-theme + workspace persistence + per-profile gauge themes, and the
-N20/N26 + S55 engine profiles. The active plan is
-**v0.8.0 — "Service Bay"** ([`docs/v0.8.0_plan.md`](docs/v0.8.0_plan.md)):
-service-function breadth with honest verification status, DTC-text
-rescue + corpus growth, B48/S58/N57 profiles, and ECU scan-table
-breadth — plus an explicit list of what BeeEmUu will **not** do
-(flashing, FSC certs, coding writes) and why. See
+The previous cycle was **v0.8.0 — "Service Bay"** (PRs #114 / #115 /
+#116 merged; PR #117 pending human merge): service-function breadth
+with `[UNVERIFIED]` write gating, DTC-text rescue + corpus growth to
+208 entries with a TOML parse gate, B48/S58/N57 profiles, and ECU
+scan-table breadth (12 → 17 addresses). The next planned cycle is
+**v0.9.0 — "Guided Fault Finding"**
+([`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md)): branching, step-by-step
+test plans per DTC — schema + parse gates, a grounded first corpus, a
+read-only query command, a walkthrough UI in the fault-detail panel,
+and a validation harness — plus an explicit list of what BeeEmUu will
+**not** do (emissions-monitor tampering, VIN/odometer fraud, imported
+ISTA plans, auto-executing writes) and why. See
 [`ROADMAP.md`](ROADMAP.md) for canonical state.
 
 ### Recently merged (v0.7.0 — 2026-07-16)
