@@ -2,6 +2,7 @@
 
 use crate::analysis::{ByteWatcher, WatchSnapshot};
 use crate::data::{ecus, freeze, live, service_functions, vin};
+use crate::keepalive;
 use crate::protocol::{self, Dtc, EcuInfo, FreezeItem};
 use crate::transport::record::{RecordingTransport, SharedLog, TrafficEntry};
 use crate::transport::{self, Transport, TransportConfig};
@@ -20,10 +21,14 @@ struct WatchSession {
 
 #[derive(Default)]
 pub struct AppState {
-    pub transport: Mutex<Option<Box<dyn Transport>>>,
+    /// Behind an `Arc` so the Tester Present keep-alive worker can share
+    /// the same lock as every command (see `keepalive` module docs).
+    pub transport: Arc<Mutex<Option<Box<dyn Transport>>>>,
     watch: Mutex<Option<WatchSession>>,
     traffic: SharedLog,
     pub unlocked: Mutex<HashSet<u8>>,
+    /// Running Tester Present worker while a non-default session is active.
+    keepalive: Mutex<Option<keepalive::KeepAlive>>,
 }
 
 #[derive(Serialize)]
@@ -44,8 +49,10 @@ pub async fn connect(
     config: TransportConfig,
 ) -> Result<ConnectionInfo, String> {
     let inner = transport::open(&config).map_err(|e| e.to_string())?;
-    // Fresh session: reset the traffic log and wrap the transport so every
-    // request/response from here on is recorded.
+    // Fresh session: stop any keep-alive from a previous connection, reset
+    // the traffic log and wrap the transport so every request/response from
+    // here on is recorded.
+    stop_keepalive(&state);
     state.traffic.lock().unwrap().clear();
     let mut t: Box<dyn Transport> =
         Box::new(RecordingTransport::new(inner, Arc::clone(&state.traffic)));
@@ -61,6 +68,7 @@ pub async fn connect(
 
 #[tauri::command]
 pub async fn disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    stop_keepalive(&state);
     if let Some(mut t) = state.transport.lock().unwrap().take() {
         t.disconnect();
     }
@@ -75,6 +83,22 @@ fn with_transport<T>(
     let mut guard = state.transport.lock().unwrap();
     let t = guard.as_mut().ok_or("Not connected")?;
     f(t.as_mut())
+}
+
+/// Stop the Tester Present keep-alive worker, if running.
+fn stop_keepalive(state: &tauri::State<'_, AppState>) {
+    if let Some(ka) = state.keepalive.lock().unwrap().take() {
+        ka.stop();
+    }
+}
+
+/// (Re)start the Tester Present keep-alive worker against `target`. Called
+/// when an ECU enters a non-default diagnostic session so the ECU's
+/// S3server timer never expires while the app is idle (issue #87).
+fn start_keepalive(state: &tauri::State<'_, AppState>, target: u8) {
+    stop_keepalive(state);
+    let ka = keepalive::spawn(Arc::clone(&state.transport), target, keepalive::INTERVAL);
+    *state.keepalive.lock().unwrap() = Some(ka);
 }
 
 /// Probe every known ECU address: ident + fault count. This is the
@@ -473,6 +497,14 @@ pub async fn set_session(
 ) -> Result<(), String> {
     with_transport(&state, |t| protocol::set_session(t, address, session))?;
     state.unlocked.lock().unwrap().remove(&address);
+    // S3server keep-alive: a non-default session needs periodic Tester
+    // Present to survive idle time; the default session must never see
+    // keep-alive frames (issue #87).
+    if session == 0x01 {
+        stop_keepalive(&state);
+    } else {
+        start_keepalive(&state, address);
+    }
     Ok(())
 }
 

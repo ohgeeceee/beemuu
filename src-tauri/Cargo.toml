@@ -22,3 +22,8 @@ toml = "0.8.23"
 # Used by `hosted::fetch` to pull build health from the VPS over HTTPS.
 # rustls-tls avoids the OpenSSL native dep; json enables direct deserialization.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+# Timer driver for the Tester Present keep-alive worker. Tokio is already in
+# the tree via Tauri (no new crate enters the graph); this only unifies in
+# the `time` feature so `tokio::time::sleep` is available on
+# `tauri::async_runtime`.
+tokio = { version = "1", features = ["time"] }

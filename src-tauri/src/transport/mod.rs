@@ -58,6 +58,26 @@ pub enum TransportConfig {
     Sim {},
 }
 
+/// Lets the app's shared `Arc<Mutex<Option<Box<dyn Transport>>>>` slot be
+/// used directly as a `Transport` — needed so the Tester Present keep-alive
+/// worker can hold the same lock as every command. `None` (not connected)
+/// answers `NotConnected`, which tells the worker to stop itself.
+impl Transport for Option<Box<dyn Transport>> {
+    fn name(&self) -> &'static str {
+        self.as_ref().map(|t| t.name()).unwrap_or("none")
+    }
+    fn request(&mut self, target: u8, payload: &[u8]) -> Result<Vec<u8>> {
+        self.as_mut()
+            .ok_or(TransportError::NotConnected)?
+            .request(target, payload)
+    }
+    fn disconnect(&mut self) {
+        if let Some(t) = self.as_mut() {
+            t.disconnect();
+        }
+    }
+}
+
 pub fn open(config: &TransportConfig) -> Result<Box<dyn Transport>> {
     match config {
         TransportConfig::Kdcan { port, dcan } => {

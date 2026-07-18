@@ -11,9 +11,15 @@
 //!   27 <sub>     securityAccess         -> 67 <sub> <seed> | 67 <sub>
 //!   3E ..        testerPresent          -> 7E
 //!   31 ..        routineControl (service functions) -> 71 ..
+//!
+//! S3server (ISO 14229-2): while a non-default session is active, more than
+//! ~5 s of bus silence reverts the ECU to the default session and drops
+//! security access. Any request — including Tester Present — resets the
+//! timer. This lets the Tester Present keep-alive worker be exercised
+//! without a car.
 
 use super::{Result, Transport, TransportError};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 struct SimEcu {
     address: u8,
@@ -31,6 +37,11 @@ struct SimEcu {
 /// unlock flow be exercised against the simulator.
 const SIM_KEY_XOR: u32 = 0x5A_A5_1234;
 
+/// Default S3server timeout: how long a non-default session survives without
+/// any diagnostic request before the ECU reverts to default session
+/// (ISO 14229-2 typical value).
+const DEFAULT_S3_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub struct SimTransport {
     ecus: Vec<SimEcu>,
     started: Instant,
@@ -40,6 +51,10 @@ pub struct SimTransport {
     last_seed: u32,
     /// Whether security access is currently granted.
     unlocked: bool,
+    /// Time of the last diagnostic request — the S3 timer reference.
+    last_diag: Instant,
+    /// S3server timeout; `DEFAULT_S3_TIMEOUT` in production, shortened by tests.
+    s3_timeout: Duration,
 }
 
 impl SimTransport {
@@ -55,7 +70,22 @@ impl SimTransport {
             SimEcu { address: 0x78, ident: "IHKA 9226613 hw02 sw08.30 ci02", dtcs: vec![], freeze: vec![] },
             SimEcu { address: 0x01, ident: "ACSM2 9166087 hw04 sw03.21 ci05", dtcs: vec![], freeze: vec![] },
         ];
-        Self { ecus, started: Instant::now(), session: 0x01, last_seed: 0, unlocked: false }
+        let now = Instant::now();
+        Self { ecus, started: now, session: 0x01, last_seed: 0, unlocked: false, last_diag: now, s3_timeout: DEFAULT_S3_TIMEOUT }
+    }
+
+    /// Current diagnostic session byte — test-only introspection for the
+    /// keep-alive worker tests (the real bus has no readSession service).
+    #[cfg(test)]
+    pub(crate) fn current_session(&self) -> u8 {
+        self.session
+    }
+
+    /// Shorten the S3 timeout so tests can compress time instead of
+    /// sleeping for the real ~5 s / >30 s windows.
+    #[cfg(test)]
+    pub(crate) fn set_s3_timeout(&mut self, d: Duration) {
+        self.s3_timeout = d;
     }
 
     /// Time-varying engine model for live values.
@@ -152,6 +182,16 @@ impl Transport for SimTransport {
     }
 
     fn request(&mut self, target: u8, payload: &[u8]) -> Result<Vec<u8>> {
+        // S3server (ISO 14229-2): a non-default session times out after
+        // `s3_timeout` of bus silence, reverting to default session and
+        // dropping security. Any request — including Tester Present —
+        // resets the timer.
+        if self.session != 0x01 && self.last_diag.elapsed() > self.s3_timeout {
+            self.session = 0x01;
+            self.unlocked = false;
+        }
+        self.last_diag = Instant::now();
+
         let live = if payload.len() == 3 && payload[0] == 0x22 {
             Some(self.live_value(u16::from_be_bytes([payload[1], payload[2]])))
         } else {
@@ -258,5 +298,49 @@ impl Transport for SimTransport {
             [sid, ..] => Ok(vec![0x7F, *sid, 0x11]), // serviceNotSupported
             [] => Err(TransportError::BadFrame("empty payload".into())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// S3 drop: a non-default session with bus silence longer than the S3
+    /// timeout reverts to default session on the next request.
+    #[test]
+    fn s3_timeout_reverts_non_default_session() {
+        let mut sim = SimTransport::new();
+        sim.set_s3_timeout(Duration::from_millis(100));
+        sim.request(0x12, &[0x10, 0x03]).unwrap(); // extended session
+        assert_eq!(sim.current_session(), 0x03);
+        std::thread::sleep(Duration::from_millis(150)); // bus idle past S3
+        // The next request lets the ECU notice the timeout.
+        sim.request(0x12, &[0x1A, 0x80]).unwrap();
+        assert_eq!(sim.current_session(), 0x01, "S3 timeout must revert to default session");
+    }
+
+    /// Tester Present frames reset the S3 timer: a session kept alive by
+    /// periodic 3E survives many S3 windows of otherwise-idle time.
+    #[test]
+    fn tester_present_resets_s3_timer() {
+        let mut sim = SimTransport::new();
+        sim.set_s3_timeout(Duration::from_millis(200));
+        sim.request(0x12, &[0x10, 0x03]).unwrap();
+        for _ in 0..8 {
+            std::thread::sleep(Duration::from_millis(100)); // half of S3
+            sim.request(0x12, &[0x3E, 0x00]).unwrap();
+        }
+        assert_eq!(sim.current_session(), 0x03, "tester present must keep the session alive");
+    }
+
+    /// The S3 timer never fires while in the default session (there is
+    /// nothing to revert), and no spurious state change occurs.
+    #[test]
+    fn s3_does_nothing_in_default_session() {
+        let mut sim = SimTransport::new();
+        sim.set_s3_timeout(Duration::from_millis(50));
+        std::thread::sleep(Duration::from_millis(100));
+        sim.request(0x12, &[0x1A, 0x80]).unwrap();
+        assert_eq!(sim.current_session(), 0x01);
     }
 }

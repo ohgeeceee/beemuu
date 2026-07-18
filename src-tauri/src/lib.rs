@@ -1,6 +1,7 @@
 pub mod analysis;
 pub mod commands;
 pub mod community;
+pub mod keepalive;
 pub mod oracle;
 pub mod story;
 pub mod anonymize;
