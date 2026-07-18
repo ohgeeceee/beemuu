@@ -141,7 +141,7 @@ owners to fill in the remaining `[needs verification]` markers.
   `[needs verification]` until an F/G-series owner validates
   them via the same harness pattern as the u8_enum DIDs. The
   DIDs are sourced from the project's own
-  [`TECH_SPECS.md`](docs/TECH_SPECS.md) (Adaptation Drift
+  [`TECH_SPECS.md`](TECH_SPECS.md) (Adaptation Drift
   Tracker section), not forum threads. Existing `s16_div100`
   decoder covers the percent scaling; no new decoder needed.
   B58 fuel-trim deliberately deferred (no documented source).
@@ -158,6 +158,72 @@ owners to fill in the remaining `[needs verification]` markers.
 - **`v0.5.0_first_pr.md`** — spec doc for the v0.5.0 cycle's
   first PR (the validation harness). Mirrors
   `v0.4.0_first_pr.md`'s shape.
+
+## [0.4.0] — 2026-07-15
+
+The "Tuner Friendly" release. v0.4.0 closes the loop on the v0.3.0
+decoder foundation — the one decoder that genuinely didn't ship
+(`u8_enum`) is now in, the user-facing docs stop contradicting the
+shipped state, and a histogram viewer gives the first client-side
+"tuner" affordance on top of the existing Logging tab.
+
+### Added
+
+- **`u8_enum` decoder + per-parameter enum-map pipeline**
+  ([`src-tauri/src/data/live.rs`](src-tauri/src/data/live.rs),
+  [`src-tauri/src/community.rs`](src-tauri/src/community.rs)) — new
+  `Decode::U8Enum` variant + `decode_enum_string(...)` helper maps
+  raw bytes to human-readable labels via an inline
+  `enum = { "0" = "P/N", ... }` TOML map per parameter (quoted
+  decimal byte keys). `LiveValue.text` carries the resolved label
+  across the IPC boundary; gauges and CSV export render it
+  (PRs #60, #64, #65). Unknown bytes get a `"0xNN ?"` sentinel
+  rather than silently dropping the sample (PR #66).
+- **Example enum DIDs** in
+  [`community/profiles/b58.toml`](community/profiles/b58.toml) and
+  [`community/profiles/n55.toml`](community/profiles/n55.toml):
+  `gear` (DA0A), `engine_state` (4004), `knock_detect` (401F).
+  Marked `[needs verification]` pending real-car validation.
+- **Histogram viewer for the Logging tab** (PR #62) — pure
+  client-side over the existing `LogSession` data; modal with
+  channel + bin-count dropdowns, Chart.js bar mode (no new deps),
+  and a stats readout (n / min / max / mean / median / std dev).
+  Enum channels are filtered out. 13 unit tests in
+  [`src/js/histogram.js`](src/js/histogram.js).
+- **`ServiceFunction` multi-module data shape** (PR #67) —
+  `ServiceFunction` now carries `routines: &[ModuleRoutine]`
+  instead of a single `(target, routine)` pair. The existing six
+  entries stay byte-identical in shape; `run_service_function`
+  takes `module_index: Option<usize>` (defaults to 0). EGS / DSC
+  routine IDs deliberately not invented — wrong IDs can brick NV
+  memory; the shape defers to real-car validation. 8 new unit
+  tests.
+- **DIY ENET cable pinout doc** (PR #61) —
+  [`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md)
+  covers OBD-II → RJ45 wiring (pins 3/11/12/13 ↔ 1/2/3/6), the
+  100 Ω termination resistor, and the Rx/Tx-crossed failure mode
+  for the $5 AliExpress F/G-series cable. Plus
+  [`docs/hardware/README.md`](docs/hardware/README.md) index.
+- **`docs/v0.4.0_first_pr.md`** — written record of why PR #59
+  was the v0.4.0 cycle starter (the README / roadmap drift
+  cleanup).
+
+### Changed
+
+- README "What's coming" rewritten so shipped features are
+  labelled ✅ shipped and aspirational items are clearly labelled
+  "ideas being explored, not on the roadmap" (PR #59).
+- [`ROADMAP.md`](ROADMAP.md) rewritten with explicit Ready /
+  Needs-research / Deferred-to-v0.5.0+ splits per cycle (PR #59).
+- [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8
+  documents the canonical `u8_enum` TOML syntax and the
+  `parse_enum_map` rationale.
+
+### Fixed
+- N/A
+
+### Security
+- N/A
 
 ## [0.3.0] — 2026-07-11
 

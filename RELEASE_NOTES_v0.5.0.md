@@ -34,7 +34,7 @@ Two new DIDs in
 
 Both marked `[needs verification, UDS only]`. The DIDs are
 sourced from the project's own
-[`TECH_SPECS.md`](docs/TECH_SPECS.md) (Adaptation Drift
+[`TECH_SPECS.md`](TECH_SPECS.md) (Adaptation Drift
 Tracker section), not forum threads. Existing `s16_div100`
 decoder covers the percent scaling; no new decoder needed.
 **B58 fuel-trim deliberately deferred** (no documented source).
