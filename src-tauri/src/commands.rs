@@ -1054,3 +1054,18 @@ pub fn get_opinions(
 ) -> Result<crate::opinions::OpinionSet, String> {
     Ok(crate::opinions::query(&dtc_code, &dtc_text))
 }
+
+/* ---------------- Guided Fault Finding (test plans) ---------------- */
+
+/// Return the guided-diagnosis test plan for a DTC, if one is authored.
+///
+/// Read-only, purely-local: an in-memory KB lookup with no transport or
+/// blocking I/O — the same class as `get_opinions` / `list_service_functions`,
+/// so it stays sync (see the `async_commands` allowlist justification). The
+/// walkthrough's branch traversal is frontend state; this command only
+/// hands over the plan graph. Returns `None` (→ JSON `null`) when no plan
+/// exists, and the UI hides the panel.
+#[tauri::command]
+pub fn get_test_plan(dtc_code: String) -> Result<Option<crate::testplans::TestPlan>, String> {
+    Ok(crate::testplans::query(&dtc_code))
+}

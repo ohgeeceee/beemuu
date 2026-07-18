@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Guided fault-finding plan loader + query command (v0.9.0 PR #3): new
+  `src-tauri/src/testplans.rs` loads `community/testplans/*.toml` into an
+  in-memory KB at startup and exposes a read-only `get_test_plan(dtc_code)`
+  Tauri command returning the plan graph (`Option<TestPlan>`). Branch
+  traversal is intentionally left to the frontend — the command is a
+  stateless lookup, same class as `get_opinions`, and is added to the
+  `async_commands` sync allowlist with justification. Loader handles a
+  missing dir, skips malformed/suppressed files, and is case-insensitive.
+  **Tier B** (touches `commands.rs` / `lib.rs`) — hand-merged after review.
 - Guided fault-finding first corpus (v0.9.0 PR #2): 11 grounded test
   plans under `community/testplans/` — 2A82 (VANOS solenoid), 29E0 / 29E1
   / 29E2 (fuel rail pressure family), 30FF (boost leak), 29CC (misfire),

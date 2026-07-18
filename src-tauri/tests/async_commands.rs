@@ -32,6 +32,10 @@ use std::path::Path;
 ///   `list_exports` — local filesystem utilities, no vehicle transport.
 /// - `generate_story` / `anonymize_snapshot` / `get_opinions` — pure
 ///   in-memory transforms over data already fetched.
+/// - `get_test_plan` — in-memory test-plan KB lookup (v0.9.0 PR #3),
+///   same class as `get_opinions` / `list_service_functions`: no
+///   transport, no blocking I/O. The walkthrough's branch traversal is
+///   frontend state; this command only returns the plan graph.
 const SYNC_ALLOWLIST: &[&str] = &[
     "add_to_profile",
     "anonymize_snapshot",
@@ -42,6 +46,7 @@ const SYNC_ALLOWLIST: &[&str] = &[
     "generate_story",
     "get_freeze_schema",
     "get_opinions",
+    "get_test_plan",
     "get_traffic",
     "import_profiles",
     "import_session",
