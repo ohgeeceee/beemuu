@@ -1,0 +1,63 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Rust core (src-tauri/) ───
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test
+
+  # ─── Python backend (backend/tests/) ───
+  # The backend is stdlib-only (no requirements.txt); the only install is
+  # pytest itself. Tests import `from backend import ...`, so pytest runs
+  # from the repo root where the `backend` package is importable.
+  # server/dtc/ is deliberately NOT tested — dead code pending removal
+  # (issue #90).
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: pytest backend/tests/
+        run: python -m pytest backend/tests/ -q
+
+  # ─── Frontend JS unit tests (node --test, builtin runner) ───
+  # Tests require only repo files + node builtins, so no npm ci is needed.
+  # Explicit globs: `node --test <dir>` mis-handles the mixed
+  # .test.js / .test.cjs layout under src/js/ (verified locally on node 24).
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: node --test
+        run: node --test "src/js/**/*.test.js" "src/js/**/*.test.cjs"
