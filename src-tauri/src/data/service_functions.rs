@@ -1,10 +1,27 @@
 //! Service functions — ISTA-style guided routines.
 //!
 //! Each entry maps a UI action to a routineControl (0x31) call on a target
-//! ECU. Routine IDs below match the simulator. Real routine IDs are
-//! model-specific and some require security access — verify against your
-//! chassis before running on a real car. `risk` gates a confirmation
-//! dialog in the UI.
+//! ECU. `risk` gates a confirmation dialog in the UI.
+//!
+//! Verification status (v0.8.0 audit)
+//! ----------------------------------
+//! **Every routine ID below is simulator-grade**: the IDs were chosen at
+//! v0.4.0 for the simulator (which accepts any `0x31` routine ID), and no
+//! in-repo source — `research/`, `TECH_SPECS.md`, backend seeds — grounds
+//! any of them on a real chassis. The research notes confirm why:
+//! `research/bmw_diag_landscape.md` lists BMW service-function identifiers
+//! as "security-sensitive, not published". Accordingly all entries ship
+//! `verified: false`, which the UI renders as `[UNVERIFIED]` with a second
+//! confirmation line (write-path discipline per CONTRIBUTING.md: an
+//! unverified *write* can change ECU state).
+//!
+//! New routine IDs ship ONLY with an in-repo citation in a comment;
+//! plausible-but-ungrounded candidates (DPF regen, throttle/valvetronic
+//! adaptation, steering-angle calibration, EGS adaptation reset, EMF
+//! service mode) live in the known-missing list in
+//! `docs/validation/service-functions.md` instead. `verified` flips to
+//! `true` per entry only via a harness report filed against that doc —
+//! no silent upgrades.
 //!
 //! Multi-module support (v0.4.0)
 //! ----------------------------
@@ -43,6 +60,12 @@ pub struct ServiceFunction {
     pub routines: &'static [ModuleRoutine],
     /// "low" = reset/registration, "high" = actuates hardware
     pub risk: &'static str,
+    /// `false` = routine ID not chassis-validated on a real car: the UI
+    /// renders `[UNVERIFIED]` and adds a "routine ID not
+    /// chassis-validated" line to the confirmation dialog. Flips to
+    /// `true` only via a `docs/validation/service-functions.md` harness
+    /// report (see file header).
+    pub verified: bool,
 }
 
 /// Short name for the standard BMW module addresses. Used as a
@@ -62,6 +85,13 @@ fn default_module_label(target: u8) -> &'static str {
 // Per-target const slices. Each is a `const &[ModuleRoutine; 1]` so
 // the compiler keeps them in static memory; no `Box::leak`, no
 // `unsafe`, no allocation at startup.
+//
+// Provenance (v0.8.0 audit): every routine ID below was invented at
+// v0.4.0 as a simulator placeholder — the sim answers any `0x31` ID,
+// so these were never checked against a real chassis, and no in-repo
+// source grounds a real ID for any of them. All entries therefore ship
+// `verified: false` ([UNVERIFIED]). Do not "fix" an ID from a forum
+// post: a replacement ID needs an in-repo citation (see file header).
 const ROUTINE_DME_BATTERY: &[ModuleRoutine] = &[ModuleRoutine {
     target: 0x12, routine: 0x0F01, module_label: "DME",
 }];
@@ -88,6 +118,7 @@ pub const SERVICE_FUNCTIONS: &[ServiceFunction] = &[
         description: "Resets battery ageing counters in the power management after fitting a new battery of the same spec.",
         routines: ROUTINE_DME_BATTERY,
         risk: "low",
+        verified: false, // sim-grade ID (0x0F01), no chassis validation
     },
     ServiceFunction {
         id: "oil_reset",
@@ -95,6 +126,7 @@ pub const SERVICE_FUNCTIONS: &[ServiceFunction] = &[
         description: "Resets the engine-oil condition-based-service counter in the instrument cluster.",
         routines: ROUTINE_KOMBI_OIL,
         risk: "low",
+        verified: false, // sim-grade ID (0x0F02), no chassis validation
     },
     ServiceFunction {
         id: "brake_reset_front",
@@ -102,6 +134,7 @@ pub const SERVICE_FUNCTIONS: &[ServiceFunction] = &[
         description: "Resets the front brake-pad wear counter after pad replacement.",
         routines: ROUTINE_KOMBI_BRAKE_F,
         risk: "low",
+        verified: false, // sim-grade ID (0x0F03), no chassis validation
     },
     ServiceFunction {
         id: "brake_reset_rear",
@@ -109,6 +142,7 @@ pub const SERVICE_FUNCTIONS: &[ServiceFunction] = &[
         description: "Resets the rear brake-pad wear counter after pad replacement.",
         routines: ROUTINE_KOMBI_BRAKE_R,
         risk: "low",
+        verified: false, // sim-grade ID (0x0F04), no chassis validation
     },
     ServiceFunction {
         id: "coolant_pump_test",
@@ -116,6 +150,7 @@ pub const SERVICE_FUNCTIONS: &[ServiceFunction] = &[
         description: "Commands the electric coolant pump through its test cycle. Engine must be off, ignition on.",
         routines: ROUTINE_DME_PUMP,
         risk: "high",
+        verified: false, // sim-grade ID (0x0A01), no chassis validation
     },
     ServiceFunction {
         id: "dsc_bleed",
@@ -123,6 +158,7 @@ pub const SERVICE_FUNCTIONS: &[ServiceFunction] = &[
         description: "Cycles DSC valves and pump for brake bleeding. Only with the car secured and a pressure bleeder attached.",
         routines: ROUTINE_DSC_BLEED,
         risk: "high",
+        verified: false, // sim-grade ID (0x0A02), no chassis validation
     },
 ];
 
@@ -160,6 +196,22 @@ mod tests {
                 "dsc_bleed",
             ]
         );
+    }
+
+    /// v0.8.0 audit lock: every shipped entry is `[UNVERIFIED]`
+    /// (`verified == false`) because all routine IDs are simulator-grade
+    /// (see file header). Flipping an entry to `verified: true` requires
+    /// a `docs/validation/service-functions.md` harness report — this
+    /// test is the tripwire against silent upgrades.
+    #[test]
+    fn all_shipped_entries_marked_unverified() {
+        for sf in SERVICE_FUNCTIONS {
+            assert!(
+                !sf.verified,
+                "service {} is marked verified — allowed only with a linked harness report",
+                sf.id
+            );
+        }
     }
 
     /// Every existing entry currently has exactly one routine. UI
@@ -262,6 +314,9 @@ mod tests {
             description: "Resets the condition-based-service counter on every module that supports it.",
             routines: ROUTINES,
             risk: "low",
+            // v0.8.0: struct gained `verified`; unvalidated constructions
+            // must say so explicitly.
+            verified: false,
         };
         assert_eq!(sf.routines.len(), 3);
         assert_eq!(sf.routines[0].target, 0x12);

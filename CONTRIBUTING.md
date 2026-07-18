@@ -76,7 +76,9 @@ Rules that keep this axis honest:
    routineControl) can change ECU state. Write-path entries are gated
    harder: they ship `[UNVERIFIED]` with a confirmation dialog, and
    routine IDs are never invented — see
-   `src-tauri/src/data/service_functions.rs`.
+   `src-tauri/src/data/service_functions.rs`. The label-removal harness
+   for service routines is
+   [`docs/validation/service-functions.md`](../docs/validation/service-functions.md).
 
 ### Reverse-engineering with Parameter Explorer
 
