@@ -20,6 +20,7 @@
 //! without a car.
 
 use super::{Result, Transport, TransportError};
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 struct SimEcu {
@@ -353,6 +354,100 @@ impl Transport for SimTransport {
             [sid, ..] => Ok(vec![0x7F, *sid, 0x11]), // serviceNotSupported
             [] => Err(TransportError::BadFrame("empty payload".into())),
         }
+    }
+}
+
+/// Multi-frame personality (issue #88): the same simulated vehicle behind a
+/// raw CAN-class frame interface, so ISO-TP reassembly can be exercised
+/// without hardware. Wraps a `SimTransport` — every personality feature
+/// (VinMode, S3 enforcement, DTCs, ident strings, security) works unchanged;
+/// only the framing differs.
+///
+/// Behavior, per ISO 15765-2 receiver rules:
+/// - Requests arrive as Single Frames (the tester never segments — matching
+///   `IsoTpTransport`'s sender policy). A new request aborts any in-flight
+///   multi-frame response.
+/// - Responses of ≤ 7 bytes go out as one Single Frame; longer ones as a
+///   First Frame followed by Consecutive Frames held until the tester's
+///   Flow Control: FS=0 (CTS) releases up to BS frames (BS=0 = all),
+///   FS=1 (Wait) holds, FS=2 (Overflow) aborts the transmission.
+pub struct SimCanBus {
+    sim: SimTransport,
+    /// Complete frames queued for the tester to read.
+    rx: VecDeque<Vec<u8>>,
+    /// Consecutive frames held back pending Flow Control.
+    pending_cfs: VecDeque<Vec<u8>>,
+}
+
+impl SimCanBus {
+    pub fn new(sim: SimTransport) -> Self {
+        Self { sim, rx: VecDeque::new(), pending_cfs: VecDeque::new() }
+    }
+}
+
+impl super::isotp::CanBus for SimCanBus {
+    fn send_frame(&mut self, target: u8, frame: &[u8]) -> Result<()> {
+        let (&pci, data) = frame
+            .split_first()
+            .ok_or_else(|| TransportError::BadFrame("empty CAN frame".into()))?;
+        match pci >> 4 {
+            // Single Frame request from the tester.
+            0x0 => {
+                let n = (pci & 0x0F) as usize;
+                if n == 0 || data.len() < n {
+                    return Err(TransportError::BadFrame("bad single frame".into()));
+                }
+                self.pending_cfs.clear(); // new request aborts in-flight TX
+                let resp = match self.sim.request(target, &data[..n]) {
+                    Ok(r) => r,
+                    Err(_) => return Ok(()), // absent ECU: bus silence
+                };
+                if resp.len() <= 7 {
+                    let mut f = vec![resp.len() as u8];
+                    f.extend_from_slice(&resp);
+                    self.rx.push_back(f);
+                } else {
+                    let mut f = vec![0x10 | ((resp.len() >> 8) as u8), (resp.len() & 0xFF) as u8];
+                    f.extend_from_slice(&resp[..6]);
+                    self.rx.push_back(f);
+                    let mut sn = 1u8;
+                    for chunk in resp[6..].chunks(7) {
+                        let mut c = vec![0x20 | sn];
+                        c.extend_from_slice(chunk);
+                        self.pending_cfs.push_back(c);
+                        sn = sn.wrapping_add(1) & 0x0F;
+                    }
+                }
+                Ok(())
+            }
+            // Flow Control from the tester.
+            0x3 => {
+                let fs = pci & 0x0F;
+                let bs = data.first().copied().unwrap_or(0) as usize;
+                match fs {
+                    0 => {
+                        // CTS: release up to BS frames (0 = no limit).
+                        let release = if bs == 0 { self.pending_cfs.len() } else { bs.min(self.pending_cfs.len()) };
+                        for _ in 0..release {
+                            if let Some(c) = self.pending_cfs.pop_front() {
+                                self.rx.push_back(c);
+                            }
+                        }
+                    }
+                    1 => {} // Wait: hold the CFs.
+                    2 => self.pending_cfs.clear(), // Overflow: abort transmission.
+                    _ => {}
+                }
+                Ok(())
+            }
+            // We never receive multi-frame requests (tester sends SF only).
+            other => Err(TransportError::BadFrame(format!("sim cannot accept PCI type {other}"))),
+        }
+    }
+
+    fn recv_frame(&mut self, _target: u8, _deadline: Instant) -> Result<Vec<u8>> {
+        // The sim answers instantly; an empty queue is bus silence (timeout).
+        self.rx.pop_front().ok_or(TransportError::Timeout)
     }
 }
 
