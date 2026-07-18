@@ -13,6 +13,9 @@ let sessionReplay = false; // true when viewing a loaded snapshot
 let unlockStates = new Map(); // address -> bool
 let secCountdown = null; // interval id for NRC 0x37 retry countdown
 let lastDtcs = []; // cached DTCs for CSV export
+const profileThemes = {}; // profile id -> gauge colour overrides from [profile.theme]
+let workspaceState = {}; // persisted UI prefs — single source of truth (js/workspace.js)
+let workspaceSaveTimer = null; // debounce handle for workspace.json writes
 
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
@@ -24,66 +27,141 @@ function log(text) {
 }
 
 /* ---------------- theme toggle ---------------- */
+/* DOM-only: flip body[data-theme] and the button glyph. Persistence is
+ * workspace.json (v0.7.0) — gather + debounced save happens in
+ * saveSettings(), so the toggle just calls it. The pre-v0.7.0
+ * localStorage key ("beeemuu_dark") is migrated once at boot by
+ * loadWorkspace(); the OS `prefers-color-scheme` preference remains the
+ * default when no workspace file exists. */
 function applyTheme(dark) {
   document.body.dataset.theme = dark ? "dark" : "light";
   $("btn-theme").textContent = dark ? "☀" : "🌙";
-  try { localStorage.setItem("beeemuu_dark", dark ? "1" : "0"); } catch (_) {}
 }
 function toggleTheme() {
   applyTheme(document.body.dataset.theme !== "dark");
+  saveSettings();
 }
-function loadTheme() {
-  let dark = false;
-  try { dark = localStorage.getItem("beeemuu_dark") === "1"; } catch (_) {}
-  // Respect OS preference if no saved choice
-  if (dark || (!localStorage.getItem("beeemuu_dark") && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-    applyTheme(true);
+
+/* ---------------- persistent workspace ---------------- */
+/* v0.7.0 — all UI prefs live in ~/beeemuu-exports/workspace.json (one
+ * persistence system, same folder as the other exports). workspaceState
+ * is the in-memory source of truth; the pure (de)serialisation rules
+ * live in js/workspace.js so they stay Node-testable. saveSettings()
+ * gathers the current DOM into workspaceState and debounces a file
+ * write; it replaces the pre-v0.7.0 localStorage keys
+ * ("beeemuu_settings", "beeemuu_mode", "beeemuu_dark"), which
+ * loadWorkspace() migrates once at boot. Recorded log sessions
+ * ("beeemuu-log-session-*") are captured data, not prefs, and stay in
+ * localStorage. */
+function saveSettings() {
+  try {
+    const ws = workspaceState;
+    ws.theme = document.body.dataset.theme === "dark" ? "dark" : "light";
+    ws.mode = $("app-mode").value;
+    const tab = document.querySelector(".tab.active");
+    if (tab) ws.activeTab = tab.dataset.view;
+    ws.conn = {
+      kind: $("conn-kind").value,
+      port: $("conn-port").value,
+      dcan: $("conn-dcan").value,
+      addr: $("conn-addr").value,
+      // "options open" = at least one cable panel is expanded. (The
+      // pre-v0.7.0 code ANDed the two panels instead, which was never
+      // true — only one kind's panel is visible at a time — so the flag
+      // effectively always saved false.)
+      optsOpen: !($("conn-kdcan-opts").classList.contains("hidden") && $("conn-enet-opts").classList.contains("hidden")),
+    };
+    ws.liveProfile = $("live-profile").value;
+    ws.logProfile = $("log-profile").value;
+    ws.trafficAuto = $("traffic-auto").checked;
+    // Log channel enabled map for the *current* log profile, read from
+    // the checkbox DOM. Only written when checkbox rows exist —
+    // otherwise every boot (no connection => no rows) would wipe the
+    // saved map for this profile.
+    const boxes = document.querySelectorAll("#log-params input[data-id]");
+    if (boxes.length) {
+      const map = {};
+      boxes.forEach((b) => { map[b.dataset.id] = b.checked; });
+      if (!ws.logChannels || typeof ws.logChannels !== "object") ws.logChannels = {};
+      ws.logChannels[$("log-profile").value] = map;
+    }
+  } catch (_) {}
+  clearTimeout(workspaceSaveTimer);
+  workspaceSaveTimer = setTimeout(flushWorkspace, 500);
+}
+
+async function flushWorkspace() {
+  try {
+    await invoke("export_text", {
+      filename: "workspace.json",
+      content: window.Workspace.serializeWorkspace(workspaceState),
+    });
+  } catch (e) {
+    log("Workspace save failed: " + e);
   }
 }
 
-/* ---------------- persistent settings ---------------- */
-function saveSettings() {
+/* Load workspace.json once at boot. Missing / unreadable / corrupt
+ * file -> one-time migration from the legacy localStorage keys ->
+ * defaults. The legacy keys are left in place afterwards (inert — never
+ * read again while workspace.json exists); workspace.json is the system
+ * of record from the first save on. */
+async function loadWorkspace() {
+  let state = null;
   try {
-    const s = {
-      connKind: $("conn-kind").value,
-      connPort: $("conn-port").value,
-      connDcan: $("conn-dcan").value,
-      connAddr: $("conn-addr").value,
-      connOptsOpen: !($("conn-kdcan-opts").classList.contains("hidden") || $("conn-enet-opts").classList.contains("hidden")),
-      liveProfile: $("live-profile").value,
-      logProfile: $("log-profile").value,
-      trafficAuto: $("traffic-auto").checked,
+    const text = await invoke("read_export_text", { filename: "workspace.json" });
+    state = window.Workspace.parseWorkspace(text);
+  } catch (_) { /* missing file or read error — fall through to legacy */ }
+  if (state) return state;
+  let legacy = { dark: null, settings: null, mode: null };
+  try {
+    legacy = {
+      dark: localStorage.getItem("beeemuu_dark"),
+      settings: localStorage.getItem("beeemuu_settings"),
+      mode: localStorage.getItem("beeemuu_mode"),
     };
-    localStorage.setItem("beeemuu_settings", JSON.stringify(s));
+  } catch (_) {}
+  return window.Workspace.migrateLegacy(legacy);
+}
+
+/* Apply workspaceState to the DOM. Same restore order as the pre-v0.7.0
+ * loadSettings(): connection fields first (the port list must refresh
+ * before the saved port is re-selected), then profile selectors, then
+ * the mode select — applyMode() and the active-tab restore run after
+ * this in init(). */
+async function loadSettings() {
+  const s = workspaceState;
+  try {
+    if (s.conn && typeof s.conn === "object") {
+      if (s.conn.kind) $("conn-kind").value = s.conn.kind;
+      if (s.conn.dcan) $("conn-dcan").value = s.conn.dcan;
+      if (s.conn.addr) $("conn-addr").value = s.conn.addr;
+    }
+    if (s.liveProfile) $("live-profile").value = s.liveProfile;
+    if (s.logProfile) $("log-profile").value = s.logProfile;
+    if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
+    const kind = $("conn-kind").value;
+    // Restore the collapsed/expanded connection options state.
+    const open = !!(s.conn && s.conn.optsOpen) && (kind === "kdcan" || kind === "enet");
+    $("conn-kdcan-opts").classList.toggle("hidden", !(open && kind === "kdcan"));
+    $("conn-enet-opts").classList.toggle("hidden", !(open && kind === "enet"));
+    $("btn-conn-adv").setAttribute("aria-expanded", String(!!open));
+    if (kind === "kdcan") {
+      await refreshPorts();
+      if (s.conn && s.conn.port) $("conn-port").value = s.conn.port;
+    }
+    if (s.mode) $("app-mode").value = s.mode;
   } catch (_) {}
 }
-async function loadSettings() {
-  try {
-    const raw = localStorage.getItem("beeemuu_settings");
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s.connKind) $("conn-kind").value = s.connKind;
-      if (s.connDcan) $("conn-dcan").value = s.connDcan;
-      if (s.connAddr) $("conn-addr").value = s.connAddr;
-      if (s.liveProfile) $("live-profile").value = s.liveProfile;
-      if (s.logProfile) $("log-profile").value = s.logProfile;
-      if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
-      const kind = $("conn-kind").value;
-      // Restore the collapsed/expanded connection options state.
-      const open = s.connOptsOpen && (kind === "kdcan" || kind === "enet");
-      $("conn-kdcan-opts").classList.toggle("hidden", !(open && kind === "kdcan"));
-      $("conn-enet-opts").classList.toggle("hidden", !(open && kind === "enet"));
-      $("btn-conn-adv").setAttribute("aria-expanded", String(!!open));
-      if (kind === "kdcan") {
-        await refreshPorts();
-        if (s.connPort) $("conn-port").value = s.connPort;
-      }
-    }
-    // Restore mode selection (default Basic).
-    let mode = "basic";
-    try { const m = localStorage.getItem("beeemuu_mode"); if (m) mode = m; } catch (_) {}
-    $("app-mode").value = mode;
-  } catch (_) {}
+
+/* Re-activate the saved tab after applyMode() has run — the mode
+ * decides which tabs are visible, and a tab hidden by the current mode
+ * must not be re-activated. */
+function restoreActiveTab() {
+  const name = workspaceState.activeTab;
+  if (!name) return;
+  const tab = document.querySelector(`.tab[data-view="${name}"]`);
+  if (tab && !tab.classList.contains("hidden")) tab.click();
 }
 
 /* ---------------- tabs ---------------- */
@@ -94,6 +172,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     tab.classList.add("active");
     $("view-" + tab.dataset.view).classList.add("active");
+    saveSettings(); // persist the active tab (v0.7.0 workspace)
   });
 });
 
@@ -115,7 +194,7 @@ function applyMode(mode) {
     // keep current view in sync (in case view was hidden then shown)
     $("view-" + active.dataset.view).classList.add("active");
   }
-  try { localStorage.setItem("beeemuu_mode", mode); } catch (_) {}
+  saveSettings(); // persist the mode (v0.7.0 workspace; was beeemuu_mode)
 }
 
 $("app-mode").addEventListener("change", () => applyMode($("app-mode").value));
@@ -767,7 +846,9 @@ function ensureGauge(v) {
   cell.appendChild(canvas);
   cell.appendChild(label);
   $("gauge-grid").appendChild(cell);
-  const g = new Gauge(canvas, v);
+  // Per-profile [profile.theme] colour scheme (stashed by loadProfiles);
+  // undefined => the Gauge renders its built-in cockpit palette.
+  const g = new Gauge(canvas, { ...v, colors: profileThemes[$("live-profile").value] });
   gauges.set(v.id, g);
   // v0.5.0 PR #3 — set the initial severity class on the gauge
   // cell based on the current v.text. The Gauge's draw() method
@@ -780,11 +861,31 @@ function ensureGauge(v) {
   return g;
 }
 
+/* Map a profile's `[profile.theme]` TOML map (snake_case keys, as TOML
+ * authors write them) onto the Gauge's camelCase colour keys. Unknown
+ * TOML keys drop here; colour-string validation happens in the Gauge
+ * itself (resolveThemeColors). Returns undefined when nothing usable. */
+function mapProfileTheme(t) {
+  if (!t || typeof t !== "object") return undefined;
+  const KEYS = {
+    dial: "dial", dial_edge: "dialEdge", track: "track", arc: "arc",
+    arc_hot: "arcHot", tick: "tick", needle: "needle",
+    readout: "readout", unit: "unit",
+  };
+  const out = {};
+  for (const [tomlKey, jsKey] of Object.entries(KEYS)) {
+    if (typeof t[tomlKey] === "string") out[jsKey] = t[tomlKey];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 async function loadProfiles() {
   const profiles = await invoke("list_profiles");
   const sel = $("live-profile");
   sel.innerHTML = "";
   for (const p of profiles) {
+    const theme = mapProfileTheme(p.theme);
+    if (theme) profileThemes[p.id] = theme; else delete profileThemes[p.id];
     const o = document.createElement("option");
     o.value = p.id;
     o.textContent = p.label;
@@ -1369,10 +1470,15 @@ async function buildLogParams() {
   } catch (_) { values = []; }
   const el = $("log-params");
   el.innerHTML = "";
+  // Enabled default: the saved workspace map for this profile wins when
+  // it has an entry for the channel; otherwise the first three channels
+  // are on (pre-v0.7.0 behaviour).
+  const savedEnabled = (workspaceState.logChannels && workspaceState.logChannels[profile]) || {};
   values.forEach((v, i) => {
     const color = LOG_COLORS[i % LOG_COLORS.length];
     if (!logSeries.has(v.id)) {
-      logSeries.set(v.id, new LogSeries(v.label, v.unit, color, i < 3));
+      const enabled = typeof savedEnabled[v.id] === "boolean" ? savedEnabled[v.id] : i < 3;
+      logSeries.set(v.id, new LogSeries(v.label, v.unit, color, enabled));
     } else {
       const s = logSeries.get(v.id);
       s.label = v.label;
@@ -1394,6 +1500,7 @@ async function buildLogParams() {
     row.querySelector("input").addEventListener("change", (e) => {
       s.enabled = e.target.checked;
       rebuildChart();
+      saveSettings(); // persist the channel enabled map (v0.7.0 workspace)
     });
     el.appendChild(row);
   });
@@ -1647,6 +1754,7 @@ function restoreSession() {
     row.querySelector("input").addEventListener("change", (e) => {
       s.enabled = e.target.checked;
       rebuildChart();
+      saveSettings(); // persist the channel enabled map (v0.7.0 workspace)
     });
     el.appendChild(row);
   }
@@ -2050,7 +2158,10 @@ document.querySelectorAll(".tab").forEach((tab) => {
   });
 });
 
-$("log-profile").addEventListener("change", buildLogParams);
+$("log-profile").addEventListener("change", () => {
+  buildLogParams();
+  saveSettings(); // persist the selected log profile (v0.7.0 workspace)
+});
 
 /* ---------------- vehicle info ---------------- */
 let lastVehicleInfo = null;
@@ -2634,7 +2745,18 @@ document.querySelectorAll(".tab").forEach((tab) => {
 
 /* ---------------- init ---------------- */
 (async function init() {
-  loadTheme();
+  // v0.7.0 — the workspace file is the single persistence system. Load
+  // it before anything else and apply the saved theme first, so the UI
+  // settles into the right palette before other work. Caveat: the static
+  // shell still paints in the light :root palette until this async file
+  // read resolves — an inline boot script is impossible under the CSP
+  // (script-src 'self'), so a brief first-paint flash is accepted.
+  workspaceState = (await loadWorkspace()) || {};
+  applyTheme(
+    workspaceState.theme
+      ? workspaceState.theme === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
   loadServiceFunctions();
   await loadProfiles();
   await loadLogProfiles();
@@ -2643,6 +2765,10 @@ document.querySelectorAll(".tab").forEach((tab) => {
   setStatus("Disconnected");
   await loadSettings();
   applyMode($("app-mode").value);
+  restoreActiveTab();
+  // Persist now: a first-boot legacy migration lands on disk immediately,
+  // and every later change re-saves through the debounce.
+  saveSettings();
   setInfoActionsEnabled(false); // nothing read yet
 })();
 

@@ -13,6 +13,15 @@
 id = "b58"
 label = "B58 3.0 turbo I6 (DME 8.x, F/G-series) [community, OBDb-verified DIDs]"
 
+  # v0.7.0 — reference [profile.theme] block: per-profile gauge colour
+  # scheme (key -> CSS colour string; see docs/DECODE_FUNCTIONS.md § 9).
+  # Every key is optional and falls back to the built-in cockpit palette;
+  # invalid colour strings are ignored by the UI. This block is the
+  # shipping example that PR #3's S55 M-colour scheme can copy.
+  [profile.theme]
+  arc = "#3ddc84"
+  needle = "#f4b400"
+
   [[profile.param]]
   id = "rpm"
   label = "Engine speed"

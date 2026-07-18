@@ -99,8 +99,8 @@ fn only_allowlisted_commands_may_be_sync() {
 
     // Guard against the parser silently matching nothing.
     assert!(
-        commands.len() >= 44,
-        "expected at least 44 #[tauri::command] fns, parsed {}",
+        commands.len() >= 45,
+        "expected at least 45 #[tauri::command] fns, parsed {}",
         commands.len()
     );
 

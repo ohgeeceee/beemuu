@@ -333,6 +333,55 @@ decode_enum_string(Decode::U8Enum, bytes, enum_map) -> Option<String> {
 
 ---
 
+## Per-Profile Gauge Theme Blocks (v0.7.0)
+
+### 9. `[profile.theme]` — gauge colour scheme
+
+A profile can recolour the live-data gauges with an optional
+`[profile.theme]` table. It is pure presentation: decoders, queries, and
+ranges are unaffected, and a profile without the block renders in the
+built-in cockpit palette exactly as before.
+
+```toml
+[[profile]]
+id = "b58"
+label = "B58 3.0 turbo I6 ..."
+
+  [profile.theme]
+  arc = "#3ddc84"      # filled arc up to the value
+  needle = "#f4b400"   # needle + centre pivot
+```
+
+**Keys** (all optional; each one falls back to the default shown):
+
+| TOML key    | Paints                             | Default   |
+|-------------|------------------------------------|-----------|
+| `dial`      | dial face fill                     | `#0b1119` |
+| `dial_edge` | dial face rim                      | `#2a3a4e` |
+| `track`     | arc background track               | `#243447` |
+| `arc`       | filled arc up to the value         | `#4da3ff` |
+| `arc_hot`   | filled arc beyond 85% of the range | `#e05545` |
+| `tick`      | tick marks                         | `#5d7288` |
+| `needle`    | needle + centre pivot              | `#ff7d33` |
+| `readout`   | numeric readout / enum label       | `#e8f0f8` |
+| `unit`      | unit caption                       | `#7d92a8` |
+
+**Rules.**
+
+- Values are CSS colour strings. The UI validates each one with
+  `CSS.supports("color", …)`; invalid strings are ignored and the key
+  falls back to its default — a typo can never break gauge rendering.
+- Unknown keys are ignored, so a theme written for a newer app version
+  still loads in an older one.
+- The severity colours used for enum labels (warning amber `#f4b400`,
+  critical red `#e05545`) are semantic and deliberately not themeable.
+- The block survives export/share: `export_profile` round-trips
+  `[profile.theme]` into the exported TOML, and importing that TOML
+  restores the scheme.
+- Shipping reference example: `community/profiles/b58.toml`.
+
+---
+
 ## Implementation Checklist for Contributors
 
 When adding a new decode function, update ALL of these:
