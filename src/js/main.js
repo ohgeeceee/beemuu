@@ -211,10 +211,47 @@ function connConfig() {
     return { kind: "kdcan", port: $("conn-port").value, dcan: dcanVal === "true" };
   }
   if (kind === "enet") {
-    return { kind: "enet", addr: $("conn-addr").value.trim() };
+    const addr = $("conn-addr").value.trim();
+    // Empty field => discover the car first (DoIP broadcast, UDP 13400);
+    // a typed address connects directly with zero behavior change.
+    return { kind: "enet", addr, auto_discover: addr === "" };
   }
   return { kind: "sim" };
 }
+
+$("btn-enet-discover").addEventListener("click", async () => {
+  const btn = $("btn-enet-discover");
+  const sel = $("enet-discovered");
+  btn.disabled = true;
+  setStatus("Discovering ENET targets (UDP 13400, ~3 s)…");
+  try {
+    const targets = await invoke("discover_enet_targets");
+    if (!targets.length) {
+      sel.classList.add("hidden");
+      setStatus("No vehicle answered discovery — enter the IP manually (typically 169.254.x.x).");
+      return;
+    }
+    // textContent/value only — discovered strings never touch innerHTML.
+    sel.innerHTML = "";
+    for (const t of targets) {
+      const opt = document.createElement("option");
+      opt.value = `${t.ip}:${t.port}`;
+      opt.textContent = `${t.vin} — ${t.ip}:${t.port}`;
+      sel.appendChild(opt);
+    }
+    sel.classList.remove("hidden");
+    $("conn-addr").value = sel.value; // pre-fill with the first hit
+    setStatus(`Discovered ${targets.length} ENET target${targets.length === 1 ? "" : "s"}.`);
+  } catch (e) {
+    setStatus("Discovery failed: " + e);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("enet-discovered").addEventListener("change", () => {
+  $("conn-addr").value = $("enet-discovered").value;
+});
 
 $("btn-connect").addEventListener("click", async () => {
   if (connected) {

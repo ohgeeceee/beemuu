@@ -36,7 +36,9 @@
         </select>
       </span>
       <span id="conn-enet-opts" class="conn-opts hidden">
-        <input type="text" id="conn-addr" value="169.254.16.11:6801" size="18" />
+        <input type="text" id="conn-addr" placeholder="169.254.x.x:6801 — or Discover" size="24" />
+        <button id="btn-enet-discover" class="btn btn-small" type="button" title="DoIP broadcast discovery (UDP 13400)">Discover</button>
+        <select id="enet-discovered" class="hidden" title="Discovered vehicles — pick one to fill the address"></select>
       </span>
       <button id="btn-connect" class="btn btn-primary">Connect</button>
       <select id="app-mode" class="app-mode" title="Show more or fewer features">
