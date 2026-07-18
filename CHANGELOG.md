@@ -72,6 +72,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plugs, NOx, exhaust temp, EGR cooler) sourced from the
   `docs/DECODE_FUNCTIONS.md` § 8 DDE candidate catalog; everything UDS
   marked `[needs verification]`. (v0.8.0 PR #3)
+- ECU scan table broadened 12 → 17 (`src-tauri/src/data/ecus.rs`): five
+  F/G-series addresses grounded in the OBDb-verified DIDs of
+  `research/bmw_diag_dim04_uds_dids.md` — `0x19` (DSC chassis variant on
+  5-Series/X5, did:DBE4/DB32/DFE7), `0x56` (body domain, did:DCDD),
+  `0x63` (current gear, did:D031; exact module unconfirmed), `0x0D`
+  (secondary cluster target, did:D240), `0x07` (HV battery, PHEV/BEV
+  only). The existing 12 entries gained honest provenance comments (OBDb
+  + sim / sim + DTC corpus / standard E-series assignment with no
+  in-repo confirmation yet). The simulator answers the new addresses,
+  and `docs/hardware/addressing-model.md` documents why the one-byte
+  scan-table model holds on both K+DCAN and ENET (HSFZ one-byte src/tgt
+  routed by the ZGW; DoIP u16 logical addresses appear only in vehicle
+  discovery). (v0.8.0 PR #4)
 
 ## [0.6.0] - 2026-07-16
 
