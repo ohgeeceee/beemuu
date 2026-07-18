@@ -32,20 +32,19 @@ work on the app without owning a car.
 
 ## What ships today
 
-The desktop app is organized into ten tabs. Every one of these is real code in
+The desktop app is organized into eight tabs. Every one of these is real code in
 `src/index.html`:
 
 | Tab | What it does |
 |-----|--------------|
 | **Vehicle Test** | Scan every ECU on the bus; click one to read full fault memory with DTC text and freeze frames. |
 | **Live Data** | Real-time gauges from per-engine profiles (N52, N54, N55, N62, B58…). Toggle continuous polling at ~250 ms. |
-| **Logging** | Record a session at ~4 Hz, export to CSV, replay with scrubber and markers. JSONL stored in `~/beeemuu-sessions/`. |
+| **Logging** | Record a session at ~4 Hz, replay with scrubber and markers, export to CSV. Exports are written to `~/beeemuu-exports/`. |
 | **Parameter Explorer** | Probe KWP2000 local IDs or UDS DIDs to discover what data the car exposes — the workbench for adding new parameters. |
-| **Vehicle Info** | Read VIN, decode it, read odometer — uses `protocol::read_vin`, the correct UDS/KWP split. |
+| **Vehicle Info** | Read VIN, decode it, read odometer. VIN reads route through `protocol::read_vin` (UDS `22 F1 90` vs KWP `1A 90`, with a CAS fallback) — landing with PR #98 (issue #89). |
 | **Service Functions** | Battery registration, CBS reset, DPF/adaptations where the ECU firmware supports them. High-risk functions stay gated. |
 | **Diagnostics** | Run an individual diagnostic job against one ECU (as opposed to scanning the whole car). |
 | **Snapshots** | Bundle VIN + fault memory + freeze frames + recent live values into one JSON artifact for sharing or analysis. |
-| **Backend** | Local status of the bundled read-only API (`/api/health`, `/api/dashboard`), plus the live hosted build status from `beemuu.com` (`/api/stats`, `/api/landing-content`). |
 
 ### Where the hosted app lives
 
@@ -112,7 +111,7 @@ dropdown for your first scan. You don't need a car to learn the UI.
 |-------------|-------|----------|-----------------|
 | E-series (E36 → early E9x) | USB K+DCAN cable (FTDI FT232RL) | KWP2000 | `/dev/ttyUSB0` (Linux), `COMx` (Windows) |
 | E-series late / F-series | Same K+DCAN cable in D-CAN mode | KWP2000 / UDS | same |
-| F-series / G-series | ENET/DoIP cable (RJ45 from OBD port to laptop NIC) | UDS over DoIP | discovered via UDP broadcast on 13400, typically `169.254.x.x` |
+| F-series / G-series | ENET/DoIP cable (RJ45 from OBD port to laptop NIC) | UDS over DoIP | manual IP entry, typically `169.254.x.x` (UDP broadcast discovery on port 13400 planned for v0.7.0) |
 
 The connectors dropdown autodetects cable type on first scan. There's no
 "buy our cable" upsell. Building your own ENET cable? The DIY pinout is in
@@ -148,7 +147,8 @@ For context — these are in the binary and are *not* "coming":
   (when to fix immediately vs. monitor vs. ignore).
   ([`src-tauri/src/opinions.rs`](src-tauri/src/opinions.rs))
 - **VPS-hosted backend** ✅ — full read-only deployment with admin
-  panel, DTC bootstrap, and 44-test suite. ([`backend/`](backend/))
+  panel, DTC bootstrap, and a 144-test suite now running in CI.
+  ([`backend/`](backend/))
 - **`u8_enum` decoder + enum tables** ✅ (PR #60 + frontend #64–#66) —
   the one decoder from the v0.3.0 list that genuinely didn't ship.
   Maps raw bytes to named labels (gear, engine state, knock

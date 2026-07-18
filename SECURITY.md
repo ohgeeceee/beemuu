@@ -4,9 +4,9 @@
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| v0.2.x | ✅ Yes | Current release |
-| v0.1.x | ⚠️ Best-effort | Previous release; no longer actively tested |
-| < v0.1.0 | ❌ No | Pre-release / experimental |
+| v0.6.x | ✅ Yes | Current release |
+| v0.5.x | ⚠️ Best-effort | Previous release; no longer actively tested |
+| < v0.5.0 | ❌ No | Older releases |
 
 Security updates are backported to the current release only. If you're on an
 older version, upgrade to the latest release.
@@ -36,9 +36,11 @@ Out of scope:
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, email `security@yourdomain.com` (or DM the maintainer if you have
-a private channel). If you don't get a response within 48 hours, ping the
-public issue tracker with a vague reference and we'll open a private thread.
+Instead, use GitHub's private vulnerability reporting:
+<https://github.com/ohgeeceee/beemuu/security/advisories/new> (or DM the
+maintainer if you have a private channel). If you don't get a response within
+48 hours, ping the public issue tracker with a vague reference and we'll open
+a private thread.
 
 ### What to include
 
@@ -77,7 +79,10 @@ try to accommodate.
 
 ### Communication with the car
 - All OBD/UDS/KWP2000 traffic is local (USB/ENET cable, no internet)
-- No remote diagnostic server or API calls
+- DTC wiring schematics are fetched on demand via read-only HTTPS GETs to
+  `https://api.beemuu.com/api/dtc/<code>/schematics` (5 s timeout; only the
+  DTC code is sent — no VIN or other vehicle data). No other remote
+  diagnostic server or API calls.
 - SecurityAccess (0x27) seed/key algorithms are pluggable but don't ship
   proprietary BMW keys
 

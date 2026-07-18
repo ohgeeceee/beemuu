@@ -17,3 +17,4 @@
 - [ ] `cargo fmt` and `cargo clippy` are clean
 - [ ] Tested against the Simulator (and, if possible, a real car — say which)
 - [ ] No BMW proprietary data or trademarks added
+- [ ] Docs updated if any behavior claims changed
