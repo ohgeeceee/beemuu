@@ -1,0 +1,44 @@
+# Guided fault-finding plan — P0420 catalyst efficiency below threshold (Bank 1)
+# Grounded in-repo:
+#   - community/stories/generic.toml (P0420 first_check: exhaust leak before cat, verify O2)
+#
+# HONESTY / SCOPE (docs/v0.9.0_plan.md "What we will NOT do"): this plan ends
+# at *diagnose the leak or the cat*. It never describes clearing readiness
+# monitors, defeating catalyst/O2 diagnostics, or any "pass inspection"
+# workflow. That is a permanent exclusion.
+dtc = "P0420"
+
+[meta]
+title = "Catalyst efficiency below threshold (Bank 1)"
+engine_family = "generic"
+
+[[step]]
+id = "s1"
+instruction = "Before condemning the catalytic converter, check for an exhaust leak upstream of the cat. A leak before the cat pulls in fresh air and skews the O2 sensor readings, falsely triggering P0420."
+measurement = { kind = "manual", question = "Is there an exhaust leak upstream of the catalytic converter?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s2"
+conclusion = "Exhaust leak found upstream of the cat — repair the leak first, then clear the fault and re-evaluate. A pre-cat leak is a common false trigger for P0420 and must be fixed before replacing the converter."
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s3"
+instruction = "No exhaust leak. Verify the downstream (post-cat) O2 sensor operation with live data and compare its switching against the upstream sensor. A lazy post-cat sensor can mimic a failed cat."
+measurement = { kind = "manual", question = "Is the downstream O2 sensor switching abnormally (mirroring the upstream sensor)?" }
+on_pass = "s4"
+on_fail = "s5"
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s4"
+conclusion = "Downstream O2 sensor is faulty/lazy — replace it and re-evaluate before condemning the cat. Diagnose only: never mask the code by defeating the monitor."
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s5"
+conclusion = "No exhaust leak and O2 sensors switch correctly — the catalytic converter has genuinely degraded and should be replaced. Diagnose and repair the cause; masking readiness monitors is out of scope permanently."
+source = "community/stories/generic.toml"

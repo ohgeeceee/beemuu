@@ -145,5 +145,39 @@ auto-executing write steps are permanent exclusions).
 
 ## Known-missing DTCs (filled in by PR #2)
 
-_Appended when the grounded first corpus is authored. DTCs requested but
-lacking an in-repo procedure source live here, not as stub plans._
+The first grounded corpus (PR #2) ships plans for the DTCs below, each
+step cited to an in-repo source:
+
+| DTC | Title | Grounding |
+|---|---|---|
+| 2A82 | VANOS intake solenoid fault | opinions/2A82, stories/n55, oracle/n55 |
+| 29E0 | Fuel rail pressure / mixture too lean | opinions/29E0, stories/n55, oracle/n55, dim04 DID 0x5AC3 |
+| 29E1 | Fuel pressure sensor signal | dim01, dtc_texts, dim04 DID 0x5AC3, opinions/29E0 |
+| 29E2 | Fuel injection rail, pressure sensor signal | dim01, dtc_texts, dim04 DID 0x5AC3, opinions/29E0 |
+| 30FF | Charge-air pressure too low (underboost) | stories/n55, oracle/n55, dim01 |
+| 29CC | Random / multiple cylinder misfire | stories/n55, oracle/n55 |
+| 2E81 | Electric coolant pump speed deviation | stories/n55, oracle/n55 |
+| 2E82 | Electric coolant pump fault | stories/n55, oracle/n55 |
+| P0171 | System too lean (Bank 1) | opinions/P0171, stories/generic, oracle/generic, TECH_SPECS § 5 (DIDs 0x1201/0x1202) |
+| P0300 | Random / multiple cylinder misfire | stories/generic, oracle/generic |
+| P0420 | Catalyst efficiency below threshold | stories/generic (diagnose-only; monitor-masking permanently excluded) |
+
+**Known-missing** — frequently requested DTCs with **no in-repo
+procedure grounding** yet. These are deliberately *not* faked as stub
+plans; they wait for a contributor to add grounded content (same honesty
+pattern as v0.8.0 PR #2's service-function list):
+
+| DTC | Title | Why not yet |
+|---|---|---|
+| 2A99 | VANOS exhaust control fault | Only co-mentioned with 2A82 in forum threads; no in-repo procedure source for the exhaust-side branch. |
+| 30FF (wastegate branch) | Underboost via wastegate/turbo | The charge-pipe branch is grounded; wastegate adaptation/rattle diagnosis has no in-repo source. |
+| P0011 / P0014 | Camshaft timing over-advanced | No in-repo opinion/oracle/story grounding. |
+| P0087 | Fuel rail pressure too low (generic) | Generic analogue of 29E0/29E2; no generic-engine in-repo source beyond the BMW-coded family. |
+| P0128 | Coolant thermostat below regulating temp | No in-repo procedure grounding. |
+| 2C## VANOS timing family | Various | Awaiting grounded sources. |
+
+Contributors: add a grounded plan (every step cited to an in-repo file)
+and move the DTC from this list into the corpus. See
+`community/testplans/README.md` and `docs/validation/testplans.md`
+(PR #5) for the verification path.
+

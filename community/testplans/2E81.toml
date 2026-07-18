@@ -1,0 +1,27 @@
+# Guided fault-finding plan — 2E81 electric coolant pump speed deviation
+# Grounded in-repo:
+#   - community/stories/n55.toml   (2E81 first_check: check pump fuse/wiring, else replace)
+#   - community/oracle/n55.json    (2E81+2E82: replace electric coolant pump 95%)
+dtc = "2E81"
+
+[meta]
+title = "Electric coolant pump speed deviation"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "SAFETY: a failing coolant pump can overheat the engine — do not run it hot while diagnosing. First check the electric coolant pump fuse and its wiring/connector for damage or corrosion."
+measurement = { kind = "manual", question = "Is the pump fuse blown or the wiring/connector damaged?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s2"
+conclusion = "Electrical fault found — replace the fuse and/or repair the wiring to the coolant pump, then clear the fault and verify pump operation. Address the electrical cause before condemning the pump."
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s3"
+conclusion = "Fuse and wiring are good — the electric coolant pump itself is failing. Replace it (known N55 failure point at 60k–100k miles; oracle confidence 95%). Do not hand off any write/actuation step automatically — use the service-function UI with its verification gating if an activation test is needed."
+source = "community/oracle/n55.json"

@@ -1,0 +1,27 @@
+# Guided fault-finding plan — 2E82 electric coolant pump fault
+# Grounded in-repo:
+#   - community/stories/n55.toml   (2E81 coolant-pump narrative; 2E82 is the paired code)
+#   - community/oracle/n55.json    (2E81+2E82: replace electric coolant pump 95%)
+dtc = "2E82"
+
+[meta]
+title = "Electric coolant pump fault"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "SAFETY: do not run the engine hot with a suspect coolant pump. 2E82 pairs with 2E81 as the electric-coolant-pump fault set. Check the pump fuse and wiring/connector first."
+measurement = { kind = "manual", question = "Is the pump fuse blown or the wiring/connector damaged?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s2"
+conclusion = "Electrical fault found — repair the fuse/wiring to the coolant pump, clear the fault, and verify operation before returning the car to service."
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s3"
+conclusion = "Electrical supply is intact — replace the electric coolant pump. The N55 electric water pump is a known failure point (oracle confidence 95% for the 2E81/2E82 pair). Any pump activation test goes through the service-function UI, never auto-fired by this plan."
+source = "community/oracle/n55.json"

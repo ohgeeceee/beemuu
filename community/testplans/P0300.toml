@@ -1,0 +1,40 @@
+# Guided fault-finding plan — P0300 random/multiple cylinder misfire
+# Grounded in-repo:
+#   - community/stories/generic.toml (P0300 first_check: coils/plugs, check contamination)
+#   - community/oracle/generic.json  (P0300: check ignition system 75%)
+dtc = "P0300"
+
+[meta]
+title = "Random / multiple cylinder misfire"
+engine_family = "generic"
+
+[[step]]
+id = "s1"
+instruction = "Random misfire across multiple cylinders usually points to a system-wide cause. Start with the ignition system: check spark plug age/condition (cheapest first)."
+measurement = { kind = "manual", question = "Are the spark plugs worn, fouled, or past their service interval?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s2"
+conclusion = "Replace the spark plugs (and inspect coils) — worn plugs are the most common and cheapest cause of a random misfire. Clear the fault and re-scan after a drive cycle."
+source = "community/oracle/generic.json"
+
+[[step]]
+id = "s3"
+instruction = "Plugs look good. Check ignition coils and look for coolant or oil contamination in the cylinders/intake (a system-wide cause such as a vacuum leak, low fuel pressure, or head-gasket seepage)."
+measurement = { kind = "manual", question = "Do you find bad coils or coolant/oil contamination?" }
+on_pass = "s4"
+on_fail = "s5"
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s4"
+conclusion = "Root cause found (failing coils or contamination) — repair the identified fault and clear the code. Contamination points to a mechanical issue (head gasket, valve seals) beyond ignition."
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s5"
+conclusion = "No ignition or contamination fault found — widen to fuel delivery (pressure/injectors) and a vacuum-leak smoke test, since a random misfire tracks system-wide causes. Cross-reference the P0171 fuel-trim branch if lean codes accompany it."
+source = "community/oracle/generic.json"

@@ -1,0 +1,41 @@
+# Guided fault-finding plan — 30FF charge-air pressure too low (boost leak)
+# Grounded in-repo:
+#   - community/stories/n55.toml   (30FF first_check: inspect charge pipe/intercooler)
+#   - community/oracle/n55.json    (29E0+30FF vacuum leak) and n54 (30FF+29CC charge pipes 92%)
+#   - research/bmw_diag_dim01_dtcs.md (#### 30FF "Turbocharger, charge-air pressure too low (underboost)")
+dtc = "30FF"
+
+[meta]
+title = "Charge-air pressure too low (underboost)"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "Visually inspect the charge pipe and intercooler connections for oil residue or cracks. The N55/N54 plastic charge-pipe elbow cracks at the elbow under heat cycling — oil spray around a joint confirms the leak."
+measurement = { kind = "manual", question = "Is the charge pipe cracked or is there oil residue at a connection?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s2"
+conclusion = "Boost leak confirmed at the charge pipe. Replace the cracked pipe (OEM or aluminum aftermarket) and clear the fault. This is the highest-confidence fix for underboost on these engines (oracle: 92% for the N54 charge-pipe pattern)."
+source = "community/oracle/n55.json"
+
+[[step]]
+id = "s3"
+instruction = "No obvious crack. Smoke-test the pressurized side of the intake (charge pipe, intercooler hoses, diverter valve) to find a leak that isn't visible at rest."
+measurement = { kind = "manual", question = "Did the smoke test reveal a boost leak?" }
+on_pass = "s4"
+on_fail = "s5"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s4"
+conclusion = "Smoke test located the boost leak (commonly a diverter valve or intercooler hose). Repair the leaking component and clear the fault."
+source = "community/oracle/n55.json"
+
+[[step]]
+id = "s5"
+conclusion = "No boost leak found — inspect the wastegate/diverter valve actuation and, on the N54, the wastegate rattle/adaptation. If mechanical charge-air path is sound, escalate to turbo/wastegate diagnosis. No in-repo procedure covers wastegate adaptation yet (see known-missing list)."
+source = "research/bmw_diag_dim01_dtcs.md"
