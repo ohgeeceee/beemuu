@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the cockpit palette, colours CSS-validated in the UI). Reference block
   in `community/profiles/b58.toml`; syntax documented in
   `docs/DECODE_FUNCTIONS.md` § 9. (v0.7.0 PR #2)
+- N20/N26 engine profile (`community/profiles/n20.toml`): F-series 2.0
+  turbo I4 (MEVD17.2) coverage — 10 emissions-mandated OBD-II PIDs plus
+  the F-series OBDb-sourced UDS DID set mirrored from `b58.toml`, every
+  UDS entry marked `[needs verification]` pending real-car validation.
+  (v0.7.0 PR #3)
+- S55 engine profile (`community/profiles/s55.toml`): F80/F82/F87 M
+  twin-turbo I6 — N55-derived DID set with raised rpm/HPFP display
+  ranges, N55-family fuel-trim DIDs, an unverified oil-temp placeholder
+  (track-use criticality noted), and a BMW M tricolor `[profile.theme]`
+  block — the first shipping consumer of per-profile gauge themes.
+  (v0.7.0 PR #3)
 
 ## [0.6.0] - 2026-07-16
 

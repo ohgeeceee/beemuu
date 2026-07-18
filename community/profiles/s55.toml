@@ -1,0 +1,342 @@
+# S55 — 3.0 twin-turbo DI inline-6 (MEVD17.2), F80 M3, F82/F83 M4,
+# F87 M2 Competition, 2014-2021. High-output M variant of the N55
+# architecture. Connect via ENET/DoIP. OBD-II entries are emissions-
+# mandated and verified by design.
+#
+# v0.7.0 PR #3 — new profile. Sourcing discipline:
+#
+# - No S55-specific DID table is documented anywhere in this repo. Per
+#   docs/ROADMAP_ISSUES.md Issue 4 ("copy N55 DID set, add M-specific
+#   notes"), the UDS parameters below mirror the OBDb-sourced
+#   (CC-BY-SA 4.0) DID set that ships in n55.toml; the S55 runs the same
+#   MEVD17.2 DME family. See: https://github.com/OBDb
+# - Issue 4's claim that oil temperature is "same DID 4506 as B58/N55"
+#   is unconfirmed — that DID ships in no profile and has no grounded
+#   source here. Oil temp below therefore uses the same `local:10`
+#   UNVERIFIED placeholder as n55.toml; probe DID 4506 and the local
+#   IDs in the Parameter Explorer before trusting either.
+# - Every UDS entry is marked [needs verification] until validated on a
+#   real F8x car.
+#
+# M-specific deviations from n55.toml:
+# - rpm max raised 7000 -> 7500 (S55 redline).
+# - hpfp_rail display max raised 25.5 -> 30.0 MPa (higher HPFP target
+#   on the M tune; display range only — the u16_tenths decoder itself
+#   is unbounded below 6553.5 MPa raw, so this is purely cosmetic).
+# - Oil temp carries extra weight on this engine: rod-bearing thermal
+#   management on track means an accurate oil gauge is safety-relevant,
+#   not cosmetic. The placeholder below is NOT that gauge yet.
+# - [profile.theme] below paints the gauges in BMW M tricolor.
+
+[[profile]]
+id = "s55"
+label = "S55 3.0 twin-turbo I6 (F80/F82/F87 M) [community, needs verification]"
+
+  # BMW M tricolor gauge scheme (v0.7.0 [profile.theme]; see
+  # docs/DECODE_FUNCTIONS.md § 9). Every key is optional and falls back
+  # to the built-in cockpit palette; invalid colour strings are ignored
+  # by the UI. Unset keys (dial, track, tick, readout, unit) keep the
+  # cockpit defaults.
+  [profile.theme]
+  arc = "#00A1DE"
+  arc_hot = "#E2001A"
+  needle = "#E2001A"
+  dial_edge = "#003C71"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 7500.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "oil"
+  label = "Oil temp [UNVERIFIED placeholder]"
+  unit = "°C"
+  target = 0x12
+  query = "local:10"
+  decode = "temp_u8"
+  min = -40.0
+  max = 160.0
+
+  [[profile.param]]
+  id = "iat"
+  label = "Intake air temp (post-IC)"
+  unit = "°C"
+  target = 0x12
+  query = "obd:0F"
+  decode = "temp_u8"
+  min = -40.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "map"
+  label = "Manifold pressure (abs)"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:0B"
+  decode = "u8"
+  min = 0.0
+  max = 255.0
+
+  [[profile.param]]
+  id = "baro"
+  label = "Barometric pressure"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:33"
+  decode = "u8"
+  min = 60.0
+  max = 110.0
+
+  [[profile.param]]
+  id = "load"
+  label = "Engine load"
+  unit = "%"
+  target = 0x12
+  query = "obd:04"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "throttle"
+  label = "Throttle position"
+  unit = "%"
+  target = 0x12
+  query = "obd:11"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "speed"
+  label = "Vehicle speed"
+  unit = "km/h"
+  target = 0x12
+  query = "obd:0D"
+  decode = "u8"
+  min = 0.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "volt"
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0
+
+  [[profile.param]]
+  id = "ambient"
+  label = "Ambient temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:46"
+  decode = "temp_u8"
+  min = -40.0
+  max = 60.0
+
+  # ---- UDS DIDs (OBDb-sourced, mirrors n55.toml) ----
+  # All DIDs below mirror the set shipped in n55.toml per
+  # docs/ROADMAP_ISSUES.md Issue 4. They are OBDb-sourced (CC-BY-SA 4.0)
+  # for the F-series MEVD17.2 DME family, but NONE has been validated on
+  # an S55 car yet — every label carries [needs verification] until
+  # real-car confirmation. See docs/DECODE_FUNCTIONS.md for derivation +
+  # verification notes.
+  #
+  # Conflict resolution (inherited from n55.toml):
+  # - DID 4001 (DME temp): exposed via s16_div4 (signed, sub-degree
+  #   resolution). The u8_div4 alternate (DID 4001-u8) is intentionally
+  #   omitted -- keep one source of truth per channel.
+  # - DID 4002 (battery V): preferred over DID 4013-u8_div100 which claims
+  #   the same channel with lower precision (0.1V vs 0.01V).
+
+  [[profile.param]]
+  id = "battery_v"
+  label = "Battery voltage (DME) [needs verification]"
+  unit = "V"
+  target = 0x12
+  query = "did:4002"
+  decode = "u16_tenths"
+  min = 8.0
+  max = 16.0
+
+  [[profile.param]]
+  id = "hpfp_rail"
+  label = "HPFP rail pressure [needs verification]"
+  unit = "MPa"
+  target = 0x12
+  query = "did:44F0"
+  decode = "u16_tenths"
+  min = 0.0
+  max = 30.0
+
+  [[profile.param]]
+  id = "boost_cmd"
+  label = "Boost command (relative) [needs verification]"
+  unit = "kPa"
+  target = 0x12
+  query = "did:4367"
+  decode = "u16_tenths"
+  min = -100.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "maf"
+  label = "Mass air flow [needs verification]"
+  unit = "kg/h"
+  target = 0x12
+  query = "did:4077"
+  decode = "u16_div100"
+  min = 0.0
+  max = 655.35
+
+  [[profile.param]]
+  id = "ambient_pres"
+  label = "Ambient pressure (DME) [needs verification]"
+  unit = "kPa"
+  target = 0x12
+  query = "did:4003"
+  decode = "u16_div100"
+  min = 60.0
+  max = 110.0
+
+  [[profile.param]]
+  id = "dme_temp"
+  label = "DME temperature (signed, 0.25C resolution) [needs verification]"
+  unit = "C"
+  target = 0x12
+  query = "did:4001"
+  decode = "s16_div4"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "eng_torque"
+  label = "Engine torque (signed) [needs verification]"
+  unit = "Nm"
+  target = 0x12
+  query = "did:4500"
+  decode = "s16_div100"
+  min = -327.68
+  max = 327.67
+
+  [[profile.param]]
+  id = "lambda_1"
+  label = "Lambda bank 1 [needs verification]"
+  unit = ""
+  target = 0x12
+  query = "did:400B"
+  decode = "u8_div100"
+  min = 0.5
+  max = 1.5
+
+  [[profile.param]]
+  id = "inj_time"
+  label = "Injection time (per cylinder) [needs verification, UDS only]"
+  unit = "ms"
+  target = 0x12
+  query = "did:4363"
+  decode = "u8_div100"
+  min = 0.0
+  max = 2.55
+
+
+  # ---- Enum DIDs (u8_enum decoder) ----
+  # These three DIDs use the `u8_enum` decoder. Each maps a raw
+  # byte to a human-readable label via the `enum = { ... }` inline
+  # table. Byte keys must be quoted decimal strings (the `toml`
+  # crate's inline-table keys are typed as strings; see
+  # docs/DECODE_FUNCTIONS.md § 8 for the full rationale).
+  #
+  # Source: OBDb (CC-BY-SA 4.0) for the byte -> state mappings;
+  # values are best-effort and need real-car validation. The
+  # `[needs verification]` markers stay until validated on an
+  # F8x chassis.
+
+  [[profile.param]]
+  id = "gear"
+  label = "Gear position (EGS) [needs verification, UDS only]"
+  unit = ""
+  target = 0x18
+  query = "did:DA0A"
+  decode = "u8_enum"
+  enum = { "0" = "P/N", "1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "15" = "Error" }
+  min = 0.0
+  max = 15.0
+
+  [[profile.param]]
+  id = "engine_state"
+  label = "Engine state (DME) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4004"
+  decode = "u8_enum"
+  enum = { "0" = "Off", "1" = "Cranking", "2" = "Running", "3" = "Idle", "4" = "Overrun", "5" = "Shutdown" }
+  min = 0.0
+  max = 5.0
+
+  [[profile.param]]
+  id = "knock_detect"
+  label = "Knock detection (DME) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:401F"
+  decode = "u8_enum"
+  enum = { "0" = "None", "1" = "Light", "2" = "Moderate", "3" = "Severe" }
+  min = 0.0
+  max = 3.0
+
+
+  # ---- Fuel-trim / adaptation DIDs ----
+  # Source: docs/TECH_SPECS.md § "Adaptation Drift Tracker" documents
+  # 0x1201 (long-term fuel trim) and 0x1202 (idle adaptation) for the
+  # N55's MEVD17 DME. The S55 runs the same MEVD17.2 family, so these
+  # are carried over from n55.toml — but the TECH_SPECS entry names the
+  # N55 explicitly, not the S55, hence [needs verification] until
+  # chassis-confirmed. Scaling per the same spec is percent; the
+  # existing `s16_div100` decoder covers the range (-327.68% to
+  # +327.67%) without changes.
+  #
+  # The fuel-trim meanings are well-documented (LTFT for 0x1201 is the
+  # long-term learned correction; 0x1202 is the idle-air learned
+  # value), but the byte-level encoding (signed vs unsigned,
+  # multiplier, byte order) needs chassis-confirmed test data
+  # before the markers come off.
+
+  [[profile.param]]
+  id = "ltft_bank1"
+  label = "Long-term fuel trim, bank 1 (DME) [needs verification, UDS only]"
+  unit = "%"
+  target = 0x12
+  query = "did:1201"
+  decode = "s16_div100"
+  min = -25.0
+  max = 25.0
+
+  [[profile.param]]
+  id = "idle_adaptation"
+  label = "Idle adaptation (DME) [needs verification, UDS only]"
+  unit = "%"
+  target = 0x12
+  query = "did:1202"
+  decode = "s16_div100"
+  min = -25.0
+  max = 25.0
