@@ -37,7 +37,7 @@ The desktop app is organized into eight tabs. Every one of these is real code in
 | Tab | What it does |
 |-----|--------------|
 | **Vehicle Test** | Scan every ECU on the bus; click one to read full fault memory with DTC text and freeze frames. |
-| **Live Data** | Real-time gauges from per-engine profiles (N52, N54, N55, N62, B58…). Toggle continuous polling at ~250 ms. |
+| **Live Data** | Real-time gauges from per-engine profiles (N52, N54, N55, N62, B58, N20/N26, S55…). Toggle continuous polling at ~250 ms. |
 | **Logging** | Record a session at ~4 Hz, replay with scrubber and markers, export to CSV. Exports are written to `~/beeemuu-exports/`. |
 | **Parameter Explorer** | Probe KWP2000 local IDs or UDS DIDs to discover what data the car exposes — the workbench for adding new parameters. |
 | **Vehicle Info** | Read VIN, decode it, read odometer. VIN reads route through `protocol::read_vin` (UDS `22 F1 90` vs KWP `1A 90`, with a CAS fallback) — landing with PR #98 (issue #89). |
