@@ -476,4 +476,86 @@ label = "Legacy profile"
         let parsed: ProfilesFile = toml::from_str(toml).expect("legacy TOML should parse");
         assert!(parsed.profile[0].theme.is_empty(), "legacy profiles must default to empty theme");
     }
+
+    /// Repo root's `community/` directory (one level up from
+    /// `src-tauri`, independent of the test runner's cwd).
+    fn shipped_community_dir() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("src-tauri must have a parent directory")
+            .join("community")
+    }
+
+    /// GATE (v0.8.0 PR #1): every shipped community TOML must parse.
+    ///
+    /// Rationale: `scripts/lint-toml.js` (CI build job) checks
+    /// whitespace only, so `community/dtc_texts.toml` shipped
+    /// truncated mid-string — the loader logged the error and
+    /// silently loaded zero overlay entries. A data-file syntax
+    /// break must fail `cargo test`, which CI already runs
+    /// (`.github/workflows/test.yml`).
+    ///
+    /// This is a syntax gate (`toml::Value`), not a schema gate:
+    /// it catches truncation and malformed files without needing
+    /// per-category structs. Category shapes are covered by the
+    /// loader and by `shipped_dtc_texts_parse_and_nonempty` below.
+    #[test]
+    fn shipped_community_tomls_parse() {
+        let root = shipped_community_dir();
+        assert!(root.is_dir(), "community dir missing at {root:?}");
+        let mut stack = vec![root];
+        let mut count = 0usize;
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir)
+                .unwrap_or_else(|e| panic!("read_dir {dir:?}: {e}"))
+            {
+                let path = entry.expect("dir entry").path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                    let content = std::fs::read_to_string(&path)
+                        .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+                    content
+                        .parse::<toml::Value>()
+                        .unwrap_or_else(|e| panic!(
+                            "shipped community TOML must parse: {path:?}: {e}"
+                        ));
+                    count += 1;
+                }
+            }
+        }
+        assert!(
+            count >= 10,
+            "gate should cover >= 10 shipped community TOMLs, saw {count}"
+        );
+    }
+
+    /// The shipped `community/dtc_texts.toml` must parse into the
+    /// loader's `DtcFile` shape, contain entries (a rescue rebuild
+    /// that produced an empty table would still pass the syntax
+    /// gate), and use the BMW-style 4/6-hex uppercase codes the
+    /// read paths produce (see `protocol::Dtc.code`).
+    #[test]
+    fn shipped_dtc_texts_parse_and_nonempty() {
+        let path = shipped_community_dir().join("dtc_texts.toml");
+        let content = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+        let parsed: DtcFile = toml::from_str(&content)
+            .unwrap_or_else(|e| panic!("dtc_texts.toml must fit DtcFile: {e}"));
+        assert!(
+            parsed.dtc.len() >= 100,
+            "rescued corpus should carry >= 100 entries, saw {}",
+            parsed.dtc.len()
+        );
+        for (code, text) in &parsed.dtc {
+            assert!(
+                (4..=6).contains(&code.len())
+                    && code.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase()),
+                "code {code:?} must be 4-6 uppercase hex"
+            );
+            assert!(!text.trim().is_empty(), "empty text for {code}");
+        }
+    }
 }

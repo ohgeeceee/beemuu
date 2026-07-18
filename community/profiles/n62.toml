@@ -96,4 +96,25 @@ label = "N62 4.0–4.8 NA V8 (ME9.2) [community, oil temp unverified]"
 
   [[profile.param]]
   id = "volt"
-  label = "Module v
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0
+
+  # Rescued v0.8.0 PR #1 — this file was truncated mid-string at the volt
+  # param's `label` line. The ambient entry below restores the canonical
+  # emissions-mandated OBD-II tail shared by every shipped profile
+  # (b58/n55/n20/s55); verified by design.
+
+  [[profile.param]]
+  id = "ambient"
+  label = "Ambient temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:46"
+  decode = "temp_u8"
+  min = -40.0
+  max = 60.0
