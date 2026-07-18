@@ -259,7 +259,7 @@ $("btn-connect").addEventListener("click", async () => {
     $("btn-connect").textContent = "Disconnect";
     const vin = info.vin ? `VIN ${info.vin}` : "VIN unavailable";
     $("vehicle-banner").innerHTML =
-      `<span class='vehicle-label'>${info.transport_name} &nbsp;·&nbsp; ${vin}</span>`;
+      `<span class='vehicle-label'>${escapeHtml(info.transport_name)} &nbsp;·&nbsp; ${escapeHtml(vin)}</span>`;
     setStatus("Connected via " + info.transport_name);
     log("");
     // Auto-select suggested profile if available
@@ -319,9 +319,9 @@ function renderTree() {
       : "";
     div.innerHTML =
       `<span class="ecu-status ${statusCls}"></span>` +
-      `<span class="ecu-name">${m.name}</span>` +
+      `<span class="ecu-name">${escapeHtml(m.name)}</span>` +
       secIcon +
-      `<span class="ecu-desc">${m.description}</span>` +
+      `<span class="ecu-desc">${escapeHtml(m.description)}</span>` +
       (m.present && faults > 0 ? `<span class="ecu-badge">${faults}</span>` : "");
     if (m.present) {
       div.addEventListener("click", () => selectModule(m.address));
@@ -367,9 +367,9 @@ async function readFaults() {
       const tr = document.createElement("tr");
       tr.className = "fault-clickable";
       tr.innerHTML =
-        `<td class="fault-code">${d.code}</td>` +
-        `<td>${d.text}</td>` +
-        `<td class="muted">${d.status_text}</td>`;
+        `<td class="fault-code">${escapeHtml(d.code)}</td>` +
+        `<td>${escapeHtml(d.text)}</td>` +
+        `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
       tbody.appendChild(tr);
     }
@@ -388,14 +388,14 @@ async function readFaults() {
       const tr = document.createElement("tr");
       tr.className = "fault-clickable";
       tr.innerHTML =
-        `<td class="fault-code">${d.code}</td>` +
-        `<td>${d.text}</td>` +
-        `<td class="muted">${d.status_text}</td>`;
+        `<td class="fault-code">${escapeHtml(d.code)}</td>` +
+        `<td>${escapeHtml(d.text)}</td>` +
+        `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
       tbody.appendChild(tr);
     }
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan='3' class='muted'>Read failed: ${e}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan='3' class='muted'>Read failed: ${escapeHtml(String(e))}</td></tr>`;
   }
 }
 
@@ -421,12 +421,12 @@ async function showFreezeFrame(code) {
       for (const it of items) {
         const cell = document.createElement("div");
         cell.className = "freeze-item";
-        cell.innerHTML = `<div class="fi-label">${it.label}</div><div class="fi-value">${it.value}</div>`;
+        cell.innerHTML = `<div class="fi-label">${escapeHtml(it.label)}</div><div class="fi-value">${escapeHtml(it.value)}</div>`;
         body.appendChild(cell);
       }
     }
   } catch (e) {
-    body.innerHTML = `<span class='muted'>No freeze frame available (${e})</span>`;
+    body.innerHTML = `<span class='muted'>No freeze frame available (${escapeHtml(String(e))})</span>`;
   }
   // Also load second opinion + schematics for this DTC. These are
   // async and independent of each other; we run them both and the UI
@@ -527,7 +527,7 @@ async function loadOpinion(code) {
     const result = await invoke("get_opinions", { dtcCode: code, dtcText: dtcText });
     renderOpinion(result);
   } catch (e) {
-    body.innerHTML = `<span class='muted'>No opinions available: ${e}</span>`;
+    body.innerHTML = `<span class='muted'>No opinions available: ${escapeHtml(String(e))}</span>`;
   }
 }
 
@@ -542,20 +542,21 @@ function renderOpinion(result) {
   for (const p of perspectives) {
     const has = result.perspectives.some((o) => o.perspective === p);
     if (has) {
-      html += `<button class="opinion-tab ${p === 'diy' ? 'active' : ''}" data-pov="${p}" onclick="switchOpinionTab(this)">${p.toUpperCase()}</button>`;
+      html += `<button class="opinion-tab ${p === 'diy' ? 'active' : ''}" data-pov="${p}">${p.toUpperCase()}</button>`;
     }
   }
   html += '</div>';
   html += '<div class="opinion-cards">';
   for (const o of result.perspectives) {
-    const cost = o.cost_usd ? ` · ~$${o.cost_usd}` : '';
+    const cost = o.cost_usd ? ` · ~$${escapeHtml(String(o.cost_usd))}` : '';
     const time = o.time_estimate ? ` · ${escapeHtml(o.time_estimate)}` : '';
     const diff = o.difficulty ? ` · ${escapeHtml(o.difficulty)}` : '';
     const source = o.source_url
       ? `<a href="${escapeHtml(o.source_url)}" target="_blank" class="op-source">${escapeHtml(o.source)}</a>`
       : `<span class="op-source">${escapeHtml(o.source)}</span>`;
-    html += `<div class="opinion-card op-card-${o.perspective}">
-      <div class="op-perspective op-perspective-${o.perspective}">${o.perspective.toUpperCase()}</div>
+    const pov = escapeHtml(o.perspective || "");
+    html += `<div class="opinion-card op-card-${pov}">
+      <div class="op-perspective op-perspective-${pov}">${escapeHtml((o.perspective || "").toUpperCase())}</div>
       <div class="op-action">${escapeHtml(o.action)}</div>
       <div class="op-meta">${cost}${time}${diff}</div>
       <div class="op-note">${escapeHtml(o.note)}</div>
@@ -564,6 +565,8 @@ function renderOpinion(result) {
   }
   html += '</div>';
   body.innerHTML = html;
+  body.querySelectorAll(".opinion-tab").forEach((t) =>
+    t.addEventListener("click", () => switchOpinionTab(t)));
 }
 
 function switchOpinionTab(btn) {
@@ -628,7 +631,7 @@ $("btn-obd-pid-scan").addEventListener("click", async () => {
     body.innerHTML = `<span>${pids.length} PID${pids.length === 1 ? "" : "s"} responded:</span><div class="obd-pid-grid">${cells}</div>`;
     log(`OBD-II scan complete: ${pids.length} PID(s) supported on 0x${selectedAddress.toString(16).toUpperCase().padStart(2, "0")}`);
   } catch (e) {
-    body.innerHTML = `<span class="muted">Scan failed: ${e}</span>`;
+    body.innerHTML = `<span class="muted">Scan failed: ${escapeHtml(String(e))}</span>`;
     log("OBD-II scan failed: " + e);
   }
 });
@@ -680,7 +683,7 @@ async function loadOracle(address) {
     const result = await invoke("query_oracle", { address });
     renderOracle(result);
   } catch (e) {
-    body.innerHTML = `<span class='muted'>Oracle offline: ${e}</span>`;
+    body.innerHTML = `<span class='muted'>Oracle offline: ${escapeHtml(String(e))}</span>`;
   }
 }
 
@@ -697,11 +700,11 @@ function renderOracle(result) {
   html += '</div>';
   html += '<div class="oracle-outcomes">';
   for (const o of result.outcomes) {
-    const cost = o.cost_estimate_usd ? ` · ~$${o.cost_estimate_usd}` : '';
-    const parts = o.part_numbers && o.part_numbers.length ? `<div class="fix-parts">Parts: ${o.part_numbers.join(', ')}</div>` : '';
+    const cost = o.cost_estimate_usd ? ` · ~$${escapeHtml(String(o.cost_estimate_usd))}` : '';
+    const parts = o.part_numbers && o.part_numbers.length ? `<div class="fix-parts">Parts: ${o.part_numbers.map((p) => escapeHtml(String(p))).join(', ')}</div>` : '';
     html += `<div class="oracle-fix">
       <div class="fix-cat">${escapeHtml(o.fix_category)}</div>
-      <div class="fix-meta">Confidence: ${o.confidence}%${cost}</div>
+      <div class="fix-meta">Confidence: ${escapeHtml(String(o.confidence))}%${cost}</div>
       ${parts}
       <div class="fix-note">${escapeHtml(o.note)}</div>
     </div>`;
@@ -898,7 +901,7 @@ $("btn-probe").addEventListener("click", async () => {
     }
     setStatus(`Probe complete — ${results.length} identifiers answered`);
   } catch (e) {
-    ul.innerHTML = `<li class='tree-empty'>Probe failed: ${e}</li>`;
+    ul.innerHTML = `<li class='tree-empty'>Probe failed: ${escapeHtml(String(e))}</li>`;
     setStatus("Connected");
   }
 });
@@ -1155,7 +1158,7 @@ async function previewSchema() {
       container.appendChild(cell);
     }
   } catch (e) {
-    $("schema-preview").innerHTML = `<span class="muted">Preview failed: ${e}</span>`;
+    $("schema-preview").innerHTML = `<span class="muted">Preview failed: ${escapeHtml(String(e))}</span>`;
   }
 }
 
@@ -1349,8 +1352,8 @@ async function buildLogParams() {
     if (sev) row.classList.add(sev);
     row.innerHTML =
       `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${v.id}" />` +
-      `<span class="swatch" style="background:${s.color}"></span>` +
-      `<span>${s.label}</span>`;
+      `<span class="swatch" style="background:${escapeHtml(s.color)}"></span>` +
+      `<span>${escapeHtml(s.label)}</span>`;
     row.querySelector("input").addEventListener("change", (e) => {
       s.enabled = e.target.checked;
       rebuildChart();
@@ -1602,8 +1605,8 @@ function restoreSession() {
     row.className = "log-param";
     row.innerHTML =
       `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${id}" />` +
-      `<span class="swatch" style="background:${s.color}"></span>` +
-      `<span>${s.label}</span>`;
+      `<span class="swatch" style="background:${escapeHtml(s.color)}"></span>` +
+      `<span>${escapeHtml(s.label)}</span>`;
     row.querySelector("input").addEventListener("change", (e) => {
       s.enabled = e.target.checked;
       rebuildChart();
@@ -2025,7 +2028,7 @@ async function doReadVehicle() {
     renderVehicleInfo(info);
     setInfoActionsEnabled(true);
   } catch (e) {
-    body.innerHTML = `<p class='muted'>Read failed: ${e}</p>`;
+    body.innerHTML = `<p class='muted'>Read failed: ${escapeHtml(String(e))}</p>`;
   }
 }
 
@@ -2118,12 +2121,14 @@ function renderStory(story) {
         </ol>
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="copyStoryText()">Copy text</button>
-        <button class="btn btn-primary" onclick="document.getElementById('story-modal').remove()">Close</button>
+        <button class="btn" id="story-copy-btn">Copy text</button>
+        <button class="btn btn-primary" id="story-close-btn">Close</button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
+  modal.querySelector("#story-copy-btn").addEventListener("click", copyStoryText);
+  modal.querySelector("#story-close-btn").addEventListener("click", () => modal.remove());
   // Store raw text for copy
   modal.dataset.rawText = formatStoryPlain(story);
 }
@@ -2288,8 +2293,8 @@ function renderVehicleInfo(info) {
 
   let html = "<div class='info-grid'>";
   for (const [k, v] of rows) {
-    if (k === "__section") { html += `</div><div class='info-section'>${v}</div><div class='info-grid'>`; continue; }
-    html += `<div class='info-key'>${k}</div><div class='info-val'>${v}</div>`;
+    if (k === "__section") { html += `</div><div class='info-section'>${escapeHtml(v)}</div><div class='info-grid'>`; continue; }
+    html += `<div class='info-key'>${escapeHtml(k)}</div><div class='info-val'>${escapeHtml(v)}</div>`;
   }
   html += "</div>";
   $("info-body").innerHTML = html;
@@ -2429,13 +2434,13 @@ $("btn-selftest").addEventListener("click", async () => {
       row.className = "selftest-step " + (s.ok ? "ok" : "fail");
       row.innerHTML =
         `<span class="st-icon">${s.ok ? "✓" : "✗"}</span>` +
-        `<span class="st-name">${s.name}</span>` +
-        `<span class="st-detail">${s.detail}</span>` +
+        `<span class="st-name">${escapeHtml(s.name)}</span>` +
+        `<span class="st-detail">${escapeHtml(s.detail)}</span>` +
         `<span class="st-ms">${s.ms} ms</span>`;
       body.appendChild(row);
     }
   } catch (e) {
-    body.innerHTML = `<p class='muted'>Test failed: ${e}</p>`;
+    body.innerHTML = `<p class='muted'>Test failed: ${escapeHtml(String(e))}</p>`;
   }
 });
 
@@ -2444,16 +2449,16 @@ async function loadCommunityReport() {
   try {
     const r = await invoke("community_report");
     const el = $("community-body");
-    const dir = r.dir ? `<code>${r.dir}</code>` : "not found (built-ins only)";
+    const dir = r.dir ? `<code>${escapeHtml(r.dir)}</code>` : "not found (built-ins only)";
     let html =
       `<div class="cd-row"><span>Source folder</span><span>${dir}</span></div>` +
       `<div class="cd-row"><span>Fault texts</span><span>${r.dtc_texts}</span></div>` +
       `<div class="cd-row"><span>Profiles</span><span>${r.profiles}</span></div>` +
       `<div class="cd-row"><span>Freeze schemas</span><span>${r.freeze_schemas}</span></div>`;
-    for (const w of r.warnings) html += `<div class="cd-warn">⚠ ${w}</div>`;
+    for (const w of r.warnings) html += `<div class="cd-warn">⚠ ${escapeHtml(w)}</div>`;
     el.innerHTML = html;
   } catch (e) {
-    $("community-body").innerHTML = `<p class='muted'>${e}</p>`;
+    $("community-body").innerHTML = `<p class='muted'>${escapeHtml(String(e))}</p>`;
   }
 }
 
@@ -2625,7 +2630,7 @@ async function refreshSnapshots() {
     const files = await invoke("list_exports");
     renderSnapshots(files);
   } catch (e) {
-    list.innerHTML = `<div class='snapshot-card'><div class='snapshot-meta'>Failed to read exports: ${e}</div></div>`;
+    list.innerHTML = `<div class='snapshot-card'><div class='snapshot-meta'>Failed to read exports: ${escapeHtml(String(e))}</div></div>`;
   }
 }
 
