@@ -57,10 +57,9 @@ pub async fn connect(
     let mut t: Box<dyn Transport> =
         Box::new(RecordingTransport::new(inner, Arc::clone(&state.traffic)));
     let name = t.name().to_string();
-    // Best effort VIN read from DME (DID F190)
-    let vin = protocol::read_did(t.as_mut(), 0x12, 0xF190)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).to_string());
+    // Best-effort VIN read — the UDS (22 F190) / KWP (1A 90) split and the
+    // CAS fallback are handled inside protocol::read_vin.
+    let vin = protocol::read_vin(t.as_mut()).ok();
     let suggested_profile = vin.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
     *state.transport.lock().unwrap() = Some(t);
     Ok(ConnectionInfo { transport_name: name, vin, suggested_profile })
@@ -469,10 +468,9 @@ pub struct VehicleInfo {
 #[tauri::command]
 pub async fn read_vehicle_info(state: tauri::State<'_, AppState>) -> Result<VehicleInfo, String> {
     with_transport(&state, |t| {
-        let vin_str = protocol::read_did(t, 0x12, 0xF190)
-            .ok()
-            .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
-            .filter(|s| s.len() >= 11);
+        // VIN via protocol::read_vin (UDS/KWP split + CAS fallback); the
+        // returned VIN is guaranteed 17 chars, so no length filter needed.
+        let vin_str = protocol::read_vin(t).ok();
         let decode = vin_str.as_deref().map(vin::decode);
         let suggested_profile = vin_str.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
         // Odometer DID (sim 0x1010, u24 km). Real DID varies by cluster.
@@ -616,10 +614,8 @@ pub async fn connection_test(state: tauri::State<'_, AppState>) -> Result<Vec<Te
         push_step(&mut steps, "DME identification (1A 80)", s, r);
 
         let s = Instant::now();
-        let r = protocol::read_did(t, 0x12, 0xF190)
-            .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
-            .map(|v| if v.is_empty() { "empty".into() } else { v });
-        push_step(&mut steps, "VIN read (22 F190)", s, r);
+        let r = protocol::read_vin(t);
+        push_step(&mut steps, "VIN read (22 F190 / 1A 90)", s, r);
 
         let s = Instant::now();
         let r = protocol::read_obd_pid(t, 0x12, 0x00)
@@ -884,11 +880,8 @@ pub async fn export_session(state: tauri::State<'_, AppState>) -> Result<String,
     let t = guard.as_mut().ok_or("Not connected")?.as_mut();
     let transport_name = t.name().to_string();
 
-    // Vehicle info
-    let vin_str = protocol::read_did(t, 0x12, 0xF190)
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).trim_matches(char::from(0)).trim().to_string())
-        .filter(|s| s.len() >= 11);
+    // Vehicle info — VIN via protocol::read_vin (UDS/KWP split + CAS fallback)
+    let vin_str = protocol::read_vin(t).ok();
     let decode = vin_str.as_deref().map(vin::decode);
     let suggested_profile = vin_str.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
     let mileage_km = protocol::read_did(t, 0x12, 0x1010).ok().and_then(|b| {
