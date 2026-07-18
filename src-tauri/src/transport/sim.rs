@@ -96,6 +96,15 @@ impl SimTransport {
             SimEcu { address: 0x72, ident: "FRM2 9241322 hw22 sw16.10 ci07", dtcs: vec![(0x9C, 0xBA, 0x21)], freeze: vec![[0x00, 0x00, 0x4B, 0x00, 0x00, 0x8B, 0x01, 0xE2, 0x40]] },
             SimEcu { address: 0x78, ident: "IHKA 9226613 hw02 sw08.30 ci02", dtcs: vec![], freeze: vec![] },
             SimEcu { address: 0x01, ident: "ACSM2 9166087 hw04 sw03.21 ci05", dtcs: vec![], freeze: vec![] },
+            // F/G-series modules mirroring the v0.8.0 scan-table additions
+            // (sources: research/bmw_diag_dim04_uds_dids.md). The sim is an
+            // E90, so these sit alongside the E-series set to exercise the
+            // wider scan table; a real car answers whichever subset it has.
+            SimEcu { address: 0x19, ident: "DSC F15 6879451 hw03 sw04.20 ci02", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x56, ident: "BDC F30 7438803 hw11 sw08.14 ci09", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x63, ident: "GWS G30 9492421 hw02 sw03.40 ci01", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x0D, ident: "KOMBI F10 9293530 hw05 sw12.06 ci03", dtcs: vec![], freeze: vec![] },
+            SimEcu { address: 0x07, ident: "SME F15 PHEV 8610477 hw01 sw02.30 ci02", dtcs: vec![], freeze: vec![] },
         ];
         let now = Instant::now();
         Self { ecus, started: now, session: 0x01, last_seed: 0, unlocked: false, last_diag: now, s3_timeout: DEFAULT_S3_TIMEOUT, vin_mode: VinMode::Uds }
