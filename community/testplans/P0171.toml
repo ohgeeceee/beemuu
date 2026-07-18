@@ -1,0 +1,55 @@
+# Guided fault-finding plan — P0171 system too lean (Bank 1)
+# Grounded in-repo:
+#   - community/opinions/P0171.toml (DIY vacuum/MAF, indie smoke+MAF+O2, dealer)
+#   - community/stories/generic.toml (P0171 first_check: smoke test intake)
+#   - community/oracle/generic.json  (P0171: smoke test 80%)
+#   - docs/TECH_SPECS.md § 5 / research: N55/S55 fuel trims DID 0x1201 (LTFT), 0x1202 (idle adaptation)
+dtc = "P0171"
+
+[meta]
+title = "System too lean (Bank 1)"
+engine_family = "generic"
+
+[[step]]
+id = "s1"
+instruction = "Read long-term fuel trim (Bank 1). A large positive trim means the DME is adding fuel to compensate for unmetered air or a fuel shortfall. On N55/S55, LTFT is DID 0x1201. (On other engines use the standard OBD-II fuel-trim PID.)"
+measurement = { kind = "did", did = "0x1201", label = "Long-term fuel trim (Bank 1)", expected_min = -10.0, expected_max = 10.0 }
+on_pass = "s2"
+on_fail = "s3"
+source = "docs/TECH_SPECS.md"
+
+[[step]]
+id = "s2"
+conclusion = "Fuel trim is within the normal ±10% band — the lean code may be intermittent or a lazy/aging O2 sensor reporting false lean. Verify O2 cross-counts and re-scan; replace a slow upstream O2 sensor if cross-counts are low."
+source = "community/opinions/P0171.toml"
+
+[[step]]
+id = "s3"
+instruction = "Fuel trim is high (lean). Smoke-test the intake tract and visually inspect vacuum lines/intake boot. Spraying carb cleaner around the manifold at idle — an RPM change locates the leak."
+measurement = { kind = "manual", question = "Did the smoke test / spray test reveal a vacuum leak?" }
+on_pass = "s4"
+on_fail = "s5"
+source = "community/stories/generic.toml"
+
+[[step]]
+id = "s4"
+conclusion = "Vacuum leak confirmed — repair the leaking hose/boot/gasket and clear the fault. Unmetered air is the most common P0171 cause (oracle: 80%); many owners find it's a cheap vacuum hose or cracked intake boot, not a sensor."
+source = "community/oracle/generic.json"
+
+[[step]]
+id = "s5"
+instruction = "No vacuum leak with high trim — check the idle adaptation value and fuel delivery. On N55/S55 the idle adaptation is DID 0x1202; a large idle-adaptation offset with high LTFT points at fuel delivery or a dirty MAF."
+measurement = { kind = "did", did = "0x1202", label = "Idle adaptation", expected_min = -10.0, expected_max = 10.0 }
+on_pass = "s6"
+on_fail = "s7"
+source = "docs/TECH_SPECS.md"
+
+[[step]]
+id = "s6"
+conclusion = "Idle adaptation is normal but LTFT is high with no leak — clean/verify the MAF and check fuel pressure. A dirty MAF under-reporting airflow drives a lean trim without a physical leak."
+source = "community/opinions/P0171.toml"
+
+[[step]]
+id = "s7"
+conclusion = "Both fuel trim and idle adaptation are skewed lean with no vacuum leak — suspect fuel delivery (fuel pressure / HPFP on direct-injection engines). Verify fuel pressure against spec before replacing components."
+source = "community/opinions/P0171.toml"

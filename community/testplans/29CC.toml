@@ -1,0 +1,48 @@
+# Guided fault-finding plan — 29CC random/multiple cylinder misfire
+# Grounded in-repo:
+#   - community/stories/n55.toml   (29CC first_check: plugs first, then swap coils)
+#   - community/oracle/n55.json    (29CC: coils 70%, plugs 55%)
+dtc = "29CC"
+
+[meta]
+title = "Random / multiple cylinder misfire"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "Check spark plug age/condition first — it's the cheapest fix. N55 plugs are due every ~30k miles on tuned cars. Replace plugs if at or past interval."
+measurement = { kind = "manual", question = "Are the spark plugs at or past their service interval (or visibly fouled)?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s2"
+instruction = "Replace the spark plugs, clear the fault, and re-scan after a drive cycle."
+measurement = { kind = "manual", question = "Does the misfire (29CC) return after new plugs?" }
+on_pass = "s3"
+on_fail = "s5"
+source = "community/oracle/n55.json"
+
+[[step]]
+id = "s3"
+instruction = "Plugs are not the cause (or new plugs didn't fix it). Swap ignition coils between a misfiring cylinder and a known-good one to see if the misfire follows the coil. N55 coils degrade after 60k+ miles."
+measurement = { kind = "manual", question = "Does the misfire follow the swapped coil to the other cylinder?" }
+on_pass = "s4"
+on_fail = "s6"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s4"
+conclusion = "Misfire follows the coil — replace the failing ignition coil (consider all six if high-mileage). Coils are the leading cause of random misfire on the N55 (oracle: 70%)."
+source = "community/oracle/n55.json"
+
+[[step]]
+id = "s5"
+conclusion = "New plugs resolved the misfire. If it recurs quickly on a tuned car, shorten the plug interval and monitor coils next."
+source = "community/oracle/n55.json"
+
+[[step]]
+id = "s6"
+conclusion = "Misfire does not follow plugs or coils — escalate to fuel delivery (injectors, rail pressure) and compression/mechanical checks. Cross-reference the 29E0 rail-pressure branch if lean codes are also present."
+source = "community/stories/n55.toml"

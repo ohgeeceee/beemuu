@@ -1,0 +1,43 @@
+# Guided fault-finding plan — 2A82 VANOS intake control fault
+# Grounded in-repo:
+#   - community/opinions/2A82.toml (clean-first DIY, indie clean-then-replace)
+#   - community/stories/n55.toml   (2A82 first_check: clean the solenoid)
+#   - community/oracle/n55.json    (clean 78% conf, replace 65% conf)
+#   - research/bmw_diag_dim01_dtcs.md (#### 2A82)
+dtc = "2A82"
+
+[meta]
+title = "VANOS intake solenoid fault"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "Remove the intake VANOS solenoid and inspect the screen/plunger for oil sludge. Oil sludge buildup is the most common cause on the N55."
+measurement = { kind = "manual", question = "Is the solenoid screen clogged with oil sludge?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s2"
+instruction = "Clean the solenoid with brake cleaner, reinstall, clear the fault, and re-scan after a drive cycle."
+measurement = { kind = "manual", question = "Does 2A82 return after the drive cycle?" }
+on_pass = "s4"
+on_fail = "s5"
+source = "community/opinions/2A82.toml"
+
+[[step]]
+id = "s3"
+instruction = "Screen is clean, so sludge is not the cause. Replace the intake VANOS solenoid (~$120 part) and clear the fault."
+next = "s4"
+source = "community/oracle/n55.json"
+
+[[step]]
+id = "s4"
+conclusion = "Mechanical VANOS solenoid failure. Replacing the solenoid resolves 2A82 when cleaning does not. Consider an oil change with high-detergent synthetic to prevent repeat sludge failures."
+source = "community/opinions/2A82.toml"
+
+[[step]]
+id = "s5"
+conclusion = "Intermittent VANOS fault from sludge, resolved by cleaning. If it recurs, address oil quality/change interval — cheap oil sludge is the root cause on the N55."
+source = "community/stories/n55.toml"

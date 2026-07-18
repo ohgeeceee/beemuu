@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Guided fault-finding first corpus (v0.9.0 PR #2): 11 grounded test
+  plans under `community/testplans/` — 2A82 (VANOS solenoid), 29E0 / 29E1
+  / 29E2 (fuel rail pressure family), 30FF (boost leak), 29CC (misfire),
+  2E81 / 2E82 (electric coolant pump), P0171 (lean, with N55/S55 fuel-trim
+  DIDs 0x1201/0x1202), P0300 (misfire), and P0420 (catalyst — diagnose
+  only; readiness-monitor masking is a permanent exclusion). Every step
+  cites an in-repo source (opinions / oracle / stories / dim01 / dim04 /
+  TECH_SPECS). `docs/testplans.md` gains the corpus table and a
+  known-missing list (2A99, wastegate-branch 30FF, P0011/P0014, P0087,
+  P0128, VANOS timing family) rather than faking ungrounded plans. All 11
+  pass the branch-integrity gate; data-only, no code change.
 - Guided fault-finding test-plan schema (v0.9.0 PR #1): new
   `community/testplans/<dtc>.toml` `[[step]]` format for branching
   diagnostic walkthroughs (measurement verbs, `on_pass`/`on_fail`/`next`

@@ -1,0 +1,42 @@
+# Guided fault-finding plan — 29E1 fuel pressure sensor signal
+# Grounded in-repo:
+#   - research/bmw_diag_dim01_dtcs.md (#### 29E1 "Fuel pressure sensor signal")
+#   - community/dtc_texts.toml (29E1 = "Fuel pressure sensor signal")
+#   - research/bmw_diag_dim04_uds_dids.md (22 5AC3 -> fuel pressure)
+#   - community/opinions/29E0.toml (same fuel-rail family: rail-pressure workup)
+dtc = "29E1"
+
+[meta]
+title = "Fuel pressure sensor signal"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "Read the fuel rail pressure signal at idle and compare against the expected rail-pressure range. This code flags an implausible pressure-sensor signal rather than a confirmed mechanical fault."
+measurement = { kind = "did", did = "0x5AC3", label = "Fuel rail pressure", expected_min = 40.0, expected_max = 200.0 }
+on_pass = "s2"
+on_fail = "s3"
+source = "research/bmw_diag_dim04_uds_dids.md"
+
+[[step]]
+id = "s2"
+instruction = "Signal reads plausibly at idle. Inspect the rail-pressure sensor connector and wiring for corrosion, backed-out pins, or chafing that would drop the signal intermittently."
+measurement = { kind = "manual", question = "Is the sensor connector/wiring damaged or corroded?" }
+on_pass = "s4"
+on_fail = "s5"
+source = "community/dtc_texts.toml"
+
+[[step]]
+id = "s3"
+conclusion = "Rail-pressure signal is out of range — replace the fuel rail pressure sensor and re-scan. Confirm rail pressure recovers into range afterward."
+source = "research/bmw_diag_dim01_dtcs.md"
+
+[[step]]
+id = "s4"
+conclusion = "Wiring is faulty — repair the connector/harness to the rail-pressure sensor and clear the fault. An intermittent electrical signal, not a pump fault, is the cause here."
+source = "community/dtc_texts.toml"
+
+[[step]]
+id = "s5"
+conclusion = "Signal plausible and wiring intact — a marginal sensor is the likely cause. Replace the rail-pressure sensor if the code recurs. If pressure itself is unstable under load, follow the 29E0 rail-pressure/HPFP branch."
+source = "community/opinions/29E0.toml"

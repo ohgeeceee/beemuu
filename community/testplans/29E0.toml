@@ -1,0 +1,43 @@
+# Guided fault-finding plan — 29E0 fuel rail pressure / mixture too lean
+# Grounded in-repo:
+#   - community/opinions/29E0.toml (DIY MAF+smoke test, indie smoke+HPFP rail)
+#   - community/stories/n55.toml   (29E0 first_check: smoke test intake)
+#   - community/oracle/n55.json    (29E0+30FF: vacuum leak 85%, HPFP 45%)
+#   - research/bmw_diag_dim01_dtcs.md (#### 29E0 "Fuel injection rail, pressure sensor signal")
+#   - research/bmw_diag_dim04_uds_dids.md (22 5AC3 -> fuel pressure)
+dtc = "29E0"
+
+[meta]
+title = "Fuel rail pressure / mixture too lean"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "Smoke-test the intake tract (charge pipe elbow, valve cover gasket, PCV valve). Unmetered air after the MAF is the #1 cause of a lean signal on the N55."
+measurement = { kind = "manual", question = "Did the smoke test reveal a vacuum leak?" }
+on_pass = "s2"
+on_fail = "s3"
+source = "community/stories/n55.toml"
+
+[[step]]
+id = "s2"
+conclusion = "Vacuum leak confirmed. Repair the leaking component (commonly the N55 plastic charge-pipe elbow) and clear the fault. Vacuum leak is the highest-confidence fix for this code (oracle: 85%)."
+source = "community/oracle/n55.json"
+
+[[step]]
+id = "s3"
+instruction = "No vacuum leak found. Read fuel rail pressure under load and compare against the expected rail-pressure range for the engine. A failing HPFP drops rail pressure under high demand."
+measurement = { kind = "did", did = "0x5AC3", label = "Fuel rail pressure", expected_min = 40.0, expected_max = 200.0 }
+on_pass = "s4"
+on_fail = "s5"
+source = "research/bmw_diag_dim04_uds_dids.md"
+
+[[step]]
+id = "s4"
+conclusion = "Rail pressure holds under load and no leak was found — recheck MAF signal and O2/adaptation before condemning hardware. If the code persists with no measurable cause, escalate to a full fuel-trim workup (see P0171 plan)."
+source = "community/opinions/29E0.toml"
+
+[[step]]
+id = "s5"
+conclusion = "Rail pressure falls short under load — suspect the high-pressure fuel pump (HPFP). N55 HPFPs commonly fail at 80k–120k miles and cause lean codes only under high demand (oracle: 45% for this pair, rising when a leak is ruled out)."
+source = "community/opinions/29E0.toml"

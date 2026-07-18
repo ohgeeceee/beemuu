@@ -1,0 +1,42 @@
+# Guided fault-finding plan — 29E2 fuel injection rail, pressure sensor signal
+# Grounded in-repo:
+#   - research/bmw_diag_dim01_dtcs.md (#### 29E2 "Fuel injection rail, pressure sensor signal")
+#   - community/dtc_texts.toml (29E2 = "Fuel injection rail, pressure sensor signal")
+#   - research/bmw_diag_dim04_uds_dids.md (22 5AC3 -> fuel pressure)
+#   - community/opinions/29E0.toml (same fuel-rail family: rail-pressure workup)
+dtc = "29E2"
+
+[meta]
+title = "Fuel injection rail, pressure sensor signal"
+engine_family = "n55"
+
+[[step]]
+id = "s1"
+instruction = "Read the fuel rail pressure under load and compare against the expected range. 29E2 is part of the rail-pressure-sensor family with 29E0/29E1; start by confirming whether the measured pressure is plausible."
+measurement = { kind = "did", did = "0x5AC3", label = "Fuel rail pressure", expected_min = 40.0, expected_max = 200.0 }
+on_pass = "s2"
+on_fail = "s3"
+source = "research/bmw_diag_dim04_uds_dids.md"
+
+[[step]]
+id = "s2"
+instruction = "Pressure reads plausibly. Inspect the rail-pressure sensor connector and wiring for damage, then clear the fault and re-scan after a drive cycle."
+measurement = { kind = "manual", question = "Does 29E2 return after the drive cycle?" }
+on_pass = "s4"
+on_fail = "s5"
+source = "community/dtc_texts.toml"
+
+[[step]]
+id = "s3"
+conclusion = "Rail pressure is out of range under load — follow the 29E0 branch: rule out a fuel delivery/HPFP shortfall before replacing the sensor. Out-of-range pressure points at delivery, not just the sensor."
+source = "community/opinions/29E0.toml"
+
+[[step]]
+id = "s4"
+conclusion = "Fault cleared and did not return — an intermittent sensor/wiring signal was the cause. Monitor; if it recurs, replace the rail-pressure sensor."
+source = "research/bmw_diag_dim01_dtcs.md"
+
+[[step]]
+id = "s5"
+conclusion = "Code returns with plausible pressure — replace the fuel rail pressure sensor and re-scan. The sensor is reporting an implausible signal despite adequate delivery."
+source = "community/dtc_texts.toml"
