@@ -8,11 +8,13 @@ from pathlib import Path
 from backend import db, seed, seed_dtcs
 
 
-def _fresh_db() -> Path:
+def _fresh_db() -> tuple[tempfile.TemporaryDirectory, Path]:
+    """Create a temp-dir-backed database. Keeps the TemporaryDirectory
+    alive by returning it (see test_seed.py for the full rationale)."""
     tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     p = Path(tmp.name) / "dtc_seed.db"
     db.init_db(p)
-    return p
+    return tmp, p
 
 
 # These are the codes you hit on day one fixing cars. Coverage test asserts
@@ -35,7 +37,9 @@ MUST_HAVE = {
 
 class TestGenericSeed(unittest.TestCase):
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        # Keep the TemporaryDirectory alive for the whole test (see _fresh_db).
+        self._tmp, self.db_path = _fresh_db()
+        self.addCleanup(self._tmp.cleanup)
 
     def test_runs_without_error(self) -> None:
         seed_dtcs.run(self.db_path)
