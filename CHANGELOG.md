@@ -53,6 +53,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`[needs verification]`, `[UNVERIFIED placeholder]`, how labels come
   off via `docs/validation/` harness reports) are documented.
   (v0.8.0 PR #1)
+- B48/B46 engine profile (`community/profiles/b48.toml`): F/G-series
+  2.0 turbo modular I4 (G20 330i, G01 X3 30i era) — 10 emissions-
+  mandated OBD-II PIDs plus the mirrored OBDb-sourced F-series UDS DID
+  set, G-series DID applicability uncertainty documented, every UDS
+  entry marked `[needs verification]`. (v0.8.0 PR #3)
+- S58 engine profile (`community/profiles/s58.toml`): G80/G82/F97/F98
+  M twin-turbo I6 (M-tuned B58 architecture) — mirrored DID set with
+  7500 rpm and 30.0 MPa display ranges, unverified oil-temp placeholder
+  (track criticality), fuel trims deliberately omitted per the
+  TECH_SPECS-documents-N55-only precedent, and the BMW M tricolor
+  `[profile.theme]` block. (v0.8.0 PR #3)
+- N57 engine profile (`community/profiles/n57.toml`): first diesel
+  profile — F-series 3.0 turbo diesel I6 (DDE). Petrol-mirrored UDS
+  DIDs minus knock detection (no knock sensors on compression
+  ignition), no fuel trims (petrol-only concept), 250 MPa rail display
+  range, plus eight diesel enum DIDs (DPF state/regen/ash/soot, glow
+  plugs, NOx, exhaust temp, EGR cooler) sourced from the
+  `docs/DECODE_FUNCTIONS.md` § 8 DDE candidate catalog; everything UDS
+  marked `[needs verification]`. (v0.8.0 PR #3)
 
 ## [0.6.0] - 2026-07-16
 

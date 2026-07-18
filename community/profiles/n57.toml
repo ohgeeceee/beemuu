@@ -1,0 +1,386 @@
+# N57 — 3.0 turbo diesel DI inline-6 (DDE engine management), F10
+# 530d/535d, F01 730d, F15 X5 xDrive30d, F25 X3 28d/35d, F32 435d,
+# late E90 335d, 2008-2019. First diesel profile in this repo.
+# Connect via ENET/DoIP (F-series). OBD-II entries are emissions-
+# mandated and verified by design.
+#
+# v0.8.0 PR #3 — new profile. Sourcing discipline:
+#
+# - No N57-specific DID table is documented anywhere in this repo.
+#   The numeric UDS parameters below mirror the OBDb-sourced
+#   (CC-BY-SA 4.0) DID set shipped in b58.toml / n20.toml. That set
+#   was verified across PETROL F-series DMEs; whether the diesel DDE
+#   answers the same DIDs with the same scaling is unconfirmed —
+#   every UDS label carries [needs verification], and on this profile
+#   it specifically includes DDE-vs-DME uncertainty. See:
+#   https://github.com/OBDb
+# - The eight diesel-specific enum DIDs (DPF, glow plug, NOx, exhaust
+#   temp, EGR) come from the candidate catalog in
+#   docs/DECODE_FUNCTIONS.md § 8, which marks them "DDE (diesel)".
+#   That catalog is a candidate list, not an N57-validated source —
+#   hence [needs verification] on all of them too.
+#
+# Diesel-specific decisions:
+# - knock_detect (DID 401F) is OMITTED: compression-ignition engines
+#   have no spark-knock sensors; the mirrored petrol entry would be
+#   meaningless on a DDE.
+# - Fuel-trim DIDs 1201/1202 are OMITTED: TECH_SPECS.md documents
+#   them for the petrol N55's MEVD17 only, and diesel fuel
+#   correction is not expressed as petrol-style fuel trims.
+# - hpfp_rail display max raised to 250.0 MPa: diesel common-rail
+#   pressure runs an order of magnitude above petrol (up to ~200+
+#   MPa). Display range only; whether DID 44F0 is rail pressure on
+#   the DDE is unconfirmed (see first point).
+# - Oil temp ships as the same UNVERIFIED `local:10` placeholder as
+#   n55/s55 — extra relevant on diesels because DPF regeneration
+#   dilutes engine oil with fuel; an oil-temp channel is worth
+#   surfacing for testers even unverified.
+# - rpm max 5500 (diesel redline).
+# - Further diesel candidates documented in DECODE_FUNCTIONS.md § 8
+#   but NOT shipped in this first cut: 4037 preheater, 403C/403D SCR
+#   state/efficiency, 403F NOx efficiency, 4040/4041 NH3, 4043
+#   exhaust pressure, 4044/4045 turbo actuator/speed, 4046
+#   intercooler. Add them only with a real-car Parameter Explorer
+#   log as evidence.
+#
+# DIDs marked [needs new decode fn] require backend support (u16_tenths,
+# u16_div100, s16, u8_enum, etc.) before they display correct values.
+
+[[profile]]
+id = "n57"
+label = "N57 3.0 turbo diesel I6 (DDE, F-series) [community, needs verification]"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 5500.0
+
+  [[profile.param]]
+  id = "coolant"
+  label = "Coolant temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:05"
+  decode = "temp_u8"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "oil"
+  label = "Oil temp [UNVERIFIED placeholder]"
+  unit = "°C"
+  target = 0x12
+  query = "local:10"
+  decode = "temp_u8"
+  min = -40.0
+  max = 160.0
+
+  [[profile.param]]
+  id = "iat"
+  label = "Intake air temp (post-IC)"
+  unit = "°C"
+  target = 0x12
+  query = "obd:0F"
+  decode = "temp_u8"
+  min = -40.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "map"
+  label = "Manifold pressure (abs)"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:0B"
+  decode = "u8"
+  min = 0.0
+  max = 255.0
+
+  [[profile.param]]
+  id = "baro"
+  label = "Barometric pressure"
+  unit = "kPa"
+  target = 0x12
+  query = "obd:33"
+  decode = "u8"
+  min = 60.0
+  max = 110.0
+
+  [[profile.param]]
+  id = "load"
+  label = "Engine load"
+  unit = "%"
+  target = 0x12
+  query = "obd:04"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "throttle"
+  label = "Throttle position (EGR/shutdown valve)"
+  unit = "%"
+  target = 0x12
+  query = "obd:11"
+  decode = "percent_a"
+  min = 0.0
+  max = 100.0
+
+  [[profile.param]]
+  id = "speed"
+  label = "Vehicle speed"
+  unit = "km/h"
+  target = 0x12
+  query = "obd:0D"
+  decode = "u8"
+  min = 0.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "volt"
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0
+
+  [[profile.param]]
+  id = "ambient"
+  label = "Ambient temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:46"
+  decode = "temp_u8"
+  min = -40.0
+  max = 60.0
+
+  # ---- UDS DIDs (F-series OBDb set, mirrored — petrol-verified) ----
+  # All DIDs below mirror the set shipped in b58.toml / n20.toml.
+  # They are OBDb-sourced (CC-BY-SA 4.0) but verified on PETROL DMEs;
+  # NONE has been validated on an N57 DDE — every label carries
+  # [needs verification]. knock_detect from the mirrored set is
+  # deliberately absent (see header). See docs/DECODE_FUNCTIONS.md
+  # for derivation + verification notes.
+  #
+  # Conflict resolution (inherited from b58.toml):
+  # - DID 4001 (DME temp): exposed via s16_div4 (signed, sub-degree
+  #   resolution). The u8_div4 alternate (DID 4001-u8) is intentionally
+  #   omitted -- keep one source of truth per channel.
+  # - DID 4002 (battery V): preferred over DID 4013-u8_div100 which claims
+  #   the same channel with lower precision (0.1V vs 0.01V).
+
+  [[profile.param]]
+  id = "battery_v"
+  label = "Battery voltage (DDE) [needs verification]"
+  unit = "V"
+  target = 0x12
+  query = "did:4002"
+  decode = "u16_tenths"
+  min = 8.0
+  max = 16.0
+
+  [[profile.param]]
+  id = "hpfp_rail"
+  label = "Rail pressure (common rail) [needs verification]"
+  unit = "MPa"
+  target = 0x12
+  query = "did:44F0"
+  decode = "u16_tenths"
+  min = 0.0
+  max = 250.0
+
+  [[profile.param]]
+  id = "boost_cmd"
+  label = "Boost command (relative) [needs verification]"
+  unit = "kPa"
+  target = 0x12
+  query = "did:4367"
+  decode = "u16_tenths"
+  min = -100.0
+  max = 300.0
+
+  [[profile.param]]
+  id = "maf"
+  label = "Mass air flow [needs verification]"
+  unit = "kg/h"
+  target = 0x12
+  query = "did:4077"
+  decode = "u16_div100"
+  min = 0.0
+  max = 655.35
+
+  [[profile.param]]
+  id = "ambient_pres"
+  label = "Ambient pressure (DDE) [needs verification]"
+  unit = "kPa"
+  target = 0x12
+  query = "did:4003"
+  decode = "u16_div100"
+  min = 60.0
+  max = 110.0
+
+  [[profile.param]]
+  id = "dme_temp"
+  label = "DDE temperature (signed, 0.25C resolution) [needs verification]"
+  unit = "C"
+  target = 0x12
+  query = "did:4001"
+  decode = "s16_div4"
+  min = -40.0
+  max = 150.0
+
+  [[profile.param]]
+  id = "eng_torque"
+  label = "Engine torque (signed) [needs verification]"
+  unit = "Nm"
+  target = 0x12
+  query = "did:4500"
+  decode = "s16_div100"
+  min = -327.68
+  max = 327.67
+
+  [[profile.param]]
+  id = "lambda_1"
+  label = "Lambda bank 1 [needs verification]"
+  unit = ""
+  target = 0x12
+  query = "did:400B"
+  decode = "u8_div100"
+  min = 0.5
+  max = 1.5
+
+  [[profile.param]]
+  id = "inj_time"
+  label = "Injection time (per cylinder) [needs verification, UDS only]"
+  unit = "ms"
+  target = 0x12
+  query = "did:4363"
+  decode = "u8_div100"
+  min = 0.0
+  max = 2.55
+
+
+  # ---- Enum DIDs (u8_enum decoder) ----
+  # gear / engine_state mirror the shipped F-series set (OBDb,
+  # CC-BY-SA 4.0). The eight diesel enums after them come from the
+  # candidate catalog in docs/DECODE_FUNCTIONS.md § 8 ("DDE
+  # (diesel)" rows). Byte keys must be quoted decimal strings (the
+  # `toml` crate's inline-table keys are typed as strings; see § 8
+  # for the rationale). NONE of these has been validated on an N57
+  # car — [needs verification] stays until a harness report exists.
+
+  [[profile.param]]
+  id = "gear"
+  label = "Gear position (EGS) [needs verification, UDS only]"
+  unit = ""
+  target = 0x18
+  query = "did:DA0A"
+  decode = "u8_enum"
+  enum = { "0" = "P/N", "1" = "1", "2" = "2", "3" = "3", "4" = "4", "5" = "5", "6" = "6", "15" = "Error" }
+  min = 0.0
+  max = 15.0
+
+  [[profile.param]]
+  id = "engine_state"
+  label = "Engine state (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4004"
+  decode = "u8_enum"
+  enum = { "0" = "Off", "1" = "Cranking", "2" = "Running", "3" = "Idle", "4" = "Overrun", "5" = "Shutdown" }
+  min = 0.0
+  max = 5.0
+
+  [[profile.param]]
+  id = "glow_plug"
+  label = "Glow plug state (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4036"
+  decode = "u8_enum"
+  enum = { "0" = "Off", "1" = "Heating", "2" = "Ready", "3" = "Fault" }
+  min = 0.0
+  max = 3.0
+
+  [[profile.param]]
+  id = "dpf_state"
+  label = "DPF state (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4038"
+  decode = "u8_enum"
+  enum = { "0" = "Clean", "1" = "Loading", "2" = "Regen", "3" = "Fault" }
+  min = 0.0
+  max = 3.0
+
+  [[profile.param]]
+  id = "dpf_regen"
+  label = "DPF regeneration (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4039"
+  decode = "u8_enum"
+  enum = { "0" = "Not needed", "1" = "Requested", "2" = "Active", "3" = "Fault" }
+  min = 0.0
+  max = 3.0
+
+  [[profile.param]]
+  id = "dpf_ash"
+  label = "DPF ash load (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:403A"
+  decode = "u8_enum"
+  enum = { "0" = "Low", "1" = "Medium", "2" = "High", "3" = "Critical" }
+  min = 0.0
+  max = 3.0
+
+  [[profile.param]]
+  id = "dpf_soot"
+  label = "DPF soot load (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:403B"
+  decode = "u8_enum"
+  enum = { "0" = "Low", "1" = "Medium", "2" = "High", "3" = "Critical" }
+  min = 0.0
+  max = 3.0
+
+  [[profile.param]]
+  id = "nox_sensor"
+  label = "NOx sensor state (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:403E"
+  decode = "u8_enum"
+  enum = { "0" = "Heating", "1" = "Ready", "2" = "Active", "3" = "Fault" }
+  min = 0.0
+  max = 3.0
+
+  [[profile.param]]
+  id = "exhaust_temp"
+  label = "Exhaust temp sensor (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4042"
+  decode = "u8_enum"
+  enum = { "0" = "OK", "1" = "High", "2" = "Critical", "3" = "Fault" }
+  min = 0.0
+  max = 3.0
+
+  [[profile.param]]
+  id = "egr_cooler"
+  label = "EGR cooler efficiency (DDE) [needs verification, UDS only]"
+  unit = ""
+  target = 0x12
+  query = "did:4047"
+  decode = "u8_enum"
+  enum = { "0" = "Good", "1" = "Degraded", "2" = "Failed", "3" = "Unknown" }
+  min = 0.0
+  max = 3.0
