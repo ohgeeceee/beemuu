@@ -721,6 +721,21 @@ pub fn add_to_profile(profile_id: String, spec: AddParamSpec) -> Result<(), Stri
     Ok(())
 }
 
+/// Broadcast ISO 13400 DoIP vehicle identification (UDP 13400, all
+/// interfaces via limited broadcast, ~2.5 s bounded) and return the
+/// vehicles that answered. Runs on a blocking thread: the socket work is
+/// synchronous and must not occupy an async runtime worker (issue
+/// v0.7.0-plan PR #1). Zero responses is an empty list, not an error.
+#[tauri::command]
+pub async fn discover_enet_targets() -> Result<Vec<transport::enet::DiscoveredTarget>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        transport::enet::discover(transport::enet::DOIP_BROADCAST, transport::enet::DISCOVERY_WINDOW)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /* ---------------- File export ---------------- */
 
 /// Write text to <home>/beeemuu-exports/<filename> and return the full path.

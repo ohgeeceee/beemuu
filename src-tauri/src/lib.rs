@@ -71,6 +71,7 @@ pub fn run() {
             commands::list_ports,
             commands::connect,
             commands::disconnect,
+            commands::discover_enet_targets,
             commands::scan_modules,
             commands::list_supported_pids,
             commands::read_faults,

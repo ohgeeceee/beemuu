@@ -53,8 +53,10 @@ pub enum TransportConfig {
     Kdcan { port: String, dcan: bool },
     /// K+DCAN with auto-detect: tries D-CAN first, then K-line.
     KdcanAuto { port: String },
-    /// ENET cable. `addr` e.g. "169.254.16.11:6801" (HSFZ port).
-    Enet { addr: String },
+    /// ENET cable. `addr` e.g. "169.254.16.11:6801" (HSFZ port). When
+    /// `auto_discover` is set, DoIP discovery (UDP 13400) runs first and
+    /// the discovered car's IP is used; `addr` is the manual fallback.
+    Enet { addr: String, #[serde(default)] auto_discover: bool },
     /// Built-in simulated E90 — no hardware required.
     Sim {},
 }
@@ -87,7 +89,9 @@ pub fn open(config: &TransportConfig) -> Result<Box<dyn Transport>> {
         TransportConfig::KdcanAuto { port } => {
             Ok(Box::new(kdcan::KdcanTransport::auto_detect(port)?))
         }
-        TransportConfig::Enet { addr } => Ok(Box::new(enet::EnetTransport::open(addr)?)),
+        TransportConfig::Enet { addr, auto_discover } => Ok(Box::new(
+            enet::EnetTransport::open(&enet::resolve_addr(addr, *auto_discover)?)?,
+        )),
         TransportConfig::Sim {} => Ok(Box::new(sim::SimTransport::new())),
     }
 }

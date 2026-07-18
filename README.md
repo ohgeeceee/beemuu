@@ -102,7 +102,7 @@ dropdown for your first scan. You don't need a car to learn the UI.
 |-------------|-------|----------|-----------------|
 | E-series (E36 → early E9x) | USB K+DCAN cable (FTDI FT232RL) | KWP2000 | `/dev/ttyUSB0` (Linux), `COMx` (Windows) |
 | E-series late / F-series | Same K+DCAN cable in D-CAN mode | KWP2000 / UDS | same |
-| F-series / G-series | ENET/DoIP cable (RJ45 from OBD port to laptop NIC) | UDS over DoIP | manual IP entry, typically `169.254.x.x` (UDP broadcast discovery on port 13400 planned for v0.7.0) |
+| F-series / G-series | ENET/DoIP cable (RJ45 from OBD port to laptop NIC) | UDS over DoIP | auto-discovery via UDP broadcast on port 13400 (**Discover** button); manual IP entry still works, typically `169.254.x.x` |
 
 The connectors dropdown autodetects cable type on first scan. There's no
 "buy our cable" upsell. Building your own ENET cable? The DIY pinout is in
