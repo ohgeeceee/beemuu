@@ -73,10 +73,6 @@ not ping for anything before that point — the PR is the review.
 - **Desktop app:** the Tauri webview (`src/`) talks to the **Rust core**
   (`src-tauri/src`) via `invoke()`. The desktop app calls the hosted API only
   for DTC schematics (`fetch_dtc_schematics` → `api.beemuu.com`).
-- **Legacy / dead code — do not extend:** `main.py` + `bmw_diag/` (broken
-  PyQt6 shell, superseded by the Rust core) and `server/dtc/` (orphaned
-  Node/Postgres experiment). They exist only until their removal PR lands.
-  Write new protocol work in Rust, new API work in `backend/`.
 - **No other VPS / domain.** The retired LA VPS (`montanablotter.com`,
   `beemuu.montanablotter.com`, `74.208.64.42`) is decommissioned and must not
   be referenced or reactivated. The only production host is the NJ Spectrum

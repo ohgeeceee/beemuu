@@ -28,16 +28,12 @@ use std::path::Path;
 ///   the transport exchange lives in async `security_access`.
 /// - `get_traffic` / `clear_traffic` — in-memory recording-log snapshot/clear.
 /// - `community_report` — in-memory community load report.
-/// - `analyze_chart` / `open_path` / `export_text` / `import_session` /
-///   `import_session_file` / `list_exports` — local filesystem / subprocess
-///   utilities, no vehicle transport. (`analyze_chart` spawns Python and is
-///   a candidate for a follow-up async conversion, but it is outside the
-///   transport scope of issue #86.)
+/// - `export_text` / `import_session` / `import_session_file` /
+///   `list_exports` — local filesystem utilities, no vehicle transport.
 /// - `generate_story` / `anonymize_snapshot` / `get_opinions` — pure
 ///   in-memory transforms over data already fetched.
 const SYNC_ALLOWLIST: &[&str] = &[
     "add_to_profile",
-    "analyze_chart",
     "anonymize_snapshot",
     "clear_traffic",
     "community_report",
@@ -56,7 +52,6 @@ const SYNC_ALLOWLIST: &[&str] = &[
     "list_profiles",
     "list_service_functions",
     "load_freeze_schemas",
-    "open_path",
     "save_freeze_schema",
     "security_status",
     "watch_start",
@@ -104,8 +99,8 @@ fn only_allowlisted_commands_may_be_sync() {
 
     // Guard against the parser silently matching nothing.
     assert!(
-        commands.len() >= 45,
-        "expected at least 45 #[tauri::command] fns, parsed {}",
+        commands.len() >= 43,
+        "expected at least 43 #[tauri::command] fns, parsed {}",
         commands.len()
     );
 

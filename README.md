@@ -18,11 +18,10 @@
 [![v0.6.0](https://img.shields.io/badge/release-v0.6.0-success.svg)](RELEASE_NOTES_v0.6.0.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
-Rust core with a Python diagnostic backend in `bmw_diag/` — for talking to
-your BMW's ECUs over OBD-II. It speaks **UDS** (F/G series, modern cars over
-ENET/DoIP), **KWP2000** (E series, classic cars over a $15 K+DCAN cable),
-and **standard OBD-II PIDs**. A built-in virtual E90 simulator means you can
-work on the app without owning a car.
+Rust core — for talking to your BMW's ECUs over OBD-II. It speaks **UDS**
+(F/G series, modern cars over ENET/DoIP), **KWP2000** (E series, classic cars
+over a $15 K+DCAN cable), and **standard OBD-II PIDs**. A built-in virtual
+E90 simulator means you can work on the app without owning a car.
 
 > **Try it first** at [beemuu.com](https://beemuu.com/)
 > for the landing page and project status. This README is for people who already
@@ -60,10 +59,6 @@ There is no separate "frontend repo" and no separate "backend repo", and there
 is no second domain. The retired `montanablotter.com` / `beemuu.montanablotter.com`
 hosting is gone; do not reference it.
 
-The optional **Python core** in `bmw_diag/` is a standalone library you can use
-from any Python 3.11+ project without the desktop app. Same transport layer,
-no Tauri dependency.
-
 ---
 
 ## What makes BeeEmUu different
@@ -83,8 +78,9 @@ We're not the only BMW diagnostic tool. We're the only one with these commitment
 
 ## Quick start (from source)
 
-Requires **Node 20+** and **Python 3.11+**. Tauri drives the Rust build, so the
-first compile is the slowest part.
+Requires **Node 20+**. Tauri drives the Rust build, so the first compile is
+the slowest part. (Python 3.11+ is only needed to run the `backend/` test
+suite — `pip install pytest`, nothing else; the backend is stdlib-only.)
 
 ```bash
 git clone https://github.com/ohgeeceee/beemuu
@@ -93,12 +89,7 @@ cd beemuu
 # 1. JS deps for the Tauri shell
 npm install
 
-# 2. Python deps for the diagnostic core (bmw_diag)
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# 3. Launch the desktop app (Tauri builds + opens it)
+# 2. Launch the desktop app (Tauri builds + opens it)
 npm run dev
 ```
 
@@ -228,7 +219,7 @@ BeeEmUu is a community project. There are two contribution paths:
 | Path | Skill | Where |
 |------|-------|-------|
 | **Data** (DTC texts, DID maps, engine profiles) | TOML editing — no compiler | [`community/`](community/), see [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| **Code** (features, bug fixes, new transport) | Rust + JS | [`src-tauri/`](src-tauri/), [`src/`](src/), [`bmw_diag/`](bmw_diag/) |
+| **Code** (features, bug fixes, new transport) | Rust, JS, Python | [`src-tauri/`](src-tauri/), [`src/`](src/), [`backend/`](backend/) |
 
 Every contribution carries a confidence label so users know what to trust
 (`[community]`, `[OBDb]`, `[forum]`). Read [`CONTRIBUTING.md`](CONTRIBUTING.md)
