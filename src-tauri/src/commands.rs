@@ -31,6 +31,14 @@ pub struct AppState {
     keepalive: Mutex<Option<keepalive::KeepAlive>>,
 }
 
+/// Lock a shared-state mutex, mapping a poisoned lock into a command error
+/// instead of panicking. A panic while a guard is held poisons the mutex;
+/// propagating the error keeps one bad command from cascading into every
+/// other command that shares the state (issue #95).
+fn lock_state<'a, T>(m: &'a Mutex<T>) -> Result<std::sync::MutexGuard<'a, T>, String> {
+    m.lock().map_err(|e| format!("state lock poisoned: {e}"))
+}
+
 #[derive(Serialize)]
 pub struct ConnectionInfo {
     pub transport_name: String,
@@ -52,8 +60,8 @@ pub async fn connect(
     // Fresh session: stop any keep-alive from a previous connection, reset
     // the traffic log and wrap the transport so every request/response from
     // here on is recorded.
-    stop_keepalive(&state);
-    state.traffic.lock().unwrap().clear();
+    stop_keepalive(&state)?;
+    lock_state(&state.traffic)?.clear();
     let mut t: Box<dyn Transport> =
         Box::new(RecordingTransport::new(inner, Arc::clone(&state.traffic)));
     let name = t.name().to_string();
@@ -61,17 +69,17 @@ pub async fn connect(
     // CAS fallback are handled inside protocol::read_vin.
     let vin = protocol::read_vin(t.as_mut()).ok();
     let suggested_profile = vin.as_deref().and_then(vin::suggested_profile).map(|s| s.to_string());
-    *state.transport.lock().unwrap() = Some(t);
+    *lock_state(&state.transport)? = Some(t);
     Ok(ConnectionInfo { transport_name: name, vin, suggested_profile })
 }
 
 #[tauri::command]
 pub async fn disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    stop_keepalive(&state);
-    if let Some(mut t) = state.transport.lock().unwrap().take() {
+    stop_keepalive(&state)?;
+    if let Some(mut t) = lock_state(&state.transport)?.take() {
         t.disconnect();
     }
-    state.unlocked.lock().unwrap().clear();
+    lock_state(&state.unlocked)?.clear();
     Ok(())
 }
 
@@ -79,25 +87,27 @@ fn with_transport<T>(
     state: &tauri::State<'_, AppState>,
     f: impl FnOnce(&mut dyn Transport) -> Result<T, String>,
 ) -> Result<T, String> {
-    let mut guard = state.transport.lock().unwrap();
+    let mut guard = lock_state(&state.transport)?;
     let t = guard.as_mut().ok_or("Not connected")?;
     f(t.as_mut())
 }
 
 /// Stop the Tester Present keep-alive worker, if running.
-fn stop_keepalive(state: &tauri::State<'_, AppState>) {
-    if let Some(ka) = state.keepalive.lock().unwrap().take() {
+fn stop_keepalive(state: &tauri::State<'_, AppState>) -> Result<(), String> {
+    if let Some(ka) = lock_state(&state.keepalive)?.take() {
         ka.stop();
     }
+    Ok(())
 }
 
 /// (Re)start the Tester Present keep-alive worker against `target`. Called
 /// when an ECU enters a non-default diagnostic session so the ECU's
 /// S3server timer never expires while the app is idle (issue #87).
-fn start_keepalive(state: &tauri::State<'_, AppState>, target: u8) {
-    stop_keepalive(state);
+fn start_keepalive(state: &tauri::State<'_, AppState>, target: u8) -> Result<(), String> {
+    stop_keepalive(state)?;
     let ka = keepalive::spawn(Arc::clone(&state.transport), target, keepalive::INTERVAL);
-    *state.keepalive.lock().unwrap() = Some(ka);
+    *lock_state(&state.keepalive)? = Some(ka);
+    Ok(())
 }
 
 /// Probe every known ECU address: ident + fault count. This is the
@@ -384,7 +394,7 @@ pub fn watch_start(
     mode: String,
     id: u16,
 ) -> Result<(), String> {
-    *state.watch.lock().unwrap() = Some(WatchSession {
+    *lock_state(&state.watch)? = Some(WatchSession {
         address,
         mode,
         id,
@@ -398,20 +408,21 @@ pub fn watch_start(
 #[tauri::command]
 pub async fn watch_tick(state: tauri::State<'_, AppState>) -> Result<WatchSnapshot, String> {
     let (address, mode, id) = {
-        let guard = state.watch.lock().unwrap();
+        let guard = lock_state(&state.watch)?;
         let s = guard.as_ref().ok_or("No active watch")?;
         (s.address, s.mode.clone(), s.id)
     };
     let data = with_transport(&state, |t| probe_read(t, &mode, address, id))?;
-    let mut guard = state.watch.lock().unwrap();
+    let mut guard = lock_state(&state.watch)?;
     let s = guard.as_mut().ok_or("Watch stopped")?;
     s.watcher.feed(&data);
     Ok(s.watcher.snapshot())
 }
 
 #[tauri::command]
-pub fn watch_stop(state: tauri::State<'_, AppState>) {
-    *state.watch.lock().unwrap() = None;
+pub fn watch_stop(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    *lock_state(&state.watch)? = None;
+    Ok(())
 }
 
 #[tauri::command]
@@ -494,14 +505,14 @@ pub async fn set_session(
     session: u8,
 ) -> Result<(), String> {
     with_transport(&state, |t| protocol::set_session(t, address, session))?;
-    state.unlocked.lock().unwrap().remove(&address);
+    lock_state(&state.unlocked)?.remove(&address);
     // S3server keep-alive: a non-default session needs periodic Tester
     // Present to survive idle time; the default session must never see
     // keep-alive frames (issue #87).
     if session == 0x01 {
-        stop_keepalive(&state);
+        stop_keepalive(&state)?;
     } else {
-        start_keepalive(&state, address);
+        start_keepalive(&state, address)?;
     }
     Ok(())
 }
@@ -532,7 +543,7 @@ pub async fn security_access(
     with_transport(&state, |t| {
         match protocol::security::unlock(t, address, level) {
             Ok(protocol::security::Unlock::Granted) => {
-                state.unlocked.lock().unwrap().insert(address);
+                lock_state(&state.unlocked)?.insert(address);
                 Ok(SecurityResult {
                     granted: true,
                     already_unlocked: false,
@@ -541,7 +552,7 @@ pub async fn security_access(
                 })
             }
             Ok(protocol::security::Unlock::AlreadyUnlocked) => {
-                state.unlocked.lock().unwrap().insert(address);
+                lock_state(&state.unlocked)?.insert(address);
                 Ok(SecurityResult {
                     granted: false,
                     already_unlocked: true,
@@ -560,20 +571,20 @@ pub async fn security_access(
 }
 
 #[tauri::command]
-pub fn is_unlocked(state: tauri::State<'_, AppState>, address: u8) -> bool {
-    state.unlocked.lock().unwrap().contains(&address)
+pub fn is_unlocked(state: tauri::State<'_, AppState>, address: u8) -> Result<bool, String> {
+    Ok(lock_state(&state.unlocked)?.contains(&address))
 }
 
 #[tauri::command]
-pub fn security_status(state: tauri::State<'_, AppState>) -> Vec<SecurityStatus> {
-    let unlocked = state.unlocked.lock().unwrap();
-    ecus::ECUS
+pub fn security_status(state: tauri::State<'_, AppState>) -> Result<Vec<SecurityStatus>, String> {
+    let unlocked = lock_state(&state.unlocked)?;
+    Ok(ecus::ECUS
         .iter()
         .map(|def| SecurityStatus {
             address: def.address,
             unlocked: unlocked.contains(&def.address),
         })
-        .collect()
+        .collect())
 }
 
 /* ---------------- Connection self-test ---------------- */
@@ -639,13 +650,14 @@ pub async fn connection_test(state: tauri::State<'_, AppState>) -> Result<Vec<Te
 /* ---------------- Traffic log ---------------- */
 
 #[tauri::command]
-pub fn get_traffic(state: tauri::State<'_, AppState>) -> Vec<TrafficEntry> {
-    state.traffic.lock().unwrap().snapshot()
+pub fn get_traffic(state: tauri::State<'_, AppState>) -> Result<Vec<TrafficEntry>, String> {
+    Ok(lock_state(&state.traffic)?.snapshot())
 }
 
 #[tauri::command]
-pub fn clear_traffic(state: tauri::State<'_, AppState>) {
-    state.traffic.lock().unwrap().clear();
+pub fn clear_traffic(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    lock_state(&state.traffic)?.clear();
+    Ok(())
 }
 
 /* ---------------- Community data ---------------- */
@@ -773,7 +785,7 @@ pub struct SessionVehicleInfo {
 pub async fn export_session(state: tauri::State<'_, AppState>) -> Result<String, String> {
     use std::time::SystemTime;
 
-    let mut guard = state.transport.lock().unwrap();
+    let mut guard = lock_state(&state.transport)?;
     let t = guard.as_mut().ok_or("Not connected")?.as_mut();
     let transport_name = t.name().to_string();
 
@@ -845,7 +857,7 @@ pub async fn export_session(state: tauri::State<'_, AppState>) -> Result<String,
     }
 
     // Traffic log
-    let traffic = state.traffic.lock().unwrap().snapshot();
+    let traffic = lock_state(&state.traffic)?.snapshot();
 
     let snapshot = SessionSnapshot {
         version: 1,
