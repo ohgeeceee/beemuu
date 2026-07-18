@@ -103,6 +103,7 @@ pub fn run() {
             commands::get_traffic,
             commands::clear_traffic,
             commands::export_text,
+            commands::read_export_text,
             commands::export_session,
             commands::import_session,
             commands::import_session_file,

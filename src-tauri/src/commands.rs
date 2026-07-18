@@ -262,13 +262,18 @@ pub async fn clear_faults(state: tauri::State<'_, AppState>, address: u8) -> Res
 pub struct ProfileInfo {
     pub id: String,
     pub label: String,
+    /// Per-profile gauge colour scheme (`[profile.theme]` in the TOML).
+    /// Omitted from the JSON entirely when the profile has no theme
+    /// block, so profiles without one serialise exactly as before.
+    #[serde(skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub theme: std::collections::HashMap<String, String>,
 }
 
 #[tauri::command]
 pub fn list_profiles() -> Vec<ProfileInfo> {
     live::profile_list()
         .into_iter()
-        .map(|(id, label)| ProfileInfo { id, label })
+        .map(|(id, label, theme)| ProfileInfo { id, label, theme })
         .collect()
 }
 
@@ -756,6 +761,31 @@ pub fn export_text(filename: String, content: String) -> Result<String, String> 
     std::fs::write(&path, content).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
+
+/// Read back a text file from <home>/beeemuu-exports/<filename> — the
+/// read companion to `export_text`, with the same home-dir lookup and
+/// basename-only sanitisation. Used to restore the saved workspace
+/// layout (`workspace.json`) at startup. Async per the repo's command
+/// invariant (new commands are async unless justify-sync), though this
+/// only touches the local disk; the file read itself runs on a blocking
+/// thread.
+#[tauri::command]
+pub async fn read_export_text(filename: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let home = std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .map_err(|_| "Could not locate home directory")?;
+        let dir = std::path::Path::new(&home).join("beeemuu-exports");
+        // sanitise filename to its base name only (same rule as export_text)
+        let safe = std::path::Path::new(&filename)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "export.txt".into());
+        std::fs::read_to_string(dir.join(safe)).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 /* ---------------- Session export ---------------- */
 
 #[derive(Serialize, Deserialize)]
@@ -930,6 +960,11 @@ pub fn list_exports() -> Result<Vec<ExportFile>, String> {
         let meta = entry.metadata().ok();
         let name = entry.file_name().to_string_lossy().to_string();
         if !name.ends_with(".json") {
+            continue;
+        }
+        // workspace.json is the app's own UI-state file (v0.7.0), not a
+        // session snapshot — keep it out of the Snapshot library.
+        if name == "workspace.json" {
             continue;
         }
         files.push(ExportFile {

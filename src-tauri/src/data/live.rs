@@ -121,6 +121,14 @@ pub struct Profile {
     pub id: String,
     pub label: String,
     pub params: Vec<LiveParam>,
+    /// Per-profile gauge colour scheme from the optional `[profile.theme]`
+    /// TOML table (key -> CSS colour string, e.g. `arc = "#3ddc84"`).
+    /// Empty for built-in profiles and for community profiles without a
+    /// theme block; the frontend falls back to its default palette per
+    /// key. Values are passed through unvalidated — the UI validates
+    /// colours before applying them (see `src/js/gauges.js` and
+    /// docs/DECODE_FUNCTIONS.md § 9).
+    pub theme: std::collections::HashMap<String, String>,
 }
 
 fn builtin_profiles() -> Vec<Profile> {
@@ -129,6 +137,7 @@ fn builtin_profiles() -> Vec<Profile> {
     let obd2 = Profile {
         id: "obd2".into(),
         label: "Generic OBD-II (any 2007+ car)".into(),
+        theme: Default::default(),
         params: vec![
             LiveParam::new("rpm", "Engine speed", "rpm", 0x12, Obd(0x0C), U16Quarter, 0.0, 8000.0),
             LiveParam::new("coolant", "Coolant temp", "°C", 0x12, Obd(0x05), TempU8, -40.0, 150.0),
@@ -146,6 +155,7 @@ fn builtin_profiles() -> Vec<Profile> {
     let sim = Profile {
         id: "sim".into(),
         label: "Simulator (virtual E90)".into(),
+        theme: Default::default(),
         params: vec![
             LiveParam::new("rpm", "Engine speed", "rpm", 0x12, Did(0x1000), U16, 0.0, 8000.0),
             LiveParam::new("coolant", "Coolant temp", "°C", 0x12, Did(0x1001), TempU8, -40.0, 150.0),
@@ -177,9 +187,11 @@ pub fn add_profile(profile: Profile) {
     }
 }
 
-/// (id, label) pairs for the profile selector.
-pub fn profile_list() -> Vec<(String, String)> {
-    store().read().unwrap().iter().map(|p| (p.id.clone(), p.label.clone())).collect()
+/// (id, label, theme) triples for the profile selector. `theme` is the
+/// profile's `[profile.theme]` colour map (empty when the profile has
+/// no theme block).
+pub fn profile_list() -> Vec<(String, String, std::collections::HashMap<String, String>)> {
+    store().read().unwrap().iter().map(|p| (p.id.clone(), p.label.clone(), p.theme.clone())).collect()
 }
 
 /// Clone one profile's parameters by id.
@@ -351,7 +363,18 @@ pub fn add_param_to_profile(profile_id: &str, param: LiveParam) -> Option<()> {
 
 pub fn profile_to_toml(id: &str) -> Option<String> {
     let p = store().read().ok()?.iter().find(|p| p.id == id)?.clone();
-    let mut out = format!("[[profile]]\nid = {:?}\nlabel = {:?}\n\n", p.id, p.label);
+    let mut out = format!("[[profile]]\nid = {:?}\nlabel = {:?}\n", p.id, p.label);
+    // Round-trip the [profile.theme] block so a shared profile keeps its
+    // gauge colour scheme (keys sorted for deterministic output).
+    if !p.theme.is_empty() {
+        out.push_str("\n[profile.theme]\n");
+        let mut keys: Vec<&String> = p.theme.keys().collect();
+        keys.sort();
+        for k in keys {
+            out.push_str(&format!("{k} = {:?}\n", p.theme[k]));
+        }
+    }
+    out.push('\n');
     for param in p.params {
         out.push_str("[[profile.param]]\n");
         out.push_str(&format!("id = {:?}\n", param.id));

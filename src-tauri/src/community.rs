@@ -60,6 +60,14 @@ struct ProfilesFile {
 struct ProfileToml {
     id: String,
     label: String,
+    /// Optional `[profile.theme]` table: per-profile gauge colour scheme
+    /// (key -> CSS colour string). `#[serde(default)]` keeps older TOML
+    /// files (without this table) parsing cleanly. Keys the frontend
+    /// doesn't recognise are ignored there; colour strings are validated
+    /// in the UI layer (`CSS.supports`), not here — this is a pure
+    /// pass-through. See docs/DECODE_FUNCTIONS.md § 9.
+    #[serde(default)]
+    theme: std::collections::HashMap<String, String>,
     #[serde(default)]
     param: Vec<ParamToml>,
 }
@@ -200,7 +208,7 @@ fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
             enum_map,
         });
     }
-    Ok(live::Profile { id: p.id, label: p.label, params })
+    Ok(live::Profile { id: p.id, label: p.label, params, theme: p.theme })
 }
 
 fn build_schema(s: SchemaToml) -> Result<(u8, freeze::FreezeSchema), String> {
@@ -417,5 +425,55 @@ label = "Legacy profile"
         assert_eq!(parsed.get(&1).map(String::as_str), Some("1"));
         assert!(!parsed.values().any(|v| v == "Overflow" || v == "Negative"
             || v == "Fruit" || v == "Pi"));
+    }
+
+    /// A `[profile.theme]` table must parse and surface on
+    /// `ProfileToml.theme` as a raw string->string map, and params
+    /// declared after the theme table must still land on the same
+    /// profile. Key/colour validation happens in the UI; the loader is
+    /// a pass-through (v0.7.0, docs/DECODE_FUNCTIONS.md § 9).
+    #[test]
+    fn theme_parses_from_toml() {
+        // NOTE: r##"..."## delimiters — the TOML contains `"#` (hex
+        // colours), which would terminate an r#"..."# raw string early.
+        let toml = r##"
+[[profile]]
+id = "themed"
+label = "Themed profile"
+
+[profile.theme]
+arc = "#3ddc84"
+needle = "orange"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 8000.0
+"##;
+        let parsed: ProfilesFile = toml::from_str(toml).expect("TOML should parse");
+        let profile = &parsed.profile[0];
+        assert_eq!(profile.theme.get("arc").map(String::as_str), Some("#3ddc84"));
+        assert_eq!(profile.theme.get("needle").map(String::as_str), Some("orange"));
+        assert_eq!(profile.param.len(), 1, "params after [profile.theme] must still parse");
+        assert_eq!(profile.param[0].id, "rpm");
+    }
+
+    /// Older TOML files without a `[profile.theme]` table must still
+    /// parse, with an empty theme map — same `#[serde(default)]`
+    /// contract as the `enum` key.
+    #[test]
+    fn legacy_toml_without_theme_still_parses() {
+        let toml = r#"
+[[profile]]
+id = "legacy"
+label = "Legacy profile"
+"#;
+        let parsed: ProfilesFile = toml::from_str(toml).expect("legacy TOML should parse");
+        assert!(parsed.profile[0].theme.is_empty(), "legacy profiles must default to empty theme");
     }
 }

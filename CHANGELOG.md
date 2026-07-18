@@ -8,7 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Placeholder for v0.7.0+ work.
+- Dark/light theme toggle completed: the whole app chrome now re-skins
+  through CSS variables (`src/css/app.css`) instead of the previous
+  per-panel dark overrides, and the choice persists across restarts via
+  the new workspace file. (v0.7.0 PR #2)
+- Workspace layout persistence: theme, app mode, active tab, connection
+  panel choices, live/log profile selectors, traffic auto-refresh, and
+  the per-profile log channel enabled map save to
+  `~/beeemuu-exports/workspace.json` (debounced writes via the new
+  `read_export_text` command); the pre-v0.7.0 `localStorage` settings
+  migrate automatically on first boot. (v0.7.0 PR #2)
+- Per-profile gauge colour schemes: an optional `[profile.theme]` TOML
+  table recolours the live-data gauges (nine keys, per-key fallback to
+  the cockpit palette, colours CSS-validated in the UI). Reference block
+  in `community/profiles/b58.toml`; syntax documented in
+  `docs/DECODE_FUNCTIONS.md` § 9. (v0.7.0 PR #2)
 
 ## [0.6.0] - 2026-07-16
 
