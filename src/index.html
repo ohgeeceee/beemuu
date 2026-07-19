@@ -110,6 +110,12 @@
               <span class="muted">Click a DTC row to see dealer, indie, and DIY perspectives.</span>
             </div>
           </div>
+          <div id="walkthrough-panel" class="walkthrough-panel hidden">
+            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span></div>
+            <div id="walkthrough-body" class="walkthrough-body">
+              <span class="muted">Click a DTC row to start a guided test plan, where one exists.</span>
+            </div>
+          </div>
           <div id="obd-pid-panel" class="obd-pid-panel hidden">
             <div class="obd-pid-head">
               <span>OBD-II mode 01 PIDs supported</span>
@@ -583,6 +589,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/histogram.js"></script>
   <script src="js/log_diff.js"></script>
+  <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>
   <script src="js/workspace.js"></script>
   <script src="js/gauges.js"></script>

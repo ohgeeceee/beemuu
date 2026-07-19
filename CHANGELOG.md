@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Guided fault-finding walkthrough UI (v0.9.0 PR #4): new `src/js/main.js`
+  mounts a branching test-plan walkthrough panel (`#walkthrough-panel`)
+  beside the opinion / schematics panels in the DTC-detail composition, and
+  `src/css/app.css` adds the panel styles. Clicking a DTC loads its plan via
+  the read-only `get_test_plan` command (v0.9.0 PR #3) and renders step
+  cards with Pass / Fail / Continue branch buttons, freeze-frame context
+  seeding on the entry step, a breadcrumb of the path taken, and a
+  conclusion card. Branch traversal is a pure, unit-tested reducer
+  (`src/js/testplan_walk.js`, `src/js/test/testplan_walk.test.cjs` — 12
+  tests). Tier A frontend; no Rust/Python change.
 - Guided fault-finding plan loader + query command (v0.9.0 PR #3): new
   `src-tauri/src/testplans.rs` loads `community/testplans/*.toml` into an
   in-memory KB at startup and exposes a read-only `get_test_plan(dtc_code)`
