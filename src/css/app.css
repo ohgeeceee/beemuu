@@ -392,6 +392,12 @@ body[data-theme="dark"] .schematics-panel { background: #0f1f29; border-top-colo
 .walkthrough-panel.hidden { display: none; }
 .walkthrough-head { padding: 8px 12px; font-weight: 600; font-size: 13px; color: #1c5c35; display: flex; justify-content: space-between; align-items: center; }
 .walkthrough-head span { font-family: Consolas, monospace; color: var(--blue-accent); }
+.walkthrough-verified { font-family: inherit; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px; margin-left: 8px; }
+.walkthrough-verified.hidden { display: none; }
+.walkthrough-verified.is-unverified { border: 1px solid var(--warn); color: var(--warn); background: var(--warn-bg); }
+.walkthrough-verified.is-verified { border: 1px solid var(--ok); color: var(--ok); background: var(--ok-bg); }
+body[data-theme="dark"] .walkthrough-verified.is-unverified { border-color: var(--warn); color: var(--warn); background: transparent; }
+body[data-theme="dark"] .walkthrough-verified.is-verified { border-color: var(--ok); color: var(--ok); background: transparent; }
 .walkthrough-body { padding: 8px 12px 12px; font-size: 13px; color: var(--text); }
 .wt-step { background: #fff; border: 1px solid #bfe0cf; border-radius: 4px; padding: 10px 12px; margin-top: 8px; }
 .wt-instr { font-size: 13px; font-weight: 600; color: var(--text); }

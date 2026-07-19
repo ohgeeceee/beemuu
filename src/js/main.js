@@ -844,9 +844,23 @@ async function loadTestPlan(code) {
   const panel = $("walkthrough-panel");
   const body = $("walkthrough-body");
   const codeEl = $("walkthrough-code");
+  const verifiedEl = $("walkthrough-verified");
   if (!panel || !body) return;
   panel.classList.remove("hidden");
   codeEl.textContent = code || "";
+  // Plan-level verification badge (data contract: meta.verified from the
+  // TOML, threaded through get_test_plan). "needs verification" is the
+  // default on every plan; "verified" only after a real-car harness walk
+  // (docs/validation/testplans.md). Absent => no badge (pre-PR-#5 plans).
+  if (verifiedEl) {
+    const v = plan_verified_state(plan ? plan.verified : undefined);
+    if (v) {
+      verifiedEl.textContent = v.label;
+      verifiedEl.className = `walkthrough-verified ${v.cls}`;
+    } else {
+      verifiedEl.className = "walkthrough-verified hidden";
+    }
+  }
   walkPlan = null;
   walkAnswers = [];
   body.innerHTML = "<span class='muted'>Looking up a guided test plan…</span>";
@@ -861,6 +875,18 @@ async function loadTestPlan(code) {
   } catch (e) {
     body.innerHTML = `<span class='muted'>No guided test plan available: ${escapeHtml(String(e))}</span>`;
   }
+}
+
+// Map the plan's meta.verified string to a badge label + class. Returns
+// null when the marker is absent, so legacy/unknown plans show nothing.
+function plan_verified_state(verified) {
+  if (verified === "verified") {
+    return { label: "✓ Verified", cls: "is-verified" };
+  }
+  if (verified === "needs verification") {
+    return { label: "NEEDS VERIFICATION", cls: "is-unverified" };
+  }
+  return null;
 }
 
 /* ---------- secure snapshot share ---------- */
