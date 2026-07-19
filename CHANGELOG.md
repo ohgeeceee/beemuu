@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Guided fault-finding validation harness + contribution path (v0.9.0
+  PR #5): new `docs/validation/testplans.md` — a real-car harness that
+  upgrades a plan from `verified = "needs verification"` (the default on
+  every plan in `community/testplans/`) to `"verified"`, mirroring
+  `service-functions.md` (pre-flight, walk-the-plan, what a negative
+  result looks like, report-filing). `community/testplans/README.md`
+  gains the plan-level verification-label contract and CONTRIBUTING.md
+  gains the plan axis (rule 4) alongside the existing read/write label
+  axes. All 11 PR #2 corpus plans now ship `verified =
+  "needs verification"` — the TOML marker the walkthrough UI will read
+  to surface a NEEDS VERIFICATION badge (UI rendering is a small
+  follow-up; the marker is the data contract). The marker lives in TOML
+  (not a comment) and is ignored by the loader (no
+  `deny_unknown_fields`), so the branch-integrity gate stays green. Tier
+  A docs; no Rust/Python change beyond the data marker. Completes the
+  v0.9.0 "Guided Fault Finding" cycle.
 - Guided fault-finding walkthrough UI (v0.9.0 PR #4): new `src/js/main.js`
   mounts a branching test-plan walkthrough panel (`#walkthrough-panel`)
   beside the opinion / schematics panels in the DTC-detail composition, and

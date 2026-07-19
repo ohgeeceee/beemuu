@@ -5,6 +5,7 @@
 dtc = "P0300"
 
 [meta]
+verified = "needs verification"
 title = "Random / multiple cylinder misfire"
 engine_family = "generic"
 

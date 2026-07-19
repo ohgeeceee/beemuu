@@ -9,6 +9,33 @@ integrity by `shipped_testplans_branch_integrity` in
 The full schema contract lives in `../../docs/testplans.md` — read it
 before authoring. This file is the quick author reference.
 
+## Verification label (plan level)
+
+Every plan ships with a verification state in its `[meta]` block, so
+users know whether the plan has been confirmed on a real car:
+
+| `meta.verified` | Meaning |
+|---|---|
+| `"needs verification"` | Grounded in-repo (opinions / oracle / stories / research) but **not** yet walked start-to-finish on a real car. The default for every new plan. |
+| `"verified"` | Walked on a real car via the harness in [`../../docs/validation/testplans.md`](../../docs/validation/testplans.md); the branch path and any conclusions were confirmed. |
+
+Rules that keep this axis honest:
+
+- **New plans ship `verified = "needs verification"`.** No exceptions —
+  grounding in an in-repo source is necessary but not sufficient; the
+  real-car walk is what retires the marker.
+- **The label comes off only with evidence.** Run the harness on a real
+  car, then open a PR that links the harness report and flips the marker
+  to `"verified"` for exactly that plan. No silent upgrades.
+- **`source` citations stay.** Removing the marker never touches a
+  step's `source` — the in-repo grounding remains the audit trail.
+- The `meta.verified` field is the contract the walkthrough UI will read
+  to show a **NEEDS VERIFICATION** badge (UI rendering lands in a
+  follow-up; the marker is the data half of that contract).
+
+The harness procedure lives in
+[`../../docs/validation/testplans.md`](../../docs/validation/testplans.md).
+
 ## Minimal valid plan
 
 ```toml

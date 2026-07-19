@@ -5,6 +5,7 @@
 dtc = "29CC"
 
 [meta]
+verified = "needs verification"
 title = "Random / multiple cylinder misfire"
 engine_family = "n55"
 

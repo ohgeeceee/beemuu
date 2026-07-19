@@ -5,6 +5,7 @@
 dtc = "2E82"
 
 [meta]
+verified = "needs verification"
 title = "Electric coolant pump fault"
 engine_family = "n55"
 
