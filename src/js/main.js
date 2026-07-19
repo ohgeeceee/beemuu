@@ -848,24 +848,19 @@ async function loadTestPlan(code) {
   if (!panel || !body) return;
   panel.classList.remove("hidden");
   codeEl.textContent = code || "";
-  // Plan-level verification badge (data contract: meta.verified from the
-  // TOML, threaded through get_test_plan). "needs verification" is the
-  // default on every plan; "verified" only after a real-car harness walk
-  // (docs/validation/testplans.md). Absent => no badge (pre-PR-#5 plans).
-  if (verifiedEl) {
-    const v = plan_verified_state(plan ? plan.verified : undefined);
-    if (v) {
-      verifiedEl.textContent = v.label;
-      verifiedEl.className = `walkthrough-verified ${v.cls}`;
-    } else {
-      verifiedEl.className = "walkthrough-verified hidden";
-    }
-  }
   walkPlan = null;
   walkAnswers = [];
   body.innerHTML = "<span class='muted'>Looking up a guided test plan…</span>";
   try {
     const plan = await invoke("get_test_plan", { dtcCode: code });
+    // Plan-level verification badge. Render only once the plan is
+    // resolved: `meta.verified` ("needs verification" default, "verified"
+    // after a real-car harness walk) drives the label + the click target
+    // (the harness doc that explains how to upgrade it). Absent marker =>
+    // no badge (legacy plans).
+    if (verifiedEl) {
+      renderPlanVerifiedBadge(verifiedEl, plan ? plan.verified : undefined);
+    }
     if (!plan || !plan.steps || plan.steps.length === 0) {
       body.innerHTML = "<span class='muted'>No guided test plan curated for this DTC yet. Contribute one via docs/testplans.md.</span>";
       return;
@@ -877,14 +872,46 @@ async function loadTestPlan(code) {
   }
 }
 
-// Map the plan's meta.verified string to a badge label + class. Returns
-// null when the marker is absent, so legacy/unknown plans show nothing.
+// Render the plan verification badge into `el` from the TOML meta.verified
+// string. The NEEDS VERIFICATION badge links to the real-car harness doc
+// (the procedure to upgrade it); a verified plan shows a static green tag.
+function renderPlanVerifiedBadge(el, verified) {
+  const v = plan_verified_state(verified);
+  if (!v) {
+    el.className = "walkthrough-verified hidden";
+    el.removeAttribute("title");
+    el.onclick = null;
+    return;
+  }
+  el.textContent = v.label;
+  el.className = `walkthrough-verified ${v.cls}`;
+  if (v.href) {
+    el.title = v.title;
+    el.style.cursor = "pointer";
+    el.onclick = () => window.open(v.href, "_blank", "noopener");
+  } else {
+    el.removeAttribute("title");
+    el.style.cursor = "default";
+    el.onclick = null;
+  }
+}
+
+// Map the plan's meta.verified string to badge label + class (+ optional
+// harness link). NEEDS VERIFICATION links to the real-car validation
+// harness doc (the procedure to upgrade the plan); VERIFIED is static.
+// Returns null when the marker is absent, so legacy/unknown plans show
+// nothing.
 function plan_verified_state(verified) {
   if (verified === "verified") {
     return { label: "✓ Verified", cls: "is-verified" };
   }
   if (verified === "needs verification") {
-    return { label: "NEEDS VERIFICATION", cls: "is-unverified" };
+    return {
+      label: "NEEDS VERIFICATION",
+      cls: "is-unverified",
+      href: "https://github.com/ohgeeceee/beeemuu/blob/main/docs/validation/testplans.md",
+      title: "Plan not yet confirmed on a real car — open the validation harness to upgrade it",
+    };
   }
   return null;
 }
