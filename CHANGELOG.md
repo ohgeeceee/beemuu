@@ -5,6 +5,16 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0]
+
+### Added
+- Export charts as PNG (v0.11.0, Tier A frontend): new **Export PNG** button
+  on the logging chart header and in the histogram modal. Both use Chart.js
+  `toBase64Image()` → a browser-native anchor download (no Rust round-trip),
+  so a logged trace or a channel distribution can be dropped straight into a
+  forum post. Buttons enable only once a chart exists. ROADMAP "Ready to
+  Claim" item.
+
 ## [0.10.0]
 
 ### Added
