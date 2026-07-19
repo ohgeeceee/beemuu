@@ -9,6 +9,7 @@
 dtc = "P0420"
 
 [meta]
+verified = "needs verification"
 title = "Catalyst efficiency below threshold (Bank 1)"
 engine_family = "generic"
 

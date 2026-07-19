@@ -79,6 +79,15 @@ Rules that keep this axis honest:
    `src-tauri/src/data/service_functions.rs`. The label-removal harness
    for service routines is
    [`docs/validation/service-functions.md`](../docs/validation/service-functions.md).
+4. **Guided test plans carry a *separate* plan-level axis.** Each plan
+   in [`community/testplans/`](../community/testplans/) has a
+   `verified` field in its `[meta]` block: `"needs verification"` by
+   default, `"verified"` only after a real-car walk via
+   [`docs/validation/testplans.md`](../docs/validation/testplans.md).
+   The label lives in the TOML (not a comment) so the walkthrough UI can
+   show a **NEEDS VERIFICATION** badge; see
+   [`community/testplans/README.md`](../community/testplans/README.md)
+   for the contract.
 
 ### Reverse-engineering with Parameter Explorer
 

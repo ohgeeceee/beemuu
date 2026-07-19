@@ -5,6 +5,7 @@
 dtc = "2E81"
 
 [meta]
+verified = "needs verification"
 title = "Electric coolant pump speed deviation"
 engine_family = "n55"
 
