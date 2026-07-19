@@ -1827,6 +1827,7 @@ function startLogging() {
   $("btn-log-start").textContent = "Stop recording";
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
+  $("btn-log-export-png").disabled = false;
   $("btn-log-histogram").disabled = false;
   $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
@@ -1996,6 +1997,7 @@ function restoreSession() {
   updatePlayButton();
   $("log-status").textContent = "Restored saved session.";
   $("btn-log-export").disabled = false;
+  $("btn-log-export-png").disabled = false;
   $("btn-log-histogram").disabled = false;
   $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
@@ -2066,6 +2068,22 @@ $("btn-log-export").addEventListener("click", async () => {
     log("Export failed: " + e);
   }
 });
+// Export the live logging chart as a PNG (client-side, via Chart.js
+// toBase64Image -> anchor download; no Rust round-trip needed).
+$("btn-log-export-png").addEventListener("click", () => {
+  if (!logChart) { log("Nothing charted yet."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  downloadDataUrl(`beeemuu-log-${stamp}.png`, logChart.toBase64Image("image/png", 1));
+});
+// Trigger a browser-native download of a data: URL (PNG/SVG).
+function downloadDataUrl(filename, dataUrl) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 $("btn-log-play").addEventListener("click", togglePlay);
 $("btn-log-step-back").addEventListener("click", () => stepTime(-1));
 $("btn-log-step-forward").addEventListener("click", () => stepTime(1));
@@ -2139,6 +2157,7 @@ function renderHistogram() {
       },
     },
   });
+  $("histogram-export").disabled = false;
   // Stats readout
   const s = result.stats;
   const fmt = (v) => (Number.isFinite(v) ? v.toFixed(2) : "—");
@@ -2173,6 +2192,13 @@ $("histogram-bins").addEventListener("change", renderHistogram);
 $("histogram-close").addEventListener("click", () => {
   $("histogram-overlay").classList.add("hidden");
   if (histChart) { histChart.destroy(); histChart = null; }
+  $("histogram-export").disabled = true;
+});
+// Export the histogram as a PNG (client-side anchor download).
+$("histogram-export").addEventListener("click", () => {
+  if (!histChart) return;
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  downloadDataUrl(`beeemuu-histogram-${stamp}.png`, histChart.toBase64Image("image/png", 1));
 });
 
 // v0.6.0 PR #1 — Compare logs modal: button + select + recompute + close.
