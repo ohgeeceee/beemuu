@@ -550,6 +550,7 @@ async function showFreezeFrame(code) {
   await Promise.all([
     loadOpinion(code),
     loadSchematics(code),
+    loadTestPlan(code),
   ]);
 }
 
@@ -693,6 +694,173 @@ function switchOpinionTab(btn) {
   body.querySelectorAll(".opinion-card").forEach((c) => {
     c.style.display = c.classList.contains(`op-card-${pov}`) ? "block" : "none";
   });
+}
+
+/* ---------- guided fault-finding walkthrough (v0.9.0 PR #4) ---------- *
+ * Renders the branching test plan for the active DTC into the
+ * #walkthrough-panel, mounted in index.html beside the opinion /
+ * schematics panels. The plan graph comes from the read-only
+ * `get_test_plan` Rust command (v0.9.0 PR #3); branch *traversal* is
+ * pure UI state computed by `TestPlanWalk.walk` (src/js/testplan_walk.js),
+ * unit-tested under `node --test`. The command is stateless — the UI
+ * owns the answer sequence. Pattern mirrors loadOpinion/loadSchematics:
+ * async, independent, surfaces as data arrives, degrades gracefully.
+ */
+
+// The live answer sequence taken by the user for the active DTC. Reset
+// whenever a new DTC is opened. Empty = sitting at the entry step.
+let walkAnswers = [];
+let walkPlan = null;
+
+function walkSourceLabel(source) {
+  // The per-step `source` cites an in-repo file (e.g.
+  // community/opinions/2A82.toml). Render it as a quiet mono caption.
+  return source ? escapeHtml(source) : "";
+}
+
+function renderWalkStep() {
+  const body = $("walkthrough-body");
+  if (!walkPlan) {
+    body.innerHTML = "<span class='muted'>Click a DTC row to start a guided test plan, where one exists.</span>";
+    return;
+  }
+  const r = TestPlanWalk.walk(walkPlan, walkAnswers);
+  const step = r.current;
+
+  // Freeze-frame seeding: surface the fault-time context if present.
+  let ffContext = "";
+  if (!r.done && !r.invalid && step && step.id === TestPlanWalk.entryStep(walkPlan)) {
+    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
+    const ff = sessionReplay
+      ? (modules.find((x) => x.address === selectedAddress)?.dtcs?.find((d) => d.code === walkPlan.dtc)?.freeze_frame || [])
+      : [];
+    // We only have freeze frames via the read_freeze_frame command path;
+    // for session replay we pull from the loaded DTC. Keep it light:
+    // the composition already loads the freeze panel in parallel.
+    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
+      const parts = dtc.freeze_frame
+        .map((f) => `${escapeHtml(f.label)} ${escapeHtml(f.value)}`)
+        .join(" · ");
+      ffContext = `<div class="wt-ff">At fault time: ${parts}</div>`;
+    }
+    void ff; // (placeholder for future replay wiring; see plan PR #4)
+  }
+
+  if (r.invalid) {
+    body.innerHTML =
+      `<div class="wt-invalid">⚠ This plan step has no valid branch for that answer. The plan author needs to fix it — your spot is preserved.</div>` +
+      (step ? renderStepCard(step, r, ffContext, true) : "");
+    return;
+  }
+
+  if (r.done) {
+    body.innerHTML =
+      `<div class="wt-conclusion">✅ Conclusion: ${escapeHtml(step.conclusion || "")}</div>` +
+      `<div class="wt-source">${walkSourceLabel(step.source)}</div>` +
+      `<button class="wt-restart" id="wt-restart">↻ Start over</button>` +
+      breadcrumbHtml(r);
+    const restart = $("wt-restart");
+    if (restart) restart.addEventListener("click", () => {
+      walkAnswers = [];
+      renderWalkStep();
+    });
+    return;
+  }
+
+  body.innerHTML = renderStepCard(step, r, ffContext, false) + breadcrumbHtml(r);
+}
+
+function renderStepCard(step, r, ffContext, frozen) {
+  if (!step) return "";
+  const m = step.measurement || null;
+  let measureHtml = "";
+  if (m) {
+    if (m.kind === "did") {
+      const did = m.did || "";
+      const range = (m.expected_min != null && m.expected_max != null)
+        ? ` (expect ${m.expected_min}–${m.expected_max})`
+        : "";
+      const label = m.label ? escapeHtml(m.label) : "live data";
+      measureHtml =
+        `<div class="wt-measure">📟 Measure: ${label} <code>${escapeHtml(did)}</code>${escapeHtml(range)}` +
+        ` <button class="wt-deeplink" data-did="${escapeHtml(did)}">Open in Live Data</button></div>`;
+    } else {
+      const q = m.question ? escapeHtml(m.question) : "Observe:";
+      measureHtml = `<div class="wt-measure">👀 ${q}</div>`;
+    }
+  }
+  const instr = step.instruction ? escapeHtml(step.instruction) : "";
+  const opts = TestPlanWalk.optionsFor(step);
+  const buttons = opts
+    .map((o) => `<button class="wt-answer" data-ans="${escapeHtml(o.answer)}">${escapeHtml(o.label)}</button>`)
+    .join("");
+  const source = walkSourceLabel(step.source);
+
+  const html =
+    `${ffContext}` +
+    `<div class="wt-step">` +
+    `<div class="wt-instr">${instr}</div>` +
+    `${measureHtml}` +
+    `<div class="wt-buttons">${buttons}</div>` +
+    `<div class="wt-source">${source}</div>` +
+    `</div>`;
+  // Wire buttons after insertion.
+  queueMicrotask(() => {
+    document.querySelectorAll("#walkthrough-body .wt-answer").forEach((b) => {
+      b.onclick = () => {
+        walkAnswers.push(b.dataset.ans);
+        renderWalkStep();
+      };
+    });
+    const dl = document.querySelector("#walkthrough-body .wt-deeplink");
+    if (dl) dl.onclick = () => openLiveDataForDid(dl.dataset.did);
+  });
+  return html;
+}
+
+function breadcrumbHtml(r) {
+  const crumbs = r.path
+    .filter((p) => p.answer)
+    .map((p) => {
+      const label = p.answer === "pass" ? "Pass" : p.answer === "fail" ? "Fail" : "→";
+      return `<span class="wt-crumb">${escapeHtml(label)}</span>`;
+    })
+    .join("");
+  return crumbs ? `<div class="wt-breadcrumb">Path: ${crumbs}</div>` : "";
+}
+
+// Best-effort deep link: jump to the Live Data tab and preselect the DID
+// if the panel supports it. Degrades to a no-op if Live Data isn't wired
+// for DID preselection in this build.
+function openLiveDataForDid(did) {
+  const tab = document.querySelector('[data-view="live"]') || document.querySelector("#tab-live");
+  if (tab && tab.click) tab.click();
+  // Surface the DID so the user can poll it manually; the live panel is
+  // the read verb and stays the source of truth for measured values.
+  log(`Open Live Data and poll ${did} to compare against the plan's expected range.`);
+}
+
+async function loadTestPlan(code) {
+  const panel = $("walkthrough-panel");
+  const body = $("walkthrough-body");
+  const codeEl = $("walkthrough-code");
+  if (!panel || !body) return;
+  panel.classList.remove("hidden");
+  codeEl.textContent = code || "";
+  walkPlan = null;
+  walkAnswers = [];
+  body.innerHTML = "<span class='muted'>Looking up a guided test plan…</span>";
+  try {
+    const plan = await invoke("get_test_plan", { dtcCode: code });
+    if (!plan || !plan.steps || plan.steps.length === 0) {
+      body.innerHTML = "<span class='muted'>No guided test plan curated for this DTC yet. Contribute one via docs/testplans.md.</span>";
+      return;
+    }
+    walkPlan = plan;
+    renderWalkStep();
+  } catch (e) {
+    body.innerHTML = `<span class='muted'>No guided test plan available: ${escapeHtml(String(e))}</span>`;
+  }
 }
 
 /* ---------- secure snapshot share ---------- */

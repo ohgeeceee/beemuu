@@ -386,6 +386,35 @@ body[data-theme="dark"] .obd-pid-cell { background: #2a2440; border-color: #4a3f
 .sch-error { color: var(--err); }
 
 body[data-theme="dark"] .schematics-panel { background: #0f1f29; border-top-color: #4a9cc9; }
+
+/* ----- Guided fault-finding walkthrough (v0.9.0 PR #4) ----- */
+.walkthrough-panel { border-top: 2px solid #2f9e6b; background: #f0f7f4; }
+.walkthrough-panel.hidden { display: none; }
+.walkthrough-head { padding: 8px 12px; font-weight: 600; font-size: 13px; color: #1c5c35; display: flex; justify-content: space-between; align-items: center; }
+.walkthrough-head span { font-family: Consolas, monospace; color: var(--blue-accent); }
+.walkthrough-body { padding: 8px 12px 12px; font-size: 13px; color: var(--text); }
+.wt-step { background: #fff; border: 1px solid #bfe0cf; border-radius: 4px; padding: 10px 12px; margin-top: 8px; }
+.wt-instr { font-size: 13px; font-weight: 600; color: var(--text); }
+.wt-measure { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.wt-measure code { font-family: Consolas, monospace; background: var(--input-bg); padding: 1px 4px; border-radius: 3px; }
+.wt-buttons { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.wt-answer { padding: 5px 12px; border: 1px solid #2f9e6b; background: #fff; border-radius: 4px; font-size: 12px; cursor: pointer; color: #1c5c35; font-weight: 600; }
+.wt-answer:hover { background: #2f9e6b; color: #fff; }
+.wt-deeplink { margin-left: 6px; padding: 2px 8px; border: 1px solid var(--border); background: var(--surface-sub); border-radius: 3px; font-size: 11px; cursor: pointer; color: var(--blue-accent); }
+.wt-source { font-size: 11px; color: var(--muted); margin-top: 8px; font-family: Consolas, monospace; }
+.wt-ff { font-size: 12px; color: #1c5c35; background: #e3f3ea; border-radius: 3px; padding: 4px 8px; margin-bottom: 6px; }
+.wt-conclusion { background: #e3f3ea; border: 1px solid #2f9e6b; border-radius: 4px; padding: 10px 12px; font-weight: 600; color: #1c5c35; }
+.wt-invalid { background: #fdeaea; border: 1px solid var(--err); border-radius: 4px; padding: 10px 12px; color: var(--err); }
+.wt-breadcrumb { margin-top: 10px; font-size: 11px; color: var(--muted); }
+.wt-crumb { display: inline-block; background: var(--surface-sub); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; margin-right: 4px; }
+.wt-restart { margin-top: 8px; padding: 4px 10px; border: 1px solid var(--border); background: var(--surface-sub); border-radius: 3px; font-size: 12px; cursor: pointer; }
+body[data-theme="dark"] .walkthrough-panel { background: #0f1f29; border-top-color: #4a9cc9; }
+body[data-theme="dark"] .walkthrough-head { color: #6fd6a0; }
+body[data-theme="dark"] .wt-step { background: #161f2e; border-color: #1a3a2a; }
+body[data-theme="dark"] .wt-answer { background: #161f2e; border-color: #2f9e6b; color: #6fd6a0; }
+body[data-theme="dark"] .wt-answer:hover { background: #2f9e6b; color: #0f1f29; }
+body[data-theme="dark"] .wt-conclusion { background: #11271c; border-color: #2f9e6b; color: #6fd6a0; }
+body[data-theme="dark"] .wt-ff { background: #11271c; color: #6fd6a0; }
 body[data-theme="dark"] .schematics-head { color: #b6dcf0; }
 body[data-theme="dark"] .sch-card { background: #16222e; border-color: #2c4257; }
 body[data-theme="dark"] .sch-card .sch-title { color: #d6ebf7; }
