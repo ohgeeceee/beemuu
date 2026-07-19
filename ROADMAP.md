@@ -263,7 +263,7 @@ do" list (flashing, FSC/AOS, coding writes, ISTA corpus, immobiliser).
 
 ---
 
-## v0.9.0 — "Guided Fault Finding" (Planned)
+## v0.9.0 — "Guided Fault Finding" (In progress)
 
 **Premise.** Close the biggest remaining ISTA+ gap: guided diagnostics.
 Today three flat knowledge bases (3 Opinions files, 2 Oracle JSON files,
@@ -280,11 +280,11 @@ LLM-generated procedures).
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Test-plan schema + parse-gate extension | 🟢 Ready | A | New `community/testplans/*.toml` `[[step]]` branching format; branch-integrity gate; oracle JSON gate (currently ungated). |
-| Author grounded first-corpus plans | 🟢 Ready | A | ~8–10 DTCs grounded in-repo only (2A82, 29E0–29E2, 30FF, 29CC, 2E81/2E82, P0171, P0300, P0420); known-missing list for the rest. |
-| Plan loader + query command | 🟢 Ready | B | Read-only `get_test_plan`; protected paths (`commands.rs`) — human merge. |
-| Guided-diagnosis walkthrough UI | 🟢 Ready | A | Step-by-step panel in fault detail; live-data measurement deep-links; freeze-frame seeding. |
-| Validation harness + contribution path | 🟢 Ready | A | `docs/validation/testplans.md`; `[needs verification]` plan labels come off only via harness reports. |
+| Test-plan schema + parse-gate extension | ✅ Done (PR #1, #120) | A | New `community/testplans/*.toml` `[[step]]` branching format; branch-integrity gate; oracle JSON gate (was ungated). |
+| Author grounded first-corpus plans | ✅ Done (PR #2, #121) | A | 11 DTCs grounded in-repo (2A82, 29E0–29E2, 30FF, 29CC, 2E81/2E82, P0171, P0300, P0420); known-missing list shipped. |
+| Plan loader + query command | ✅ Done (PR #3, #122) | B | Read-only `get_test_plan` command; protected paths (`commands.rs`/`lib.rs`) — human-merged. |
+| Guided-diagnosis walkthrough UI | ✅ Done (PR #4, #123) | A | Step-by-step panel in fault detail; live-data measurement deep-links; freeze-frame seeding; pure traversal reducer unit-tested (12 tests). |
+| Validation harness + contribution path | 🟢 Ready | A | `docs/validation/testplans.md`; `[needs verification]` plan labels come off only via harness reports. **Not yet dispatched.** |
 
 Slices dispatch as PRs when the work completes — no Discussion gate
 (`COMMUNITY_FRAMEWORK.md` Rule 2).
@@ -331,4 +331,4 @@ in conflict with the active v0.8.0 cycle.
 
 ---
 
-*Last updated: 2026-07-16. v0.8.0 "Service Bay" nearly complete — PRs #1 / #3 / #4 merged (#114 / #115 / #116); PR #2 service functions open as #117 pending human merge (Tier B). v0.9.0 "Guided Fault Finding" planned — see [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatch as PRs directly per `COMMUNITY_FRAMEWORK.md` Rule 2.*
+*Last updated: 2026-07-19. v0.9.0 "Guided Fault Finding" in progress — 4 of 5 slices merged (PR #1 #120 schema/gate, PR #2 #121 corpus, PR #3 #122 loader+`get_test_plan` command [Tier B, human-merged], PR #4 #123 walkthrough UI [Tier A]). Remaining: PR #5 validation harness + contribution path (Tier A docs, not yet dispatched). v0.8.0 "Service Bay" shipped (#114/#115/#116/#117). Plan: [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatch as PRs per `COMMUNITY_FRAMEWORK.md` Rule 2.*
