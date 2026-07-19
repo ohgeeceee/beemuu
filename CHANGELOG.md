@@ -5,7 +5,21 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.0]
+
+### Added
+- Plan verification badge (v0.10.0): the walkthrough panel now reads each
+  plan's `meta.verified` marker and shows a badge in the panel header —
+  **NEEDS VERIFICATION** (amber) for the default `"needs verification"`
+  state, **✓ Verified** (green) once a real-car harness walk upgrades it
+  (`docs/validation/testplans.md`). Completes the data contract PR #5
+  installed (the TOML marker now flows end-to-end: `community/testplans/*.toml`
+  → `testplans.rs` loader → `get_test_plan` → `main.js`). Rust change is
+  additive (`verified: Option<String>` on `PlanMeta` + `TestPlan`, threaded
+  through `to_plan`; legacy plans with no marker render no badge). Tier A
+  frontend + data-loader; no protected-path change.
+
+## [0.9.0]
 
 ### Added
 - Guided fault-finding validation harness + contribution path (v0.9.0

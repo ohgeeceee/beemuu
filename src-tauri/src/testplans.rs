@@ -27,6 +27,11 @@ pub struct TestPlan {
     pub dtc: String,
     pub title: String,
     pub engine_family: Option<String>,
+    /// Plan-level verification state from `[meta].verified` in the TOML:
+    /// `"needs verification"` (default for every plan) or `"verified"`
+    /// once a real-car walk confirms it (see `docs/validation/testplans.md`).
+    /// `None` if the field is absent. Surfaced to the UI as a badge.
+    pub verified: Option<String>,
     pub steps: Vec<TestStep>,
 }
 
@@ -74,6 +79,12 @@ struct PlanMeta {
     title: String,
     #[serde(default)]
     engine_family: String,
+    /// Plan-level verification state — `"needs verification"` by default
+    /// on every authored plan; `"verified"` only after a real-car walk
+    /// via the harness in `docs/validation/testplans.md`. Optional so
+    /// pre-PR-#5 plans (no marker) still parse as `None`.
+    #[serde(default)]
+    verified: Option<String>,
     /// Presence marks a known-missing placeholder — suppressed from
     /// lookup results (mirrors the gate's handling in `community.rs`).
     #[serde(default)]
@@ -162,6 +173,7 @@ fn to_plan(file: PlanFile) -> TestPlan {
         dtc: file.dtc.to_uppercase(),
         title: file.meta.title,
         engine_family: non_empty(file.meta.engine_family),
+        verified: file.meta.verified,
         steps,
     }
 }
@@ -246,6 +258,7 @@ dtc = "2A82"
 [meta]
 title = "VANOS intake solenoid fault"
 engine_family = "n55"
+verified = "needs verification"
 
 [[step]]
 id = "s1"
@@ -276,6 +289,9 @@ source = "community/oracle/n55.json"
         assert_eq!(plan.title, "VANOS intake solenoid fault");
         assert_eq!(plan.engine_family.as_deref(), Some("n55"));
         assert_eq!(plan.steps.len(), 3);
+
+        // Plan-level verification marker threads through to the UI.
+        assert_eq!(plan.verified.as_deref(), Some("needs verification"));
 
         let s1 = &plan.steps[0];
         assert_eq!(s1.id, "s1");
