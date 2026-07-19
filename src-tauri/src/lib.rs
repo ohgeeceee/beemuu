@@ -7,6 +7,7 @@ pub mod story;
 pub mod anonymize;
 pub mod schematics;
 pub mod opinions;
+pub mod testplans;
 pub mod data;
 pub mod protocol;
 pub mod transport;
@@ -54,14 +55,16 @@ pub fn run() {
     let oracle_entries = oracle::load();
     let story_entries = story::load();
     let opinion_entries = opinions::load();
+    let testplan_entries = testplans::load();
     eprintln!(
-        "community data: {} fault texts, {} profiles, {} freeze schemas, {} oracle entries, {} story entries, {} opinion entries{}",
+        "community data: {} fault texts, {} profiles, {} freeze schemas, {} oracle entries, {} story entries, {} opinion entries, {} test plans{}",
         rep.dtc_texts,
         rep.profiles,
         rep.freeze_schemas,
         oracle_entries,
         story_entries,
         opinion_entries,
+        testplan_entries,
         rep.dir.map(|d| format!(" from {d}")).unwrap_or_default()
     );
 
@@ -113,6 +116,7 @@ pub fn run() {
             commands::generate_story,
             commands::anonymize_snapshot,
             commands::get_opinions,
+            commands::get_test_plan,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
