@@ -263,7 +263,7 @@ do" list (flashing, FSC/AOS, coding writes, ISTA corpus, immobiliser).
 
 ---
 
-## v0.9.0 — "Guided Fault Finding" (In progress)
+## v0.9.0 — "Guided Fault Finding" (Released)
 
 **Premise.** Close the biggest remaining ISTA+ gap: guided diagnostics.
 Today three flat knowledge bases (3 Opinions files, 2 Oracle JSON files,
@@ -284,7 +284,7 @@ LLM-generated procedures).
 | Author grounded first-corpus plans | ✅ Done (PR #2, #121) | A | 11 DTCs grounded in-repo (2A82, 29E0–29E2, 30FF, 29CC, 2E81/2E82, P0171, P0300, P0420); known-missing list shipped. |
 | Plan loader + query command | ✅ Done (PR #3, #122) | B | Read-only `get_test_plan` command; protected paths (`commands.rs`/`lib.rs`) — human-merged. |
 | Guided-diagnosis walkthrough UI | ✅ Done (PR #4, #123) | A | Step-by-step panel in fault detail; live-data measurement deep-links; freeze-frame seeding; pure traversal reducer unit-tested (12 tests). |
-| Validation harness + contribution path | 🟢 Ready | A | `docs/validation/testplans.md`; `[needs verification]` plan labels come off only via harness reports. **Not yet dispatched.** |
+| Validation harness + contribution path | ✅ Done (PR #5, #125) | A | `docs/validation/testplans.md` harness; `community/testplans/README.md` + `CONTRIBUTING.md` label axis; all 11 plans tagged `verified = "needs verification"`. Completes v0.9.0. |
 
 Slices dispatch as PRs when the work completes — no Discussion gate
 (`COMMUNITY_FRAMEWORK.md` Rule 2).
@@ -331,4 +331,4 @@ in conflict with the active v0.8.0 cycle.
 
 ---
 
-*Last updated: 2026-07-19. v0.9.0 "Guided Fault Finding" in progress — 4 of 5 slices merged (PR #1 #120 schema/gate, PR #2 #121 corpus, PR #3 #122 loader+`get_test_plan` command [Tier B, human-merged], PR #4 #123 walkthrough UI [Tier A]). Remaining: PR #5 validation harness + contribution path (Tier A docs, not yet dispatched). v0.8.0 "Service Bay" shipped (#114/#115/#116/#117). Plan: [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatch as PRs per `COMMUNITY_FRAMEWORK.md` Rule 2.*
+*Last updated: 2026-07-19. v0.9.0 "Guided Fault Finding" complete — all 5 slices merged (PR #1 #120 schema/gate, PR #2 #121 corpus, PR #3 #122 loader+`get_test_plan` command [Tier B, human-merged], PR #4 #123 walkthrough UI [Tier A], PR #5 #125 validation harness + contribution path [Tier A]). v0.8.0 "Service Bay" shipped (#114/#115/#116/#117). Plan: [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatched as PRs per `COMMUNITY_FRAMEWORK.md` Rule 2.*
