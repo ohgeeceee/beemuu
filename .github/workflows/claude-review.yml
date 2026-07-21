@@ -37,6 +37,12 @@ jobs:
             Read CLAUDE.md at the repo root first — it contains the non-negotiable
             hardware and threading invariants for this project. Judge the diff against them.
 
+            Note: The PR branch is already checked out in the current working directory.
+            Use `gh pr comment` for top-level feedback.
+            Use `mcp__github_inline_comment__create_inline_comment` (with `confirmed: true`)
+            to highlight specific code issues.
+            Only post GitHub comments - don't submit review text as messages.
+
             Pay special attention when the PR touches any of these protected paths:
               - src-tauri/src/transport/**   (K+DCAN / ENET serial + network transport)
               - src-tauri/src/protocol/**    (byte-level parsing, UDS/KWP, security access)
@@ -57,4 +63,4 @@ jobs:
             the protected paths, request human review and clearly flag the timing risk.
           claude_args: |
             --max-turns 20
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*)"
+            --allowedTools "Read,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*)"
