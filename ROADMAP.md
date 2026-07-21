@@ -291,18 +291,69 @@ Slices dispatch as PRs when the work completes — no Discussion gate
 
 ---
 
+## v0.10.0 — "Honest Plans" (Released)
+
+**Premise.** Close the trust gap on the v0.9.0 plans: the data contract
+for "verified" was installed in PR #5 (the marker on every
+`community/testplans/*.toml`), but nothing in the UI surfaced it — a
+tech could walk a plan and have no way to know whether anyone had
+actually driven the steps on a real car. v0.10.0 makes the marker
+visible end-to-end and fixes the one wrong-repo-URL string that had
+been confusing new contributors.
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Plan verification badge in walkthrough header | ✅ Done (PR #127) | A | Reads `meta.verified` per plan; renders **NEEDS VERIFICATION** (amber) / **✓ Verified** (green) in the walkthrough panel header. Rust change additive (`verified: Option<String>` on `PlanMeta` + `TestPlan`); legacy plans with no marker render no badge. |
+| Clickable NEEDS VERIFICATION badge + fix repo URL | ✅ Done (PR #130) | A | Badge now links to `docs/validation/testplans.md` so a tech lands on the contribution path with one click. About modal `ohjoncurrie/beeemuu` → `ohgeeceee/beeemuu`. |
+| Bump version to 0.10.0 (matches released state) | ✅ Done (PR #128) | C-executed | `Cargo.toml` + `package.json` synced to `0.10.0`. |
+| Sync `Cargo.lock` to 0.10.0 | ✅ Done (PR #129) | A | `Cargo.lock` version bump to match. |
+
+---
+
+## v0.11.0 — "Share the Trace" (Started)
+
+**Premise.** An owner finishes a logging session and wants to ask
+someone who knows — a forum thread, a friend, a subreddit. The first
+thing they need is a picture they can paste straight in, and a CSV
+that doesn't read as a wall of hex. v0.9.0 / v0.10.0 closed the
+diagnostic-workflow gaps (guided plans + honest verification). v0.11.0
+closes the **share-the-trace** gap — the cycle an owner actually
+finishes a session with. See
+[`docs/v0.11.0_plan.md`](docs/v0.11.0_plan.md) for the full cycle plan,
+including the trace-surface survey and the explicit "what we will NOT
+do" list (cloud upload, ISTA+ export shapes, PDF reports, multi-lang
+headers, auto-share).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| PNG export of logging + histogram charts | ✅ Done (PR #131, d2d1d07) | A | Chart.js `toBase64Image()` → browser-native anchor download. Buttons enable only once a chart exists. |
+| SVG export of logging + histogram charts | 🔲 Open | A | Mirrors #131; Chart.js has no `toSVG()`, so serialize config + a small inline SVG renderer in `src/js/`. Pure frontend. |
+| CSV-with-units export option | 🔲 Open | A | Checkbox on the logging "Save" panel: "Include units row" → row 2 of the CSV is `<DID>,<unit>,<unit>`. Loader parses both shapes; existing logs keep loading. Additive in `src-tauri/src/data/logging.rs`. |
+| Static HTML walkthrough bundle | 🔲 Open | A | "Share walkthrough" button → `walkthrough-XXXX.html` (single file, inline CSS + JS, replays a log in any browser). Pure frontend; reuses the v0.9.0 walkthrough reducer. |
+| ROADMAP v0.10.0 closure + cycle header for v0.11.0 | ✅ Done (this PR) | A | v0.10.0 cycle table lands retroactively; v0.11.0 carries the active cycle header. Docs-only. |
+
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2).
+
+---
+
 ## Ready to Claim (🟢 — open a PR when you want it)
 
 These items have lived on the ROADMAP for multiple cycles as 🟢-
 Ready and have not been claimed. They're real, well-scoped, and not
-in conflict with the active v0.8.0 cycle.
+in conflict with the active v0.11.0 cycle. (PNG export landed in
+v0.11.0 #131; SVG export is tracked under v0.11.0; the row below
+covers anything else in this category.)
 
 > **If you're new to the project, start here.** These are the lowest-
 > risk ways to land a first PR.
 
 | Item | Where to start | Notes |
 |------|----------------|-------|
-| Export PNG/SVG from charts | Extends the existing `Chart.js` lines | Mid-sized. Good first Chart.js PR. Useful for forum posts. |
 | KWP2000 slow-module timeout fix | `src-tauri/src/protocol/kwp2000.rs` — **protected path**, flag the PR header | Small backend fix; CIC and slow modules time out today. |
 | Freeze-frame schema coverage | `community/freeze_schemas.toml` (32 lines today) | Pure data; mirror an existing schema block per ECU you can verify. |
 
