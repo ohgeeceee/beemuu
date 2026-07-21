@@ -158,6 +158,10 @@
           <span>
             <button id="btn-log-start" class="btn btn-small btn-primary">Start recording</button>
             <button id="btn-log-export" class="btn btn-small" disabled>Export CSV</button>
+            <label class="log-export-units-label" title="Add a second header row with units (rpm, °C, ...) so the CSV is readable in Excel">
+              <input type="checkbox" id="log-export-units" />
+              Include units row
+            </label>
             <button id="btn-log-export-png" class="btn btn-small" disabled>Export PNG</button>
             <button id="btn-log-export-svg" class="btn btn-small" disabled>Export SVG</button>
             <button id="btn-log-histogram" class="btn btn-small" disabled>Histogram</button>
@@ -593,6 +597,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/histogram.js"></script>
   <script src="js/svg_export.js"></script>
+  <script src="js/csv_log_export.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>
