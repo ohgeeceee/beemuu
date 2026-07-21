@@ -2031,40 +2031,32 @@ $("btn-log-clear").addEventListener("click", () => {
   updatePlayButton();
   renderMarkerList();
 });
-/* Build the CSV string from the current log series data. */
-function buildLogCsv() {
-  const enabled = [...logSeries.entries()].filter(([, s]) => s.enabled && s.getAllData().length);
-  if (!enabled.length) return null;
-  const allData = enabled[0][1].getAllData();
-  const rows = allData.length;
-  let csv = "time_s," + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(",") + "\n";
-  for (let i = 0; i < rows; i++) {
-    const t = allData[i]?.x ?? "";
-    let row = t.toFixed ? t.toFixed(2) : t;
-    for (const [, s] of enabled) {
-      const p = s.getAllData()[i];
-      // Enum labels (when point.text is set) are emitted as quoted CSV
-      // strings; numerics keep the existing two-decimal format.
-      row += "," + (p
-        ? (p.text !== undefined && p.text !== null
-            ? JSON.stringify(p.text)
-            : (p.y ?? "").toFixed(2))
-        : "");
-      // Shared with the test harness (`src/js/test/live_format.test.cjs`)
-      // and Gauge.set in gauges.js. Keep the rule in one place.
-      row += "," + window.LiveFormat.csvCell(s.getAllData()[i]);
-    }
-    csv += row + "\n";
-  }
-  return csv;
+/* Build the CSV string from the current log series data.
+ *
+ * v0.11.0: extracted to `src/js/csv_log_export.js` so the units-row
+ * option (`withUnits`) is independently testable. This thin wrapper
+ * passes through the live `logSeries` map and the shared LiveFormat
+ * helper so the wire format is byte-identical to the pre-extraction
+ * version.
+ */
+function buildLogCsv(opts) {
+  if (!window.beeemuuCsvLog || !window.beeemuuCsvLog.buildLogCsv) return null;
+  return window.beeemuuCsvLog.buildLogCsv([...logSeries.entries()], {
+    withUnits: !!(opts && opts.withUnits),
+    liveFormat: window.LiveFormat,
+  });
 }
 
 $("btn-log-export").addEventListener("click", async () => {
-  const csv = buildLogCsv();
+  const withUnits = $("log-export-units") && $("log-export-units").checked;
+  const csv = buildLogCsv({ withUnits });
   if (!csv) { log("Nothing recorded yet."); return; }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  // Filename carries a `-units` suffix when the units row is on, so a
+  // user can tell at a glance which CSV variant they're sharing.
+  const suffix = withUnits ? "-units" : "";
   try {
-    const path = await invoke("export_text", { filename: `beeemuu-log-${stamp}.csv`, content: csv });
+    const path = await invoke("export_text", { filename: `beeemuu-log-${stamp}${suffix}.csv`, content: csv });
     log("Saved: " + path);
   } catch (e) {
     log("Export failed: " + e);
