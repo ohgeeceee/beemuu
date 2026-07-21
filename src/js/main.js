@@ -840,6 +840,68 @@ function openLiveDataForDid(did) {
   log(`Open Live Data and poll ${did} to compare against the plan's expected range.`);
 }
 
+// v0.11.0 PR — Share walkthrough: snapshot the current walkthrough
+// (plan + answers + log chart + freeze frame + meta) into a single
+// self-contained HTML file the user can attach to a forum post. Pure
+// frontend — no Rust round-trip beyond the existing `export_text` IPC.
+// The bundle is stateless (a static render of the snapshot) so we don't
+// need to inline the reducer source; the chart is pre-rendered to SVG
+// at export time via the existing `window.beeemuuSvg.chartToSvg`.
+$("btn-walk-share").addEventListener("click", async () => {
+  if (!walkPlan) { log("No walkthrough loaded yet."); return; }
+  if (!window.beeemuuWalkthroughBundle || !window.beeemuuWalkthroughBundle.buildBundleHtml) {
+    log("Walkthrough bundle module not loaded.");
+    return;
+  }
+  // Snapshot the log series into the chart data shape the bundle expects.
+  // Use a single fake "Chart-like" object so we can reuse chartToSvg().
+  const datasets = [...logSeries.entries()].map(([, s]) => ({
+    label: s.label,
+    borderColor: s.color,
+    data: typeof s.getAllData === "function" ? s.getAllData() : [],
+  })).filter((d) => d.data.length > 0);
+  let logChartSvg = "";
+  if (datasets.length && window.beeemuuSvg && typeof window.beeemuuSvg.chartToSvg === "function") {
+    try {
+      logChartSvg = window.beeemuuSvg.chartToSvg({ data: { datasets } }) || "";
+    } catch (e) {
+      log("Chart render for bundle failed: " + e);
+    }
+  }
+  // Freeze-frame context for the current DTC, if the active DTC row carries it.
+  let freezeFrame = [];
+  try {
+    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
+    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
+      freezeFrame = dtc.freeze_frame.map((f) => ({ label: f.label, value: f.value }));
+    }
+  } catch (_) { /* best-effort */ }
+  const html = window.beeemuuWalkthroughBundle.buildBundleHtml({
+    plan: walkPlan,
+    walkAnswers: walkAnswers.slice(),
+    logChartSvg,
+    freezeFrame,
+    meta: {
+      vehicleLabel: $("info-vin") ? $("info-vin").textContent || "" : "",
+      profileName: $("log-profile") ? $("log-profile").value || "" : "",
+      appVersion: "0.10.0",
+      exportedAtIso: new Date().toISOString(),
+    },
+  });
+  if (!html) { log("Failed to build walkthrough bundle."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const safeDtc = (walkPlan.dtc || "unknown").replace(/[^A-Za-z0-9_-]/g, "_");
+  try {
+    const path = await invoke("export_text", {
+      filename: `beeemuu-walkthrough-${safeDtc}-${stamp}.html`,
+      content: html,
+    });
+    log("Walkthrough saved: " + path);
+  } catch (e) {
+    log("Walkthrough export failed: " + e);
+  }
+});
+
 async function loadTestPlan(code) {
   const panel = $("walkthrough-panel");
   const body = $("walkthrough-body");
@@ -863,9 +925,13 @@ async function loadTestPlan(code) {
     }
     if (!plan || !plan.steps || plan.steps.length === 0) {
       body.innerHTML = "<span class='muted'>No guided test plan curated for this DTC yet. Contribute one via docs/testplans.md.</span>";
+      const share = $("btn-walk-share");
+      if (share) share.disabled = true;
       return;
     }
     walkPlan = plan;
+    const share = $("btn-walk-share");
+    if (share) share.disabled = false;
     renderWalkStep();
   } catch (e) {
     body.innerHTML = `<span class='muted'>No guided test plan available: ${escapeHtml(String(e))}</span>`;
