@@ -159,6 +159,7 @@
             <button id="btn-log-start" class="btn btn-small btn-primary">Start recording</button>
             <button id="btn-log-export" class="btn btn-small" disabled>Export CSV</button>
             <button id="btn-log-export-png" class="btn btn-small" disabled>Export PNG</button>
+            <button id="btn-log-export-svg" class="btn btn-small" disabled>Export SVG</button>
             <button id="btn-log-histogram" class="btn btn-small" disabled>Histogram</button>
             <button id="btn-log-diff" class="btn btn-small" disabled>Compare logs</button>
             <button id="btn-log-clear" class="btn btn-small" disabled>Clear</button>
@@ -536,6 +537,7 @@
       </div>
       <div class="modal-actions">
         <button id="histogram-export" class="btn" disabled>Export PNG</button>
+        <button id="histogram-export-svg" class="btn" disabled>Export SVG</button>
         <button id="histogram-close" class="btn btn-primary">Close</button>
       </div>
     </div>
@@ -590,6 +592,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/histogram.js"></script>
+  <script src="js/svg_export.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>

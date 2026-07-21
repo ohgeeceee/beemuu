@@ -1828,6 +1828,7 @@ function startLogging() {
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
   $("btn-log-export-png").disabled = false;
+  $("btn-log-export-svg").disabled = false;
   $("btn-log-histogram").disabled = false;
   $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
@@ -1998,6 +1999,7 @@ function restoreSession() {
   $("log-status").textContent = "Restored saved session.";
   $("btn-log-export").disabled = false;
   $("btn-log-export-png").disabled = false;
+  $("btn-log-export-svg").disabled = false;
   $("btn-log-histogram").disabled = false;
   $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
@@ -2074,6 +2076,25 @@ $("btn-log-export-png").addEventListener("click", () => {
   if (!logChart) { log("Nothing charted yet."); return; }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   downloadDataUrl(`beeemuu-log-${stamp}.png`, logChart.toBase64Image("image/png", 1));
+});
+// Export the live logging chart as an SVG (v0.11.0, mirrors PNG export).
+// Chart.js has no toSVG(); we render from the same data the canvas is
+// drawing via src/js/svg_export.js (no new dependency, no Rust round-trip).
+$("btn-log-export-svg").addEventListener("click", () => {
+  if (!logChart) { log("Nothing charted yet."); return; }
+  if (!window.beeemuuSvg || !window.beeemuuSvg.chartToSvg) {
+    log("SVG export unavailable (svg_export.js not loaded).");
+    return;
+  }
+  const svg = window.beeemuuSvg.chartToSvg(logChart);
+  if (!svg) { log("No chart data to export."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  // SVG uses a data: URL too, but base64-encoding would bloat it ~33%;
+  // use a URL-encoded string so the file is human-readable as-is.
+  downloadDataUrl(
+    `beeemuu-log-${stamp}.svg`,
+    "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
+  );
 });
 // Trigger a browser-native download of a data: URL (PNG/SVG).
 function downloadDataUrl(filename, dataUrl) {
@@ -2158,6 +2179,7 @@ function renderHistogram() {
     },
   });
   $("histogram-export").disabled = false;
+  $("histogram-export-svg").disabled = false;
   // Stats readout
   const s = result.stats;
   const fmt = (v) => (Number.isFinite(v) ? v.toFixed(2) : "—");
@@ -2193,12 +2215,33 @@ $("histogram-close").addEventListener("click", () => {
   $("histogram-overlay").classList.add("hidden");
   if (histChart) { histChart.destroy(); histChart = null; }
   $("histogram-export").disabled = true;
+  $("histogram-export-svg").disabled = true;
 });
 // Export the histogram as a PNG (client-side anchor download).
 $("histogram-export").addEventListener("click", () => {
   if (!histChart) return;
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   downloadDataUrl(`beeemuu-histogram-${stamp}.png`, histChart.toBase64Image("image/png", 1));
+});
+// Export the histogram as an SVG (v0.11.0, mirrors PNG export).
+// Same renderer approach as the logging chart: pull data from histChart.data
+// and the result binEdges/labels the histogram module already exposes.
+$("histogram-export-svg").addEventListener("click", () => {
+  if (!histChart) return;
+  if (!window.beeemuuSvg || !window.beeemuuSvg.histogramToSvg) {
+    log("SVG export unavailable (svg_export.js not loaded).");
+    return;
+  }
+  const labels = histChart.data.labels || [];
+  const counts = (histChart.data.datasets[0] && histChart.data.datasets[0].data) || [];
+  const axisLabel = histChart.options.scales.x.title.text || "value";
+  const svg = window.beeemuuSvg.histogramToSvg({ labels, counts, axisLabel });
+  if (!svg) { log("No histogram data to export."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  downloadDataUrl(
+    `beeemuu-histogram-${stamp}.svg`,
+    "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
+  );
 });
 
 // v0.6.0 PR #1 — Compare logs modal: button + select + recompute + close.
