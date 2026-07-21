@@ -331,13 +331,36 @@ headers, auto-share).
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
 | PNG export of logging + histogram charts | ✅ Done (PR #131, d2d1d07) | A | Chart.js `toBase64Image()` → browser-native anchor download. Buttons enable only once a chart exists. |
-| SVG export of logging + histogram charts | 🔲 Open | A | Mirrors #131; Chart.js has no `toSVG()`, so serialize config + a small inline SVG renderer in `src/js/`. Pure frontend. |
-| CSV-with-units export option | 🔲 Open | A | Checkbox on the logging "Save" panel: "Include units row" → row 2 of the CSV is `<DID>,<unit>,<unit>`. Loader parses both shapes; existing logs keep loading. Additive in `src-tauri/src/data/logging.rs`. |
-| Static HTML walkthrough bundle | 🔲 Open | A | "Share walkthrough" button → `walkthrough-XXXX.html` (single file, inline CSS + JS, replays a log in any browser). Pure frontend; reuses the v0.9.0 walkthrough reducer. |
-| ROADMAP v0.10.0 closure + cycle header for v0.11.0 | ✅ Done (this PR) | A | v0.10.0 cycle table lands retroactively; v0.11.0 carries the active cycle header. Docs-only. |
+| SVG export of logging + histogram charts | ✅ Done (PR #136, 7f92ccb) | A | Mirrors #131; hand-rolled `src/js/svg_export.js` (no `chartjs-plugin-svg-export` dep). Pure frontend. |
+| CSV-with-units export option | ✅ Done (PR #138, b2ed806) | A | Checkbox on the Save panel → row 2 of CSV is the per-series unit. Loader parses both shapes. |
+| Static HTML walkthrough bundle | ✅ Done (PR #142, fd381a9) | A | "Share walkthrough" → `walkthrough-XXXX.html` (single file, inline CSS + JS). Stateless static render of plan + answers + freeze frame + chart. Pure frontend. |
+| ROADMAP v0.10.0 closure + cycle header for v0.11.0 | ✅ Done (PR #135) | A | v0.10.0 cycle table landed retroactively; v0.11.0 cycle header landed. Docs-only. |
+
+**Cycle closed 2026-07-21.** All 5 v0.11.0 slices shipped. "Share the Trace" — the cycle of getting a session off the device and into someone else's hands — is done.
+
+---
+
+## v0.12.0 — "Fault Memory" (Planned)
+
+**Premise.** Closing the DTC panel is closing the diagnosis. Today `lastDtcs` is a per-session cache; once the user quits the app, the DTCs are gone. v0.12.0 persists every DTC read to a local JSONL log and surfaces a **Fault Memory** panel: "this DTC has appeared N times over the past K days on this car". Local-only, opt-in, no cloud, no privacy surprise. See
+[`docs/v0.12.0_plan.md`](docs/v0.12.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (cloud sync, ML prediction, per-entry editing, CSV export).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.12.0 header | 🔲 Open | A | This PR lands the plan on `main`. Docs-only. |
+| `record_dtc_read` / `query_dtc_history` / `clear_dtc_history` Tauri commands | 🔲 Open | **B** | Three additive commands in `commands.rs` only (no `transport/` / `protocol/` changes). Local JSONL appender at `~/beeemuu-exports/dtc-history.jsonl`. 60 s dedup window. Tier B — flag `commands.rs` at the top of the PR body, wait for human merge. |
+| `src/js/dtc_history.js` pure module + tests | 🔲 Open | A | Wraps the three Tauri commands. In-memory mock store for tests under `node --test`. Dual export (CommonJS + `window.beeemuuDtcHistory`). |
+| Recording wired into `readFaults()` + opt-in toggle in Settings | 🔲 Open | A | Hooks the existing `read_faults` invocation; toggles recording on/off; surfaces file path in the panel header. |
+| "Recurring DTC" callout in the DTC panel | 🔲 Open | A | The headline UI moment of the cycle. When `lastDtcs.length > 0`, queries history for the current VIN and renders a banner under the DTC table. Pure read, frontend only. |
+| `docs/validation/dtc-history.md` harness doc | 🔲 Open | A | Same shape as `docs/validation/testplans.md` and `docs/validation/service-functions.md`: file location, line format, clear procedure, dedup window, "no VIN" caveat. |
 
 Slices dispatch as PRs when the work completes — no Discussion gate
-(`COMMUNITY_FRAMEWORK.md` Rule 2).
+(`COMMUNITY_FRAMEWORK.md` Rule 2). Slice 2 is the gating PR for the
+Rust commands; slices 4 and 5 depend on it. Slices 1 and 3 can land in
+parallel with slice 2 (slice 3 uses an in-memory mock). Slice 6 lands
+any time after slice 1.
 
 ---
 
