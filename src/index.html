@@ -111,7 +111,7 @@
             </div>
           </div>
           <div id="walkthrough-panel" class="walkthrough-panel hidden">
-            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span><span id="walkthrough-verified" class="walkthrough-verified hidden"></span></div>
+            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span><span id="walkthrough-verified" class="walkthrough-verified hidden"></span><button id="btn-walk-share" class="btn btn-small walkthrough-share-btn" disabled title="Export the current walkthrough as a self-contained HTML file">Share walkthrough</button></div>
             <div id="walkthrough-body" class="walkthrough-body">
               <span class="muted">Click a DTC row to start a guided test plan, where one exists.</span>
             </div>
@@ -598,6 +598,7 @@
   <script src="js/histogram.js"></script>
   <script src="js/svg_export.js"></script>
   <script src="js/csv_log_export.js"></script>
+  <script src="js/walkthrough_bundle.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>
