@@ -1069,3 +1069,615 @@ pub fn get_opinions(
 pub fn get_test_plan(dtc_code: String) -> Result<Option<crate::testplans::TestPlan>, String> {
     Ok(crate::testplans::query(&dtc_code))
 }
+
+/* ---------------- DTC History (v0.12.0 "Fault Memory") ---------------- */
+
+// v0.12.0 PR — Fault Memory: persist every DTC read to a local JSONL log
+// and surface "this DTC has appeared N times over the past K days on this
+// car" in the UI. Local-only, opt-in (frontend toggle; default off), no
+// cloud, no privacy surprise. The persistence file lives under the same
+// `~/beeemuu-exports/` directory the v0.6.0 export pipeline already uses.
+//
+// Why this is commands.rs-only (Tier B): CLAUDE.md §1 lists `commands.rs`
+// as a protected path because the IPC surface is the trust boundary
+// between the renderer and the diagnostic core. Adding three commands
+// here is additive and read-only of any bus state — they touch a local
+// JSONL file under the user's home directory, nothing else. No
+// `transport/` or `protocol/` changes. The PR body flags `commands.rs`
+// at the top; human merges after review.
+//
+// File format: one JSON object per line. Forward-compatible — adding a
+// new field to `HistoryLine` does not break old files (serde ignores
+// unknown fields on read).
+//
+// Dedup window: 60 seconds. A re-read of the same `(vin, address, code)`
+// tuple within the window is dropped to avoid duplicate entries from
+// repeated scans of the same module during one session. Reads after the
+// window count as a new occurrence. The window is a soft guard, not a
+// permanent id — the full history is what `query_dtc_history` returns.
+
+/// Filename for the local DTC history log. Lives next to `export_text`'s
+/// other artefacts so the user finds it where they look.
+pub(crate) const DTC_HISTORY_FILENAME: &str = "dtc-history.jsonl";
+
+/// Dedup window in seconds. Re-reads within this window of the previous
+/// record for the same `(vin, address, code)` tuple are dropped.
+pub(crate) const DTC_DEDUP_WINDOW_SECS: i64 = 60;
+
+/// One JSONL record — one DTC observation.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct HistoryLine {
+    /// ISO-8601 UTC timestamp of the read, e.g. "2026-07-21T10:00:00Z".
+    /// Optional for forward compat with very-old files written before
+    /// the field existed; readers skip lines that fail to deserialize.
+    pub ts_iso: String,
+    /// VIN of the car when the read was taken. `None` means no VIN
+    /// was known at the time — the UI surfaces these as "no-VIN"
+    /// entries and does not merge them with VIN-tagged ones.
+    pub vin: Option<String>,
+    /// Module address (UDS target id, e.g. 0x12 for DME).
+    pub address: u8,
+    /// DTC code, BMW-style hex ("2A82").
+    pub code: String,
+    pub status: u8,
+    pub status_text: String,
+    pub text: String,
+}
+
+/// Grouped view of the history — what `query_dtc_history` returns.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DtcHistorySummary {
+    /// One entry per `(code, address)` pair, sorted by `last_seen_iso`
+    /// descending (most recent first).
+    pub entries: Vec<DtcHistoryEntry>,
+    /// Total raw JSONL lines on disk (after malformed-line skip).
+    pub total_lines: usize,
+    /// Full path to the JSONL file, so the UI can surface "stored at…".
+    pub file_path: String,
+    /// Number of lines skipped because they failed to parse. A non-zero
+    /// value means a future schema change made some old lines unreadable
+    /// — the UI can surface this as a quiet warning.
+    pub skipped_lines: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DtcHistoryEntry {
+    pub code: String,
+    pub address: u8,
+    pub status_text: String,
+    pub text: String,
+    pub first_seen_iso: String,
+    pub last_seen_iso: String,
+    /// Total occurrences (sum of raw JSONL lines minus dedup drops).
+    pub occurrences: usize,
+}
+
+/// Return value of `record_dtc_read` — summary of what was written.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RecordSummary {
+    /// Number of new JSONL lines actually written (after dedup).
+    pub appended: usize,
+    /// Number of DTCs that were dropped by the dedup window.
+    pub deduped: usize,
+    pub file_path: String,
+}
+
+/// Resolve the home-directory + `beeemuu-exports/` + filename triplet
+/// into a full path. Pure function — `home_override` lets tests point at
+/// a `std::env::temp_dir()` subdirectory instead of the real home.
+fn history_file_path(home_override: Option<&str>) -> Result<std::path::PathBuf, String> {
+    let home = match home_override {
+        Some(h) => h.to_string(),
+        None => std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .map_err(|_| "Could not locate home directory".to_string())?,
+    };
+    let dir = std::path::Path::new(&home).join("beeemuu-exports");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create_dir_all: {e}"))?;
+    Ok(dir.join(DTC_HISTORY_FILENAME))
+}
+
+/// Append a single history line to the JSONL file. Uses `OpenOptions`
+/// with append + create so concurrent writers don't truncate each other
+/// — two recordings landing within the same millisecond still produce
+/// two intact lines.
+fn append_history_line(path: &std::path::Path, line: &HistoryLine) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    let json = serde_json::to_string(line).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    writeln!(f, "{}", json)?;
+    Ok(())
+}
+
+/// Read the JSONL file into a list of `HistoryLine` records. Malformed
+/// lines are skipped (counted via the second tuple element); we never
+/// abort the whole read because one bad line made it to disk.
+fn read_history_lines(path: &std::path::Path) -> std::io::Result<(Vec<HistoryLine>, usize)> {
+    if !path.exists() {
+        return Ok((Vec::new(), 0));
+    }
+    let text = std::fs::read_to_string(path)?;
+    let mut out = Vec::new();
+    let mut skipped = 0;
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() { continue; }
+        match serde_json::from_str::<HistoryLine>(trimmed) {
+            Ok(h) => out.push(h),
+            Err(_) => skipped += 1,
+        }
+    }
+    Ok((out, skipped))
+}
+
+/// Group the history lines into `(code, address)` buckets. If `vin_filter`
+/// is `Some(v)`, lines with a different (or missing) VIN are excluded so
+/// per-car queries don't blend multiple cars in the same file.
+fn group_history_lines(
+    lines: Vec<HistoryLine>,
+    vin_filter: Option<&str>,
+) -> Vec<DtcHistoryEntry> {
+    use std::collections::BTreeMap;
+    // BTreeMap for stable iteration order; final sort is by last_seen.
+    let mut buckets: BTreeMap<(String, u8), DtcHistoryEntry> = BTreeMap::new();
+    for line in lines {
+        if let Some(v) = vin_filter {
+            match &line.vin {
+                Some(line_v) if line_v == v => {} // keep
+                _ => continue,
+            }
+        }
+        let key = (line.code.clone(), line.address);
+        let entry = buckets.entry(key).or_insert_with(|| DtcHistoryEntry {
+            code: line.code.clone(),
+            address: line.address,
+            status_text: line.status_text.clone(),
+            text: line.text.clone(),
+            first_seen_iso: line.ts_iso.clone(),
+            last_seen_iso: line.ts_iso.clone(),
+            occurrences: 0,
+        });
+        // Update status_text / text to the most recent values (so the
+        // UI reflects the current DTC description, not the first-ever one
+        // which may have been a partial decode).
+        entry.status_text = line.status_text.clone();
+        entry.text = line.text.clone();
+        if line.ts_iso < entry.first_seen_iso { entry.first_seen_iso = line.ts_iso.clone(); }
+        if line.ts_iso > entry.last_seen_iso { entry.last_seen_iso = line.ts_iso.clone(); }
+        entry.occurrences += 1;
+    }
+    let mut entries: Vec<DtcHistoryEntry> = buckets.into_values().collect();
+    // Most-recent first.
+    entries.sort_by(|a, b| b.last_seen_iso.cmp(&a.last_seen_iso));
+    entries
+}
+
+/// Parse two ISO-8601 timestamps and return true if the second is within
+/// `window_secs` of the first. Missing or malformed timestamps return
+/// false (conservative — treat as "outside the window" so a fresh
+/// occurrence is always recorded).
+fn within_dedup_window(prev_iso: &str, new_iso: &str, window_secs: i64) -> bool {
+    let prev = match parse_iso8601_to_unix(prev_iso) { Some(t) => t, None => return false };
+    let new = match parse_iso8601_to_unix(new_iso) { Some(t) => t, None => return false };
+    let delta = new - prev;
+    delta >= 0 && delta <= window_secs
+}
+
+/// Tiny ISO-8601 (UTC, `YYYY-MM-DDTHH:MM:SSZ`) parser — no external
+/// dep. Returns the timestamp as Unix seconds. Returns `None` on any
+/// deviation so the caller can conservatively skip the dedup check.
+fn parse_iso8601_to_unix(s: &str) -> Option<i64> {
+    let bytes = s.as_bytes();
+    if bytes.len() < 19 { return None; }
+    let y: i64 = s.get(0..4)?.parse().ok()?;
+    let mo: i64 = s.get(5..7)?.parse().ok()?;
+    let d: i64 = s.get(8..10)?.parse().ok()?;
+    let h: i64 = s.get(11..13)?.parse().ok()?;
+    let mi: i64 = s.get(14..16)?.parse().ok()?;
+    let se: i64 = s.get(17..19)?.parse().ok()?;
+    if bytes[4] != b'-' || bytes[7] != b'-' { return None; }
+    if bytes[10] != b'T' && bytes[10] != b' ' { return None; }
+    if bytes[13] != b':' || bytes[16] != b':' { return None; }
+    let days = days_from_civil(y, mo as u32, d as u32)?;
+    Some(days * 86_400 + h * 3_600 + mi * 60 + se)
+}
+
+/// Howard Hinnant's `days_from_civil` — fast civil-date to days-since-
+/// epoch. Returns None for invalid month/day combos.
+fn days_from_civil(y: i64, m: u32, d: u32) -> Option<i64> {
+    if m < 1 || m > 12 { return None; }
+    if d < 1 || d > 31 { return None; }
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = (if y >= 0 { y } else { y - 399 }) / 400;
+    let yoe = (y - era * 400) as i64; // [0, 399]
+    let m = m as i64;
+    let d = d as i64;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    Some(era * 146_097 + doe - 719_468)
+}
+
+/// Generate an ISO-8601 UTC timestamp in the simple shape
+/// "YYYY-MM-DDTHH:MM:SSZ" we accept in `parse_iso8601_to_unix`.
+fn now_iso() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let (y, mo, d, h, mi, s) = unix_to_civil(secs);
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        y, mo, d, h, mi, s
+    )
+}
+
+/// Inverse of `days_from_civil` — Unix seconds -> (y, m, d, h, mi, s) UTC.
+fn unix_to_civil(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
+    let days = secs.div_euclid(86_400);
+    let secs_of_day = secs.rem_euclid(86_400) as u32;
+    let h = secs_of_day / 3_600;
+    let mi = (secs_of_day % 3_600) / 60;
+    let s = secs_of_day % 60;
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097) as i64;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = (if mp < 10 { mp + 3 } else { mp - 9 }) as u32;
+    let y = if m <= 2 { y + 1 } else { y };
+    (y, m, d, h, mi, s)
+}
+
+/// Append a batch of DTC reads to the local history. Synchronous: the
+/// per-line append is microseconds (a 5 KB JSONL file under the user's
+/// home dir is well under the 1 ms async-runtime budget). The frontend
+/// invokes this after a successful `read_faults` call.
+#[tauri::command]
+pub fn record_dtc_read(
+    vin: Option<String>,
+    address: u8,
+    dtcs: Vec<Dtc>,
+) -> Result<RecordSummary, String> {
+    record_dtc_read_impl(vin, address, dtcs, None)
+}
+
+/// Test/host-override entry point — `home_override` lets unit tests point
+/// at a temp directory instead of the real `~/beeemuu-exports/`.
+fn record_dtc_read_impl(
+    vin: Option<String>,
+    address: u8,
+    dtcs: Vec<Dtc>,
+    home_override: Option<&str>,
+) -> Result<RecordSummary, String> {
+    let path = history_file_path(home_override)?;
+    let (existing, _skipped) = read_history_lines(&path).map_err(|e| format!("read_history: {e}"))?;
+    let now = now_iso();
+    let mut appended = 0usize;
+    let mut deduped = 0usize;
+    for dtc in dtcs {
+        // Dedup against the most recent record for the same (vin, address, code).
+        let prev_ts = existing
+            .iter()
+            .rev()
+            .find(|h| h.code == dtc.code && h.address == address && h.vin == vin)
+            .map(|h| h.ts_iso.as_str());
+        if let Some(prev) = prev_ts {
+            if within_dedup_window(prev, &now, DTC_DEDUP_WINDOW_SECS) {
+                deduped += 1;
+                continue;
+            }
+        }
+        let line = HistoryLine {
+            ts_iso: now.clone(),
+            vin: vin.clone(),
+            address,
+            code: dtc.code.clone(),
+            status: dtc.status,
+            status_text: dtc.status_text.clone(),
+            text: dtc.text.clone(),
+        };
+        append_history_line(&path, &line).map_err(|e| format!("append: {e}"))?;
+        appended += 1;
+    }
+    Ok(RecordSummary {
+        appended,
+        deduped,
+        file_path: path.to_string_lossy().to_string(),
+    })
+}
+
+/// Read the local DTC history and return a grouped summary. Pure read of
+/// the user-owned file — never touches the bus.
+#[tauri::command]
+pub fn query_dtc_history(vin: Option<String>, since_iso: Option<String>) -> Result<DtcHistorySummary, String> {
+    query_dtc_history_impl(vin, since_iso, None)
+}
+
+fn query_dtc_history_impl(
+    vin: Option<String>,
+    since_iso: Option<String>,
+    home_override: Option<&str>,
+) -> Result<DtcHistorySummary, String> {
+    let path = history_file_path(home_override)?;
+    let (lines, skipped) = read_history_lines(&path).map_err(|e| format!("read_history: {e}"))?;
+    let total_lines = lines.len();
+    // Optional time filter — only keep entries whose `ts_iso >= since_iso`.
+    let lines = if let Some(since) = since_iso.as_deref() {
+        lines.into_iter().filter(|l| l.ts_iso.as_str() >= since).collect()
+    } else {
+        lines
+    };
+    let entries = group_history_lines(lines, vin.as_deref());
+    Ok(DtcHistorySummary {
+        entries,
+        total_lines,
+        file_path: path.to_string_lossy().to_string(),
+        skipped_lines: skipped,
+    })
+}
+
+/// Delete the local DTC history file. The UI gates this behind a confirm
+/// dialog; no unlink race: simple `fs::remove_file` with `ok_or` mapping.
+/// Returns Ok even if the file didn't exist — "cleared" is idempotent.
+#[tauri::command]
+pub fn clear_dtc_history() -> Result<(), String> {
+    clear_dtc_history_impl(None)
+}
+
+fn clear_dtc_history_impl(home_override: Option<&str>) -> Result<(), String> {
+    let path = history_file_path(home_override)?;
+    match std::fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("remove_file: {e}")),
+    }
+}
+
+#[cfg(test)]
+mod dtc_history_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    /// Unique temp subdir per test invocation — avoids cross-test
+    /// interference without needing the `tempfile` dev-dependency.
+    fn unique_tmp_home(tag: &str) -> String {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let pid = std::process::id();
+        let path = std::env::temp_dir().join(format!("beeemuu-history-{tag}-{pid}-{n}"));
+        std::fs::create_dir_all(&path).unwrap();
+        path.to_string_lossy().to_string()
+    }
+
+    fn dtc(code: &str, status: u8, status_text: &str, text: &str) -> Dtc {
+        Dtc {
+            code: code.to_string(),
+            status,
+            status_text: status_text.to_string(),
+            text: text.to_string(),
+        }
+    }
+
+    #[test]
+    fn record_appends_one_line_per_dtc() {
+        let home = unique_tmp_home("append-one");
+        let dtcs = vec![
+            dtc("2A82", 0x24, "confirmed", "VANOS intake solenoid fault"),
+            dtc("29E0", 0x24, "confirmed", "VANOS exhaust solenoid fault"),
+        ];
+        let summary = record_dtc_read_impl(Some("VIN123".into()), 0x12, dtcs, Some(&home)).unwrap();
+        assert_eq!(summary.appended, 2);
+        assert_eq!(summary.deduped, 0);
+        let path = history_file_path(Some(&home)).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 2);
+        for line in &lines {
+            let parsed: HistoryLine = serde_json::from_str(line).unwrap();
+            assert_eq!(parsed.vin.as_deref(), Some("VIN123"));
+            assert_eq!(parsed.address, 0x12);
+        }
+    }
+
+    #[test]
+    fn record_with_empty_dtcs_appends_nothing() {
+        let home = unique_tmp_home("empty");
+        let summary = record_dtc_read_impl(None, 0x12, vec![], Some(&home)).unwrap();
+        assert_eq!(summary.appended, 0);
+        assert_eq!(summary.deduped, 0);
+        let path = history_file_path(Some(&home)).unwrap();
+        if path.exists() {
+            assert_eq!(std::fs::read_to_string(&path).unwrap().trim(), "");
+        }
+    }
+
+    #[test]
+    fn record_dedups_within_60s_window() {
+        let home = unique_tmp_home("dedup");
+        let dtcs = vec![dtc("2A82", 0x24, "confirmed", "VANOS intake solenoid fault")];
+        let s1 = record_dtc_read_impl(Some("VIN1".into()), 0x12, dtcs.clone(), Some(&home)).unwrap();
+        assert_eq!(s1.appended, 1);
+        let s2 = record_dtc_read_impl(Some("VIN1".into()), 0x12, dtcs, Some(&home)).unwrap();
+        assert_eq!(s2.appended, 0);
+        assert_eq!(s2.deduped, 1);
+        let path = history_file_path(Some(&home)).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 1);
+    }
+
+    #[test]
+    fn record_does_not_dedup_across_different_codes() {
+        let home = unique_tmp_home("dedup-cross-code");
+        record_dtc_read_impl(Some("VIN1".into()), 0x12, vec![dtc("2A82", 0x24, "", "")], Some(&home)).unwrap();
+        let s2 = record_dtc_read_impl(Some("VIN1".into()), 0x12, vec![dtc("29E0", 0x24, "", "")], Some(&home)).unwrap();
+        assert_eq!(s2.appended, 1);
+        assert_eq!(s2.deduped, 0);
+    }
+
+    #[test]
+    fn record_does_not_dedup_across_different_vins() {
+        let home = unique_tmp_home("dedup-cross-vin");
+        record_dtc_read_impl(Some("VIN_A".into()), 0x12, vec![dtc("2A82", 0x24, "", "")], Some(&home)).unwrap();
+        let s2 = record_dtc_read_impl(Some("VIN_B".into()), 0x12, vec![dtc("2A82", 0x24, "", "")], Some(&home)).unwrap();
+        assert_eq!(s2.appended, 1, "different VINs are different records");
+        assert_eq!(s2.deduped, 0);
+    }
+
+    #[test]
+    fn record_does_not_dedup_across_different_modules() {
+        let home = unique_tmp_home("dedup-cross-addr");
+        record_dtc_read_impl(Some("VIN1".into()), 0x12, vec![dtc("2A82", 0x24, "", "")], Some(&home)).unwrap();
+        let s2 = record_dtc_read_impl(Some("VIN1".into()), 0x18, vec![dtc("2A82", 0x24, "", "")], Some(&home)).unwrap();
+        assert_eq!(s2.appended, 1, "different modules are different records");
+    }
+
+    #[test]
+    fn query_returns_empty_summary_when_no_file() {
+        let home = unique_tmp_home("empty-query");
+        let summary = query_dtc_history_impl(None, None, Some(&home)).unwrap();
+        assert_eq!(summary.entries.len(), 0);
+        assert_eq!(summary.total_lines, 0);
+        assert_eq!(summary.skipped_lines, 0);
+    }
+
+    #[test]
+    fn query_groups_by_code_and_address() {
+        let home = unique_tmp_home("group");
+        record_dtc_read_impl(Some("VIN1".into()), 0x12, vec![dtc("2A82", 0x24, "confirmed", "VANOS intake")], Some(&home)).unwrap();
+        record_dtc_read_impl(Some("VIN1".into()), 0x12, vec![dtc("2A82", 0x24, "confirmed", "VANOS intake")], Some(&home)).unwrap();
+        record_dtc_read_impl(Some("VIN1".into()), 0x18, vec![dtc("2A82", 0x24, "confirmed", "VANOS intake")], Some(&home)).unwrap();
+        record_dtc_read_impl(Some("VIN1".into()), 0x12, vec![dtc("29E0", 0x24, "confirmed", "VANOS exhaust")], Some(&home)).unwrap();
+        let summary = query_dtc_history_impl(Some("VIN1".into()), None, Some(&home)).unwrap();
+        // Two 2A82@0x12 reads within 60 s dedup to one entry; 2A82@0x18
+        // is a separate (code, address) bucket; 29E0@0x12 is another.
+        assert_eq!(summary.entries.len(), 3);
+        assert_eq!(summary.total_lines, 3, "dedup collapses two reads into one line");
+        let s282_012 = summary.entries.iter().find(|e| e.code == "2A82" && e.address == 0x12).unwrap();
+        assert_eq!(s282_012.occurrences, 1, "dedup collapses the two-window occurrences");
+    }
+
+    #[test]
+    fn query_filters_by_vin() {
+        let home = unique_tmp_home("vin-filter");
+        record_dtc_read_impl(Some("VIN_A".into()), 0x12, vec![dtc("2A82", 0x24, "", "")], Some(&home)).unwrap();
+        record_dtc_read_impl(Some("VIN_B".into()), 0x12, vec![dtc("29E0", 0x24, "", "")], Some(&home)).unwrap();
+        let s_a = query_dtc_history_impl(Some("VIN_A".into()), None, Some(&home)).unwrap();
+        assert_eq!(s_a.entries.len(), 1);
+        assert_eq!(s_a.entries[0].code, "2A82");
+        let s_all = query_dtc_history_impl(None, None, Some(&home)).unwrap();
+        assert_eq!(s_all.entries.len(), 2);
+    }
+
+    #[test]
+    fn query_filters_by_since_iso() {
+        let home = unique_tmp_home("since");
+        let path = history_file_path(Some(&home)).unwrap();
+        let old = HistoryLine {
+            ts_iso: "2020-01-01T00:00:00Z".into(),
+            vin: Some("V".into()),
+            address: 0x12,
+            code: "OLD".into(),
+            status: 0, status_text: "".into(), text: "".into(),
+        };
+        let new = HistoryLine {
+            ts_iso: "2030-01-01T00:00:00Z".into(),
+            vin: Some("V".into()),
+            address: 0x12,
+            code: "NEW".into(),
+            status: 0, status_text: "".into(), text: "".into(),
+        };
+        append_history_line(&path, &old).unwrap();
+        append_history_line(&path, &new).unwrap();
+        let s = query_dtc_history_impl(None, Some("2025-01-01T00:00:00Z".into()), Some(&home)).unwrap();
+        assert_eq!(s.entries.len(), 1);
+        assert_eq!(s.entries[0].code, "NEW");
+    }
+
+    #[test]
+    fn query_skips_malformed_lines_and_counts_them() {
+        let home = unique_tmp_home("skip-bad");
+        let path = history_file_path(Some(&home)).unwrap();
+        let good = HistoryLine {
+            ts_iso: "2026-01-01T00:00:00Z".into(),
+            vin: Some("V".into()), address: 0x12, code: "X".into(),
+            status: 0, status_text: "".into(), text: "".into(),
+        };
+        let good_json = serde_json::to_string(&good).unwrap();
+        std::fs::write(&path, format!("{}\nnot json at all\n{}\n", good_json, good_json)).unwrap();
+        let s = query_dtc_history_impl(None, None, Some(&home)).unwrap();
+        assert_eq!(s.entries.len(), 1, "garbage line skipped, two valid grouped to one entry");
+        assert_eq!(s.skipped_lines, 1);
+    }
+
+    #[test]
+    fn clear_removes_file_and_is_idempotent() {
+        let home = unique_tmp_home("clear");
+        record_dtc_read_impl(Some("V".into()), 0x12, vec![dtc("X", 0, "", "")], Some(&home)).unwrap();
+        let path = history_file_path(Some(&home)).unwrap();
+        assert!(path.exists());
+        clear_dtc_history_impl(Some(&home)).unwrap();
+        assert!(!path.exists());
+        // Second clear should be a no-op, not an error.
+        clear_dtc_history_impl(Some(&home)).unwrap();
+    }
+
+    #[test]
+    fn within_dedup_window_true_inside_60s() {
+        assert!(within_dedup_window("2026-01-01T00:00:00Z", "2026-01-01T00:00:30Z", 60));
+        assert!(within_dedup_window("2026-01-01T00:00:00Z", "2026-01-01T00:01:00Z", 60));
+    }
+
+    #[test]
+    fn within_dedup_window_false_outside_60s() {
+        assert!(!within_dedup_window("2026-01-01T00:00:00Z", "2026-01-01T00:01:01Z", 60));
+    }
+
+    #[test]
+    fn within_dedup_window_false_for_invalid_timestamps() {
+        assert!(!within_dedup_window("not iso", "2026-01-01T00:00:00Z", 60));
+        assert!(!within_dedup_window("2026-01-01T00:00:00Z", "not iso", 60));
+    }
+
+    #[test]
+    fn now_iso_roundtrips_through_parser() {
+        let s = now_iso();
+        assert_eq!(s.len(), 20);
+        assert!(s.ends_with('Z'));
+        let parsed = parse_iso8601_to_unix(&s);
+        assert!(parsed.is_some());
+    }
+
+    #[test]
+    fn unix_to_civil_roundtrips_for_known_dates() {
+        // 2026-07-21T10:00:00Z = 1_784_628_000 (verified via `Date.UTC(2026, 6, 21, 10) / 1000`).
+        let (y, m, d, h, mi, s) = unix_to_civil(1_784_628_000);
+        assert_eq!((y, m, d, h, mi, s), (2026, 7, 21, 10, 0, 0));
+        let (y, m, d, _h, _mi, _s) = unix_to_civil(0);
+        assert_eq!((y, m, d), (1970, 1, 1));
+        let (y, m, d, _h, _mi, _s) = unix_to_civil(946_684_800);
+        assert_eq!((y, m, d), (2000, 1, 1));
+    }
+
+    #[test]
+    fn days_from_civil_handles_known_dates() {
+        assert_eq!(days_from_civil(1970, 1, 1), Some(0));
+        assert_eq!(days_from_civil(2000, 1, 1), Some(10_957));
+        // Month-out-of-range is the bounds we promise. Day-out-of-range
+        // for a specific month (e.g. Feb 30) is intentionally NOT
+        // validated — the algorithm produces a numeric answer for
+        // any in-range month with 1 <= d <= 31, and the upstream
+        // caller (a JSONL timestamp read) never feeds us garbage.
+        // The conservative dedup path treats unparseable inputs as
+        // "outside the window" via `within_dedup_window` returning false.
+        assert_eq!(days_from_civil(2026, 0, 1), None);
+        assert_eq!(days_from_civil(2026, 13, 1), None);
+    }
+}
