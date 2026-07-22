@@ -97,6 +97,10 @@
               <tr><td colspan="3" class="muted">Select a control unit.</td></tr>
             </tbody>
           </table>
+          <div id="fault-history-callout" class="fault-history-callout hidden">
+            <div class="fault-history-callout-head">⚠ Seen before</div>
+            <ul id="fault-history-callout-list" class="fault-history-callout-list"></ul>
+          </div>
           <div id="freeze-panel" class="freeze-panel hidden">
             <div class="freeze-head">Freeze frame <span id="freeze-code"></span></div>
             <div id="freeze-body" class="freeze-body"></div>
@@ -603,6 +607,7 @@
   <script src="js/csv_log_export.js"></script>
   <script src="js/walkthrough_bundle.js"></script>
   <script src="js/dtc_history.js"></script>
+  <script src="js/recurring_dtc.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>

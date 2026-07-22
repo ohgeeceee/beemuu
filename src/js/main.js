@@ -542,8 +542,55 @@ async function readFaults() {
       tr.addEventListener("click", () => showFreezeFrame(d.code));
       tbody.appendChild(tr);
     }
+    // v0.12.0 Fault Memory (slice 5): if the local history has
+    // past occurrences of any DTC the user just read, surface a
+    // "seen before" banner under the table. Best-effort — a query
+    // failure hides the banner silently rather than breaking the
+    // DTC read flow.
+    await renderHistoryCallout(dtcs);
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan='3' class='muted'>Read failed: ${escapeHtml(String(e))}</td></tr>`;
+  }
+}
+
+// v0.12.0 Fault Memory (slice 5) — "seen before" callout.
+//
+// When the user reads faults, query the local DTC history and surface
+// any past occurrences of the codes they just read. Pure frontend
+// read; matches the plan's "headline UI moment of the cycle".
+//
+// Best-effort: any failure (no Tauri backend, no history file, query
+// error) hides the callout silently rather than breaking the DTC read.
+async function renderHistoryCallout(dtcs) {
+  const banner = $("fault-history-callout");
+  const list = $("fault-history-callout-list");
+  if (!banner || !list) return;
+  // Always start by hiding — only show when the helper says so.
+  banner.classList.add("hidden");
+  list.innerHTML = "";
+  if (!Array.isArray(dtcs) || dtcs.length === 0) return;
+  if (!window.beeemuuDtcHistory || typeof window.beeemuuDtcHistory.queryDtcHistory !== "function") return;
+  if (!window.beeemuuRecurringDtc || typeof window.beeemuuRecurringDtc.computeCallout !== "function") return;
+  let summary;
+  try {
+    const vin = ($("info-vin") && $("info-vin").textContent) ? $("info-vin").textContent.trim() : null;
+    summary = await window.beeemuuDtcHistory.queryDtcHistory(vin, null);
+  } catch (_) {
+    return; // best-effort: query failed → no banner
+  }
+  const rows = window.beeemuuRecurringDtc.computeCallout(dtcs, summary, Date.now());
+  if (!rows || rows.length === 0) return;
+  banner.classList.remove("hidden");
+  list.innerHTML = "";
+  for (const r of rows) {
+    const li = document.createElement("li");
+    li.className = "fault-history-callout-item";
+    const mod = r.same_address ? "same module" : "different module";
+    li.innerHTML =
+      `<span class="fault-history-callout-code">${escapeHtml(r.code)}</span>` +
+      ` appeared <b>${r.occurrences}</b> time${r.occurrences === 1 ? "" : "s"} ` +
+      `in the past 14 days (last: ${escapeHtml(r.last_seen_human)}, ${escapeHtml(mod)})`;
+    list.appendChild(li);
   }
 }
 

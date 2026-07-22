@@ -1335,17 +1335,24 @@ fn unix_to_civil(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
     (y, m, d, h, mi, s)
 }
 
-/// Append a batch of DTC reads to the local history. Synchronous: the
-/// per-line append is microseconds (a 5 KB JSONL file under the user's
-/// home dir is well under the 1 ms async-runtime budget). The frontend
-/// invokes this after a successful `read_faults` call.
+/// Append a batch of DTC reads to the local history. Async + `spawn_blocking`
+/// to keep the file I/O off the webview thread — CLAUDE.md §4 says no
+/// new sync commands that touch disk (the previous sync grandfathering
+/// for `export_text` is being phased out; new commands follow the
+/// project direction). The frontend invokes this after a successful
+/// `read_faults` call. Per-line append is microseconds; the
+/// `spawn_blocking` cost is amortised over the whole batch.
 #[tauri::command]
-pub fn record_dtc_read(
+pub async fn record_dtc_read(
     vin: Option<String>,
     address: u8,
     dtcs: Vec<Dtc>,
 ) -> Result<RecordSummary, String> {
-    record_dtc_read_impl(vin, address, dtcs, None)
+    tauri::async_runtime::spawn_blocking(move || {
+        record_dtc_read_impl(vin, address, dtcs, None)
+    })
+    .await
+    .map_err(|e| format!("join: {e}"))?
 }
 
 /// Test/host-override entry point — `home_override` lets unit tests point
@@ -1394,10 +1401,15 @@ fn record_dtc_read_impl(
 }
 
 /// Read the local DTC history and return a grouped summary. Pure read of
-/// the user-owned file — never touches the bus.
+/// the user-owned file — never touches the bus. Async + `spawn_blocking`
+/// for the same reason as `record_dtc_read`.
 #[tauri::command]
-pub fn query_dtc_history(vin: Option<String>, since_iso: Option<String>) -> Result<DtcHistorySummary, String> {
-    query_dtc_history_impl(vin, since_iso, None)
+pub async fn query_dtc_history(vin: Option<String>, since_iso: Option<String>) -> Result<DtcHistorySummary, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        query_dtc_history_impl(vin, since_iso, None)
+    })
+    .await
+    .map_err(|e| format!("join: {e}"))?
 }
 
 fn query_dtc_history_impl(
@@ -1426,9 +1438,13 @@ fn query_dtc_history_impl(
 /// Delete the local DTC history file. The UI gates this behind a confirm
 /// dialog; no unlink race: simple `fs::remove_file` with `ok_or` mapping.
 /// Returns Ok even if the file didn't exist — "cleared" is idempotent.
+/// Async + `spawn_blocking` for the same reason as the other two history
+/// commands.
 #[tauri::command]
-pub fn clear_dtc_history() -> Result<(), String> {
-    clear_dtc_history_impl(None)
+pub async fn clear_dtc_history() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(|| clear_dtc_history_impl(None))
+        .await
+        .map_err(|e| format!("join: {e}"))?
 }
 
 fn clear_dtc_history_impl(home_override: Option<&str>) -> Result<(), String> {
