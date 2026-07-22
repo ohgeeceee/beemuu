@@ -83,6 +83,9 @@
               <button id="btn-read-faults" class="btn btn-small" disabled>Read</button>
               <button id="btn-export-faults" class="btn btn-small" disabled>Export CSV</button>
               <button id="btn-clear-faults" class="btn btn-small btn-danger" disabled>Clear fault memory</button>
+              <label class="chk" title="Record every DTC read to ~/beeemuu-exports/dtc-history.jsonl so the recurring-DTC callout (slice 5) can show history.">
+                <input type="checkbox" id="record-dtc-history" /> Record history
+              </label>
             </span>
           </div>
           <div id="ecu-ident" class="ecu-ident hidden"></div>
