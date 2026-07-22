@@ -259,6 +259,35 @@ body {
 .fault-clickable { cursor: pointer; }
 .fault-clickable:hover { background: var(--blue-light); }
 
+/* ---------- recurring-DTC callout (v0.12.0 Fault Memory, slice 5) ---------- */
+.fault-history-callout {
+  border-top: 2px solid #f0c060;
+  background: #fff8e8;
+  padding: 10px 14px;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+.fault-history-callout.hidden { display: none; }
+.fault-history-callout-head {
+  font-weight: 600;
+  font-size: 13px;
+  color: #8a5a00;
+  margin-bottom: 6px;
+}
+.fault-history-callout-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+.fault-history-callout-list li { margin: 2px 0; }
+.fault-history-callout-code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-weight: 600;
+  color: #8a5a00;
+  margin-right: 4px;
+}
+
 /* ---------- oracle / community insights ---------- */
 .oracle-panel { border-top: 2px solid #3ddc84; background: #f0f9f4; }
 .oracle-panel.hidden { display: none; }
