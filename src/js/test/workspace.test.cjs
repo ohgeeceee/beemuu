@@ -107,6 +107,34 @@ test("parse: theme accepts only dark|light", () => {
   assert.equal(parseWorkspace('{"theme":"blue"}'), null);
 });
 
+test("parse: recordDtcHistory accepts only boolean (v0.12.0)", () => {
+  // Boolean values pass through.
+  assert.deepEqual(parseWorkspace('{"recordDtcHistory":true}'), { recordDtcHistory: true });
+  assert.deepEqual(parseWorkspace('{"recordDtcHistory":false}'), { recordDtcHistory: false });
+  // Wrong-typed values are dropped. When the wrong-typed value is the
+  // only key in the file, `parseWorkspace` returns `null` (not `{}`)
+  // because the contract is "no usable keys → don't restore anything".
+  assert.equal(parseWorkspace('{"recordDtcHistory":"true"}'), null);
+  assert.equal(parseWorkspace('{"recordDtcHistory":1}'), null);
+  // Mixed with a real key: wrong-typed value is dropped, real key survives.
+  assert.deepEqual(parseWorkspace('{"theme":"dark","recordDtcHistory":null}'), { theme: "dark" });
+});
+
+test("parse: recordDtcHistory coexists with other keys without interfering", () => {
+  const text = JSON.stringify({
+    theme: "dark",
+    mode: "owner",
+    trafficAuto: true,
+    recordDtcHistory: true,
+  });
+  assert.deepEqual(parseWorkspace(text), {
+    theme: "dark",
+    mode: "owner",
+    trafficAuto: true,
+    recordDtcHistory: true,
+  });
+});
+
 test("migrateLegacy: a full legacy snapshot maps onto the new shape", () => {
   const settings = JSON.stringify({
     connKind: "kdcan",

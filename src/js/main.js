@@ -74,6 +74,11 @@ function saveSettings() {
     ws.liveProfile = $("live-profile").value;
     ws.logProfile = $("log-profile").value;
     ws.trafficAuto = $("traffic-auto").checked;
+    // v0.12.0 Fault Memory: opt-in to recording DTC reads to a local
+    // JSONL log under ~/beeemuu-exports/. Default off; the user toggles
+    // it on in the Settings panel. The recording hook in readFaults()
+    // is a no-op when this is false.
+    ws.recordDtcHistory = $("record-dtc-history") ? $("record-dtc-history").checked : false;
     // Log channel enabled map for the *current* log profile, read from
     // the checkbox DOM. Only written when checkbox rows exist —
     // otherwise every boot (no connection => no rows) would wipe the
@@ -140,6 +145,13 @@ async function loadSettings() {
     if (s.liveProfile) $("live-profile").value = s.liveProfile;
     if (s.logProfile) $("log-profile").value = s.logProfile;
     if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
+    // v0.12.0 Fault Memory: restore the opt-in recording toggle.
+    // Default off if missing — older workspace files (pre-v0.12.0)
+    // won't carry this key, and we don't want to suddenly enable
+    // recording for users upgrading.
+    if ($("record-dtc-history")) {
+      $("record-dtc-history").checked = s.recordDtcHistory === true;
+    }
     const kind = $("conn-kind").value;
     // Restore the collapsed/expanded connection options state.
     const open = !!(s.conn && s.conn.optsOpen) && (kind === "kdcan" || kind === "enet");
@@ -495,6 +507,26 @@ async function readFaults() {
   try {
     const dtcs = await invoke("read_faults", { address: selectedAddress });
     lastDtcs = dtcs;
+    // v0.12.0 Fault Memory: record this read to the local history if the
+    // user opted in. Best-effort — a recording failure (e.g. home dir not
+    // writable, slice 2 PR #144 not yet merged) should not break the
+    // DTC read UI. Empty-dtc reads are not recorded by design (the
+    // timeline is "I saw these faults", not "I read this module").
+    if (
+      dtcs.length > 0 &&
+      window.beeemuuDtcHistory &&
+      typeof window.beeemuuDtcHistory.recordDtcRead === "function" &&
+      $("record-dtc-history") &&
+      $("record-dtc-history").checked
+    ) {
+      try {
+        const vin = ($("info-vin") && $("info-vin").textContent) ? $("info-vin").textContent.trim() : null;
+        const summary = await window.beeemuuDtcHistory.recordDtcRead(vin, selectedAddress, dtcs);
+        log(`Recorded ${summary.appended} DTC${summary.appended === 1 ? "" : "s"} to ${summary.file_path}`);
+      } catch (recErr) {
+        log("DTC history record skipped: " + recErr);
+      }
+    }
     if (dtcs.length === 0) {
       tbody.innerHTML = "<tr><td colspan='3' class='fault-ok'>No faults stored.</td></tr>";
       return;
@@ -3058,6 +3090,15 @@ $("traffic-auto").addEventListener("change", (e) => {
     trafficAuto = null;
   }
   saveSettings();
+});
+// v0.12.0 Fault Memory: persist the opt-in recording toggle and
+// surface a one-line explainer in the status log the first time it's
+// enabled, so users see what just got created in their home directory.
+$("record-dtc-history").addEventListener("change", (e) => {
+  saveSettings();
+  if (e.target.checked) {
+    log("DTC history recording ON — reads are logged to ~/beeemuu-exports/dtc-history.jsonl. Clear via Settings.");
+  }
 });
 $("btn-traffic-clear").addEventListener("click", async () => {
   await invoke("clear_traffic");

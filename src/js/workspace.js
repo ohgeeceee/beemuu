@@ -52,6 +52,10 @@ function sanitizeWorkspace(raw) {
   if (strOrUndef(raw.liveProfile)) out.liveProfile = raw.liveProfile;
   if (strOrUndef(raw.logProfile)) out.logProfile = raw.logProfile;
   if (typeof raw.trafficAuto === "boolean") out.trafficAuto = raw.trafficAuto;
+  // v0.12.0 — Fault Memory: opt-in to recording DTC reads to the local
+  // history log. Off by default so existing users don't get a new
+  // file in ~/beeemuu-exports/ without explanation.
+  if (typeof raw.recordDtcHistory === "boolean") out.recordDtcHistory = raw.recordDtcHistory;
   if (isPlainObject(raw.logChannels)) {
     const lc = {};
     for (const [profile, map] of Object.entries(raw.logChannels)) {
