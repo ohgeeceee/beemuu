@@ -117,6 +117,9 @@ pub fn run() {
             commands::anonymize_snapshot,
             commands::get_opinions,
             commands::get_test_plan,
+            commands::record_dtc_read,
+            commands::query_dtc_history,
+            commands::clear_dtc_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

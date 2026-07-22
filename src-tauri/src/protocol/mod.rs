@@ -4,7 +4,7 @@
 pub mod security;
 
 use crate::transport::{Transport, TransportError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct EcuInfo {
@@ -16,7 +16,7 @@ pub struct EcuInfo {
     pub fault_count: Option<usize>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Dtc {
     /// BMW-style hex code, e.g. "2A82"
     pub code: String,
