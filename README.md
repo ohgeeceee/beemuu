@@ -15,7 +15,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v0.6.0](https://img.shields.io/badge/release-v0.6.0-success.svg)](RELEASE_NOTES_v0.6.0.md)
+[![v0.14.0](https://img.shields.io/badge/release-v0.14.0-blue.svg)](CHANGELOG.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core — for talking to your BMW's ECUs over OBD-II. It speaks **UDS**

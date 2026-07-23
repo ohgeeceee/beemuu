@@ -5,6 +5,82 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] — 2026-07-23
+
+### Planned
+- **Live CAN** cycle (PR #156, plan only — no shipped code yet): eight
+  slices across two Tier B milestones, focused on getting the F/G ENET
+  bus actually streaming rather than the current one-shot reads. Tier B
+  because every slice touches `src-tauri/src/transport/**` and
+  `src-tauri/src/protocol/**`. Plan: `docs/v0.14.0_plan.md`. Awaiting
+  first slice PR.
+
+## [0.13.0] — 2026-07-22
+
+### Added
+- Per-target KWP response deadline (v0.13.0, Tier B PR #153): every
+  `kwp2000::send_receive` call now accepts a per-target deadline —
+  **1 s default** (typical readFaults / readLiveData round-trips) and
+  **3 s "slow"** for targets known to stall on the first frame (DME
+  cold-boot, IKE long-form reads). Eliminates the 10 s hang the v0.12.0
+  DTC-history work inherited from the legacy K+DCAN timer. The deadline
+  is *hardware-aware*: it scales with the FTDI VCP latency-timer setting
+  the operator chose at connect time, so a 1 ms latency timer doesn't
+  pay a 3 s penalty on a 1 s target. Tier B because it touches
+  `src-tauri/src/transport/**` and `src-tauri/src/protocol/**`.
+
+### Changed
+- Plan correction (v0.13.0 PR #151): the original "Real Reads, Real
+  Long" cycle plan assumed a clean ISO-TP wire-up was a precondition.
+  Re-scoped after PR #151 dropped that premise — the v0.13.0 deadline
+  change ships without ISO-TP, and the multi-frame reassembly work
+  moved to v0.14.0. Plan: `docs/v0.13.0_plan.md`. Docs only; no code
+  change.
+
+## [0.12.0] — 2026-07-21
+
+### Added
+- DTC history user-facing guide (v0.12.0 slice 6 PR #148): new
+  `docs/user/dtc-history.md` walks the operator through *when* to
+  enable DTC history recording, what the recurring-DTC callout means
+  in practice, and how to read / query / clear the persisted log.
+  Tier A docs; no Rust change.
+- Recurring-DTC callout (v0.12.0 slice 5 PR #147): when a fault appears
+  in the same module twice across two sessions, the fault table shows a
+  small "recurring" badge with a tooltip pointing at the prior
+  occurrence in the persisted history. Tier A frontend (`src/js/` +
+  `src/css/`); reads the `dtc_history` table the Tier B commands below
+  write into.
+- DTC history commands — record / query / clear (v0.12.0 Tier B
+  PR #144): three new Tauri commands (`record_dtc_read`,
+  `query_dtc_history`, `clear_dtc_history`) backed by a SQLite table
+  in the app data dir. Async (offload via `spawn_blocking` per the
+  INVARIANT in CLAUDE.md). Tier B because they live in `commands.rs`
+  (the Tauri command surface / threading boundary).
+- DTC-history wire-through (v0.12.0 slice 4 PR #146): `read_faults`
+  now optionally records each fault read into the history table behind
+  a **Settings** toggle (default OFF — recording is opt-in so the
+  history table doesn't silently grow on every read). Tier A frontend
+  + Tier B backend glue (`commands.rs`).
+- DTC history pure wrapper module + tests (v0.12.0 slice 3 PR #145):
+  `src/js/dtc_history.js` exposes `recordRead`, `query`, `clear` as
+  pure functions; 14 unit tests cover the row-shape contract, the
+  recurrence detector, and the clear-after-archive flow. Tier A
+  frontend.
+
+### Fixed
+- DTC history commands must be async (v0.12.0 follow-up): the v0.12.0
+  Tier B PR #144 first shipped with sync command handlers, which would
+  have blocked the webview on every history write. Converted to
+  `async fn` + `spawn_blocking` before merge. Tier B fix in
+  `commands.rs`.
+
+### Changed
+- Fault Memory cycle marked Released in ROADMAP (v0.12.0 PR #149):
+  ROADMAP.md updates the v0.12.0 cycle row from "In progress" to
+  "Released" now that all six slices and the follow-up async fix have
+  shipped. Docs only.
+
 ## [0.11.0]
 
 ### Added

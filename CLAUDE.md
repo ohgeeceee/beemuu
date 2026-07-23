@@ -64,6 +64,21 @@ not ping for anything before that point — the PR is the review.
 4. **Commit style:** follow the repo convention, e.g.
    `feat(v0.6.0): …`, `fix(v0.6.0): …`, `docs: …`, `chore: …`.
 5. **Never widen a PR's scope after opening.** New findings get new issues.
+6. **Keep the version surface in sync.** Every PR that lands a release
+   (a `feat(vX.Y.Z):` slice, or the merge that closes out a cycle) MUST
+   ship in the same PR — or in a follow-up PR merged before the tag —
+   both of:
+   - a `## [X.Y.Z]` section in `CHANGELOG.md` with the PR number(s),
+     Tier A/B/C label, and a one-paragraph premise for each shipped
+     slice;
+   - the release badge in `README.md` bumped from the prior version to
+     the new one (line 18 shields.io `release-vX.Y.Z` badge).
+
+   If a cycle has only a plan and no shipped code, the CHANGELOG
+   section uses `### Planned` and lists the plan PR.  The README badge
+   moves only when something actually ships.  Don't let the badge lie:
+   it has drifted from v0.6.0 → v0.14.0 (8 releases behind) because
+   nobody enforced this — don't let it drift again.
 
 ## Topology — one app, one repo, one domain
 
