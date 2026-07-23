@@ -340,7 +340,7 @@ headers, auto-share).
 
 ---
 
-## v0.12.0 — "Fault Memory" (Planned)
+## v0.12.0 — "Fault Memory" (Released)
 
 **Premise.** Closing the DTC panel is closing the diagnosis. Today `lastDtcs` is a per-session cache; once the user quits the app, the DTCs are gone. v0.12.0 persists every DTC read to a local JSONL log and surfaces a **Fault Memory** panel: "this DTC has appeared N times over the past K days on this car". Local-only, opt-in, no cloud, no privacy surprise. See
 [`docs/v0.12.0_plan.md`](docs/v0.12.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (cloud sync, ML prediction, per-entry editing, CSV export).
@@ -349,18 +349,18 @@ headers, auto-share).
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Cycle plan + ROADMAP v0.12.0 header | 🔲 Open | A | This PR lands the plan on `main`. Docs-only. |
-| `record_dtc_read` / `query_dtc_history` / `clear_dtc_history` Tauri commands | 🔲 Open | **B** | Three additive commands in `commands.rs` only (no `transport/` / `protocol/` changes). Local JSONL appender at `~/beeemuu-exports/dtc-history.jsonl`. 60 s dedup window. Tier B — flag `commands.rs` at the top of the PR body, wait for human merge. |
-| `src/js/dtc_history.js` pure module + tests | 🔲 Open | A | Wraps the three Tauri commands. In-memory mock store for tests under `node --test`. Dual export (CommonJS + `window.beeemuuDtcHistory`). |
-| Recording wired into `readFaults()` + opt-in toggle in Settings | 🔲 Open | A | Hooks the existing `read_faults` invocation; toggles recording on/off; surfaces file path in the panel header. |
-| "Recurring DTC" callout in the DTC panel | 🔲 Open | A | The headline UI moment of the cycle. When `lastDtcs.length > 0`, queries history for the current VIN and renders a banner under the DTC table. Pure read, frontend only. |
-| `docs/validation/dtc-history.md` harness doc | 🔲 Open | A | Same shape as `docs/validation/testplans.md` and `docs/validation/service-functions.md`: file location, line format, clear procedure, dedup window, "no VIN" caveat. |
+| Cycle plan + ROADMAP v0.12.0 header | ✅ Done (PR #143) | A | `docs/v0.12.0_plan.md` + this ROADMAP entry. Docs-only. |
+| `record_dtc_read` / `query_dtc_history` / `clear_dtc_history` Tauri commands | ✅ Done (PR #144) | **B** | Three additive commands in `commands.rs` only (no `transport/` / `protocol/` changes). Local JSONL appender at `~/beeemuu-exports/dtc-history.jsonl`. 60 s dedup window. Flagged `commands.rs` at the top of the PR body. |
+| `src/js/dtc_history.js` pure module + tests | ✅ Done (PR #145) | A | Wraps the three Tauri commands. In-memory mock store for tests under `node --test`. Dual export (CommonJS + `window.beeemuuDtcHistory`). |
+| Recording wired into `readFaults()` + opt-in toggle in Settings | ✅ Done (PR #146) | A | Hooks the existing `read_faults` invocation; toggles recording on/off; surfaces file path in the panel header; persists the toggle via the v0.7.0 `workspace.json`. |
+| "Recurring DTC" callout in the DTC panel | ✅ Done (PR #147) | A | Headline UI moment of the cycle. When `lastDtcs.length > 0`, queries history for the current VIN and renders a banner under the DTC table. Pure read, frontend only. 14-day lookback; collapses occurrences across modules for the same code. |
+| `docs/validation/dtc-history.md` harness doc | ✅ Done (PR #148) | A | Same shape as `docs/validation/testplans.md` and `docs/validation/service-functions.md`: file location, line format, clear procedure, dedup window, "no VIN" caveat, storage growth, privacy note. |
+| Async conversion follow-up (PR #147 fixup) | ✅ Done | **B** | The slice-2 commands shipped sync. PR #147's CI run caught this against the `tests/async_commands.rs` allowlist guard; follow-up commit converted the three commands to `async fn` + `spawn_blocking`, matching the project's stated direction for new commands touching disk. |
 
 Slices dispatch as PRs when the work completes — no Discussion gate
-(`COMMUNITY_FRAMEWORK.md` Rule 2). Slice 2 is the gating PR for the
-Rust commands; slices 4 and 5 depend on it. Slices 1 and 3 can land in
-parallel with slice 2 (slice 3 uses an in-memory mock). Slice 6 lands
-any time after slice 1.
+(`COMMUNITY_FRAMEWORK.md` Rule 2).
+
+**Cycle closed 2026-07-23.** All 6 v0.12.0 slices shipped across 6 PRs (#143, #144, #145, #146, #147, #148). "Fault Memory" — the cycle of making the app remember your car between sessions — is done. Local JSONL at `~/beeemuu-exports/dtc-history.jsonl`; opt-in toggle on the Fault memory panel; "seen before" callout under the DTC table. Zero new cloud deps, zero new crate deps, zero changes to `transport/` or `protocol/`.
 
 ---
 
@@ -368,9 +368,10 @@ any time after slice 1.
 
 These items have lived on the ROADMAP for multiple cycles as 🟢-
 Ready and have not been claimed. They're real, well-scoped, and not
-in conflict with the active v0.11.0 cycle. (PNG export landed in
-v0.11.0 #131; SVG export is tracked under v0.11.0; the row below
-covers anything else in this category.)
+in conflict with the active v0.13.0 cycle (or whatever the next
+cycle lands on). (PNG/SVG export landed in v0.11.0 #131 / #136; CSV
+units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
+#143–#148; the row below covers anything else in this category.)
 
 > **If you're new to the project, start here.** These are the lowest-
 > risk ways to land a first PR.
