@@ -21,6 +21,10 @@ Thumbs.db
 backend/data/*.db
 backend/data/*.db-*
 
+# v0.13.0: Generated at release-tag-build time by .github/workflows/release.yml
+# and rsynced to the VPS. Not committed.
+frontend/_release_info.json
+
 # Hermes agent artifacts (plans, scratch)
 .hermes/
 
