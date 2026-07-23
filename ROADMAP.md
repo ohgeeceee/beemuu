@@ -361,9 +361,6 @@ Slices dispatch as PRs when the work completes — no Discussion gate
 (`COMMUNITY_FRAMEWORK.md` Rule 2).
 
 **Cycle closed 2026-07-23.** All 6 v0.12.0 slices shipped across 6 PRs (#143, #144, #145, #146, #147, #148). "Fault Memory" — the cycle of making the app remember your car between sessions — is done. Local JSONL at `~/beeemuu-exports/dtc-history.jsonl`; opt-in toggle on the Fault memory panel; "seen before" callout under the DTC table. Zero new cloud deps, zero new crate deps, zero changes to `transport/` or `protocol/`.
-
----
-
 ## v0.13.0 — "Real Reads, Real Long" (Planned)
 
 **Premise.** Two genuine, user-visible wins have been on the ROADMAP since v0.3.0 without shipping:
@@ -435,3 +432,32 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 ---
 
 *Last updated: 2026-07-19. v0.9.0 "Guided Fault Finding" complete — all 5 slices merged (PR #1 #120 schema/gate, PR #2 #121 corpus, PR #3 #122 loader+`get_test_plan` command [Tier B, human-merged], PR #4 #123 walkthrough UI [Tier A], PR #5 #125 validation harness + contribution path [Tier A]). v0.8.0 "Service Bay" shipped (#114/#115/#116/#117). Plan: [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatched as PRs per `COMMUNITY_FRAMEWORK.md` Rule 2.*
+---
+
+## v0.14.0 — "Live CAN" (Planned)
+
+**Premise.** E-series owners can't read their live data today — KWP2000 local IDs are unmapped in open sources (`docs/ROADMAP_ISSUES.md` issue 6, "CAN bus listener mode for E-series"). But BMW ECUs **broadcast** the data anyway on the raw CAN bus at 500 kbit/s. The bytes are free, we just don't listen. v0.14.0 adds a new `Live CAN` transport mode that filters and decodes the 6 known broadcast IDs (`0x0AA` RPM/torque/throttle, `0x1D0` coolant/ambient, `0x545` oil temp, `0x0CE` wheel speeds, `0x130` vehicle speed, `0x316` battery voltage) and surfaces them as a new "Live Gauges" panel using the existing `src/js/gauges.js` widget.
+
+**Hardware scope (v0.14.0):** OBDLink SX on E46. The SX is a USB-CDC ACM serial device, so the existing `serialport = "4"` crate covers it (no new dep). STN1110 protocol commands go over the standard serial handle — the same `SerialPort` trait the K+DCAN transport already uses. The new `transport/can_listener.rs` is additive; K+DCAN KWP diagnostic sessions keep using `kdcan.rs` in parallel. See [`docs/v0.14.0_plan.md`](docs/v0.14.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (touch the K+DCAN transport, touch `protocol/`, add a new crate, run the listener by default).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.0 header | 🔲 Open | A | This PR lands the plan on `main`. Docs-only. |
+| `src/js/can_decoders.js` pure decoder module + tests | 🔲 Open | A | 8 decoders, 1-2 fixtures each, dual export (CommonJS + `window.beeemuuCanDecoders`). |
+| `src/js/live_gauges.js` panel (6 gauges) | 🔲 Open | A | Reuses existing `src/js/gauges.js` `Gauge` widget. 2×3 grid. Off by default. |
+| `src-tauri/src/transport/sim.rs` broadcast personality | 🔲 Open | A | Pushes the 6 known IDs at the documented rates into an `mpsc::Sender<CanFrame>`. Test source for slices 2-3-5. |
+| `src-tauri/src/transport/can_listener.rs` (new transport) | 🔲 Open | **B** | `ListenerMode::{Simulator, OBDLinkSx { port_name }}` + `Arc<Mutex<HashMap<u16, CanFrame>>>` for latest frames. Touches `transport/`. |
+| `src-tauri/src/commands.rs` — `start_can_listen` / `stop_can_listen` / `get_latest_can_frames` | 🔲 Open | **B** | Three async commands, flag `commands.rs` at the top of the PR body, wait for human merge. |
+| Frontend wiring: panel → `get_latest_can_frames` | 🔲 Open | A | Thin shim; `setInterval(render, 100ms)` reads the latest frames and calls the slice-2 decoders. |
+| `docs/validation/can-broadcast.md` harness doc | 🔲 Open | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md` / `multi-frame.md`. Includes E9x/E6x verification path for the 0x545 oil-temp frame where "E9x needs verification". |
+
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2). Slice 5 (Tier B transport) is the
+gating PR; slices 2-3-4 can land in parallel against slice 5's
+branch using the simulator's broadcast personality as a test
+source. Slice 6 (Tier B commands) follows slice 5. Slice 7
+(frontend wiring) follows slice 6. Slice 8 lands any time after
+slice 5.
+---
