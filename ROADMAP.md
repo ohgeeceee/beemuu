@@ -376,6 +376,15 @@ Plus the `docs/validation/multi-frame.md` doc, which earns its keep by explainin
 > **Note (revised 2026-07-23).** The first plan draft (PR #150) claimed that ISO-TP multi-frame was implemented but not wired into the production `connect()` paths, and proposed v0.13.0 slice 2 as the wire-up PR. **That premise was wrong.** The existing `isotp.rs` module doc-comment is explicit: `KdcanTransport` and `EnetTransport` already deliver complete payloads because the gateways terminate ISO-TP upstream. There is no production wire-up to do — the wire-up is the integration point for future raw-CAN transports (SocketCAN, OBDLink STN, future DoIP socket) that don't exist yet. The corrected cycle (this revision) drops the wire-up and rescopes around the two real wins.
 
 See [`docs/v0.13.0_plan.md`](docs/v0.13.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (wire ISO-TP into production, re-implement ISO-TP, touch `enet.rs`, cross-cutting connect() refactors).
+**Premise.** The ISO-TP multi-frame reassembly (`src-tauri/src/transport/isotp.rs`, 430 lines + 10 unit tests) has been **implemented and tested since v0.6.0** but is **not wired into the live transport stack** — the production `connect()` paths in `kdcan.rs` and `enet.rs` still construct bare `KdcanTransport`/`EnetTransport`, not `IsoTpTransport`. So:
+
+- Long UDS responses (real F/G VIN, full DTC dumps) silently truncate to a single CAN frame's 7 bytes.
+- E-series CAS multi-frame responses look like garbled bytes when the VIN really IS there.
+- The "ISO-TP multi-frame" item has been marked 🟢 Ready in the ROADMAP for cycles, because the **wire-up** is what v0.13.0 lands — not the implementation (already done).
+
+Adjacent 🟢 Ready item: **KWP2000 slow-module timeout fix** — the hardcoded 1000ms deadline in `kdcan.rs::request` times out on real CIC/CAS modules. Small, well-scoped fix.
+
+And: E-series CAN broadcast frame decoding (0x0AA RPM, 0x1D0 coolant, 0x545 oil temp) — the bytes are already on the bus from the transport; the renderer just doesn't decode them. Pure frontend. See [`docs/v0.13.0_plan.md`](docs/v0.13.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (re-implement ISO-TP, ENET multi-segment changes, blocker tests for the wiring, new ISO-TP features).
 
 ### Planned slices
 
@@ -389,6 +398,20 @@ See [`docs/v0.13.0_plan.md`](docs/v0.13.0_plan.md) for the full cycle plan, incl
 Slices dispatch as PRs when the work completes — no Discussion gate
 (`COMMUNITY_FRAMEWORK.md` Rule 2). Slice 2 is the only Tier B and
 lands first; slices 3 and 4 can land any time after.
+| Cycle plan + ROADMAP v0.13.0 header | 🔲 Open | A | This PR lands the plan on `main`. Docs-only. |
+| Wire `IsoTpTransport` into `kdcan.rs::connect()` and `enet.rs::connect()` | 🔲 Open | **B** | Touches `src-tauri/src/transport/{kdcan,enet}.rs`. The `IsoTpTransport` impl is already done + tested — this slice just plugs it into the production path. Flag `transport/` at the top of the PR body, wait for human merge. |
+| VIN-via-ISO-TP regression test | 🔲 Open | A | New frontend test using the simulator's `multi_frame` personality. Catches a missing wire-up *before* the Tier B lands. |
+| KWP2000 slow-module timeout fix | 🔲 Open | A + **B** | Configurable deadline + per-target override table. Touches `src-tauri/src/transport/kdcan.rs::request`. The actual change is small but the protected-path exposure is real. |
+| E-series CAN broadcast frame decoder (0x0AA / 0x1D0 / 0x545) | 🔲 Open | A | Pure frontend — the bytes are already on the bus. Renders as a Live Gauges panel using the existing `src/js/gauges.js` widget. |
+| `docs/validation/multi-frame.md` harness doc | 🔲 Open | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md`: what changed, why, how to verify each piece. |
+
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2). Slice 2 is the gating PR for the
+Tier B wire-up; slices 3 and 5 can land in parallel against the
+Tier B branch using the simulator's `multi_frame` personality.
+Slice 4 (KWP timeout) touches `transport/kdcan.rs` so it's a small
+Tier B change on top of slice 2's surface. Slice 6 lands any time
+after slice 2.
 
 ---
 
