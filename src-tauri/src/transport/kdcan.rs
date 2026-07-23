@@ -36,6 +36,34 @@ pub struct KdcanTransport {
     /// K-line only: ECU addresses with an established KWP session.
     /// An ECU drops off this list when it times out (session lost).
     kline_ready: std::collections::HashSet<u8>,
+    /// Module addresses that need the raised `SLOW_RESPONSE_DEADLINE`
+    /// instead of `DEFAULT_RESPONSE_DEADLINE`. Populated from
+    /// `default_slow_modules()` in `open()` / `auto_detect()`; mutating
+    /// it directly is a v0.13.0-era hook for a future UI to add more
+    /// entries as users discover new slow modules.
+    slow_modules: std::collections::HashSet<u8>,
+}
+
+/// Default response deadline for KWP requests on the K+DCAN cable.
+///
+/// 1 second matches the historical hardcoded value (v0.1.0..v0.12.0)
+/// and is well above any healthy BMW ECU's first-response time.
+const DEFAULT_RESPONSE_DEADLINE: Duration = Duration::from_millis(1000);
+
+/// Raised deadline for KWP requests to modules known to be slow on E-series.
+///
+/// Real E-series CIC (0x01) and CAS (0x40) modules regularly take 1.5–3
+/// seconds to answer the first KWP frame after fast-init, because their
+/// boot-up sequence is longer than the DME's. The 1-second historical
+/// default times out on every E-series owner's first fault read; raising
+/// it to 3 seconds matches what every other KWP tool does.
+const SLOW_RESPONSE_DEADLINE: Duration = Duration::from_millis(3000);
+
+/// KWP2000 target addresses that are known to need a longer response deadline
+/// on real E-series cars. Add new entries here as more slow modules are
+/// discovered — but only after a real-car timeout on the default 1 s.
+fn default_slow_modules() -> std::collections::HashSet<u8> {
+    [0x01 /* CIC */, 0x40 /* CAS */].into_iter().collect()
 }
 
 /// Sleep with sub-millisecond accuracy: coarse sleep, then spin. Plain
@@ -52,6 +80,49 @@ fn precise_sleep(d: Duration) {
 }
 
 impl KdcanTransport {
+    /// Response deadline for a given KWP target address.
+    ///
+    /// Slow modules (CIC, CAS, ...) need the raised `SLOW_RESPONSE_DEADLINE`
+    /// so their longer boot-up sequence doesn't trigger a spurious
+    /// `TransportError::Timeout`. Everything else uses `DEFAULT_RESPONSE_DEADLINE`.
+    ///
+    /// Exposed (not just inlined) so a test or future UI can introspect or
+    /// override the deadline on a per-target basis.
+    pub fn deadline_for(&self, target: u8) -> Duration {
+        if self.slow_modules.contains(&target) {
+            SLOW_RESPONSE_DEADLINE
+        } else {
+            DEFAULT_RESPONSE_DEADLINE
+        }
+    }
+
+    /// Add or remove a target address from the slow-modules list. Returns
+    /// `true` if the address is now in the slow list, `false` otherwise.
+    ///
+    /// The intended caller is a future Settings UI that lets users add their
+    /// own discovered slow modules — for now the list is fixed at `open()`
+    /// time from `default_slow_modules()`. KWP2000's address space is
+    /// 0x00..=0xFF, so every address is a valid argument.
+    pub fn set_slow_module(&mut self, target: u8, slow: bool) -> bool {
+        if slow {
+            self.slow_modules.insert(target);
+        } else {
+            self.slow_modules.remove(&target);
+        }
+        self.slow_modules.contains(&target)
+    }
+
+    /// Response deadline resolution, factored out so the lookup can be
+    /// unit-tested without constructing a full `KdcanTransport` (which
+    /// needs a real `SerialPort`).
+    fn resolve_deadline(slow_modules: &std::collections::HashSet<u8>, target: u8) -> Duration {
+        if slow_modules.contains(&target) {
+            SLOW_RESPONSE_DEADLINE
+        } else {
+            DEFAULT_RESPONSE_DEADLINE
+        }
+    }
+
     pub fn open(port_name: &str, dcan: bool) -> Result<Self> {
         let baud = if dcan { 115_200 } else { 10_400 };
         let port = serialport::new(port_name, baud)
@@ -61,7 +132,12 @@ impl KdcanTransport {
             .timeout(Duration::from_millis(100))
             .open()
             .map_err(|e| TransportError::Io(format!("open {port_name}: {e}")))?;
-        Ok(Self { port, dcan, kline_ready: Default::default() })
+        Ok(Self {
+            port,
+            dcan,
+            kline_ready: Default::default(),
+            slow_modules: default_slow_modules(),
+        })
     }
 
     /// Auto-detect D-CAN vs K-line by trying 115200 baud first, then falling
@@ -183,7 +259,11 @@ impl Transport for KdcanTransport {
         let frame = Self::build_frame(target, payload);
         self.port.write_all(&frame).map_err(|e| TransportError::Io(e.to_string()))?;
         let _ = self.port.flush();
-        let deadline = Instant::now() + Duration::from_millis(1000);
+        // Per-target deadline: slow modules (CIC, CAS, ...) get the raised
+        // SLOW_RESPONSE_DEADLINE so E-series first-fault-reads don't spuriously
+        // time out. See `deadline_for` and `DEFAULT_RESPONSE_DEADLINE` /
+        // `SLOW_RESPONSE_DEADLINE` at the top of the file.
+        let deadline = Instant::now() + Self::resolve_deadline(&self.slow_modules, target);
         let mut echo = vec![0u8; frame.len()];
         self.read_exact_timeout(&mut echo, deadline)?;
         let resp = self.read_frame(deadline)?;
@@ -192,4 +272,78 @@ impl Transport for KdcanTransport {
     }
 
     fn disconnect(&mut self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Default slow-modules list contains CIC (0x01) and CAS (0x40) — the
+    /// two real E-series modules that exhibit the slow-boot behavior.
+    #[test]
+    fn default_slow_modules_contains_cic_and_cas() {
+        let slow = default_slow_modules();
+        assert!(slow.contains(&0x01), "CIC (0x01) should be in the default slow-modules list");
+        assert!(slow.contains(&0x40), "CAS (0x40) should be in the default slow-modules list");
+        // DME (0x12) is fast — must NOT be in the default list, otherwise
+        // every healthy DME read would wait the full 3 seconds.
+        assert!(!slow.contains(&0x12), "DME (0x12) should NOT be in the default slow-modules list");
+    }
+
+    /// Slow modules get the raised deadline; everything else gets the
+    /// historical 1 s default.
+    #[test]
+    fn resolve_deadline_picks_slow_for_known_targets() {
+        let slow = default_slow_modules();
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0x01),
+            SLOW_RESPONSE_DEADLINE,
+            "CIC (0x01) must use the raised 3 s deadline"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0x40),
+            SLOW_RESPONSE_DEADLINE,
+            "CAS (0x40) must use the raised 3 s deadline"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0x12),
+            DEFAULT_RESPONSE_DEADLINE,
+            "DME (0x12) must use the 1 s default deadline"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0xFF),
+            DEFAULT_RESPONSE_DEADLINE,
+            "Unknown modules must use the 1 s default deadline"
+        );
+    }
+
+    /// Empty slow-modules set means every address gets the default deadline
+    /// — the safe fallback if a future caller wants to opt out entirely.
+    #[test]
+    fn resolve_deadline_with_empty_set_uses_default_for_all() {
+        let empty = std::collections::HashSet::new();
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&empty, 0x01),
+            DEFAULT_RESPONSE_DEADLINE,
+            "empty slow-modules list must fall back to the default deadline for every target"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&empty, 0x40),
+            DEFAULT_RESPONSE_DEADLINE
+        );
+    }
+
+    /// The deadline constants are what we expect: 1 s default, 3 s slow.
+    /// This is the regression test that catches a silent change to the
+    /// slow-module timeout — the bug we're fixing is "default deadline
+    /// too short for E-series CIC/CAS", so the values themselves are the
+    /// contract.
+    #[test]
+    fn deadline_constants_are_what_e_series_needs() {
+        assert_eq!(DEFAULT_RESPONSE_DEADLINE, Duration::from_millis(1000));
+        assert_eq!(SLOW_RESPONSE_DEADLINE, Duration::from_millis(3000));
+        // Slow deadline must be strictly greater than the default — otherwise
+        // the per-target override has no effect.
+        assert!(SLOW_RESPONSE_DEADLINE > DEFAULT_RESPONSE_DEADLINE);
+    }
 }
