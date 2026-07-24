@@ -21,6 +21,9 @@
 
 use super::{Result, Transport, TransportError};
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 struct SimEcu {
@@ -48,6 +51,107 @@ const DEFAULT_S3_TIMEOUT: Duration = Duration::from_secs(5);
 /// 17-char format). Answered via UDS `22 F1 90` and/or KWP `1A 90`
 /// depending on `VinMode`.
 const SIM_VIN: &[u8; 17] = b"WBAVA31050NL12345";
+
+/// One raw, standard-ID CAN broadcast from the simulated vehicle.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanFrame {
+    pub id: u16,
+    pub data: [u8; 8],
+    pub t_ms: u64,
+}
+
+/// Handle for a simulator broadcast worker.
+pub struct BroadcasterHandle {
+    stop: Arc<AtomicBool>,
+    thread: JoinHandle<()>,
+}
+
+impl BroadcasterHandle {
+    /// Request shutdown and wait for the worker to exit.
+    pub fn stop(self) -> std::thread::Result<()> {
+        self.stop.store(true, Ordering::Release);
+        self.thread.join()
+    }
+}
+
+fn broadcast_frames_at(t_ms: u64, vehicle_speed_kmh: f64) -> [CanFrame; 6] {
+    let t = t_ms as f64 / 1_000.0;
+    let rpm = (750.0 + (1.0 - (t * 0.35).cos()) * 3_000.0).round() as u16;
+    let rpm_raw = rpm.saturating_mul(4).to_be_bytes();
+    let throttle_percent = 12.0 + (t * 0.35).sin().abs() * 65.0;
+    let throttle_raw = (throttle_percent / 0.3922).round() as u8;
+    let coolant_c = 20.0 + 78.0 * (1.0 - (-t / 90.0).exp());
+    let oil_c = 18.0 + 80.0 * (1.0 - (-t / 150.0).exp());
+    let speed = vehicle_speed_kmh.clamp(0.0, 127.5);
+    let wheel_raw = ((speed / 0.0625).round() as u16).to_be_bytes();
+    let speed_raw = (speed / 0.5).round() as u8;
+    let battery_v = 14.0 + (t * 0.2).sin() * 0.5;
+    let battery_raw = ((battery_v - 6.0) / 0.1).round() as u8;
+
+    [
+        CanFrame {
+            id: 0x0AA,
+            data: [rpm_raw[0], rpm_raw[1], 0, 0, 0, 0, throttle_raw, 0],
+            t_ms,
+        },
+        CanFrame {
+            id: 0x0CE,
+            data: [
+                wheel_raw[0],
+                wheel_raw[1],
+                wheel_raw[0],
+                wheel_raw[1],
+                wheel_raw[0],
+                wheel_raw[1],
+                wheel_raw[0],
+                wheel_raw[1],
+            ],
+            t_ms,
+        },
+        CanFrame {
+            id: 0x1D0,
+            data: [(coolant_c + 48.0).round() as u8, 68, 0, 0, 0, 0, 0, 0],
+            t_ms,
+        },
+        CanFrame {
+            id: 0x130,
+            data: [speed_raw, 0, 0, 0, 0, 0, 0, 0],
+            t_ms,
+        },
+        CanFrame {
+            id: 0x545,
+            data: [0, (oil_c + 48.0).round() as u8, 0, 0, 0, 0, 0, 0],
+            t_ms,
+        },
+        CanFrame {
+            id: 0x316,
+            data: [battery_raw, 0, 0, 0, 0, 0, 0, 0],
+            t_ms,
+        },
+    ]
+}
+
+fn broadcast_loop(sender: mpsc::Sender<CanFrame>, stop: Arc<AtomicBool>, vehicle_speed_kmh: f64) {
+    let started = Instant::now();
+    let mut next_due = [0_u64; 6];
+    let periods = [10_u64, 20, 100, 100, 1_000, 1_000];
+
+    while !stop.load(Ordering::Acquire) {
+        let t_ms = started.elapsed().as_millis() as u64;
+        for (index, frame) in broadcast_frames_at(t_ms, vehicle_speed_kmh)
+            .into_iter()
+            .enumerate()
+        {
+            if t_ms >= next_due[index] {
+                if sender.send(frame).is_err() {
+                    return;
+                }
+                next_due[index] = t_ms + periods[index];
+            }
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}
 
 /// VIN personality of the simulated vehicle — which protocol path answers
 /// VIN requests. The default `Uds` preserves the sim's long-standing
@@ -113,6 +217,19 @@ impl SimTransport {
     /// Set the VIN personality (UDS vs KWP DME vs CAS-only fallback).
     pub fn set_vin_mode(&mut self, mode: VinMode) {
         self.vin_mode = mode;
+    }
+
+    /// Start raw-CAN broadcasts at a fixed simulated vehicle speed. The
+    /// worker owns the sender; the caller receives frames directly.
+    pub fn start_can_broadcaster(
+        &self,
+        vehicle_speed_kmh: f64,
+    ) -> (BroadcasterHandle, mpsc::Receiver<CanFrame>) {
+        let (sender, receiver) = mpsc::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let worker_stop = Arc::clone(&stop);
+        let thread = std::thread::spawn(move || broadcast_loop(sender, worker_stop, vehicle_speed_kmh));
+        (BroadcasterHandle { stop, thread }, receiver)
     }
 
     /// Current diagnostic session byte — test-only introspection for the
@@ -545,5 +662,40 @@ mod tests {
         // Non-VIN-owning modules never answer 1A 90.
         let other = sim.request(0x60, &[0x1A, 0x90]).unwrap();
         assert_eq!(other[0], 0x7F);
+    }
+
+    #[test]
+    fn broadcast_generator_is_deterministic_and_matches_decoder_contracts() {
+        let frames = broadcast_frames_at(1_000, 50.0);
+        assert_eq!(
+            frames.iter().map(|frame| frame.id).collect::<Vec<_>>(),
+            vec![0x0AA, 0x0CE, 0x1D0, 0x130, 0x545, 0x316]
+        );
+        assert!(frames.iter().all(|frame| frame.t_ms == 1_000));
+
+        let rpm = frames.iter().find(|frame| frame.id == 0x0AA).unwrap();
+        assert_eq!(u16::from_be_bytes([rpm.data[0], rpm.data[1]]) % 4, 0);
+        assert!((12.0..=77.0).contains(&(rpm.data[6] as f64 * 0.3922)));
+        let temperatures = frames.iter().find(|frame| frame.id == 0x1D0).unwrap();
+        assert_eq!(temperatures.data[1], 68); // 20 C + decoder offset 48
+        let speed = frames.iter().find(|frame| frame.id == 0x130).unwrap();
+        assert_eq!(speed.data[0], 100); // 50 km/h / 0.5
+        let wheels = frames.iter().find(|frame| frame.id == 0x0CE).unwrap();
+        assert_eq!(u16::from_be_bytes([wheels.data[0], wheels.data[1]]), 800); // 50 / 0.0625
+        assert_eq!(frames, broadcast_frames_at(1_000, 50.0));
+    }
+
+    #[test]
+    fn broadcaster_sends_frames_and_stops_cleanly() {
+        let sim = SimTransport::new();
+        let (handle, receiver) = sim.start_can_broadcaster(50.0);
+        let frames = (0..6)
+            .map(|_| receiver.recv_timeout(Duration::from_millis(100)).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            frames.iter().map(|frame| frame.id).collect::<Vec<_>>(),
+            vec![0x0AA, 0x0CE, 0x1D0, 0x130, 0x545, 0x316]
+        );
+        handle.stop().unwrap();
     }
 }
