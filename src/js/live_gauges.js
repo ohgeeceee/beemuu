@@ -16,11 +16,11 @@
 //
 // slice 5 (extra live features): each gauge keeps a
 // `peakThisSession` value. The controller exposes a per-key
-// `peakFor(key)` reader. The harness/CI board surface (item 5
-// below) renders the peak under the gauge label. The controller
-// also tracks frames per second through the source's `framesPerSecond`
-// and exposes it via `framesPerSecond()`; the panel header shows it
-// when a source is attached.
+// `peakFor(key)` reader. The panel renders the peak under the
+// gauge label. The controller also tracks frames per second through
+// the source's `framesPerSecond` and exposes it via
+// `framesPerSecond()`; the panel header shows it when a source is
+// attached.
 
 const GAUGE_DEFINITIONS = Object.freeze([
   { key: "rpm", label: "RPM", unit: "rpm", min: 0, max: 8000 },
@@ -78,9 +78,6 @@ function createLiveGaugesController(options) {
           peaks[definition.key] = value;
         }
       }
-    for (const definition of GAUGE_DEFINITIONS) {
-      const value = values[definition.key];
-      if (Number.isFinite(value)) gauges[definition.key].set(value);
     }
   }
 
@@ -143,11 +140,6 @@ function createLiveGaugesController(options) {
     resetPeaks,
     framesPerSecond,
   };
-    updateStatus(false);
-  }
-
-  updateStatus(false);
-  return { gauges, setValues, render, start, stop, isRunning: () => timer !== null };
 }
 
 function mountLiveGauges(documentRef = document) {
