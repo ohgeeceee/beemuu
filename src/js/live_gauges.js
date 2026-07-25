@@ -78,6 +78,9 @@ function createLiveGaugesController(options) {
           peaks[definition.key] = value;
         }
       }
+    for (const definition of GAUGE_DEFINITIONS) {
+      const value = values[definition.key];
+      if (Number.isFinite(value)) gauges[definition.key].set(value);
     }
   }
 
@@ -140,6 +143,11 @@ function createLiveGaugesController(options) {
     resetPeaks,
     framesPerSecond,
   };
+    updateStatus(false);
+  }
+
+  updateStatus(false);
+  return { gauges, setValues, render, start, stop, isRunning: () => timer !== null };
 }
 
 function mountLiveGauges(documentRef = document) {

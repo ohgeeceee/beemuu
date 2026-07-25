@@ -18,6 +18,7 @@ class FakeGauge {
 }
 
 function harness({ source = null } = {}) {
+function harness() {
   const canvases = new Map(GAUGE_DEFINITIONS.map((definition) => [definition.key, { id: definition.key }]));
   let timerCallback = null;
   let cleared = null;
@@ -35,6 +36,10 @@ function harness({ source = null } = {}) {
     clearIntervalFn: (timer) => { cleared = timer; },
   });
   return { controller, status, button, timer: () => timerCallback, cleared: () => cleared, onTickCalls };
+    setIntervalFn: (callback, delay) => { timerCallback = callback; return { delay }; },
+    clearIntervalFn: (timer) => { cleared = timer; },
+  });
+  return { controller, status, button, timer: () => timerCallback, cleared: () => cleared };
 }
 
 test("defines the six planned Live CAN gauges", () => {

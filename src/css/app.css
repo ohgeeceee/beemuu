@@ -253,6 +253,24 @@ body {
   .live-can-gauge-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
 }
 
+.live-can-panel { margin-top: 14px; }
+.live-can-gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+.live-can-status {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.live-can-status.live-can-off { color: var(--muted); }
+@media (max-width: 860px) {
+  .live-can-gauge-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+}
+
 /* v0.5.0 PR #3 — severity-bearing enum channels (Light /
  * Moderate / Severe etc.) get a coloured label so the eye
  * lands on them immediately. The same class also drives the
