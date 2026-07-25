@@ -153,6 +153,20 @@
         </div>
         <div id="gauge-grid" class="gauge-grid"></div>
       </div>
+      <div id="live-can-panel" class="panel live-can-panel">
+        <div class="panel-head">
+          <span>Live Gauges <span id="live-can-status" class="live-can-status live-can-off">Off</span></span>
+          <button id="btn-live-can-toggle" class="btn btn-small" type="button" aria-pressed="false">Start CAN listener</button>
+        </div>
+        <div class="live-can-gauge-grid">
+          <div class="gauge-cell"><canvas data-live-can-gauge="rpm"></canvas><div class="gauge-label">RPM</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="coolant"></canvas><div class="gauge-label">Coolant</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="oilTemp"></canvas><div class="gauge-label">Oil temp</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="vehicleSpeed"></canvas><div class="gauge-label">Vehicle speed</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="batteryVoltage"></canvas><div class="gauge-label">Battery voltage</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="throttle"></canvas><div class="gauge-label">Throttle</div></div>
+        </div>
+      </div>
     </section>
 
     <!-- ============ LOGGING ============ -->
@@ -613,6 +627,7 @@
   <script src="js/live_format.js"></script>
   <script src="js/workspace.js"></script>
   <script src="js/gauges.js"></script>
+  <script src="js/live_gauges.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
