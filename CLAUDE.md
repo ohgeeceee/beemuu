@@ -90,6 +90,23 @@ not ping for anything before that point — the PR is the review.
 - **Desktop app:** the Tauri webview (`src/`) talks to the **Rust core**
   (`src-tauri/src`) via `invoke()`. The desktop app calls the hosted API only
   for DTC schematics (`fetch_dtc_schematics` → `api.beemuu.com`).
+- **Admin console (Tier C — owned surface, not in the repo).**
+  `https://beemuu.com/admin/` is a single-page operator UI served from
+  `/var/www/beemuu/admin/` on the NJ VPS. It is **not** checked into this
+  repo (no `admin/` directory under `frontend/`), not built by the release
+  workflow, and not auto-deployed — `release.yml` ships the static landing
+  page only. The admin app talks to the same backend as `api.beemuu.com`,
+  fronted by `beemuu.com` (same-origin `/api/*` reverse proxy), and exposes
+  the write surface the public API intentionally hides:
+  `POST /api/auth/login` (bearer token, stored client-side as
+  `beemuu_admin_token` in `localStorage`), `GET /api/admin/me`, `GET /api/admin/stats`,
+  `GET/POST /api/admin/dtc`, `GET /api/admin/sessions`, `GET /api/admin/contacts`,
+  `GET/POST /api/admin/users` (roles: `admin`, `owner`). Owner credentials
+  live only on the VPS (SQLite `users` table, bcrypt-hashed). Any change
+  to the admin app — source, deploy, role policy, password reset —
+  is Tier C and must come through this repo as a PR + human merge; do
+  not edit it in place on the VPS and do not assume the surface is
+  read-only.
 - **No other VPS / domain.** The retired LA VPS (`montanablotter.com`,
   `beemuu.montanablotter.com`, `74.208.64.42`) is decommissioned and must not
   be referenced or reactivated. The only production host is the NJ Spectrum
