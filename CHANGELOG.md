@@ -5,15 +5,68 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0] — 2026-07-23
+## [0.14.0] — 2026-07-25
 
-### Planned
-- **Live CAN** cycle (PR #156, plan only — no shipped code yet): eight
-  slices across two Tier B milestones, focused on getting the F/G ENET
-  bus actually streaming rather than the current one-shot reads. Tier B
-  because every slice touches `src-tauri/src/transport/**` and
-  `src-tauri/src/protocol/**`. Plan: `docs/v0.14.0_plan.md`. Awaiting
-  first slice PR.
+### Added — Tier A surface (live features on the desktop + beemuu.com)
+
+- **Live Gauges panel in the desktop app** (PR #162, Tier A): a new
+  6-gauge panel under the Live Data tab. RPM, coolant, oil temp,
+  vehicle speed, battery voltage, throttle. Off by default; the
+  user clicks "Start CAN listener" to enable. Reuses the existing
+  `src/js/gauges.js::Gauge` widget. No new crate, no transport
+  changes — the panel is fed by the JS-side simulator mirror until
+  the Tier B transport lands.
+- **Pure JS CAN broadcast decoders** (PR #157, Tier A):
+  `src/js/can_decoders.js` — 8 byte-level decoders for the 6 known
+  E-series broadcast IDs (0x0AA, 0x1D0, 0x545, 0x0CE, 0x130, 0x316).
+  Dual export (CommonJS + `window.beeemuuCanDecoders`). 32 unit tests.
+  Scale constants are pinned and exported for v0.14.1 real-car
+  verification per `docs/validation/can-broadcast.md`.
+- **JS-side simulator broadcast personality** (PR #158, Tier A):
+  `src-tauri/src/transport/sim.rs::broadcast_frames_at` extended with
+  a 10-thread `std::thread::spawn` worker that produces the 6 known
+  frames at the documented rates (10/20/100/100/1000/1000 ms).
+  The desktop panel + the JS-side mirror both consume this.
+- **JS-side simulator mirror + frontend wiring** (PR #164, Tier A):
+  `src/js/live_can_source.js` is a byte-for-byte mirror of the Rust
+  generator; `live_gauges.js` controller extended with a
+  `peakFor(key)` per-gauge peak tracker and a `framesPerSecond()`
+  mirror of the source. The panel header now shows `<X> fps`.
+- **Real-car verification harness doc** (PR #164, Tier A):
+  `docs/validation/can-broadcast.md` — the 5-step report-back loop
+  for E9x/E6x owners. Includes a copy-pasteable Node driver script
+  that replays a captured CSV through the decoder.
+- **Live Gauges panel on `beemuu.com`** (PR #167, Tier A): the same
+  6 gauges are now on the public site. `frontend/live_gauges.js` is
+  a self-contained public-site mirror (no Tauri / no desktop deps);
+  `frontend/live_gauges.css` provides the dark-cockpit panel
+  styling; `frontend/index.html` hosts the DOM. Visitors see the
+  gauges ticking in real time, driven by the JS-side simulator in
+  their browser. Byte-for-byte parity with the desktop module pinned
+  by `frontend/live_gauges.test.js` (5 tests). CI updated to include
+  `frontend/**/*.test.js` in the JS test glob.
+
+### Planned — Tier B surface (gated behind real-car testing)
+
+- **Live CAN transport + Tauri commands** (PRs #168+): Tier B because
+  every slice touches `src-tauri/src/transport/**` and
+  `src-tauri/src/commands.rs`. Adds `transport/can_listener.rs`
+  with `ListenerMode::{Simulator, OBDLinkSx { port_name }}` plus
+  three async commands (`start_can_listen` / `stop_can_listen` /
+  `get_latest_can_frames`). When this lands, the desktop panel's
+  hardware source flips from "no frames" to "real frames" with no
+  frontend change. Requires an OBDLink SX on a real E46 to merge.
+
+### Note on the partial release
+
+This CHANGELOG entry covers the **Tier A surface** of the v0.14.0
+cycle (frontend + public site + simulator + harness doc). The Tier B
+surface (real-car transport + commands) is **still open** and gated
+behind OBDLink SX testing. The README release badge stays at v0.14.0
+(this entry); the v0.14.0 git tag will be cut when Tier B lands.
+Until then, `beemuu.com` already shows the Tier A surface in
+production, and the desktop app picks up the new code on the next
+release build.
 
 ## [0.13.0] — 2026-07-22
 
