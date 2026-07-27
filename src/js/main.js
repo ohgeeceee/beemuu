@@ -1122,7 +1122,7 @@ $("btn-clear-faults").addEventListener("click", async () => {
   if (selectedAddress == null) return;
   if (sessionReplay) { log("Cannot clear faults in session replay."); return; }
   const m = modules.find((x) => x.address === selectedAddress);
-  if (!confirm(`Clear the fault memory of ${m.name}? Stored freeze-frame data will be lost.`)) return;
+  if (!await window.beeemuuDialog.ask(`Clear the fault memory of ${m.name}? Stored freeze-frame data will be lost.`)) return;
   try {
     await invoke("clear_faults", { address: selectedAddress });
     log(`${m.name}: fault memory cleared`);
@@ -1350,7 +1350,7 @@ async function loadServiceFunctions() {
         const gating = unverified
           ? `UNVERIFIED routine: the routine ID behind "${labelWithModule}" has NOT been validated on a real chassis — it is a simulator placeholder. On a real car it may invoke a different function, or none.\n\nValidation harness: docs/validation/service-functions.md\n\n`
           : ``;
-        if (!confirm(gating + warning)) return;
+        if (!await window.beeemuuDialog.ask(gating + warning)) return;
         btn.disabled = true;
         try {
           const msg = await invoke("run_service_function", {

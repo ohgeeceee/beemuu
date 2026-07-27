@@ -31,6 +31,18 @@ struct SimEcu {
     ident: &'static str,
     /// (dtc_hi, dtc_lo, status)
     dtcs: Vec<(u8, u8, u8)>,
+    /// Seed DTC list captured at construction time, used by the
+    /// "regenerate faults on next scan" behaviour (issue #161 v0.14.1).
+    /// When a simulator user clears the DME and then runs the vehicle
+    /// test again, the `[0x1A, 0x80]` identify handler restores the
+    /// default DTC list so the demo loop looks natural — a real car
+    /// would re-detect faults on the next ignition cycle, not stay empty
+    /// forever.
+    default_dtcs: Vec<(u8, u8, u8)>,
+    /// Seed freeze-frame data captured at construction, restored alongside
+    /// `default_dtcs` on refill. Tracked separately so the refill can
+    /// keep the per-DTC freeze 1:1 aligned with the seed DTC list.
+    default_freeze: Vec<[u8; 9]>,
     /// Freeze-frame environmental data per DTC, indexed same as `dtcs`.
     /// Layout matches protocol::freeze::decode: rpm(u16), coolant(u8-40),
     /// speed(u8), load(u8), volts(u8/10), mileage(u24 km).
@@ -188,27 +200,46 @@ pub struct SimTransport {
     vin_mode: VinMode,
 }
 
+impl SimEcu {
+    /// Construct a `SimEcu`, capturing the supplied DTC list as the
+    /// refill seed used by the sim's identify handler (issue #161
+    /// v0.14.1). The freeze-frame data is mirrored into
+    /// `default_freeze` so the refill (which restores DTCs on the
+    /// next `[0x1A, 0x80]` after a clear) can also re-attach the
+    /// original freeze frames.
+    fn new(address: u8, ident: &'static str, dtcs: Vec<(u8, u8, u8)>, freeze: Vec<[u8; 9]>) -> Self {
+        Self {
+            address,
+            ident,
+            default_dtcs: dtcs.clone(),
+            default_freeze: freeze.clone(),
+            dtcs,
+            freeze,
+        }
+    }
+}
+
 impl SimTransport {
     pub fn new() -> Self {
         let dme_freeze = [0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40];
         let ecus = vec![
-            SimEcu { address: 0x12, ident: "DME MSV70 7558449 hw04 sw11.32 ci08", dtcs: vec![(0x2A, 0x82, 0x24), (0x30, 0xFF, 0x20)], freeze: vec![dme_freeze, [0x00, 0x00, 0x59, 0x00, 0x0C, 0x8C, 0x01, 0xE2, 0x40]] },
-            SimEcu { address: 0x18, ident: "EGS GS19D 7566999 hw02 sw09.10 ci03", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x29, ident: "DSC MK60E5 6778239 hw05 sw06.40 ci04", dtcs: vec![(0x5D, 0xF0, 0x22)], freeze: vec![[0x00, 0x00, 0x51, 0x2D, 0x00, 0x8A, 0x01, 0xE2, 0x41]] },
-            SimEcu { address: 0x40, ident: "CAS3 9147193 hw03 sw05.60 ci11", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x60, ident: "KOMBI L6 9187068 hw01 sw10.02 ci06", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x72, ident: "FRM2 9241322 hw22 sw16.10 ci07", dtcs: vec![(0x9C, 0xBA, 0x21)], freeze: vec![[0x00, 0x00, 0x4B, 0x00, 0x00, 0x8B, 0x01, 0xE2, 0x40]] },
-            SimEcu { address: 0x78, ident: "IHKA 9226613 hw02 sw08.30 ci02", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x01, ident: "ACSM2 9166087 hw04 sw03.21 ci05", dtcs: vec![], freeze: vec![] },
+            SimEcu::new(0x12, "DME MSV70 7558449 hw04 sw11.32 ci08", vec![(0x2A, 0x82, 0x24), (0x30, 0xFF, 0x20)], vec![dme_freeze, [0x00, 0x00, 0x59, 0x00, 0x0C, 0x8C, 0x01, 0xE2, 0x40]]),
+            SimEcu::new(0x18, "EGS GS19D 7566999 hw02 sw09.10 ci03", vec![], vec![]),
+            SimEcu::new(0x29, "DSC MK60E5 6778239 hw05 sw06.40 ci04", vec![(0x5D, 0xF0, 0x22)], vec![[0x00, 0x00, 0x51, 0x2D, 0x00, 0x8A, 0x01, 0xE2, 0x41]]),
+            SimEcu::new(0x40, "CAS3 9147193 hw03 sw05.60 ci11", vec![], vec![]),
+            SimEcu::new(0x60, "KOMBI L6 9187068 hw01 sw10.02 ci06", vec![], vec![]),
+            SimEcu::new(0x72, "FRM2 9241322 hw22 sw16.10 ci07", vec![(0x9C, 0xBA, 0x21)], vec![[0x00, 0x00, 0x4B, 0x00, 0x00, 0x8B, 0x01, 0xE2, 0x40]]),
+            SimEcu::new(0x78, "IHKA 9226613 hw02 sw08.30 ci02", vec![], vec![]),
+            SimEcu::new(0x01, "ACSM2 9166087 hw04 sw03.21 ci05", vec![], vec![]),
             // F/G-series modules mirroring the v0.8.0 scan-table additions
             // (sources: research/bmw_diag_dim04_uds_dids.md). The sim is an
             // E90, so these sit alongside the E-series set to exercise the
             // wider scan table; a real car answers whichever subset it has.
-            SimEcu { address: 0x19, ident: "DSC F15 6879451 hw03 sw04.20 ci02", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x56, ident: "BDC F30 7438803 hw11 sw08.14 ci09", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x63, ident: "GWS G30 9492421 hw02 sw03.40 ci01", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x0D, ident: "KOMBI F10 9293530 hw05 sw12.06 ci03", dtcs: vec![], freeze: vec![] },
-            SimEcu { address: 0x07, ident: "SME F15 PHEV 8610477 hw01 sw02.30 ci02", dtcs: vec![], freeze: vec![] },
+            SimEcu::new(0x19, "DSC F15 6879451 hw03 sw04.20 ci02", vec![], vec![]),
+            SimEcu::new(0x56, "BDC F30 7438803 hw11 sw08.14 ci09", vec![], vec![]),
+            SimEcu::new(0x63, "GWS G30 9492421 hw02 sw03.40 ci01", vec![], vec![]),
+            SimEcu::new(0x0D, "KOMBI F10 9293530 hw05 sw12.06 ci03", vec![], vec![]),
+            SimEcu::new(0x07, "SME F15 PHEV 8610477 hw01 sw02.30 ci02", vec![], vec![]),
         ];
         let now = Instant::now();
         Self { ecus, started: now, session: 0x01, last_seed: 0, unlocked: false, last_diag: now, s3_timeout: DEFAULT_S3_TIMEOUT, vin_mode: VinMode::Uds }
@@ -401,6 +432,26 @@ impl Transport for SimTransport {
 
         match payload {
             [0x1A, 0x80, ..] => {
+                // Issue #161 v0.14.1: on identify, if this ECU's DTC list
+                // is currently empty but the constructor seeded some
+                // default DTCs, refill from `default_dtcs` so the
+                // simulator matches what a real car would do — a fresh
+                // ignition cycle re-detects stale faults after a clear.
+                // The refill is silently skipped if the user's current
+                // DTC list is non-empty (i.e. they haven't cleared
+                // anything yet this session) so we never accidentally
+                // overwrite a fresh DTC read. We also restore the seed
+                // `freeze` frames so the demo loop is symmetric with the
+                // clear — "Run vehicle test" brings back the same shape
+                // the user had at startup. (A future refinement could
+                // vary the freeze data on each refill to model a real
+                // drive cycle, but that's out of scope for the bug fix.)
+                if ecu.dtcs.is_empty() && !ecu.default_dtcs.is_empty() {
+                    ecu.dtcs = ecu.default_dtcs.clone();
+                    if !ecu.default_freeze.is_empty() {
+                        ecu.freeze = ecu.default_freeze.clone();
+                    }
+                }
                 let mut r = vec![0x5A, 0x80];
                 r.extend_from_slice(ecu.ident.as_bytes());
                 Ok(r)
@@ -580,6 +631,94 @@ impl super::isotp::CanBus for SimCanBus {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Issue #161 (v0.14.1): clearing the DME clears the in-memory
+    /// `dtcs` Vec, and a subsequent KWP readDTCByStatus returns the
+    /// expected `58 00` (count=0). Mirrors the smoke test from the
+    /// original repro at `tests/issue161_repro.rs` before it was
+    /// folded into the in-source test module.
+    #[test]
+    fn clear_dtcs_actually_clears_sim() {
+        let mut t = SimTransport::new();
+        let pre = t.request(0x12, &[0x18, 0x02, 0xFF, 0xFF]).unwrap();
+        assert_eq!(pre[0], 0x58);
+        assert!(pre[1] > 0, "DME should start with DTCs, got count=0");
+
+        let cleared = t.request(0x12, &[0x14, 0xFF, 0xFF]).unwrap();
+        assert_eq!(cleared, vec![0x54]);
+
+        let post = t.request(0x12, &[0x18, 0x02, 0xFF, 0xFF]).unwrap();
+        assert_eq!(post[1], 0, "DTCs must be cleared, got count={}", post[1]);
+
+        // Idempotent: clearing again still returns 54 and stays empty.
+        let cleared2 = t.request(0x12, &[0x14, 0xFF, 0xFF]).unwrap();
+        assert_eq!(cleared2, vec![0x54]);
+        let post2 = t.request(0x12, &[0x18, 0x02, 0xFF, 0xFF]).unwrap();
+        assert_eq!(post2[1], 0);
+    }
+
+    /// Issue #161 (v0.14.1): after clearing the DME, the freeze-frame
+    /// read for a previously-stored DTC must NOT serve the stale data.
+    /// The sim returns `7F 12 31` (requestOutOfRange) instead.
+    #[test]
+    fn cleared_dtcs_have_no_freeze_frame() {
+        let mut t = SimTransport::new();
+        let _ = t.request(0x12, &[0x14, 0xFF, 0xFF]).unwrap();
+        let resp = t.request(0x12, &[0x12, 0x2A, 0x82]).unwrap();
+        assert_eq!(resp, vec![0x7F, 0x12, 0x31]);
+    }
+
+    /// Issue #161 (v0.14.1): once cleared, the same DTC can be
+    /// re-instated by an `identify` request (which is exactly what
+    /// `scan_modules` calls per ECU when the user clicks "Run vehicle
+    /// test"). After the refill, the next readDTCByStatus returns the
+    /// original default list. This is the user-facing behaviour the
+    /// issue expected: clear → run vehicle test → faults come back.
+    #[test]
+    fn identify_refills_dtcs_after_clear() {
+        let mut t = SimTransport::new();
+        let pre = t.request(0x12, &[0x18, 0x02, 0xFF, 0xFF]).unwrap();
+        let pre_codes: Vec<(u8, u8, u8)> = pre[2..]
+            .chunks(3)
+            .map(|c| (c[0], c[1], c[2]))
+            .collect();
+        assert!(pre_codes.len() >= 2, "expected DME to have DTCs");
+
+        // Clear.
+        let _ = t.request(0x12, &[0x14, 0xFF, 0xFF]).unwrap();
+        let mid = t.request(0x12, &[0x18, 0x02, 0xFF, 0xFF]).unwrap();
+        assert_eq!(mid[1], 0, "must stay cleared until identify");
+
+        // Identify triggers the refill (this is what scan_modules does).
+        let _ = t.request(0x12, &[0x1A, 0x80]).unwrap();
+        let post = t.request(0x12, &[0x18, 0x02, 0xFF, 0xFF]).unwrap();
+        assert_eq!(post[0], 0x58);
+        assert_eq!(post[1] as usize, pre_codes.len(), "refill count matches seed");
+        let post_codes: Vec<(u8, u8, u8)> = post[2..]
+            .chunks(3)
+            .map(|c| (c[0], c[1], c[2]))
+            .collect();
+        assert_eq!(post_codes, pre_codes, "refill content matches seed");
+
+        // Freeze-frame memory IS restored on refill (see `default_freeze`
+        // and the matching comment in the identify handler). The seed
+        // freeze for the DME's first DTC (0x2A82) starts with the bytes
+        // `[0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40]`,
+        // i.e. `dme_freeze` from `SimTransport::new()`. After identify
+        // restores the seed, readFreezeFrame for 0x2A82 must match
+        // exactly what the freshly-constructed sim would have served.
+        let resp = t.request(0x12, &[0x12, 0x2A, 0x82]).unwrap();
+        let expected_freeze: Vec<u8> = {
+            // Inline reconstruction so the test doesn't depend on the
+            // private `dme_freeze` literal in `SimTransport::new`.
+            // The seed is `vec![dme_freeze, [0x00, 0x00, 0x59, 0x00, 0x0C, 0x8C, 0x01, 0xE2, 0x40]]`.
+            let dme_freeze = [0x02u8, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40];
+            let mut r = vec![0x52, 0x2A, 0x82];
+            r.extend_from_slice(&dme_freeze);
+            r
+        };
+        assert_eq!(resp, expected_freeze);
+    }
 
     /// S3 drop: a non-default session with bus silence longer than the S3
     /// timeout reverts to default session on the next request.

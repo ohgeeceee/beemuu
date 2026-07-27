@@ -69,6 +69,11 @@ pub fn run() {
     );
 
     tauri::Builder::default()
+        // v0.14.1 fix for issue #161 — see Cargo.toml. The dialog plugin
+        // powers `ask()` from `@tauri-apps/plugin-dialog` on the JS side,
+        // replacing the unreliable `window.confirm()` for the
+        // "Clear fault memory" and security-access confirmation gates.
+        .plugin(tauri_plugin_dialog::init())
         .manage(commands::AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::list_ports,
