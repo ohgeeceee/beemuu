@@ -431,7 +431,7 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 
 ---
 
-*Last updated: 2026-07-25. v0.14.0 "Live CAN" Tier A surface complete — 7 slices shipped (#156, #157, #158, #162, #164, #165 fixup, #167 public-site bonus). Tier B (slices 5/6: `can_listener.rs` transport + `get_latest_can_frames` Tauri commands) gated behind OBDLink SX on E46. New public surface: beemuu.com hosts a Live Gauges demo driven by the same JS-side simulator.
+*Last updated: 2026-07-27. v0.14.1 shipped (#169 fix for issue #161 + #170 per-ECU freeze-schema split; 138/138 Rust + 206/206 JS + 166/166 Python). v0.14.2 cycle opened against a K+DCAN-cable + 2007 E70 X5 4.8L real-car pivot — Tier A only (data + frontend + docs); see [`docs/v0.14.2_plan.md`](docs/v0.14.2_plan.md). v0.14.0 Tier B (raw-CAN listener + `get_latest_can_frames`) remains gated behind OBDLink SX acquisition.*
 ---
 
 ## v0.14.0 — "Live CAN" (In Progress — Tier A done, Tier B open)
@@ -469,4 +469,64 @@ Slices dispatch as PRs when the work completes — no Discussion gate (`COMMUNIT
 ### What the bonus slice on `beemuu.com` adds
 
 The desktop panel lives behind the install barrier — only people who run the Tauri app see it. The public-site mirror at `frontend/live_gauges.js` (with its own CSS at `frontend/live_gauges.css` and DOM in `frontend/index.html`) puts the same gauges on `beemuu.com`'s landing page. Visitors see live values driven by the JS-side simulator in their browser, with a clear "Demo" label so nobody mistakes it for real-car data. Parity with the desktop simulator is pinned by 5 byte-for-byte tests at `frontend/live_gauges.test.js`. CI is wired to run those tests via `.github/workflows/test.yml` (the glob now includes `frontend/**/*.test.js`).
+
+## v0.14.1 — fix(issue #161) (Shipped 2026-07-27 via PR #169)
+
+**Premise.** Issue [#161](https://github.com/ohgeeceee/beemuu/issues/161) —
+"Clear fault memory not Working in Simulation." Two deliverables:
+
+1. **Tauri 2 `window.confirm()` flakiness** — the click handler at
+   `src/js/main.js:1125` (`btn-clear-faults`) and `src/js/main.js:1353`
+   (security-access confirm) used `window.confirm(...)`, which the
+   Tauri 2 webview auto-dismisses (resolves `false` without showing
+   the dialog) on some builds, short-circuiting the click. Both
+   gates now route through `tauri-plugin-dialog`'s `ask()` via the
+   new `src/js/dialog.js` helper.
+2. **Simulator regenerate-on-identify** — the sim's DTC list is
+   seeded from `default_dtcs` + `default_freeze` captured at
+   construction; on the next KWP `[0x1A, 0x80]` identify (called per
+   ECU by `scan_modules` on "Run vehicle test"), the identify
+   handler restores the seed when the current DTC list is empty.
+   Models a real car re-detecting faults on a fresh ignition cycle.
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| `src/js/dialog.js` helper + `dialog.test.js` (6 tests) | ✅ Done (PR #169) | A | Plugin-preferred → `window.confirm` → `true` fallback. Dual export. |
+| `tauri-plugin-dialog` crate wiring | ✅ Done (PR #169) | B | Tier B by virtue of `Cargo.toml` + `lib.rs` plugin registration. Flagged in PR body. |
+| Sim `default_dtcs`/`default_freeze` + identify refill | ✅ Done (PR #169) | B | Tier B by virtue of `transport/sim.rs` file path. |
+| Per-ECU freeze-schema split | ✅ Done (PR #170) | A | `community/freeze/<hex>.toml` + `community::load_freeze_per_ecu()` helper; shrinks `commands.rs::load_freeze_schemas` body. |
+
+PR #169 merged at `653c1547`. PR #170 (the freeze-schema split that
+was unstaged in the worktree when #169 opened) merged after at
+`ec12aa54`. Combined: 138/138 Rust, 206/206 JS, 166/166 Python.
+
+## v0.14.2 — "Live Data on the Bench" (In Progress)
+
+**Premise.** The user is going real-car with a K+DCAN cable on a 2007
+E70 X5 4.8L (N62/BTU, MSV80-family DME, D-CAN @ 500 kbps).
+v0.14.0's Tier B was explicitly gated behind an OBDLink SX cable;
+the K+DCAN cable cannot passively listen to raw broadcast frames
+(`src-tauri/src/transport/kdcan.rs` doc-comment lines 1-15 — the
+FTDI firmware terminates ISO-TP upstream). v0.14.1 was an unrelated
+bug fix (issue #161).
+
+**v0.14.2 ships "live data today, on the bench, with the cable you
+have."** Three Tier A slices — no `transport/**` changes, no new
+crate, no new Tauri command. `read_live_data` and `watch_*` already
+work over K+DCAN today; this cycle fills the per-param data, the
+panel UX, and the chassis-specific verification doc. See
+[`docs/v0.14.2_plan.md`](docs/v0.14.2_plan.md) for the full plan
++ explicit "what we will NOT do" list (touch `transport/`, touch
+`protocol/`, add a new crate, modify the v0.14.0 Live Gauges panel,
+cut a release tag).
+
+### Slices planned
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.2 header | 🔲 Open | A | `docs/v0.14.2_plan.md` + this ROADMAP entry. Docs-only. |
+| `community/profiles/n62.toml` enrichment — `0x5C` (oil temp), `0x5E` (fuel rate L/h), `0x5F` (runtime), `0x62` (fuel rate g/s) | 🔲 Open | A | Removes the unverified `local:10` placeholder once `0x5C` is verified. Adds `[[profile.notes]]` for N62 instrumentation (valley-pan slow-coolant monitoring, sleep-sensitive PIDs). |
+| Live Data panel UX polish — polling-rate selector, per-gauge peak tracking, range bar, snapshot-CSV button, NRC error surface | 🔲 Open | A | `src/index.html` + `src/css/app.css` + `src/js/main.js` + `src/js/live_format.js`. ≥2 new JS tests. |
+| `docs/validation/n62-real-car.md` harness doc | 🔲 Open | A | Chassis-specific verification path. Cross-links v0.14.0 `docs/validation/can-broadcast.md` for users who eventually get an OBDLink SX on the same chassis. |
+
 ---
