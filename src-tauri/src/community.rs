@@ -228,6 +228,94 @@ fn build_schema(s: SchemaToml) -> Result<(u8, freeze::FreezeSchema), String> {
     Ok((s.address, freeze::FreezeSchema { fields }))
 }
 
+// ---- Per-ECU freeze-frame schemas (community/freeze/<hex>.toml) -----------
+//
+// One file per ECU address. The filename stem is the address as hex
+// (`12.toml` is the DME). Saved by `save_freeze_schema` (below) and
+// loaded by both `tauri::command::load_freeze_schemas` (the
+// schema-builder "Reload" button) and `community::load()` on startup
+// so the freeze-frame panel auto-populates without manual reload.
+//
+// The legacy `community/freeze_schemas.toml` (single file holding all
+// ECUs as `[[schema]]` blocks with explicit `address =` lines) is no
+// longer read by this path — see `load_schemas` for the legacy loader
+// which is kept for backward compatibility.
+
+fn build_freeze_per_ecu(address: u8, f: FreezeFile) -> Result<freeze::FreezeSchema, String> {
+    let mut fields = Vec::with_capacity(f.field.len());
+    for fl in f.field {
+        let Some(width) = width_from_str(&fl.width) else {
+            return Err(format!("0x{address:02X}: bad width '{}'", fl.width));
+        };
+        // FreezeField holds &'static str; leak the owned strings (bounded by
+        // the tiny number of community fields, one-time at startup/import).
+        let label: &'static str = Box::leak(fl.label.into_boxed_str());
+        let unit: &'static str = Box::leak(fl.unit.into_boxed_str());
+        fields.push(freeze::FreezeField::new(
+            label, unit, fl.offset, width, fl.scale, fl.bias, fl.decimals,
+        ));
+    }
+    Ok(freeze::FreezeSchema { fields })
+}
+
+/// Load every `community/freeze/<hex>.toml` and register by filename.
+/// Returns the number of schemas successfully registered. Warnings
+/// (bad filename, parse error, bad width) are appended to `warnings`.
+///
+/// Called from two places:
+///   1. `community::load()` — on startup, so the freeze-frame panel
+///      auto-populates without manual reload.
+///   2. `tauri::command::load_freeze_schemas` — when the user clicks
+///      "Reload" in the schema-builder panel after editing a file
+///      externally.
+///
+/// The loader's registry() is a HashMap; if the same address is
+/// registered twice, the later call wins.
+pub fn load_freeze_per_ecu(dir: &Path, warnings: &mut Vec<String>) -> u32 {
+    let freeze_dir = dir.join("freeze");
+    if !freeze_dir.is_dir() {
+        return 0;
+    }
+    let Ok(rd) = std::fs::read_dir(&freeze_dir) else { return 0 };
+    let mut entries: Vec<_> = rd.flatten().map(|e| e.path()).collect();
+    entries.sort();
+    let mut count = 0u32;
+    for path in entries {
+        if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("toml")) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let stem = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s,
+            None => continue,
+        };
+        let address = match u8::from_str_radix(stem, 16) {
+            Ok(a) => a,
+            Err(_) => {
+                warnings.push(format!("Bad freeze filename: {}", path.display()));
+                continue;
+            }
+        };
+        let parsed: FreezeFile = match toml::from_str(&text) {
+            Ok(f) => f,
+            Err(e) => {
+                warnings.push(format!("{}: {e}", path.display()));
+                continue;
+            }
+        };
+        match build_freeze_per_ecu(address, parsed) {
+            Ok(schema) => {
+                freeze::registry().register_for(address, schema);
+                count += 1;
+            }
+            Err(w) => warnings.push(w),
+        }
+    }
+    count
+}
+
 // ---- Loaders ---------------------------------------------------------------
 
 fn load_dtcs(dir: &Path, report: &mut LoadReport) {
@@ -299,6 +387,13 @@ pub fn load() -> LoadReport {
     load_dtcs(&dir, &mut report);
     load_profiles(&dir, &mut report);
     load_schemas(&dir, &mut report);
+    // Per-ECU freeze-frame schemas (community/freeze/<hex>.toml). The
+    // legacy load_schemas() above reads the single freeze_schemas.toml
+    // file; this reads the per-ECU split. Both can coexist — both
+    // register via freeze::registry(), which is a last-write-wins
+    // HashMap, so the per-ECU loader intentionally runs second to
+    // override any address it also got from the legacy file.
+    report.freeze_schemas += load_freeze_per_ecu(&dir, &mut report.warnings) as usize;
     let _ = REPORT.set(report.clone());
     report
 }
@@ -783,5 +878,146 @@ label = "Legacy profile"
             count += 1;
         }
         assert!(count >= 2, "oracle gate should cover >= 2 JSON files, saw {count}");
+    }
+}
+
+#[cfg(test)]
+mod per_ecu_freeze_loader_tests {
+    use super::*;
+    use crate::data::freeze;
+    use std::cell::RefCell;
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// Process-wide scratch dir for the tests in this module.
+    /// Using a single shared `tempdir`-style directory keeps the
+    /// tests stdlib-only (the `tempfile` crate isn't a dependency).
+    thread_local! {
+        static SCRATCH: RefCell<Option<PathBuf>> = RefCell::new(None);
+    }
+
+    /// Helper: write the given filenames + contents under
+    /// `<scratch>/community/freeze/`, point `find_dir` at
+    /// `<scratch>/community`, then call `load_freeze_per_ecu`. Returns
+    /// the loaded count + any warnings for assertions.
+    fn load_fixture(files: &[(&str, &str)]) -> (u32, Vec<String>, PathBuf) {
+        let scratch = SCRATCH.with(|s| {
+            if let Some(p) = s.borrow().clone() {
+                return p;
+            }
+            // Build a unique scratch dir without the `tempfile` crate.
+            // On Windows the PID + nanoseconds is unique enough for
+            // sequential test runs; we never run these in parallel.
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0);
+            let pid = std::process::id();
+            let base = std::env::temp_dir().join(format!("beemuu-freeze-{pid}-{nanos}"));
+            fs::create_dir_all(&base).expect("mkdir scratch");
+            *s.borrow_mut() = Some(base.clone());
+            base
+        });
+        let community = scratch.join("community");
+        let freeze_dir = community.join("freeze");
+        fs::create_dir_all(&freeze_dir).expect("mkdir freeze");
+        for (name, content) in files {
+            fs::write(freeze_dir.join(name), content).expect("write fixture");
+        }
+        let mut warnings = Vec::new();
+        let count = load_freeze_per_ecu(&community, &mut warnings);
+        (count, warnings, scratch)
+    }
+
+    #[test]
+    fn loads_dme_schema_with_correct_offset_and_scale() {
+        let (count, warnings, _scratch) = load_fixture(&[(
+            "12.toml",
+            r#"
+[[field]]
+label = "Engine speed"
+unit = "rpm"
+offset = 0
+width = "u16"
+scale = 1.0
+bias = 0.0
+decimals = 0
+
+[[field]]
+label = "Coolant temp"
+unit = "°C"
+offset = 2
+width = "u8"
+scale = 1.0
+bias = -40.0
+decimals = 0
+"#,
+        )]);
+        assert_eq!(count, 1, "should register exactly one schema");
+        assert!(warnings.is_empty(), "no warnings expected: {warnings:?}");
+        // Verify the registered schema decodes the simulator's DME
+        // fixture (see src-tauri/src/transport/sim.rs::dme_freeze).
+        let schema = freeze::registry().get_schema(0x12).expect("0x12 registered");
+        // dme_freeze = [0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40]
+        let items = schema.decode(&[0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40]);
+        let labels: Vec<_> = items.iter().map(|i| (i.label.as_str(), i.value.as_str())).collect();
+        // The schema also appends a "Raw" entry with the byte
+        // hex dump; assert the named fields by substring so the
+        // "Raw" entry doesn't interfere.
+        assert!(
+            labels.iter().any(|(l, v)| *l == "Engine speed" && v.contains("750")),
+            "rpm = 0x02EE = 750; got {labels:?}"
+        );
+        assert!(
+            labels.iter().any(|(l, v)| *l == "Coolant temp" && v.contains("82")),
+            "coolant = 0x7A - 40 = 82; got {labels:?}"
+        );
+    }
+
+    #[test]
+    fn loads_dsc_and_frm_schemas_in_one_pass() {
+        let (count, warnings, _scratch) = load_fixture(&[
+            ("12.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("29.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("72.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+        ]);
+        assert_eq!(count, 3);
+        assert!(warnings.is_empty());
+        for addr in [0x12u8, 0x29, 0x72] {
+            assert!(freeze::registry().get_schema(addr).is_some(), "0x{addr:02X} registered");
+        }
+    }
+
+    #[test]
+    fn bad_filename_emits_warning_and_does_not_crash() {
+        let (count, warnings, _scratch) = load_fixture(&[
+            ("12.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("not-hex.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("99.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+        ]);
+        assert_eq!(count, 2, "the 12.toml and 99.toml register; not-hex.toml is skipped");
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("Bad freeze filename"));
+    }
+
+    #[test]
+    fn bad_width_emits_warning_and_does_not_register_that_field() {
+        // Single field with a width that doesn't parse. The schema as
+        // a whole is rejected so the address doesn't get registered
+        // with a half-broken field list.
+        let (count, warnings, _scratch) = load_fixture(&[(
+            "12.toml",
+            "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"banana\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n",
+        )]);
+        assert_eq!(count, 0);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("bad width"));
+    }
+
+    #[test]
+    fn empty_dir_returns_zero_count() {
+        let (count, warnings, _scratch) = load_fixture(&[]);
+        assert_eq!(count, 0);
+        assert!(warnings.is_empty());
     }
 }

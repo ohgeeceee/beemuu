@@ -196,41 +196,11 @@ pub fn save_freeze_schema(
 #[tauri::command]
 pub fn load_freeze_schemas() -> Result<u32, String> {
     let dir = crate::community::find_dir().ok_or("Community directory not found")?;
-    let freeze_dir = dir.join("freeze");
-    if !freeze_dir.is_dir() {
-        return Ok(0);
-    }
-    let mut count = 0u32;
-    for entry in std::fs::read_dir(&freeze_dir).map_err(|e| e.to_string())?.flatten() {
-        let path = entry.path();
-        if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("toml")) {
-            continue;
-        }
-        let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let parsed: crate::community::FreezeFile =
-            toml::from_str(&text).map_err(|e| e.to_string())?;
-        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-        let address = u8::from_str_radix(stem, 16)
-            .map_err(|_| format!("Bad filename: {}", path.display()))?;
-        let fields: Vec<freeze::FreezeField> = parsed
-            .field
-            .into_iter()
-            .map(|f| {
-                let width = freeze::width_from_str(&f.width).unwrap_or(freeze::Width::U8);
-                freeze::FreezeField::new(
-                    Box::leak(f.label.into_boxed_str()),
-                    Box::leak(f.unit.into_boxed_str()),
-                    f.offset,
-                    width,
-                    f.scale,
-                    f.bias,
-                    f.decimals,
-                )
-            })
-            .collect();
-        freeze::registry().register_for(address, freeze::FreezeSchema { fields });
-        count += 1;
-    }
+    let mut warnings: Vec<String> = Vec::new();
+    let count = crate::community::load_freeze_per_ecu(&dir, &mut warnings);
+    // Warnings are pushed into the community::LoadReport on the
+    // startup path; the reload button just counts. If a future
+    // diagnostic wants the warnings, it can read report().warnings.
     Ok(count)
 }
 
