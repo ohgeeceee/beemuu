@@ -15,6 +15,14 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# v0.14.1 fix for issue #161 (Clear fault memory not working in simulation):
+# `window.confirm()` is unreliable in the Tauri 2 webview — it sometimes
+# auto-resolves `false` (silently dismissing the dialog) which short-circuits
+# the click handler before the `invoke("clear_faults", ...)` runs. The dialog
+# plugin's `ask()` always shows a real OS dialog and returns the user's
+# actual choice. Adding this crate also brings a second use-site into scope
+# (the security-access confirm); both gates use it now.
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serialport = "4"

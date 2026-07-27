@@ -1,0 +1,26 @@
+# DSC (0x29) freeze-frame byte layout — SIMULATOR ONLY.
+#
+# WARNING: see community/freeze/12.toml for the SIMULATOR-ONLY header.
+# Same byte-0..2 convention observed in src-tauri/src/transport/sim.rs.
+# Source bytes:
+#   dsc_freeze = [0x00, 0x00, 0x51, 0x2D, 0x00, 0x8A, 0x01, 0xE2, 0x41]
+#                └──┘  └─┘  └───────────────────────────────────────┘
+#                rpm=0   coolant=41°C  (offsets 3-8 unverified)
+
+[[field]]
+label = "Engine speed"
+unit = "rpm"
+offset = 0
+width = "u16"
+scale = 1.0
+bias = 0.0
+decimals = 0
+
+[[field]]
+label = "Coolant temp"
+unit = "°C"
+offset = 2
+width = "u8"
+scale = 1.0
+bias = -40.0
+decimals = 0

@@ -1,0 +1,26 @@
+# FRM (0x72) freeze-frame byte layout — SIMULATOR ONLY.
+#
+# WARNING: see community/freeze/12.toml for the SIMULATOR-ONLY header.
+# Same byte-0..2 convention observed in src-tauri/src/transport/sim.rs.
+# Source bytes:
+#   frm_freeze = [0x00, 0x00, 0x4B, 0x00, 0x00, 0x8B, 0x01, 0xE2, 0x40]
+#                └──┘  └─┘  └───────────────────────────────────────┘
+#                rpm=0   coolant=35°C  (offsets 3-8 unverified)
+
+[[field]]
+label = "Engine speed"
+unit = "rpm"
+offset = 0
+width = "u16"
+scale = 1.0
+bias = 0.0
+decimals = 0
+
+[[field]]
+label = "Coolant temp"
+unit = "°C"
+offset = 2
+width = "u8"
+scale = 1.0
+bias = -40.0
+decimals = 0

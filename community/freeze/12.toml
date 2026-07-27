@@ -1,0 +1,37 @@
+# DME (0x12) freeze-frame byte layout — SIMULATOR ONLY.
+#
+# WARNING: this schema matches the byte layout emitted by
+# src-tauri/src/transport/sim.rs::SimEcu.freeze for the DME. It is
+# NOT verified against any real BMW DME. The harness for real-car
+# verification lives at docs/validation/freeze-frame.md (TODO
+# v0.14.1). All fields past offset 2 are deliberately left
+# un-modeled — the simulator emits 9 bytes but the meaning of
+# bytes 3-8 has no open-source confirmation.
+#
+# Source bytes (src-tauri/src/transport/sim.rs):
+#   dme_freeze = [0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40]
+#                └──┘  └─┘  └─┘  └───────────────────────────────┘
+#                rpm=750  coolant=82°C  (offsets 3-8 unverified)
+#
+# Decode convention: the freeze-frame payload is the env bytes
+# after the SID + DTC hi/lo (see protocol::read_freeze_frame). The
+# schema is fed `&resp[3..]` from the KWP `12 hi lo -> 52 hi lo <env>`
+# response, so offsets here count from the first env byte.
+
+[[field]]
+label = "Engine speed"
+unit = "rpm"
+offset = 0
+width = "u16"
+scale = 1.0
+bias = 0.0
+decimals = 0
+
+[[field]]
+label = "Coolant temp"
+unit = "°C"
+offset = 2
+width = "u8"
+scale = 1.0
+bias = -40.0
+decimals = 0
