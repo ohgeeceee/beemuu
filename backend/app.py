@@ -191,6 +191,161 @@ def build_dashboard() -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# /api/live — recent commits + open/recent PRs.
+#
+# Designed for the dashboard's 30-second auto-refresh on beemuu.com.
+# Fail-soft: any subprocess error returns `None` for the affected field
+# (rather than 500ing the whole endpoint) so the dashboard keeps showing
+# whatever it has. The hosted dashboard reads VPS-local git; PR data
+# comes from the `gh` CLI which may not be installed or may rate-limit.
+# ---------------------------------------------------------------------------
+
+_LIVE_CACHE: dict = {"data": None, "ts": 0.0}
+_LIVE_CACHE_TTL_SECS = 30.0  # cached for 30s — dashboard polls at the same rate
+
+
+def _gh_json(*args: str):
+    """Run `gh <args> ...` and parse stdout as JSON.
+
+    Returns None on any failure (binary missing, non-zero exit, parse
+    error, timeout). All callers must treat None as "unavailable" and
+    render a degraded state. The endpoint stays useful even when gh
+    is unreachable.
+    """
+    try:
+        result = subprocess.run(
+            ["gh", *args],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def _recent_commits(limit: int = 5):
+    """Format `git log -n<limit> --format=...` into compact dicts.
+
+    One shell call via --format; we parse the literal separators (%H%x00,
+    %s%x00, %an%x00, %aI) so we don't spawn `git` per field. Subject
+    is truncated to 120 chars in the formatter (defensive — git itself
+    doesn't truncate).
+    """
+    fmt = "%H%x00%h%x00%s%x00%an%x00%aI"
+    raw = _git("log", f"-n{limit}", f"--format={fmt}")
+    if not raw:
+        return []
+    out = []
+    for line in raw.split("\n"):
+        if not line:
+            continue
+        parts = line.split("\x00")
+        if len(parts) < 5:
+            continue
+        sha, short, subject, author, iso = parts[:5]
+        out.append({
+            "sha": sha,
+            "short": short,
+            "subject": subject[:120],
+            "author": author,
+            "iso": iso,
+        })
+    return out
+
+
+def _open_prs():
+    """Return (count, list-of-dicts) for currently open PRs.
+
+    Empty list when gh is unavailable — the dashboard renders "PR data
+    unavailable" rather than crashing.
+    """
+    data = _gh_json(
+        "pr", "list", "--state", "open",
+        "--json", "number,title,author,createdAt",
+        "--limit", "10",
+    )
+    if not isinstance(data, list):
+        return (0, [])
+    items = [
+        {
+            "number": p.get("number"),
+            "title": p.get("title", ""),
+            "author": (p.get("author") or {}).get("login"),
+            "created_at": p.get("createdAt"),
+        }
+        for p in data
+        if isinstance(p, dict)
+    ]
+    return (len(items), items)
+
+
+def _recent_merged_prs(limit: int = 3):
+    """Most-recently-merged PRs (lightweight: number + title + mergedAt)."""
+    data = _gh_json(
+        "pr", "list", "--state", "merged",
+        "--json", "number,title,mergedAt",
+        "--limit", str(limit),
+    )
+    if not isinstance(data, list):
+        return []
+    return [
+        {
+            "number": p.get("number"),
+            "title": p.get("title", ""),
+            "merged_at": p.get("mergedAt"),
+        }
+        for p in data
+        if isinstance(p, dict)
+    ]
+
+
+def build_live(force: bool = False):
+    """Return the /api/live payload.
+
+    Cached for 30s. Pass force=True (only from tests) to bypass the
+    cache. The dashboard polls at 30s, so the cache keeps us from
+    spawning git+gh on every visitor tab-open.
+    """
+    now = time.monotonic()
+    cached = _LIVE_CACHE.get("data")
+    cached_at = _LIVE_CACHE.get("ts", 0.0)
+    if not force and cached is not None and (now - cached_at) < _LIVE_CACHE_TTL_SECS:
+        return cached
+
+    commits = _recent_commits(5)
+    open_count, open_prs = _open_prs()
+    recent_merged = _recent_merged_prs(3)
+
+    payload = {
+        "ok": True,
+        "service": "beemuu-api",
+        "generated_at_secs": int(time.time()),
+        "repo": {
+            "branch": _git("branch", "--show-current"),
+            "commit": _git("rev-parse", "--short", "HEAD"),
+            "dirty": bool((_git("status", "--short") or "").strip()),
+        },
+        "commits": commits,
+        "pull_requests": {
+            "open_count": open_count,
+            "open": open_prs,
+            "recently_merged": recent_merged,
+            "available": bool(open_prs) or bool(recent_merged),
+        },
+    }
+    _LIVE_CACHE["data"] = payload
+    _LIVE_CACHE["ts"] = now
+    return payload
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "BeeEmUuAPI/0.1"
 
@@ -209,6 +364,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/dashboard":
             self._json(build_dashboard())
+            return
+        if parsed.path == "/api/live":
+            self._json(build_live())
             return
         # Public DTC catalog endpoints. No auth - read-only by design.
         if parsed.path == "/api/dtc":
@@ -248,6 +406,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/app.css":
             self._file(FRONTEND / "app.css", "text/css; charset=utf-8")
+            return
+        # Live Gauges panel (v0.14.0 public-site bonus, PR #167). The
+        # static asset routes mirror the existing /app.{js,css} pattern.
+        # Without these the panel would 404 in production even though
+        # frontend/index.html references them.
+        if parsed.path == "/live_gauges.js":
+            self._file(FRONTEND / "live_gauges.js", "application/javascript; charset=utf-8")
+            return
+        if parsed.path == "/live_gauges.css":
+            self._file(FRONTEND / "live_gauges.css", "text/css; charset=utf-8")
             return
         # Schematics viewer (schematic list + per-slug viewer). Hosted at
         # the root to match the admin dashboard pattern; assets vendored
