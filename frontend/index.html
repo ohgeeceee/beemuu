@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BeeEmUu</title>
+  <title>BeeEmUu — BMW diagnostics, with real-time live gauges</title>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/live_gauges.css">
 </head>
 <body>
   <main class="shell">
     <section class="hero">
       <p class="eyebrow">BeeEmUu VPS</p>
-      <h1>BMW diagnostic backend dashboard</h1>
-      <p>Hosted control surface for repo/build health. Desktop app still handles live cable/vehicle I/O.</p>
-      <button id="refresh" type="button">Refresh</button>
+      <h1>BMW diagnostics, with real-time live gauges</h1>
+      <p>Open-source desktop app + hosted backend dashboard. The six gauges below show what your car looks like in real time — the same Live CAN module that ships in the v0.14.0 desktop build, mirrored here as a JS-side demo so visitors can see live data without installing anything.</p>
+      <button id="refresh" type="button">Refresh dashboard</button>
     </section>
 
     <section id="status" class="grid" aria-live="polite">
@@ -20,6 +21,48 @@
       <article class="card"><span>Repo</span><strong>Loading</strong></article>
       <article class="card"><span>Profiles</span><strong>Loading</strong></article>
       <article class="card"><span>Bundles</span><strong>Loading</strong></article>
+    </section>
+
+    <section class="panel live-gauges" id="beemuu-live-gauges">
+      <div class="live-gauges-head">
+        <div>
+          <h2>Live Gauges</h2>
+          <p class="live-gauges-tagline">Simulated BMW E-series CAN broadcast frames, decoded live. The desktop app reads these same IDs (0x0AA / 0x1D0 / 0x545 / 0x0CE / 0x130 / 0x316) from the OBDLink SX cable on a real E46.</p>
+        </div>
+        <span class="live-gauges-status" data-live-can-status>
+          <span data-live-can-status-text>Starting…</span>
+          <span class="fps" data-live-can-fps></span>
+        </span>
+      </div>
+      <div class="live-gauges-grid">
+        <div class="live-gauges-cell" data-live-can-cell="rpm">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="coolant">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="oilTemp">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="vehicleSpeed">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="batteryVoltage">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="throttle">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+      </div>
+      <p class="live-gauges-foot">
+        Demo runs in your browser via <code>frontend/live_gauges.js</code>. Source of truth for the byte patterns is the Rust simulator in <code>src-tauri/src/transport/sim.rs::broadcast_frames_at</code>; the public-site mirror and the desktop-app mirror are pinned to byte-for-byte parity by <code>frontend/live_gauges.test.js</code>. Real-car scales need E46 verification — see <a href="https://github.com/ohgeeceee/beemuu/blob/main/docs/validation/can-broadcast.md">docs/validation/can-broadcast.md</a>.
+      </p>
     </section>
 
     <section class="panel" id="release-panel">
@@ -43,5 +86,6 @@
     </section>
   </main>
   <script src="/app.js"></script>
+  <script src="/live_gauges.js"></script>
 </body>
 </html>

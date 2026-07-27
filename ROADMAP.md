@@ -431,33 +431,42 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 
 ---
 
-*Last updated: 2026-07-19. v0.9.0 "Guided Fault Finding" complete — all 5 slices merged (PR #1 #120 schema/gate, PR #2 #121 corpus, PR #3 #122 loader+`get_test_plan` command [Tier B, human-merged], PR #4 #123 walkthrough UI [Tier A], PR #5 #125 validation harness + contribution path [Tier A]). v0.8.0 "Service Bay" shipped (#114/#115/#116/#117). Plan: [`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md); slices dispatched as PRs per `COMMUNITY_FRAMEWORK.md` Rule 2.*
+*Last updated: 2026-07-25. v0.14.0 "Live CAN" Tier A surface complete — 7 slices shipped (#156, #157, #158, #162, #164, #165 fixup, #167 public-site bonus). Tier B (slices 5/6: `can_listener.rs` transport + `get_latest_can_frames` Tauri commands) gated behind OBDLink SX on E46. New public surface: beemuu.com hosts a Live Gauges demo driven by the same JS-side simulator.
 ---
 
-## v0.14.0 — "Live CAN" (Planned)
+## v0.14.0 — "Live CAN" (In Progress — Tier A done, Tier B open)
 
 **Premise.** E-series owners can't read their live data today — KWP2000 local IDs are unmapped in open sources (`docs/ROADMAP_ISSUES.md` issue 6, "CAN bus listener mode for E-series"). But BMW ECUs **broadcast** the data anyway on the raw CAN bus at 500 kbit/s. The bytes are free, we just don't listen. v0.14.0 adds a new `Live CAN` transport mode that filters and decodes the 6 known broadcast IDs (`0x0AA` RPM/torque/throttle, `0x1D0` coolant/ambient, `0x545` oil temp, `0x0CE` wheel speeds, `0x130` vehicle speed, `0x316` battery voltage) and surfaces them as a new "Live Gauges" panel using the existing `src/js/gauges.js` widget.
 
 **Hardware scope (v0.14.0):** OBDLink SX on E46. The SX is a USB-CDC ACM serial device, so the existing `serialport = "4"` crate covers it (no new dep). STN1110 protocol commands go over the standard serial handle — the same `SerialPort` trait the K+DCAN transport already uses. The new `transport/can_listener.rs` is additive; K+DCAN KWP diagnostic sessions keep using `kdcan.rs` in parallel. See [`docs/v0.14.0_plan.md`](docs/v0.14.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (touch the K+DCAN transport, touch `protocol/`, add a new crate, run the listener by default).
 
-### Planned slices
+### Status: Tier A complete (6 of 8 slices shipped), Tier B gated behind real-car testing
+
+The Tier A surface — frontend decoder module, JS-side simulator, panel, harness doc — is fully shipped. The Tier B surface — new `transport/can_listener.rs` + three Tauri commands — is **open** and gated behind OBDLink SX testing on a real E46. The "more live features" extension (per-gauge peak tracking + frame-rate counter) landed in PR #164 as a bonus slice.
+
+### Slices shipped
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Cycle plan + ROADMAP v0.14.0 header | 🔲 Open | A | This PR lands the plan on `main`. Docs-only. |
-| `src/js/can_decoders.js` pure decoder module + tests | 🔲 Open | A | 8 decoders, 1-2 fixtures each, dual export (CommonJS + `window.beeemuuCanDecoders`). |
-| `src/js/live_gauges.js` panel (6 gauges) | 🔲 Open | A | Reuses existing `src/js/gauges.js` `Gauge` widget. 2×3 grid. Off by default. |
-| `src-tauri/src/transport/sim.rs` broadcast personality | 🔲 Open | A | Pushes the 6 known IDs at the documented rates into an `mpsc::Sender<CanFrame>`. Test source for slices 2-3-5. |
-| `src-tauri/src/transport/can_listener.rs` (new transport) | 🔲 Open | **B** | `ListenerMode::{Simulator, OBDLinkSx { port_name }}` + `Arc<Mutex<HashMap<u16, CanFrame>>>` for latest frames. Touches `transport/`. |
-| `src-tauri/src/commands.rs` — `start_can_listen` / `stop_can_listen` / `get_latest_can_frames` | 🔲 Open | **B** | Three async commands, flag `commands.rs` at the top of the PR body, wait for human merge. |
-| Frontend wiring: panel → `get_latest_can_frames` | 🔲 Open | A | Thin shim; `setInterval(render, 100ms)` reads the latest frames and calls the slice-2 decoders. |
-| `docs/validation/can-broadcast.md` harness doc | 🔲 Open | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md` / `multi-frame.md`. Includes E9x/E6x verification path for the 0x545 oil-temp frame where "E9x needs verification". |
+| Cycle plan + ROADMAP v0.14.0 header | ✅ Done (PR #156) | A | `docs/v0.14.0_plan.md` + this ROADMAP entry. Docs-only. |
+| `src/js/can_decoders.js` pure decoder module + tests | ✅ Done (PR #157) | A | 8 decoders + scale constants; dual export (CommonJS + `window.beeemuuCanDecoders`). 32 tests. |
+| `src/js/live_gauges.js` panel (6 gauges) | ✅ Done (PR #162) | A | Reuses existing `src/js/gauges.js` `Gauge` widget. 2×3 grid. Off by default. Mounts synchronously at module load (DOMContentLoaded trap noted inline). |
+| `src-tauri/src/transport/sim.rs` broadcast personality | ✅ Done (PR #158) | A | Pushes the 6 known IDs at the documented rates into an `mpsc::Sender<CanFrame>`. Test source for slices 2-3-5. |
+| `src/js/live_can_source.js` — JS-side simulator mirror + source wiring | ✅ Done (PR #164) | A | Pure JS mirror of `broadcast_frames_at()`; byte-for-byte parity pinned by tests. The frontend has a working demo path even before the Tier B transport ships. |
+| Extended `live_gauges.js` controller — peak tracking + framesPerSecond + per-gauge peak labels | ✅ Done (PR #164) | A | "More live features" beyond the cycle spec. Peak per gauge + frame-rate counter in the panel header. |
+| `docs/validation/can-broadcast.md` harness doc | ✅ Done (PR #164) | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md`. Includes E9x/E6x verification path for 0x545 oil-temp frame. |
+| **Bonus: Live Gauges panel on `beemuu.com`** | ✅ Done (PR #167) | A | Public-site mirror of the desktop panel. Visitors to beemuu.com see the 6 gauges ticking in real time, driven by the same JS-side simulator. Byte parity with desktop module pinned by `frontend/live_gauges.test.js`. |
 
-Slices dispatch as PRs when the work completes — no Discussion gate
-(`COMMUNITY_FRAMEWORK.md` Rule 2). Slice 5 (Tier B transport) is the
-gating PR; slices 2-3-4 can land in parallel against slice 5's
-branch using the simulator's broadcast personality as a test
-source. Slice 6 (Tier B commands) follows slice 5. Slice 7
-(frontend wiring) follows slice 6. Slice 8 lands any time after
-slice 5.
+### Slices still open (Tier B, gated behind real-car testing)
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| `src-tauri/src/transport/can_listener.rs` (new transport) | 🔲 Open | **B** | `ListenerMode::{Simulator, OBDLinkSx { port_name }}` + `Arc<Mutex<HashMap<u16, CanFrame>>>` for latest frames. Touches `transport/`. Flag in PR body. |
+| `src-tauri/src/commands.rs` — `start_can_listen` / `stop_can_listen` / `get_latest_can_frames` | 🔲 Open | **B** | Three async commands, flag `commands.rs` at the top of the PR body, wait for human merge. |
+
+Slices dispatch as PRs when the work completes — no Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2). The Tier B pair (slices 5 + 6) is the gating pair; they ship together because the hardware source in `live_can_source.js` is the *consumer* of those commands and goes from "no frames" to "real frames" with no frontend change.
+
+### What the bonus slice on `beemuu.com` adds
+
+The desktop panel lives behind the install barrier — only people who run the Tauri app see it. The public-site mirror at `frontend/live_gauges.js` (with its own CSS at `frontend/live_gauges.css` and DOM in `frontend/index.html`) puts the same gauges on `beemuu.com`'s landing page. Visitors see live values driven by the JS-side simulator in their browser, with a clear "Demo" label so nobody mistakes it for real-car data. Parity with the desktop simulator is pinned by 5 byte-for-byte tests at `frontend/live_gauges.test.js`. CI is wired to run those tests via `.github/workflows/test.yml` (the glob now includes `frontend/**/*.test.js`).
 ---
