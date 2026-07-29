@@ -530,3 +530,21 @@ cut a release tag).
 | `docs/validation/n62-real-car.md` harness doc | ✅ Done (PR #178) | A | Chassis-specific verification path. Cross-links v0.14.0 `docs/validation/can-broadcast.md` for users who eventually get an OBDLink SX on the same chassis. |
 
 ---
+
+## v0.14.3 — "Finish the Bench" (In Progress)
+
+Completes the v0.14.2 premise: every PID the slice 3 harness doc
+asks the user to verify is in the profile, with the decoders it
+needs, and the per-PID NRC error surface the slice 2 UI deferred
+is in place. 3 Tier A + 1 Tier B slice. No `transport/**`
+changes. See [`docs/v0.14.3_plan.md`](docs/v0.14.3_plan.md).
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.3 header | 🔲 Open | A | `docs/v0.14.3_plan.md` + this ROADMAP entry. Docs-only. |
+| `u16_fiftieths` + `u32_be` + `u16_half` decoders | 🔲 Open | A | Three new `Decode` variants in `src-tauri/src/data/live.rs` (one PR or 1a/1b split, see plan §"Open question"). Required before slice 2. |
+| `community/profiles/n62.toml` enrichment — add the three deferred PIDs (`0x5E` fuel rate L/h, `0x5F` engine runtime, `0x62` fuel rate g/s) | 🔲 Open | A | Depends on slice 1. Each entry carries the `[needs verification, N62/E70 bench]` marker per the harness doc. |
+| Per-PID NRC dim + remove-from-profile UI | 🔲 Open | B | Re-enable the v0.14.2 slice 2 WIP `addUnsupportedPid` / `removeUnsupportedPid` helpers. Threads the DID through `src-tauri/src/protocol/mod.rs`'s NRC error string. New Tauri command `remove_profile_pid` (async + spawn_blocking; will need an `async_commands` allowlist guard update). |
+| `docs/validation/n62-real-car.md` extension + ROADMAP cycle closeout | 🔲 Open | A | Adds the three new PIDs to the Step 2 + Step 3 cold / running reading tables. Closes the v0.14.3 cycle table. |
+
+---
