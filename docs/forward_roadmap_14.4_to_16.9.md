@@ -1,12 +1,42 @@
 # Forward Roadmap — v0.14.4 → v0.16.9
 
-> **Status:** planning artifact. Authored 2026-07-29 against
-> `main` @ `8175540` (v0.14.2 closed; v0.14.3 cycle-plan PR #179
-> open). This is a **list of candidate work** for the next 12
-> release cycles, not a commitment. Per the project convention,
-> each cycle ships its own `docs/v0.14.x_plan.md` and a
-> maintainer-opened Discussion thread; this doc seeds the
-> community conversation for that work.
+> **Status (revised 2026-07-29):** planning artifact, revised
+> against `main` @ `b029aa6` after probing the actual state of the
+> codebase. The original PR #180 draft described v0.15.1 as "The
+> Async Refactor" and v0.16.0's spine as "ISO-TP multi-frame" — both
+> of which are **already on main**:
+>
+> - The async refactor (CLAUDE.md v0.6.0 release blocker) is **done.**
+>   All 25 transport-touching `#[tauri::command]` functions in
+>   `src-tauri/src/commands.rs` are `async fn`. The
+>   `tests/async_commands.rs` allowlist guard is passing — its
+>   `SYNC_ALLOWLIST` is 24 in-memory / local-filesystem commands, no
+>   drift, no new sync transport-touching commands.
+> - ISO-TP multi-frame per ISO 15765-2 is **done.** See
+>   `src-tauri/src/transport/isotp.rs` (430 LOC, FF/CF/FC state
+>   machine + 25+ test cases).
+> - Tester Present keep-alive (CLAUDE.md v0.6.0 issue) is **done.**
+>   See `src-tauri/src/keepalive.rs` (210 LOC,
+>   `tauri::async_runtime::spawn` + `INTERVAL = 3000ms` + `FRAME = [0x3E, 0x00]`,
+>   called from `connect` / `run_service_function` / `security_access`).
+> - `protocol::read_vin` router is **done.** See
+>   `src-tauri/src/protocol/mod.rs::read_vin` and
+>   `src-tauri/src/commands.rs::read_vehicle_info` (the BMW-specific
+>   UDS 22 F190 + KWP 1A 90 + CAS fallback path).
+>
+> v0.15.1 is therefore a no-op and has been removed from the cycle
+> list. v0.16.0's spine is now **BLE adapter support** (the only
+> Tier B transport path still on the backlog that matches the
+> v0.16.0 cycle name's "Land Rush" framing). v0.16.3 is shrunk to
+> the OBD-II Mode 09 PID layer (the standard `0x09 0x02` VIN path)
+> because the BMW-specific `read_vehicle_info` path is already
+> shipped.
+>
+> Per the project convention, each cycle ships its own
+> `docs/v0.14.x_plan.md` and a maintainer-opened Discussion thread;
+> this doc seeds the community conversation for that work. **It
+> does not commit to any specific work** — the per-cycle
+> `docs/v0.14.x_plan.md` remains the decision point.
 
 ## How to read this
 
@@ -106,68 +136,34 @@ v0.14.3+ lands here.
    frontend). When `connected && profile selected`, the panel
    reads from the bridge instead of the simulator mirror. The
    sim-only fallback stays for non-connected sessions.
-3. 🟡 **`update_can_listen` async command** (Tier B, Rust). New
-   Tauri command that starts / stops the existing `watch_tick`
-   loop with a `ListenerMode::KwpDids { profile, interval_ms }`
-   variant. Different from the v0.14.0 Tier B
+3. 🟡 **`update_can_listen` async command** (Tier B, Rust).
+   New Tauri command that starts / stops the existing
+   `watch_tick` loop with a
+   `ListenerMode::KwpDids { profile, interval_ms }` variant.
+   Different from the v0.14.0 Tier B
    `ListenerMode::Simulator / OBDLinkSx` because it reads
    through the diagnostic protocol, not the raw CAN bus.
 
 **Open dependencies:** the DID-projection bridge is pure
 mapping, but the Rust command needs the existing
-`read_live_data` async refactor (per CLAUDE.md's async-commands
-invariant — v0.6.0 release blocker that's been outstanding for
-months). The Tier B slice should be paired with a **broader
-async refactor** that other slices in this cycle can also use.
+`read_live_data` async refactor (already on main per the
+revision note above). The Tier B slice can ship as soon as the
+DID-projection bridge is in.
 
-## v0.15.1 — "The Async Refactor" (Oct 2026, parallel with v0.15.0)
+> **Note (revised 2026-07-29):** the original v0.15.0 plan said
+> this slice "should be paired with a broader async refactor."
+> That refactor is already on main — the v0.6.0 release blocker
+> was paid down across v0.6.0 → v0.14.0 without a single
+> dedicated cycle, and `tests/async_commands.rs` is the guard
+> that prevents drift. v0.15.0 can land as a 2-Tier-A +
+> 1-Tier-B cycle without the async dependency.
 
-**Premise:** CLAUDE.md's async-commands invariant (any
-`#[tauri::command]` that touches serial / network transport must
-be `async fn` or offload via `spawn_blocking`) is the
-v0.6.0 release blocker. v0.6.0 never cut a release; the
-invariant has been carried forward as a "don't make it worse"
-rule. v0.15.1 is the cycle that **pays down the debt** so
-v0.15.0's Tier B command and every subsequent transport-touching
-command is async by construction.
-
-**Tier split:** 0 Tier A + 5 Tier B (one per command).
-
-### Candidate slices
-
-1. 🟢 **`connect` → async + spawn_blocking** (Tier B, Rust).
-   Serial-port open + initialisation. The v0.15.0 cycle
-   references this PR.
-2. 🟢 **`scan_modules` → async + spawn_blocking** (Tier B, Rust).
-   Iterates over the `ecus.rs` address table; currently the
-   main-thread block that freezes the webview during the scan.
-3. 🟢 **`read_faults` → async + spawn_blocking** (Tier B, Rust).
-4. 🟢 **`read_live_data` → async + spawn_blocking** (Tier B,
-   Rust). Already required by v0.15.0's bridge.
-5. 🟢 **`watch_tick` + `run_service_function` +
-   `security_access` → async + spawn_blocking** (Tier B, Rust).
-   The last three synchronous transport-touching commands.
-
-**Tests gate:** the `tests/async_commands.rs` allowlist guard
-fails CI for any sync command not in `SYNC_ALLOWLIST`. Each
-slice is the same recipe documented in
-`beemuu-windows-dev-quirks` §10: keep the work as a sync
-`_impl` function, the `#[tauri::command]` wrapper is `async` +
-`spawn_blocking`, the impl takes a `home_override: Option<&str>`
-for unit-test speed. Pattern is mechanical; ~3-5 PRs' worth of
-test work is the only real cost.
-
-**Open dependencies:** none — this is the foundational work
-that unblocks v0.15.0's bridge and every subsequent Tier B
-transport-touching slice. The v0.15.0 + v0.15.1 cycles can
-parallelise in separate clones.
-
-## v0.15.2 — "Test-Plan Walks on the Bench" (Nov 2026)
+## v0.15.1 — "Test-Plan Walks on the Bench" (Nov 2026)
 
 **Premise:** v0.7.0 / v0.8.0 / v0.9.0 / v0.10.0 shipped the
 walkthrough bundle, the test-plan walk reducer, the verified
 routine marker, and the share-as-HTML export — all on the
-simulator. v0.15.2 ports the test-plan walk to **real-car
+simulator. v0.15.1 ports the test-plan walk to **real-car
 sessions**: walks against the K+DCAN cable, records
 results against the real freeze-frame data, exports to the
 same self-contained HTML.
@@ -183,20 +179,28 @@ same self-contained HTML.
 2. 🟡 **`record_walk_result` async Tauri command** (Tier B,
    Rust). Saves a walk outcome (passed/failed/skipped per step)
    to `<HOME>/beeemuu/walks/<timestamp>.json`. Mirrors the
-   v0.12.0 DTC history pattern.
+   v0.12.0 DTC history pattern. `async_commands` allowlist
+   guard applies.
 3. 🟢 **Walk export to HTML includes real freeze-frame
    snippets** (Tier A, frontend). The v0.11.0 share-as-HTML
    PR (#142) embeds the freeze-frame in the HTML; this slice
    ensures the embedded freeze-frame is the **real one** for
    walks on real cars, not the simulator's.
 
-**Open dependencies:** v0.15.1's async refactor for the
-`record_walk_result` command.
+**Open dependencies:** v0.15.0's DID-projection bridge is the
+optional source for the walk's per-step freeze-frame data;
+without it, the walk uses the existing `read_freeze_frame`
+async command. No hard dependency.
 
-## v0.15.3 — "Service Functions on Real Cars" (Dec 2026)
+> **Note (revised 2026-07-29):** this cycle used to be
+> v0.15.2 in the original PR #180 draft; renumbered to
+> v0.15.1 because the v0.15.1 "Async Refactor" cycle is a
+> no-op (see top-of-doc revision note).
+
+## v0.15.2 — "Service Functions on Real Cars" (Dec 2026)
 
 **Premise:** v0.8.0 shipped the routine ID / risk classification
-/ simulator-grade `[UNVERIFIED]` marker. v0.15.3 is the cycle
+/ simulator-grade `[UNVERIFIED]` marker. v0.15.2 is the cycle
 that **graduates routines from unverified to chassis-validated**
 on a per-chassis basis. The N62/E70 N62's `bleed_dme` (DME
 adaptation bleed) and the E90 N54's `register_injector` are
@@ -226,17 +230,17 @@ N54 report from the harness docs (v0.14.2, v0.14.5, this cycle).
 If the community hasn't filed any, the cycle is "ship the
 schema and wait."
 
-## v0.15.4 — "Tier B Cleanup" (Dec 2026, parallel)
+## v0.15.3 — "Tier B Cleanup" (Dec 2026, parallel)
 
 **Premise:** CLAUDE.md rule 5 ("never widen a PR's scope after
 opening") + the multi-writer skill's Tier B/C gate has built up
 a list of **refactor-only carve-outs** that have been deferred
 across multiple cycles: the `bmw_diag/` bulk deletion, the
 `server/dtc/` bulk deletion, the ENET/DoIP transport
-auto-detection (RoW), ISO-TP multi-frame (FF/CF/FC) per ISO
-15765-2, BLE adapter support, WiFi adapter support, tester
-present keep-alive. v0.15.4 takes the **docs-only + refactor**
-backlog in one cycle.
+auto-detection (RoW), BLE adapter support, WiFi adapter
+support, tester present keep-alive (already shipped — see
+`src-tauri/src/keepalive.rs`). v0.15.3 takes the **docs-only
++ refactor** backlog in one cycle.
 
 **Tier split:** 0 Tier A + 2 Tier B (refactor) + 1 Tier C
 (deprecation decision).
@@ -255,25 +259,30 @@ backlog in one cycle.
    A `make test` (or `just test`) recipe with one entry point
    per runner is the cleanup.
 3. 🟡 **Deprecate or commit to the ENET / DoIP /
-   ISO-TP-multi-frame / BLE / WiFi backlog** (Tier C, decision).
-   Either a GitHub issue per item with an explicit
-   "deferred to v0.20+" milestone + a `help wanted` label, or
-   a v0.16.x cycle that picks one of them. **Not** a code
-   change — a decision document the maintainer signs off on.
+   BLE / WiFi backlog** (Tier C, decision). Either a GitHub
+   issue per item with an explicit "deferred to v0.20+"
+   milestone + a `help wanted` label, or a v0.16.x cycle that
+   picks one of them. **Not** a code change — a decision
+   document the maintainer signs off on.
+
+> **Note (revised 2026-07-29):** the original v0.15.4 plan
+> included "tester present keep-alive" in the backlog list.
+> That's already on main (see top-of-doc revision note) and is
+> removed from this cycle's decision document.
 
 **Open dependencies:** the Tier C slice is a Decision, not a
 code change. Per CLAUDE.md rule 2 + the multi-writer skill's
 "Tier C = always a human decision (propose, never execute),"
-this cycle's Tier C slice is a `docs(v0.15.4): deprecate
+this cycle's Tier C slice is a `docs(v0.15.3): deprecate
 backlog decision` PR with a clear yes/no/move-to-16.x
 recommendation for each item.
 
-## v0.15.5 — "Profile Edit Workflow" (Jan 2027)
+## v0.15.4 — "Profile Edit Workflow" (Jan 2027)
 
 **Premise:** the v0.14.3 slice 3 (per-PID remove-from-profile UI)
 exposed the workflow gap: the user can now click "×" to remove a
 PID from the active session, but the change is local-only — on
-the next profile load, the PID comes back. v0.15.5 is the cycle
+the next profile load, the PID comes back. v0.15.4 is the cycle
 that **lets the user persist profile edits** (add/remove/rename
 a PID, change a unit, tweak a min/max range) and round-trips
 the edited profile to a user-writable copy at
@@ -294,56 +303,67 @@ the edited profile to a user-writable copy at
    the UI.
 3. 🟡 **`save_profile` async Tauri command** (Tier B, Rust).
    Writes the edited TOML to the user dir. Validates against
-   the schema before write. `async_commands` allowlist guard
-   applies.
+   the schema before write. `async_commands` allowlist
+   guard applies.
 4. 🟡 **`remove_profile_pid` async Tauri command** (Tier B,
-   Rust). The v0.14.3 Tier B slice lands in v0.15.5 because
+   Rust). The v0.14.3 Tier B slice lands in v0.15.4 because
    the user-profile dir bootstrap is the prerequisite for the
    command to have a writable target.
 
-**Open dependencies:** v0.15.1's async refactor for the new
-commands. This cycle and v0.15.1 can land in either order as
-long as v0.15.5's commands land on the post-v0.15.1 tip.
+**Open dependencies:** none — the async invariant is already
+on main (see top-of-doc revision note). This cycle and
+v0.15.0 / v0.15.1 / v0.15.2 can land in any order.
 
-## v0.16.0 — "The Tier B Land Rush" (Q1 2027)
+## v0.16.0 — "The Tier B Land Rush — BLE / WiFi / ENET" (Q1 2027)
 
-**Premise:** with v0.15.1's async refactor done, the Tier B
-backlog from v0.15.4's decision document becomes a land rush.
-v0.16.0 picks **one Tier B item** as the cycle's spine and
-adds the chassis-validation + harness-doc infrastructure to
-make future Tier B items faster to ship.
+**Premise:** with the async refactor done, the Tier B transport
+backlog from v0.15.3's decision document becomes a land rush.
+v0.16.0 picks **one Tier B transport item** as the cycle's
+spine and adds the chassis-validation + harness-doc
+infrastructure to make future Tier B items faster to ship.
+
+> **Note (revised 2026-07-29):** the original PR #180 draft
+> made v0.16.0's spine ISO-TP multi-frame. That's already on
+> main (see top-of-doc revision note), so the spine is
+> re-picked. Three candidates:
+>
+> - **BLE adapter support** (Vgate iCar Pro BLE, OBDLink CX)
+>   — requires the `btleplug` crate. Reuses the existing
+>   `transport::Transport` trait.
+> - **WiFi adapter support** (Vgate iCar Pro WiFi, OBDLink
+>   MX+) — reuses the existing `tokio` async stack; closest
+>   to the existing `transport::enet` shape.
+> - **ENET/DoIP auto-discovery** (the F/G-series broadcast
+>   UDP discovery to port 13400) — closes a long-standing
+>   manual-IP entry gap in the desktop app.
+>
+> **Default spine: BLE adapter support.** It's the transport
+> class with the most community asks, the `btleplug` crate
+> is the smallest dependency to add, and the trait surface
+> is uniform with the existing serial-port transport.
 
 **Tier split:** 1 Tier A + 2 Tier B.
 
-### Candidate spine: ISO-TP multi-frame (FF/CF/FC) per ISO 15765-2
+### Candidate spine: BLE adapter support
 
-The pre-existing Tier A-listed "🟢 Ready" item from the v0.3.0
-roadmap. Required for long UDS responses (VIN, full DTC list,
-freeze-frame blocks > 6 bytes). Currently the protocol layer
-sends a single-frame request and silently truncates anything
-> 7 bytes. The fix:
+1. 🟢 **`transport::ble` module + `BtleTransport` impl**
+   (Tier B, Rust). Implements the existing `Transport` trait
+   over the `btleplug` API. RFCOMM channel for SPP-over-BLE
+   (the OBDLink CX protocol). Reuses the existing
+   `kdcan.rs`-style byte framing.
+2. 🟡 **`Transport::Btle { device_name, channel }` variant
+   in `connect`** (Tier B, Rust). Adds the new transport to
+   the connection-state machine. The desktop app's Connect
+   panel grows a "Bluetooth" option alongside the existing
+   "Serial" and "ENET" options.
+3. 🟢 **`docs/validation/ble-adapter.md` harness doc** (Tier A,
+   docs). Step-by-step report-back loop for the new
+   transport, mirroring the existing `can-broadcast.md` /
+   `n62-real-car.md` shape.
 
-1. 🟢 **ISO-TP frame assembler** (Tier A, Rust, pure helper).
-   `isotp.rs::assemble(frames: Vec<Vec<u8>>) -> Vec<u8>` with
-   the FF/CF/FC state machine. Tested in isolation.
-2. 🟡 **ISO-TP frame disassembler** (Tier B, Rust).
-   Splits a long response into the right number of CF frames
-   with the right SN counter. Reuses the existing
-   `kdcan.rs` transport — the serial-port byte stream is
-   unchanged.
-3. 🟡 **UDS services that benefit from ISO-TP wire up**
-   (Tier B, Rust). `read_dtc_info` (full DTC list), `read_data_by_identifier`
-   for long DIDs (VIN = 17 bytes, calibration ID = 24+), and
-   the freeze-frame read for blocks > 6 bytes.
-
-**Why this is the v0.16.0 spine and not a smaller cycle:** the
-ISO-TP work unlocks every long-DID profile entry that's
-commented out in the existing community profiles (DA0A
-gear, 4010 VIN, etc.) and is the gating dependency for
-"compare logs across sessions" / VIN-locked features the
-user has been asking about.
-
-**Open dependencies:** v0.15.1's async refactor.
+**Open dependencies:** none — the async refactor is on
+main. v0.15.3's Tier C deprecation decision commits the
+maintainer to picking BLE / WiFi / ENET for v0.16.0.
 
 ## v0.16.1 — "Bundle Export 2.0" (Q1 2027)
 
@@ -396,11 +416,24 @@ freeze-frame is > 6 bytes.
 
 ## v0.16.3 — "OBD-II Mode 09 (vehicle info)" (Q2 2027)
 
-**Premise:** OBD-II Mode 09 is the standard "tell me about
-this car" service — VIN, calibration ID, ECU name, CVN
-(calibration verification number). The protocol layer doesn't
-support it today. v0.16.3 is the cycle that adds Mode 09 read
-support and exposes it as a "Vehicle info" tab.
+**Premise:** v0.16.0's ISO-TP multi-frame (already on main —
+see top-of-doc revision note) + the v0.14.0 freeze-frame
+schema split together unblock OBD-II Mode 09 reads, the
+standard "tell me about this car" service used by every
+generic OBD-II scanner. Mode 09 PID 02 (VIN) is the
+fallback for cars that don't expose the BMW-specific
+UDS 22 F190 / KWP 1A 90 paths that `read_vehicle_info`
+already reads (see `src-tauri/src/commands.rs:454`).
+Mode 09 PIDs 04 (calibration ID) and 06 (CVN) are not
+exposed by any existing command.
+
+> **Note (revised 2026-07-29):** the original PR #180 draft
+> had v0.16.3 as a 2-cycle with the BMW-specific VIN read
+> as the spine. That's already on main as
+> `read_vehicle_info` (PR — see `git log` for the most recent
+> commit on `commands.rs:454`). v0.16.3 is therefore shrunk
+> to the OBD-II Mode 09 layer only — a 1-Tier-A +
+> 1-Tier-B cycle.
 
 **Tier split:** 1 Tier A + 1 Tier B.
 
@@ -410,22 +443,25 @@ support and exposes it as a "Vehicle info" tab.
    (CVN)** (Tier A, Rust). Pure protocol additions. The
    existing `read_did` command's encoding already covers
    the 09 xx shape; this is a new command-path entry.
-2. 🟡 **Vehicle info tab** (Tier B, frontend). New tab in
-   the desktop app; displays the VIN, calibration IDs, CVN.
-   Exports the info as a one-shot JSON the user can attach
-   to a forum post.
+   Extends `read_vehicle_info` with a `mode09: bool` flag.
+2. 🟡 **Vehicle info tab "Calibration" sub-panel** (Tier B,
+   frontend). New tab in the desktop app; displays the
+   Mode 09 VIN + calibration IDs + CVN alongside the
+   existing BMW-specific VIN. Exports the combined
+   vehicle info as a one-shot JSON the user can attach to
+   a forum post.
 
-**Open dependencies:** v0.16.0's ISO-TP multi-frame — VIN is
-17 bytes, calibration ID is 24+ bytes, neither fits in a
-single-frame UDS response.
+**Open dependencies:** the ISO-TP multi-frame is on main;
+the new `read_vehicle_info { mode09: true }` path needs it
+because Mode 09 PIDs are typically > 6 bytes.
 
-## v0.16.4 — "B58 / N55 N20 (modular B-family) UDS DIDs" (Q2 2027)
+## v0.16.4 — "B58 / N55 / N20 (modular B-family) UDS DIDs" (Q2 2027)
 
 **Premise:** the v0.3.0 / v0.4.0 / v0.5.0 / v0.6.0 cycles
 shipped B58 and N55 DIDs based on OBDb's published list. The
 list is not complete — many DIDs are commented out pending
 real-car validation. v0.16.4 is the cycle that **uncomments
-the DIDs that the harness docs (v0.14.2 / v0.14.5 / v0.15.2)
+the DIDs that the harness docs (v0.14.2 / v0.14.5 / v0.15.1)
 have validated**, plus the F/G-series-specific DIDs that
 require ENET (not K+DCAN).
 
@@ -433,7 +469,7 @@ require ENET (not K+DCAN).
 
 ### Candidate slices
 
-1. 🟢 **Uncomment B58/N55 DIDs that the v0.14.5 / v0.15.2
+1. 🟢 **Uncomment B58/N55 DIDs that the v0.14.5 / v0.15.1
    reports confirm** (Tier A, data). Decode corrections as
    needed. Pure profile edits.
 2. 🟢 **`docs/validation/b58-real-car.md` + `n55-real-car.md`
@@ -445,15 +481,20 @@ ROADMAP_ISSUES.md issue 2). The harness doc makes the request
 explicit; if no report files, the cycle closes without
 uncommenting anything.
 
-## v0.16.5 — "DTCOdometer Sync" (Q3 2027)
+## v0.16.5 — "Odometer Sync" (Q3 2027)
 
-**Premise:** every BMW profile has a `mileage` DID that's
-read as part of the freeze-frame. The value is a 3-byte BE
-integer in km. v0.16.5 is the cycle that **persists the
-mileage across sessions** (so the dashboard shows the
-last-known value when the car is off) and exposes a
-"set odometer" action (with the dialog plugin confirmation)
+**Premise:** `read_vehicle_info` already returns a
+`mileage_km` field (see `src-tauri/src/commands.rs:454`),
+so the read half of this cycle is shipped. v0.16.5
+**persists the mileage across sessions** (so the dashboard
+shows the last-known value when the car is off) and exposes
+a "set odometer" action (with the dialog plugin confirmation)
 for cases where the DME was reset.
+
+> **Note (revised 2026-07-29):** the original PR #180 draft
+> had v0.16.5 starting from a clean slate. Half the work is
+> already done — the read path exists. v0.16.5 is therefore
+> shrunk to the persistence + write path only.
 
 **Tier split:** 1 Tier A + 1 Tier B.
 
@@ -468,17 +509,15 @@ for cases where the DME was reset.
    mandatory (it's a write). `async_commands` allowlist
    guard applies.
 
-**Open dependencies:** v0.16.0's ISO-TP multi-frame (the
-mileage DID is short, so this might fit; verify at cycle-plan
-time).
+**Open dependencies:** none — the async refactor is on main.
 
 ## v0.16.6 — "Calibration Compare" (Q3 2027)
 
-**Premise:** v0.16.0's ISO-TP multi-frame + v0.16.1's
-multi-tab bundle export + v0.16.3's Mode 09 calibration ID
-read together enable a "Calibration Compare" workflow:
-read the current calibration ID, compare against the
-expected-for-this-DME-firmware ID, flag mismatches.
+**Premise:** the v0.16.3 Mode 09 cycle's calibration ID read
++ the existing `read_vehicle_info` calibration decode
+together enable a "Calibration Compare" workflow: read the
+current calibration ID via Mode 09 PID 04, compare against
+the expected-for-this-DME-firmware ID, flag mismatches.
 
 **Tier split:** 1 Tier A + 1 Tier B.
 
@@ -509,11 +548,10 @@ one go** and exports the table as a single CSV.
 2. 🟡 **`sweep_all_dtcs` async Tauri command** (Tier B,
    Rust). Iterates over the `ecus.rs` address table, calls
    `read_dtc_info` for each present module, aggregates.
-   `async_commands` allowlist guard applies.
 
-**Open dependencies:** v0.15.1's async refactor; v0.16.0's
-ISO-TP multi-frame (the full DTC list per module is > 6 bytes
-on most DMEs).
+**Open dependencies:** the ISO-TP multi-frame is on main
+(v0.16.0) — the full DTC list per module is > 6 bytes on
+most DMEs.
 
 ## v0.16.8 — "Adaptive Value Reset" (Q4 2027)
 
@@ -535,11 +573,19 @@ with the dialog plugin's confirmation (per CLAUDE.md Tier B
 
 ## v0.16.9 — "Year-End Cleanup" (Q4 2027)
 
-**Premise:** the v0.15.4 cycle is the first "Tier B Cleanup"
+**Premise:** the v0.15.3 cycle is the first "Tier B Cleanup"
 cycle. v0.16.9 is the **second** — by Q4 2027 there will be
 12+ cycles of accumulated minor cleanups (dead code, schema
 drift, doc rot). v0.16.9 is a no-feature cycle that pays
 down the technical debt and re-baselines the docs.
+
+> **Note (revised 2026-07-29):** the v0.16.9 doc-rot
+> pass should also re-verify every "NOT YET IMPLEMENTED" /
+> "planned v0.x.x" claim in the repo (the same audit
+> this revision was based on). The audit found at least 4
+> false claims (CLAUDE.md:124/132/137/155,
+> `.claude/agents/fix-drafter.md:53`); there will be more
+> by Q4 2027.
 
 **Tier split:** 3 Tier A (docs + tests) + 1 Tier B (refactor)
 + 0 Tier C.
@@ -550,6 +596,8 @@ down the technical debt and re-baselines the docs.
    in every `docs/validation/*.md` resolves. Refresh
    `docs/DECODE_FUNCTIONS.md` to match the current decoder
    catalog (will have grown to 11+ decoders by then).
+   Re-verify every "NOT YET IMPLEMENTED" / "planned v0.x.x"
+   claim against the actual state of the repo.
 2. 🟢 **Test coverage audit** (Tier A, tests). Every
    `#[tauri::command]` has a `cargo test --lib` test; every
    `src/js/*.js` has a `.test.js` companion; every
@@ -572,56 +620,73 @@ equivalent) and are the long-tail work:
 
 - **ENET/DoIP auto-detection** (CLAUDE.md's stated invariant,
   not yet implemented). The K+DCAN cable + the OBDLink SX are
-  the two transports supported today; ENET is the third. v0.16.0
-  is the natural cycle to pick this up if the user gets an
-  ENET cable.
-- **BLE adapter support** (Vgate iCar Pro BLE, OBDLink CX).
-  Requires the `btleplug` crate. The Tier B refactor in v0.15.1
-  is the prerequisite.
+  the two transports supported today; ENET is the third. The
+  v0.16.0 spine is BLE; ENET auto-detect is the natural
+  v0.16.x follow-up.
 - **WiFi adapter support** (Vgate iCar Pro WiFi, OBDLink MX+).
-  Similar to BLE but on the network transport.
-- **Tester Present keep-alive** (CLAUDE.md invariant, not yet
-  implemented). Required for any long diagnostic session on a
-  real car. The 2000–4000 ms `3E 00` / `3E 80` send loop is a
-  small Rust slice; the open question is where it lives
-  (the `connect` command's async-refactored home, or a
-  dedicated `keepalive` worker).
+  Similar to BLE but on the network transport. Likely a
+  v0.16.x follow-up to v0.16.0.
+- **Tester Present keep-alive** — **DONE on main.** See
+  `src-tauri/src/keepalive.rs`. Removed from the
+  cross-cutting list.
+- **ISO-TP multi-frame** — **DONE on main.** See
+  `src-tauri/src/transport/isotp.rs`. Removed from the
+  cross-cutting list.
 - **E-series CAN broadcast frames from a real car**
   (`docs/validation/can-broadcast.md`). v0.14.0 Tier B was
   gated on OBDLink SX; v0.15.0's DID-projection bridge is
   the path that doesn't need the OBDLink SX at all. The
   harness doc remains open until a real-car report files.
+- **Async invariant regression guard** — **ON main.** See
+  `src-tauri/tests/async_commands.rs` (24-entry
+  `SYNC_ALLOWLIST`, AST parse + set diff per PR). Removed
+  from the cross-cutting list.
 
 ## Tier summary
 
 - Tier A (no human review): ~17 slices across the 12 cycles.
 - Tier B (one human merge): ~14 slices. The biggest single
-  batch is v0.15.1's async refactor (5 slices), which is
-  the cycle that unblocks every subsequent Tier B command.
-- Tier C (always a human decision): 0-2 per cycle. v0.15.4
+  batch is **v0.16.0's BLE/WiFi/ENET spine** (1 cycle,
+  ~2-3 Tier B slices), the natural follow-up to the
+  async refactor.
+- Tier C (always a human decision): 0-2 per cycle. v0.15.3
   has one (deprecate-the-backlog decision); v0.16.0 has
   one (release cut); every other cycle has the release
   cut.
 
 ## Open questions for the maintainer
 
-1. **Is v0.15.1 (the async refactor) the right cycle to pay
-   down the async-debt?** It blocks every subsequent Tier B
-   command. If the maintainer wants a different cycle to do
-   it, every Tier B item in v0.15.0 / v0.15.5 / v0.16.x
-   shifts forward.
-2. **Is v0.16.0's spine ISO-TP multi-frame, or should the
-   Tier B land rush pick a different item** (ENET auto-detect,
-   BLE adapter, tester-present keep-alive)? The v0.15.4
-   decision document is the right place to commit to one.
-3. **Multi-Profile Sessions (v0.16.2) is a Tier B-heavy
+1. **Is v0.16.0's spine BLE / WiFi / ENET, or should the
+   Tier B land rush pick a different item** (per-chassis
+   routine validation deepening, the
+   `remove_profile_pid` user-profile work, tester-present
+   keep-alive refinement)? The v0.15.3 decision document
+   is the right place to commit to one. **Default: BLE.**
+2. **Multi-Profile Sessions (v0.16.2) is a Tier B-heavy
    cycle. Is the user actually asking for that, or is it a
    nice-to-have that's eating cycles that should go to
-   ISO-TP / BLE / ENET?** The v0.15.4 decision document is
+   BLE / WiFi / ENET?** The v0.15.3 decision document is
    also the right place to defer it.
-4. **The doc says "year 2026" / "year 2027"** in the cycle
+3. **The doc says "year 2026" / "year 2027"** in the cycle
    cadence, but the cadence is per-cycle not per-quarter. If
    the user wants quarterly releases, every cycle becomes a
    single-slice cycle. If the user wants the
    3-5-day-per-slice v0.14.0 / v0.14.2 cadence, the year
    estimates are right.
+
+## Revision history
+
+- **2026-07-29 (revised):** audited against `main` @
+  `b029aa6` after the user reported the forward roadmap
+  contained stale claims. Removed v0.15.1 (async refactor
+  already on main), reworked v0.16.0 spine (ISO-TP
+  multi-frame already on main, pivoted to BLE / WiFi /
+  ENET), shrunk v0.16.3 (read_vehicle_info is partial
+  shipped) and v0.16.5 (mileage read is shipped), added
+  revision notes at the top of each affected cycle. Cross-
+  cutting list trimmed: removed the 3 items that are
+  already on main (async invariant, tester-present
+  keep-alive, ISO-TP multi-frame).
+- **2026-07-29 (original, PR #180):** initial 12-cycle
+  forward roadmap, drafted before the audit against the
+  current state of `main`.
