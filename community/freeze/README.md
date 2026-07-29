@@ -65,6 +65,6 @@ Adding a field:
    has reviewed the capture.
 4. Once verified, drop the `[needs verification]` marker.
 
-The `docs/validation/freeze-frame.md` harness (planned v0.14.1)
-will document the report-back loop and how to compare your schema
-against a real capture.
+The [`docs/validation/freeze-frame.md`](../../docs/validation/freeze-frame.md)
+harness documents the report-back loop and how to compare your
+schema against a real capture.

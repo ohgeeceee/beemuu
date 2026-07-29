@@ -29,9 +29,13 @@ Rules that keep this axis honest:
   to `"verified"` for exactly that plan. No silent upgrades.
 - **`source` citations stay.** Removing the marker never touches a
   step's `source` — the in-repo grounding remains the audit trail.
-- The `meta.verified` field is the contract the walkthrough UI will read
-  to show a **NEEDS VERIFICATION** badge (UI rendering lands in a
-  follow-up; the marker is the data half of that contract).
+- The `meta.verified` field is the contract the walkthrough UI
+  reads to show a **NEEDS VERIFICATION** badge — the badge is
+  rendered in the desktop app's `walkthrough-verified` span
+  (`src/js/main.js::renderPlanVerifiedBadge`, PR #127) with a
+  clickable link to this harness doc, and in the standalone
+  walkthrough HTML bundle (`src/js/walkthrough_bundle.js::buildBundleHtml`,
+  PR #127 / #130).
 
 The harness procedure lives in
 [`../../docs/validation/testplans.md`](../../docs/validation/testplans.md).
