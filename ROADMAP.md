@@ -431,7 +431,7 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 
 ---
 
-*Last updated: 2026-07-27. v0.14.1 shipped (#169 fix for issue #161 + #170 per-ECU freeze-schema split; 138/138 Rust + 206/206 JS + 166/166 Python). v0.14.2 cycle opened against a K+DCAN-cable + 2007 E70 X5 4.8L real-car pivot — Tier A only (data + frontend + docs); see [`docs/v0.14.2_plan.md`](docs/v0.14.2_plan.md). v0.14.0 Tier B (raw-CAN listener + `get_latest_can_frames`) remains gated behind OBDLink SX acquisition.*
+*Last updated: 2026-07-29. v0.14.2 closed — slices 0–3 all merged (#171, #175, #177, #178). Tier A only: `community/profiles/n62.toml` swap `local:10` → `obd:0x5C`; Live Data panel UX (poll-rate selector, per-gauge peak tracking, range bar, snapshot-CSV button, NRC error surface); `docs/validation/n62-real-car.md` harness doc. The v0.14.2 scope was deliberately narrowed to the 0x5C oil-temp swap — the deferred PIDs (`0x5E`, `0x5F`, `0x62`) each need a new decoder first and remain v0.14.3+ work. The per-PID dim + remove-from-profile UI in the NRC error surface is also deferred to v0.14.3 behind a protocol-layer change to surface the DID in the error string. v0.14.0 Tier B (raw-CAN listener + `get_latest_can_frames`) remains gated behind OBDLink SX acquisition.*
 ---
 
 ## v0.14.0 — "Live CAN" (In Progress — Tier A done, Tier B open)
@@ -500,7 +500,7 @@ PR #169 merged at `653c1547`. PR #170 (the freeze-schema split that
 was unstaged in the worktree when #169 opened) merged after at
 `ec12aa54`. Combined: 138/138 Rust, 206/206 JS, 166/166 Python.
 
-## v0.14.2 — "Live Data on the Bench" (In Progress)
+## v0.14.2 — "Live Data on the Bench" (Shipped 2026-07-29)
 
 **Premise.** The user is going real-car with a K+DCAN cable on a 2007
 E70 X5 4.8L (N62/BTU, MSV80-family DME, D-CAN @ 500 kbps).
@@ -524,9 +524,9 @@ cut a release tag).
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Cycle plan + ROADMAP v0.14.2 header | 🔲 Open | A | `docs/v0.14.2_plan.md` + this ROADMAP entry. Docs-only. |
-| `community/profiles/n62.toml` enrichment — `0x5C` (oil temp) only; `0x5E` / `0x5F` / `0x62` deferred to v0.14.3+ (each needs a new decoder first) | 🔲 Open | A | Replaces the unverified `local:10` placeholder with the standard OBD-II PID. Removes the `[UNVERIFIED placeholder]` tag and the "oil temp unverified" mark from the profile label. Adds an N62 instrumentation-context header block (valley-pan slow-coolant monitoring, oil-temp cruise band, Valvetronic load/throttle inverse, idle-voltage target). Bench verification on the E70 is the gating step (slice 3 harness doc). |
-| Live Data panel UX polish — polling-rate selector, per-gauge peak tracking, range bar, snapshot-CSV button, NRC error surface | 🔲 Open | A | `src/index.html` + `src/css/app.css` + `src/js/main.js` + `src/js/live_format.js`. ≥2 new JS tests. |
-| `docs/validation/n62-real-car.md` harness doc | 🔲 Open | A | Chassis-specific verification path. Cross-links v0.14.0 `docs/validation/can-broadcast.md` for users who eventually get an OBDLink SX on the same chassis. |
+| Cycle plan + ROADMAP v0.14.2 header | ✅ Done (PR #171) | A | `docs/v0.14.2_plan.md` + this ROADMAP entry. Docs-only. |
+| `community/profiles/n62.toml` enrichment — `0x5C` (oil temp) only; `0x5E` / `0x5F` / `0x62` deferred to v0.14.3+ (each needs a new decoder first) | ✅ Done (PR #175) | A | Replaces the unverified `local:10` placeholder with the standard OBD-II PID. Removes the `[UNVERIFIED placeholder]` tag and the "oil temp unverified" mark from the profile label. Adds an N62 instrumentation-context header block (valley-pan slow-coolant monitoring, oil-temp cruise band, Valvetronic load/throttle inverse, idle-voltage target). Bench verification on the E70 is the gating step (slice 3 harness doc). |
+| Live Data panel UX polish — polling-rate selector, per-gauge peak tracking, range bar, snapshot-CSV button, NRC error surface | ✅ Done (PR #177) | A | `src/index.html` + `src/css/app.css` + `src/js/main.js` + `src/js/live_data_panel.js` (new pure-helper module + 15 tests). 221/221 JS tests green. The per-PID dim + "remove from profile" UI is deferred to v0.14.3 behind a protocol-layer change to surface the DID in the error string. |
+| `docs/validation/n62-real-car.md` harness doc | ✅ Done (PR #178) | A | Chassis-specific verification path. Cross-links v0.14.0 `docs/validation/can-broadcast.md` for users who eventually get an OBDLink SX on the same chassis. |
 
 ---
