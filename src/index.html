@@ -149,9 +149,27 @@
           <span>Live values —
             <select id="live-profile"></select>
           </span>
-          <label class="chk"><input type="checkbox" id="live-poll" /> Poll continuously</label>
+          <label class="chk"><input type="checkbox" id="live-poll" /> Poll</label>
+          <label class="chk" title="Polling interval. 100 ms = busy; 1000 ms = gentle on the bus.">
+            <span class="muted">every</span>
+            <select id="live-poll-rate" class="poll-rate-select">
+              <option value="100">100 ms</option>
+              <option value="250" selected>250 ms</option>
+              <option value="500">500 ms</option>
+              <option value="1000">1 s</option>
+            </select>
+          </label>
+          <button id="btn-live-snapshot" class="btn btn-small" type="button" disabled>Save snapshot</button>
         </div>
         <div id="gauge-grid" class="gauge-grid"></div>
+        <div id="live-peaks" class="live-peaks" hidden>
+          <div class="live-peaks-head">Current peaks</div>
+          <table class="live-peaks-table">
+            <thead><tr><th>Param</th><th>Peak</th></tr></thead>
+            <tbody id="live-peaks-body"></tbody>
+          </table>
+          <button id="btn-live-peaks-reset" class="btn btn-small" type="button">Reset peaks</button>
+        </div>
       </div>
       <div id="live-can-panel" class="panel live-can-panel">
         <div class="panel-head">
