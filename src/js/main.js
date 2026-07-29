@@ -10,6 +10,11 @@ let selectedAddress = null;
 const gauges = new Map(); // id -> Gauge
 let pollTimer = null;
 let sessionReplay = false; // true when viewing a loaded snapshot
+
+// v0.14.2 slice 2 — Live Data panel UX polish. Peak tracking is a
+// pure reducer (applyValuesToPeaks); this Map<string, number> is the
+// per-session state the panel reads back. Reset on profile change.
+let livePeakState = {};
 let unlockStates = new Map(); // address -> bool
 let secCountdown = null; // interval id for NRC 0x37 retry countdown
 let lastDtcs = []; // cached DTCs for CSV export
@@ -1205,12 +1210,27 @@ function ensureGauge(v) {
   if (gauges.has(v.id)) return gauges.get(v.id);
   const cell = document.createElement("div");
   cell.className = "gauge-cell";
+  cell.dataset.pidId = v.id;
   const canvas = document.createElement("canvas");
   const label = document.createElement("div");
   label.className = "gauge-label";
   label.textContent = v.label;
+  // v0.14.2 slice 2 — range bar + peak label under the gauge label.
+  // The fill width is set in pollOnce() from (value-min)/(max-min)
+  // so the user can read "88 °C on a 90 °C hot scale" at a glance.
+  const range = document.createElement("div");
+  range.className = "gauge-range";
+  const rangeFill = document.createElement("div");
+  rangeFill.className = "gauge-range-fill";
+  range.appendChild(rangeFill);
+  const peak = document.createElement("div");
+  peak.className = "gauge-peak";
+  peak.dataset.peak = v.id;
+  peak.textContent = "peak: —";
   cell.appendChild(canvas);
   cell.appendChild(label);
+  cell.appendChild(range);
+  cell.appendChild(peak);
   $("gauge-grid").appendChild(cell);
   // Per-profile [profile.theme] colour scheme (stashed by loadProfiles);
   // undefined => the Gauge renders its built-in cockpit palette.
@@ -1263,8 +1283,84 @@ $("live-profile").addEventListener("change", () => {
   // different profile = different parameter set: rebuild gauges
   gauges.clear();
   $("gauge-grid").innerHTML = "";
+  // v0.14.2 slice 2 — peak state is per-profile. A new profile may
+  // have a different parameter set, so a stale peak for an id the
+  // new profile doesn't have would never be cleared by pollOnce
+  // (no sweep). Reset the peak state here.
+  livePeakState = {};
+  renderPeakTable();
+  updateSnapshotButton();
   saveSettings();
 });
+
+// v0.14.2 slice 2 — the polling rate is read from the live-poll-rate
+// <select> via beeemuuLiveDataPanel.resolvePollRateMs, which falls back
+// to 250 ms for any unknown / out-of-range value. Read once on each
+// startPolling so changing the dropdown restarts the interval.
+function currentPollRateMs() {
+  const sel = $("live-poll-rate");
+  return window.beeemuuLiveDataPanel.resolvePollRateMs(sel ? sel.value : 250);
+}
+
+// Render the per-gauge range bar fill from the gauge's stored
+// (min, max) and the current numeric value. Skipped for enum /
+// text-mode gauges — they have no numeric range to draw against.
+function updateRangeBar(cell, g, v) {
+  const fill = cell.querySelector(".gauge-range-fill");
+  if (!fill) return;
+  if (v.text !== undefined && v.text !== null) {
+    fill.style.width = "0%";
+    return;
+  }
+  const n = Number(v.value);
+  const span = g.max - g.min;
+  if (!Number.isFinite(n) || !Number.isFinite(span) || span <= 0) {
+    fill.style.width = "0%";
+    return;
+  }
+  const frac = Math.max(0, Math.min(1, (n - g.min) / span));
+  fill.style.width = (frac * 100).toFixed(1) + "%";
+}
+
+// Render the per-session peak table under the gauge grid. Reads from
+// livePeakState and the gauges Map for label + unit. Hidden when no
+// peaks have been recorded yet.
+function renderPeakTable() {
+  const body = $("live-peaks-body");
+  const wrap = $("live-peaks");
+  if (!body || !wrap) return;
+  const ids = Object.keys(livePeakState).sort();
+  if (ids.length === 0) {
+    wrap.hidden = true;
+    body.innerHTML = "";
+    return;
+  }
+  wrap.hidden = false;
+  body.innerHTML = ids
+    .map((id) => {
+      const g = gauges.get(id);
+      const label = g ? g.label : id;
+      const unit = g ? g.unit || "" : "";
+      const text = window.beeemuuLiveDataPanel.formatPeakForLabel(
+        livePeakState[id],
+        unit
+      );
+      return (
+        "<tr><td>" + label + "</td>" +
+        "<td>" + text + (unit ? " " + unit : "") + "</td></tr>"
+      );
+    })
+    .join("");
+}
+
+// Enable / disable the snapshot button based on whether the live panel
+// has any data to save. The button is disabled until at least one
+// successful poll has populated a gauge.
+function updateSnapshotButton() {
+  const btn = $("btn-live-snapshot");
+  if (!btn) return;
+  btn.disabled = gauges.size === 0;
+}
 
 async function pollOnce() {
   try {
@@ -1273,17 +1369,50 @@ async function pollOnce() {
       // Enum params (gear, engine state, etc.) have v.text set and
       // v.value = 0.0; numeric params have v.text undefined. The
       // Gauge renders text when given a label override.
-      ensureGauge(v).set(v.value, v.text);
+      const g = ensureGauge(v);
+      g.set(v.value, v.text);
+      // Peak tracking — applyValuesToPeaks is a pure reducer over the
+      // values array; it skips enum / non-finite values internally.
+      livePeakState = window.beeemuuLiveDataPanel.applyValuesToPeaks(
+        livePeakState,
+        values
+      );
+      const cell = document.querySelector(
+        '.gauge-cell[data-pid-id="' + v.id + '"]'
+      );
+      if (cell) {
+        updateRangeBar(cell, g, v);
+        const peakEl = cell.querySelector("[data-peak]");
+        if (peakEl) {
+          const peak = livePeakState[v.id];
+          peakEl.textContent =
+            "peak: " +
+            window.beeemuuLiveDataPanel.formatPeakForLabel(peak, g.unit);
+        }
+      }
     }
+    renderPeakTable();
+    updateSnapshotButton();
   } catch (e) {
-    log("Live data: " + e);
+    // v0.14.2 slice 2 — NRC-aware error surface. The protocol layer
+    // raises a string like "ECU rejected service 22: ... (NRC 31)".
+    // We parse it and surface a friendly log line. Per-PID support
+    // tracking (which PID was rejected) is a v0.14.3 follow-up that
+    // requires the protocol layer to surface the DID in the error.
+    const nrc = window.beeemuuLiveDataPanel.parseNrcError(String(e));
+    if (nrc && window.beeemuuLiveDataPanel.isUnsupportedNrc(nrc)) {
+      log("Live data: unsupported PID — NRC 0x" + nrc.nrc.toString(16).toUpperCase() + " (sid 0x" + (nrc.sid !== null ? nrc.sid.toString(16).toUpperCase() : "??") + ").");
+    } else {
+      log("Live data: " + e);
+    }
     stopPolling();
   }
 }
 
 function startPolling() {
   if (pollTimer) return;
-  pollTimer = setInterval(pollOnce, 250);
+  const ms = currentPollRateMs();
+  pollTimer = setInterval(pollOnce, ms);
   pollOnce();
 }
 function stopPolling() {
@@ -1299,6 +1428,62 @@ $("live-poll").addEventListener("change", (e) => {
   } else {
     stopPolling();
   }
+});
+
+// v0.14.2 slice 2 — changing the polling rate restarts the interval so the
+// new rate takes effect immediately. startPolling is idempotent (it
+// no-ops when pollTimer is already set), so we always stopPolling()
+// first when the user changes rate mid-session.
+$("live-poll-rate").addEventListener("change", () => {
+  if (pollTimer) {
+    stopPolling();
+    startPolling();
+  }
+  saveSettings();
+});
+
+// v0.14.2 slice 2 — Save snapshot. Builds a one-row CSV via
+// beeemuuLiveDataPanel.buildSnapshotCsv (matching the v0.11.0
+// log-export header shape) and writes it via the same export_text
+// Tauri command the DTC + log exporters use. The filename pattern
+// (beeemuu-live-snapshot-<iso>.csv) matches the v0.11.0 naming
+// convention so a user can see "live snapshot" files alongside
+// their log exports in <HOME>/beeemuu/.
+$("btn-live-snapshot").addEventListener("click", async () => {
+  if (gauges.size === 0) { log("Live data: nothing to snapshot yet."); return; }
+  const values = [];
+  for (const [id, g] of gauges) {
+    const text = g.textOverride;
+    values.push({
+      id,
+      label: g.label,
+      unit: g.unit || "",
+      value: g.value,
+      text: text === null || text === undefined ? null : text,
+    });
+  }
+  const profile = $("live-profile");
+  const profileLabel = profile ? profile.options[profile.selectedIndex]?.text || profile.value : "";
+  const csv = window.beeemuuLiveDataPanel.buildSnapshotCsv(values, profileLabel);
+  const filename = window.beeemuuLiveDataPanel.snapshotCsvFilename();
+  try {
+    const path = await invoke("export_text", { filename, content: csv });
+    log("Live snapshot saved: " + path);
+  } catch (e) {
+    log("Live snapshot failed: " + e);
+  }
+});
+
+// v0.14.2 slice 2 — Reset peaks. Clears the per-session peak state
+// and refreshes the table. The peak labels on each gauge cell are
+// updated on the next pollOnce() (the next sweep sets them from the
+// new state).
+$("btn-live-peaks-reset").addEventListener("click", () => {
+  livePeakState = {};
+  for (const cell of document.querySelectorAll("[data-peak]")) {
+    cell.textContent = "peak: —";
+  }
+  renderPeakTable();
 });
 
 /* needle easing loop */

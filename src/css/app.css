@@ -280,6 +280,41 @@ body {
  * severity class applies. */
 .gauge-cell.severity-warning .gauge-label { color: #f4b400; font-weight: 600; }
 .gauge-cell.severity-critical .gauge-label { color: #e05545; font-weight: 600; }
+
+/* ---------- v0.14.2 slice 2: Live Data panel UX polish ---------- */
+.poll-rate-select {
+  background: #1a2332; color: var(--fg);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 4px; font-size: 12px;
+}
+.gauge-range {
+  width: 100%; max-width: 220px;
+  height: 4px; background: #1a2332;
+  border-radius: 2px; margin-top: 6px;
+  overflow: hidden;
+}
+.gauge-range-fill {
+  height: 100%; background: #4da3ff;
+  width: 0%; transition: width 0.18s ease-out;
+}
+.live-peaks {
+  margin: 8px 14px 14px; padding: 10px 12px;
+  background: #0c1219; border: 1px solid var(--border); border-radius: 4px;
+}
+.live-peaks-head {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 6px; letter-spacing: 0.5px;
+}
+.live-peaks-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.live-peaks-table th, .live-peaks-table td {
+  text-align: left; padding: 2px 8px;
+  border-bottom: 1px solid var(--row-border);
+  color: var(--fg); font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+.live-peaks-table th { color: var(--muted); font-weight: 500; }
+#btn-live-peaks-reset { margin-top: 6px; }
 .log-param.severity-warning { border-left: 3px solid #f4b400; padding-left: 6px; }
 .log-param.severity-critical { border-left: 3px solid #e05545; padding-left: 6px; font-weight: 600; }
 .log-param.severity-warning span:not(.swatch) { color: #f4b400; }
