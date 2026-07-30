@@ -149,9 +149,35 @@
           <span>Live values —
             <select id="live-profile"></select>
           </span>
-          <label class="chk"><input type="checkbox" id="live-poll" /> Poll continuously</label>
+          <span class="live-head-controls">
+            <label class="chk" title="Polling interval — faster updates cost more bus time on slow K+DCAN cables">
+              Poll @
+              <select id="live-poll-rate">
+                <option value="100">100 ms</option>
+                <option value="250" selected>250 ms</option>
+                <option value="500">500 ms</option>
+                <option value="1000">1 s</option>
+              </select>
+            </label>
+            <label class="chk"><input type="checkbox" id="live-poll" /> Poll continuously</label>
+            <button id="btn-live-snapshot" class="btn btn-small" type="button" disabled
+                    title="Write the current live values to ~/beeemuu-exports/beeemuu-live-snapshot-<stamp>.csv">
+              Save snapshot
+            </button>
+            <button id="btn-live-reset-peaks" class="btn btn-small" type="button" disabled
+                    title="Reset the per-gauge peak labels">
+              Reset peaks
+            </button>
+          </span>
         </div>
-        <div id="gauge-grid" class="gauge-grid"></div>
+        <div id="live-nrc-banner" class="live-nrc-banner hidden" role="alert"></div>
+        <div class="live-body">
+          <div id="gauge-grid" class="gauge-grid"></div>
+          <aside id="live-peaks-table" class="live-peaks-table" aria-label="Current peaks">
+            <div class="live-peaks-head">Current peaks</div>
+            <ul id="live-peaks-list" class="live-peaks-list"></ul>
+          </aside>
+        </div>
       </div>
       <div id="live-can-panel" class="panel live-can-panel">
         <div class="panel-head">
@@ -631,6 +657,7 @@
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>
+  <script src="js/live_data_panel.js"></script>
   <script src="js/workspace.js"></script>
   <script src="js/gauges.js"></script>
   <script src="js/can_decoders.js"></script>

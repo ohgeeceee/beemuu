@@ -228,6 +228,71 @@ body {
   text-transform: uppercase;
 }
 .live-can-status.live-can-off { color: var(--muted); }
+
+/* ---------- v0.14.2 slice 2 — live data panel polish ---------- */
+.live-head-controls {
+  display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.live-head-controls .chk select {
+  padding: 3px 6px; border-radius: 3px; border: 1px solid var(--border);
+  font-size: 12px; background: var(--input-bg); color: var(--text);
+}
+.live-nrc-banner {
+  padding: 8px 12px; background: var(--err-bg); color: var(--err);
+  border-bottom: 1px solid var(--err); font-size: 13px;
+  display: flex; align-items: center; gap: 10px;
+}
+.live-nrc-banner.hidden { display: none; }
+.live-nrc-banner button { margin-left: auto; }
+.live-body {
+  display: grid; grid-template-columns: 1fr 220px; gap: 0;
+  flex: 1; min-height: 0;
+}
+@media (max-width: 720px) {
+  .live-body { grid-template-columns: 1fr; }
+}
+.live-peaks-table {
+  background: var(--surface-sub); border-left: 1px solid var(--border);
+  padding: 12px; overflow-y: auto;
+}
+.live-peaks-head {
+  font-weight: 600; font-size: 12px; color: var(--heading-text);
+  margin-bottom: 8px;
+}
+.live-peaks-list {
+  list-style: none; display: flex; flex-direction: column; gap: 4px;
+}
+.live-peaks-list li {
+  display: flex; justify-content: space-between; font-size: 12px;
+  padding: 3px 0; border-bottom: 1px solid var(--row-border);
+}
+.live-peaks-list .peak-name { color: var(--heading-text); }
+.live-peaks-list .peak-value {
+  font-family: Consolas, monospace; font-weight: 600; color: var(--text);
+}
+/* Per-gauge peak + range bar — added to every .gauge-cell created
+   by ensureGauge(). The peak sits under the label; the range bar
+   is a thin strip showing where the current value lands between
+   min and max (a quick at-a-glance "how close to the top am I"). */
+.gauge-cell { position: relative; }
+.gauge-peak {
+  color: var(--muted); font-size: 11px; margin-top: 2px;
+}
+.gauge-range {
+  width: 90%; height: 4px; background: var(--surface-sunken);
+  border-radius: 2px; margin-top: 6px; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.gauge-range-fill {
+  height: 100%; width: 0%; background: var(--blue-accent);
+  transition: width 120ms ease-out;
+}
+.gauge-range-fill.hot { background: var(--warn); }
+.gauge-range-fill.over { background: var(--err); }
+.gauge-cell.unsupported { opacity: 0.45; }
+.gauge-cell.unsupported .gauge-label::after {
+  content: " (unsupported)"; color: var(--muted); font-style: italic;
+}
 .live-can-fps {
   margin-left: 10px;
   font-size: 11px;

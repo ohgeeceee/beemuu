@@ -74,6 +74,14 @@ function saveSettings() {
     ws.liveProfile = $("live-profile").value;
     ws.logProfile = $("log-profile").value;
     ws.trafficAuto = $("traffic-auto").checked;
+    // v0.14.2 slice 2 — polling rate for the Live Data panel. The
+    // current value lives on a <select>; we persist it so a user
+    // who prefers 1 s on a slow K+DCAN cable doesn't have to reset
+    // it every boot. Unknown values fall back to 250 ms in
+    // resolvePollRateMs() — so writing an old workspace without the
+    // key (or with a future / removed value) just means we use the
+    // default until the user picks one.
+    ws.livePollRateMs = window.beeemuuLiveDataPanel.resolvePollRateMs($("live-poll-rate")?.value);
     // v0.12.0 Fault Memory: opt-in to recording DTC reads to a local
     // JSONL log under ~/beeemuu-exports/. Default off; the user toggles
     // it on in the Settings panel. The recording hook in readFaults()
@@ -145,6 +153,13 @@ async function loadSettings() {
     if (s.liveProfile) $("live-profile").value = s.liveProfile;
     if (s.logProfile) $("log-profile").value = s.logProfile;
     if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
+    // v0.14.2 slice 2 — restore the polling rate (defaulted by the
+    // <select> to 250 ms on a fresh install / missing key).
+    if (typeof s.livePollRateMs === "number" && $("live-poll-rate")) {
+      const resolved = window.beeemuuLiveDataPanel.resolvePollRateMs(s.livePollRateMs);
+      const opt = $("live-poll-rate").querySelector(`option[value="${resolved}"]`);
+      if (opt) $("live-poll-rate").value = String(resolved);
+    }
     // v0.12.0 Fault Memory: restore the opt-in recording toggle.
     // Default off if missing — older workspace files (pre-v0.12.0)
     // won't carry this key, and we don't want to suddenly enable
@@ -1205,12 +1220,27 @@ function ensureGauge(v) {
   if (gauges.has(v.id)) return gauges.get(v.id);
   const cell = document.createElement("div");
   cell.className = "gauge-cell";
+  // data-id is what the polling loop + NRC banner use to find the
+  // gauge for a given LiveValue.id. Without this the polling
+  // loop would re-query gauges.values() and lose the DOM-cell
+  // pairing on every sweep.
+  cell.dataset.id = v.id;
   const canvas = document.createElement("canvas");
   const label = document.createElement("div");
   label.className = "gauge-label";
   label.textContent = v.label;
+  const peak = document.createElement("div");
+  peak.className = "gauge-peak";
+  peak.textContent = "—";
+  const range = document.createElement("div");
+  range.className = "gauge-range";
+  const rangeFill = document.createElement("div");
+  rangeFill.className = "gauge-range-fill";
+  range.appendChild(rangeFill);
   cell.appendChild(canvas);
   cell.appendChild(label);
+  cell.appendChild(peak);
+  cell.appendChild(range);
   $("gauge-grid").appendChild(cell);
   // Per-profile [profile.theme] colour scheme (stashed by loadProfiles);
   // undefined => the Gauge renders its built-in cockpit palette.
@@ -1263,27 +1293,195 @@ $("live-profile").addEventListener("change", () => {
   // different profile = different parameter set: rebuild gauges
   gauges.clear();
   $("gauge-grid").innerHTML = "";
+  // v0.14.2 slice 2 — a new profile starts a fresh peak-tracking
+  // session and clears any prior NRC banner (the previous
+  // profile's failing set is no longer relevant).
+  resetLivePeaks();
+  setNrcBanner(null, null);
+  $("btn-live-snapshot").disabled = true;
+  $("btn-live-reset-peaks").disabled = true;
   saveSettings();
 });
+
+// v0.14.2 slice 2 — peak tracking state per session. Reset by
+// `resetLivePeaks()` (Reset peaks button). Tracks the highest
+// numeric value seen per `id` since the last reset; text/enum
+// values are skipped (the live_data_panel pure helper handles the
+// filtering).
+let livePeakState = {};
+let liveLastValues = []; // cached for the Save-snapshot button
+
+// Resolve the polling rate from the user-visible <select>. The
+// `resolvePollRateMs` helper enforces the four allowed delays and
+// falls back to the default when the value is unknown (e.g. a
+// legacy workspace.json without the key, or a manual edit).
+function currentPollRateMs() {
+  const sel = $("live-poll-rate");
+  return window.beeemuuLiveDataPanel.resolvePollRateMs(sel ? sel.value : undefined);
+}
+
+// Render the "Current peaks" side table. Cheap rebuild — the gauge
+// set is small (typically 5–10 params). Updates the per-gauge peak
+// label at the same time so the two views stay in sync.
+function renderLivePeaks() {
+  const list = $("live-peaks-list");
+  if (!list) return;
+  list.innerHTML = "";
+  // Stable order = insertion order of the last sweep; falls back to
+  // the peaks-map key order if no sweep has happened yet.
+  const ordered = liveLastValues.length
+    ? liveLastValues.map((v) => v.id)
+    : Object.keys(livePeakState);
+  for (const id of ordered) {
+    const peak = livePeakState[id];
+    if (peak === undefined) continue;
+    const meta = liveLastValues.find((v) => v.id === id);
+    const name = meta ? meta.label : id;
+    const unit = meta ? meta.unit : "";
+    const li = document.createElement("li");
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "peak-name";
+    nameSpan.textContent = name;
+    const valSpan = document.createElement("span");
+    valSpan.className = "peak-value";
+    valSpan.textContent = window.beeemuuLiveDataPanel.formatPeakForLabel(peak, unit);
+    li.appendChild(nameSpan);
+    li.appendChild(valSpan);
+    list.appendChild(li);
+    // Mirror onto the gauge-cell peak label.
+    const cell = document.querySelector(`#gauge-grid .gauge-cell[data-id="${CSS.escape(id)}"]`);
+    const peakEl = cell && cell.querySelector(".gauge-peak");
+    if (peakEl) peakEl.textContent = window.beeemuuLiveDataPanel.formatPeakForLabel(peak, unit);
+  }
+}
+
+function resetLivePeaks() {
+  livePeakState = {};
+  liveLastValues = [];
+  renderLivePeaks();
+}
+
+// Wire the Reset peaks button (no-op when no peaks yet).
+$("btn-live-reset-peaks").addEventListener("click", () => {
+  resetLivePeaks();
+  log("Live peaks reset.");
+});
+
+// Save the current snapshot to ~/beeemuu-exports/ via the existing
+// `export_text` Tauri command. Filename matches the project's
+// `beeemuu-<kind>-<stamp>.csv` convention. Returns the full path
+// the backend wrote so the user sees where it landed.
+async function saveLiveSnapshot() {
+  if (!liveLastValues.length) {
+    log("No live values yet — start polling first.");
+    return;
+  }
+  const profileLabel = $("live-profile").options[$("live-profile").selectedIndex]?.textContent || $("live-profile").value;
+  const csv = window.beeemuuLiveDataPanel.buildSnapshotCsv(liveLastValues, profileLabel);
+  const filename = window.beeemuuLiveDataPanel.snapshotCsvFilename(new Date());
+  try {
+    const path = await invoke("export_text", { filename, content: csv });
+    log(`Live snapshot saved → ${path}`);
+  } catch (e) {
+    log("Snapshot save failed: " + e);
+  }
+}
+
+$("btn-live-snapshot").addEventListener("click", saveLiveSnapshot);
+
+// Show or hide the NRC banner. The banner is session-local — when
+// the user changes profile, the unsupported set clears (the new
+// profile may have different PIDs). Hiding = .hidden class on the
+// existing div so the live-polling loop can flip it on every sweep.
+let liveUnsupportedIds = new Set();
+function setNrcBanner(parsed, failingIds) {
+  const banner = $("live-nrc-banner");
+  if (!banner) return;
+  if (!parsed) {
+    banner.classList.add("hidden");
+    banner.textContent = "";
+    liveUnsupportedIds = new Set();
+    // Clear the unsupported dim on every gauge.
+    for (const cell of document.querySelectorAll("#gauge-grid .gauge-cell")) {
+      cell.classList.remove("unsupported");
+    }
+    return;
+  }
+  const nrcHex = parsed.nrc.toString(16).padStart(2, "0").toUpperCase();
+  const sidHex = parsed.sid !== null ? parsed.sid.toString(16).padStart(2, "0").toUpperCase() : "??";
+  const affected = Array.from(failingIds).join(", ");
+  banner.classList.remove("hidden");
+  banner.textContent = "";
+  const msg = document.createElement("span");
+  msg.textContent = `Live data: ECU rejected service 0x${sidHex} with NRC 0x${nrcHex}. Affected: ${affected || "(unspecified)"}.`;
+  banner.appendChild(msg);
+  const dismissBtn = document.createElement("button");
+  dismissBtn.className = "btn btn-small";
+  dismissBtn.textContent = "Dismiss";
+  dismissBtn.addEventListener("click", () => setNrcBanner(null, null));
+  banner.appendChild(dismissBtn);
+  // Dim the offending gauges.
+  liveUnsupportedIds = new Set(failingIds);
+  for (const id of failingIds) {
+    const cell = document.querySelector(`#gauge-grid .gauge-cell[data-id="${CSS.escape(id)}"]`);
+    if (cell) cell.classList.add("unsupported");
+  }
+}
 
 async function pollOnce() {
   try {
     const values = await invoke("read_live_data", { profile: $("live-profile").value });
+    liveLastValues = values;
+    setNrcBanner(null, null); // a clean sweep clears any prior banner
     for (const v of values) {
       // Enum params (gear, engine state, etc.) have v.text set and
       // v.value = 0.0; numeric params have v.text undefined. The
       // Gauge renders text when given a label override.
       ensureGauge(v).set(v.value, v.text);
+      // Range bar fill (a quick at-a-glance "where in the range"
+      // strip). Hot when above 85%, over when above 100%.
+      const cell = document.querySelector(`#gauge-grid .gauge-cell[data-id="${CSS.escape(v.id)}"]`);
+      const fill = cell && cell.querySelector(".gauge-range-fill");
+      if (fill && typeof v.value === "number" && Number.isFinite(v.value) && v.max > v.min) {
+        const frac = Math.max(0, Math.min(1, (v.value - v.min) / (v.max - v.min)));
+        fill.style.width = (frac * 100).toFixed(1) + "%";
+        fill.classList.toggle("hot", frac > 0.85 && frac <= 1);
+        fill.classList.toggle("over", frac > 1);
+      }
     }
+    livePeakState = window.beeemuuLiveDataPanel.applyValuesToPeaks(livePeakState, values);
+    renderLivePeaks();
+    // Enable the snapshot + reset buttons once we have any data.
+    $("btn-live-snapshot").disabled = false;
+    $("btn-live-reset-peaks").disabled = Object.keys(livePeakState).length === 0;
   } catch (e) {
-    log("Live data: " + e);
+    // v0.14.2 slice 2 — when the error string contains a recognisable
+    // (sid, nrc) pair (the format produced by
+    // src-tauri/src/protocol/mod.rs::service), surface it on the
+    // banner so the user knows *which* service rejected the request
+    // rather than just "Live data: <opaque>". We attribute the
+    // failure to every PID on the active profile (since the
+    // backend can't tell us which one tripped — `read_live_data`
+    // returns Err on the first failure).
+    const msg = (e && e.message) ? e.message : String(e);
+    const parsed = window.beeemuuLiveDataPanel.parseNrcError(msg);
+    if (parsed && window.beeemuuLiveDataPanel.isUnsupportedNrc(parsed)) {
+      const failing = Array.from(document.querySelectorAll("#gauge-grid .gauge-cell")).map((c) => c.dataset.id);
+      setNrcBanner(parsed, failing);
+      // Don\'t stop polling — the user might toggle a PID or fix
+      // the connection. Keep going so subsequent sweeps can
+      // recover (the banner auto-clears on the next clean sweep).
+      return;
+    }
+    log("Live data: " + msg);
     stopPolling();
   }
 }
 
 function startPolling() {
   if (pollTimer) return;
-  pollTimer = setInterval(pollOnce, 250);
+  const delay = currentPollRateMs();
+  pollTimer = setInterval(pollOnce, delay);
   pollOnce();
 }
 function stopPolling() {
@@ -1291,6 +1489,16 @@ function stopPolling() {
   pollTimer = null;
   $("live-poll").checked = false;
 }
+
+// Changing the polling rate while polling restarts the interval
+// at the new delay (no-op when not polling).
+$("live-poll-rate").addEventListener("change", () => {
+  saveSettings();
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(pollOnce, currentPollRateMs());
+  }
+});
 
 $("live-poll").addEventListener("change", (e) => {
   if (e.target.checked) {
