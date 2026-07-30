@@ -68,6 +68,110 @@ Until then, `beemuu.com` already shows the Tier A surface in
 production, and the desktop app picks up the new code on the next
 release build.
 
+## [0.14.3] — Unreleased
+
+> **Cycle status:** slices 1, 2, 3a, 4 merged (PRs #185, #186,
+> #187, plus this PR). Slice 3b (frontend rewire for the per-PID
+> dim + one-click-remove UI) is still open and is the gating slice
+> for the v0.14.3 release cut. The v0.14.3 release cut (version
+> bump in `Cargo.toml` + `tauri.conf.json`, git tag, release notes
+> publish, installer build) is a separate Tier C step that
+> follows slice 3b's merge. This CHANGELOG entry is the running
+> record of what lands under the v0.14.3 cycle, not a release
+> announcement.
+
+### Added — Tier A surface (decoder catalog + community data + docs)
+
+- **Three new decoders** (PR #185, Tier A): `u16_fiftieths`
+  (`raw × 0.02`, for SAE J1979 fuel-rate L/h), `u32_be`
+  (4-byte BE unsigned, for SAE J1979 engine-runtime seconds),
+  and `u16_half` (`raw × 0.5`, for SAE J1979 fuel-rate g/s).
+  All three follow the existing `src-tauri/src/data/live.rs`
+  pattern: new `Decode` variant + `decode()` / `decode_from_str` /
+  `decode_to_str` arms + 3–4 unit tests. Spec sections in
+  `docs/DECODE_FUNCTIONS.md` §10–12. No new crate, no
+  `byteorder` / `num-traits` / `binrw` — all three are 2-byte /
+  4-byte BE shifts and divides.
+- **N62 profile enrichment** (PR #186, Tier A): three new
+  `[[profile.param]]` entries in `community/profiles/n62.toml`
+  wired to the new decoders — `0x5E` engine fuel rate L/h,
+  `0x5F` engine runtime s, `0x62` engine fuel rate g/s. Each
+  carries the same `[needs verification, N62/E70 bench]` mark
+  the v0.14.2 slice 1 entry uses; bench verification on the
+  E70 X5 4.8i is the gating step per the slice 3 harness doc.
+- **N62 / E70 harness-doc extension** (this PR, slice 4, Tier A):
+  `docs/validation/n62-real-car.md` Step 2 (cold readings),
+  Step 3 (running readings), Step 4 (report template), and
+  Step 5 (consequences) all extended for the three new PIDs.
+  Critical-row paragraph covers the fuel-rate failure modes
+  (~0 L/h = DME unsupported, > 100 L/h = wrong decoder scale).
+  Cross-references updated to point at PRs #185 / #186 / #187
+  and `docs/DECODE_FUNCTIONS.md` §10–12.
+
+### Added — Tier B surface (protocol + Tauri command)
+
+- **Per-PID NRC backend + `remove_profile_pid` Tauri command**
+  (PR #187, Tier B, **slice 3a — backend only; slice 3b
+  frontend rewire is still open**):
+  - New `protocol::nrc_from_error` helper at
+    `src-tauri/src/protocol/mod.rs` parses the canonical
+    `service()` error string into a structured `(sid, nrc)` pair
+    (case-insensitive hex, whitespace-tolerant). 4 unit tests.
+  - `read_live_data` return type splits into `LiveSweepResult {
+    values, errors }` so a per-PID failure no longer short-circuits
+    the whole sweep. `values` carries successful reads;
+    `errors` carries per-PID `{ id, label, sid, nrc, error }`
+    entries. The whole sweep still returns `Err(_)` for systemic
+    problems (no transport, unknown profile, poisoned state lock).
+  - New async Tauri command `remove_profile_pid` at
+    `src-tauri/src/commands.rs:746` — removes the matching
+    `LiveParam` from the in-memory profile registry, re-serialises
+    via `live::profile_to_toml`, writes the updated TOML to
+    `<community>/profiles/<id>.toml` via `tokio::fs::write`. Returns
+    the written path. Async because of the file I/O; gated behind
+    the `tauri-plugin-dialog` confirmation per
+    `docs/CONTRIBUTING.md`'s write-path discipline.
+  - `Cargo.toml`: `tokio = { ..., features = ["time", "fs"] }`
+    (adds the `fs` feature to the existing tokio dep; no new
+    crate enters the graph).
+  - `lib.rs`: registers `commands::remove_profile_pid` in the
+    `invoke_handler`.
+  Tier B because the slice touches `src-tauri/src/protocol/**` and
+  adds a new entry to `src-tauri/src/commands.rs`. PR #187
+  explicitly notes the **frontend consumer is still open** —
+  `main.js::pollOnce` must rewire from `Vec<LiveValue>` to
+  `result.values.forEach + result.errors.forEach`, with per-PID
+  dim + one-click-remove UI in `src/index.html` +
+  `src/js/live_data_panel.js`. That's slice 3b and is the gate to
+  the v0.14.3 release cut.
+
+### Notes on the version surface
+
+This is the first entry to land in CHANGELOG since v0.14.0
+(2026-07-25). **v0.14.1** (issue #161 — `window.confirm`
+auto-dismiss + sim regenerate-on-identify, PRs #169 / #170)
+and **v0.14.2** ("Live Data on the Bench", PRs #171 / #175 /
+#177 / #178) closed via merges on 2026-07-27 and 2026-07-29
+respectively but shipped without CHANGELOG entries — a gap
+this entry does not retroactively fill. The maintainer's
+housekeeping follow-up (a backfill PR covering v0.14.1 and
+v0.14.2) is the appropriate scope; doing it here would be
+drive-by scope creep on a docs-only Tier A slice.
+
+**The README release badge stays at `v0.14.0`** in this PR
+because CLAUDE.md golden rule #5 (the "don't let the badge
+lie" rule) requires the badge to reflect the most recent
+**fully shipped** release. v0.14.3 is not fully shipped until
+slice 3b merges; bumping the badge now would replace one lie
+(v0.14.0 ↔ v0.14.1/v0.14.2/v0.14.3a) with another (v0.14.3 ↔
+v0.14.3-incomplete). The badge bump + the corresponding
+`Cargo.toml` + `tauri.conf.json` version bumps land in the
+release-cut PR (Tier C) that follows slice 3b.
+
+The v0.14.3 release cut itself (git tag, release notes
+publish, installer build) is a separate Tier C step that
+follows slice 3b's merge.
+
 ## [0.13.0] — 2026-07-22
 
 ### Added
