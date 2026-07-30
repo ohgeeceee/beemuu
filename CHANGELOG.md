@@ -68,6 +68,103 @@ Until then, `beemuu.com` already shows the Tier A surface in
 production, and the desktop app picks up the new code on the next
 release build.
 
+## [0.14.1] — 2026-07-27
+
+### Fixed — Tier B surface (issue #161 — Tauri 2 webview flakiness)
+
+- **Tauri 2 `window.confirm()` auto-dismiss fix** (PR #169, Tier B):
+  the click handler at `src/js/main.js:1125` (`btn-clear-faults`) and
+  `src/js/main.js:1353` (security-access confirm) used
+  `window.confirm(...)`, which the Tauri 2 webview auto-dismisses
+  (resolves `false` without showing the dialog) on some builds,
+  short-circuiting the click. Both gates now route through
+  `tauri-plugin-dialog`'s `ask()` via the new `src/js/dialog.js`
+  helper. New crate: `tauri-plugin-dialog = "2"` in
+  `src-tauri/Cargo.toml`. Touches `transport/sim.rs` file path
+  (simulator regenerate-on-identify) and `commands.rs` plugin
+  registration — Tier B by virtue of those protected paths.
+
+- **Simulator regenerate-on-identify** (PR #169, Tier B): the sim's
+  DTC list is seeded from `default_dtcs` + `default_freeze`
+  captured at construction; on the next KWP `[0x1A, 0x80]`
+  identify (called per ECU by `scan_modules` on "Run vehicle
+  test"), the identify handler restores the seed when the current
+  DTC list is empty. Models a real car re-detecting faults on a
+  fresh ignition cycle. Tier B because `transport/sim.rs` is on
+  the protected path.
+
+- **Per-ECU freeze-schema split** (PR #170, Tier A): new
+  `community/freeze/<hex>.toml` files plus
+  `community::load_freeze_per_ecu()` helper. Shrinks
+  `commands.rs::load_freeze_schemas` body — bulk auto-loads the
+  registry on startup so the freeze-frame panel renders decoded
+  values without the user clicking "Reload" in the schema-builder.
+  Tier A: data + frontend + bulk-loader wiring, no protected-path
+  changes.
+
+## [0.14.2] — 2026-07-29
+
+### Added — Tier A surface (Live Data on the Bench)
+
+v0.14.2 ships "live data today, on the bench, with the cable you
+have." Four Tier A slices, 1 Tier B slice. No `transport/**` changes
+(K+DCAN KWP diagnostic sessions keep using `kdcan.rs` unchanged;
+v0.14.0's Tier B raw-CAN listener remains gated behind OBDLink SX
+acquisition). `read_live_data` and `watch_*` already work over
+K+DCAN today; this cycle fills the per-param data, the panel UX,
+and the chassis-specific verification doc.
+
+- **Cycle plan + ROADMAP v0.14.2 header** (PR #171, Tier A):
+  `docs/v0.14.2_plan.md` + the ROADMAP cycle entry. Docs-only.
+  Retroactively closes v0.14.1 in the ROADMAP (PRs #169 / #170).
+
+- **`community/profiles/n62.toml` enrichment — `0x5C` oil temp**
+  (PR #175, Tier A): replaces the unverified `local:10`
+  placeholder with the standard OBD-II PID `0x5C` (engine oil
+  temperature, `byte - 40 °C`). Removes the `[UNVERIFIED
+  placeholder]` tag and the "oil temp unverified" mark from the
+  profile label. Adds an N62 instrumentation-context header block
+  (valley-pan slow-coolant monitoring, oil-temp cruise band,
+  Valvetronic load/throttle inverse, idle-voltage target). Bench
+  verification on the E70 X5 4.8i is the gating step for the
+  deferred `0x5E` / `0x5F` / `0x62` PIDs each of which needed its
+  own decoder first — those ship in v0.14.3.
+
+- **Live Data panel UX polish** (PR #177, Tier A): polling-rate
+  selector (`<select id="live-poll-rate">` 100/250/500/1000 ms),
+  per-gauge peak tracking (`peakFor(key)` in `live_gauges.js`),
+  range bar, snapshot-CSV button (`buildSnapshotCsv` +
+  `snapshotCsvFilename` in `live_data_panel.js`), and the NRC-aware
+  error surface (`parseNrcError` + `isUnsupportedNrc` helpers in
+  `live_data_panel.js`, friendlier `log()` line for the four
+  canonical "unsupported" NRCs — 0x11, 0x12, 0x31, 0x14). 221/221
+  JS tests green. **Note:** the per-PID dim + "remove from profile"
+  UI was deferred to v0.14.3 (PR #187 + PR #190) because the
+  protocol layer didn't surface the DID in the error string at
+  this point — slice 3a (PR #187) added `protocol::nrc_from_error`
+  for that.
+
+- **`docs/validation/n62-real-car.md` harness doc** (PR #178,
+  Tier A): chassis-specific step-by-step bench-verification harness
+  for the N62 / E70 X5 4.8L profile. Mirrors the shape of the
+  existing `docs/validation/can-broadcast.md` (PR #164),
+  `dtc-history.md` (PR #148), and `injector-validation.md` (PR #80).
+  Five sections (wire-up, cold readings, running readings, report
+  template, what we will do with the report) with copy-pasteable
+  report-back shape. Cross-links v0.14.0
+  `docs/validation/can-broadcast.md` for users who eventually get
+  an OBDLink SX on the same chassis.
+
+### Fixed — Tier B surface (CI workflow)
+
+- **Claude review workflow repair** (PR #176, Tier B): removed
+  `Bash(gh pr review:*)` from the `--allowedTools` list in
+  `.github/workflows/claude-review.yml`. The `claude-code-action@v1`
+  workflow was failing at startup with `is_error:true` on every
+  run because the unsupported tool was outside the known working
+  review configuration. Tier B because `src-tauri/Cargo.toml` is
+  on the protected list — though the change is workflow-only.
+
 ## [0.14.3] — Unreleased
 
 > **Cycle status:** slices 1, 2, 3a, 4 merged (PRs #185, #186,
@@ -151,12 +248,13 @@ This is the first entry to land in CHANGELOG since v0.14.0
 (2026-07-25). **v0.14.1** (issue #161 — `window.confirm`
 auto-dismiss + sim regenerate-on-identify, PRs #169 / #170)
 and **v0.14.2** ("Live Data on the Bench", PRs #171 / #175 /
-#177 / #178) closed via merges on 2026-07-27 and 2026-07-29
-respectively but shipped without CHANGELOG entries — a gap
-this entry does not retroactively fill. The maintainer's
-housekeeping follow-up (a backfill PR covering v0.14.1 and
-v0.14.2) is the appropriate scope; doing it here would be
-drive-by scope creep on a docs-only Tier A slice.
+#176 / #177 / #178) closed via merges on 2026-07-27 and
+2026-07-29 respectively but shipped without CHANGELOG entries
+when they merged. **The gap has since been filled by the
+v0.14.1 + v0.14.2 backfill PR** — see the entries above this
+one. PR #188 (this v0.14.3 cycle's slice 4) deferred the
+backfill to a separate housekeeping PR to keep the slice 4
+scope tight.
 
 **The README release badge stays at `v0.14.0`** in this PR
 because CLAUDE.md golden rule #5 (the "don't let the badge
