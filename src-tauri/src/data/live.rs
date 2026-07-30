@@ -391,6 +391,30 @@ pub fn add_param_to_profile(profile_id: &str, param: LiveParam) -> Option<()> {
     Some(())
 }
 
+/// Remove the param with the given `param_id` from the named profile.
+///
+/// Returns `true` when a param was removed, `false` when either the
+/// profile or the param id was unknown (no mutation in that case).
+/// Idempotent: calling with an unknown `param_id` is a no-op.
+///
+/// v0.14.3 slice 3a — gates the frontend's "remove this unsupported
+/// PID" affordance behind `commands::remove_profile_pid`, which
+/// also writes the updated profile back to disk. The in-memory
+/// removal here is what makes subsequent polling sweeps skip the
+/// PID before the TOML reload.
+pub fn remove_param_from_profile(profile_id: &str, param_id: &str) -> bool {
+    let mut s = match store().write() {
+        Ok(g) => g,
+        Err(_) => return false,
+    };
+    let Some(profile) = s.iter_mut().find(|p| p.id == profile_id) else {
+        return false;
+    };
+    let before = profile.params.len();
+    profile.params.retain(|p| p.id != param_id);
+    profile.params.len() != before
+}
+
 pub fn profile_to_toml(id: &str) -> Option<String> {
     let p = store().read().ok()?.iter().find(|p| p.id == id)?.clone();
     let mut out = format!("[[profile]]\nid = {:?}\nlabel = {:?}\n", p.id, p.label);
@@ -689,6 +713,42 @@ mod tests {
         assert_eq!(decode_from_str("not_a_real_decoder"), None);
         assert_eq!(decode_from_str(""), None);
         assert_eq!(decode_from_str("U16_TENTHS"), None); // case-sensitive
+    }
+
+    // ---- v0.14.3: remove_param_from_profile ----
+
+    #[test]
+    fn remove_param_from_profile_removes_matching_param() {
+        // Built-in `obd2` profile has 11 params (rpm, coolant, iat, …).
+        // Removing `coolant` should drop it from the in-memory profile
+        // and leave the others untouched.
+        let before = profile_params("obd2").unwrap();
+        let before_count = before.len();
+        assert!(before.iter().any(|p| p.id == "coolant"));
+        assert!(remove_param_from_profile("obd2", "coolant"));
+        let after = profile_params("obd2").unwrap();
+        assert_eq!(after.len(), before_count - 1);
+        assert!(!after.iter().any(|p| p.id == "coolant"));
+    }
+
+    #[test]
+    fn remove_param_from_profile_is_idempotent() {
+        // First call removes; second call on the same param id is a
+        // no-op and returns false (nothing was removed). The profile
+        // is still consistent — no extra params introduced.
+        assert!(remove_param_from_profile("obd2", "iat"));
+        let after_first = profile_params("obd2").unwrap().len();
+        assert!(!remove_param_from_profile("obd2", "iat"));
+        let after_second = profile_params("obd2").unwrap().len();
+        assert_eq!(after_first, after_second);
+    }
+
+    #[test]
+    fn remove_param_from_profile_unknown_id_returns_false() {
+        // Unknown profile id: no mutation, returns false.
+        let before = profile_params("obd2").unwrap().len();
+        assert!(!remove_param_from_profile("does_not_exist", "coolant"));
+        assert_eq!(profile_params("obd2").unwrap().len(), before);
     }
 
     // ---- u8_enum decoder (v0.4.0) ----

@@ -34,4 +34,11 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 # the tree via Tauri (no new crate enters the graph); this only unifies in
 # the `time` feature so `tokio::time::sleep` is available on
 # `tauri::async_runtime`.
-tokio = { version = "1", features = ["time"] }
+#
+# v0.14.3 slice 3a — added the `fs` feature so `remove_profile_pid`
+# can write the updated TOML to disk via `tokio::fs::write` without
+# spawning an extra thread. The disk write is on a profile file the
+# user just confirmed they want to remove a PID from — well-bounded
+# (single file, ~1 KB), so the `spawn_blocking` / `tokio::task::spawn_blocking`
+# ceremony the rest of the commands use isn't needed.
+tokio = { version = "1", features = ["time", "fs"] }

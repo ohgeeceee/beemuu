@@ -105,6 +105,7 @@ pub fn run() {
             commands::security_status,
             commands::community_report,
             commands::add_to_profile,
+            commands::remove_profile_pid,
             commands::export_profile,
             commands::import_profiles,
             commands::connection_test,
