@@ -23,6 +23,16 @@
 # is the standard OBD-II oil-temp PID and is consistently reported on N62
 # ME9.2 DMEs over K+DCAN. Bench verification on the E70 (slice 3 validation
 # doc) is the gating step; the prior `local:10` placeholder has been removed.
+#
+# Fuel-rate + runtime notes (v0.14.3): the three new PIDs (0x5E fuel rate
+# L/h, 0x5F engine runtime s, 0x62 fuel rate g/s) are SAE J1979
+# emissions-mandated and consistently reported on OBD-II compliant ECUs.
+# They are the natural additions to the E70 instrumentation: fuel rate
+# in g/s is the load-bearing PID for BSFC (brake-specific fuel
+# consumption) heuristics; runtime s is the cold-start timer the
+# v0.14.2 slice 3 harness doc already lists in its Step 2 cold reading
+# table. Bench verification is gated by the same E70 harness doc — each
+# PID's `Step 2` row grows as part of v0.14.3 slice 4.
 
 [[profile]]
 id = "n62"
@@ -135,3 +145,51 @@ label = "N62 4.0–4.8 NA V8 (ME9.2) [community]"
   decode = "temp_u8"
   min = -40.0
   max = 60.0
+
+  # v0.14.3 — SAE J1979 fuel rate L/h (PID 0x5E). Decoded with
+  # u16_fiftieths (slice 1 / PR #185; raw × 0.02). Idle on a warm
+  # N62 should be ~1-2 L/h; wide-open throttle ~50-90 L/h. Verified
+  # by design as an emissions-mandated OBD-II PID; bench verification
+  # on the E70 is the harness-doc gate.
+  [[profile.param]]
+  id = "fuel_rate_lh"
+  label = "Engine fuel rate (L/h)"
+  unit = "L/h"
+  target = 0x12
+  query = "obd:5E"
+  decode = "u16_fiftieths"
+  min = 0.0
+  max = 100.0
+
+  # v0.14.3 — SAE J1979 engine runtime since start (PID 0x5F).
+  # Decoded with u32_be (slice 1 / PR #185; 4-byte BE seconds).
+  # Resets on each ignition cycle; 0xFFFFFFFF is the overflow sentinel
+  # (the gauge caps at the engine's actual lifetime). The v0.14.2
+  # slice 3 harness doc already lists runtime in its Step 2 cold
+  # reading table — this entry is what populates that row.
+  [[profile.param]]
+  id = "engine_runtime"
+  label = "Engine runtime"
+  unit = "s"
+  target = 0x12
+  query = "obd:5F"
+  decode = "u32_be"
+  min = 0.0
+  max = 4294967295.0
+
+  # v0.14.3 — SAE J1979 fuel rate g/s (PID 0x62). Decoded with
+  # u16_half (slice 1 / PR #185; raw × 0.5). The load-bearing
+  # PID for BSFC (brake-specific fuel consumption) heuristics —
+  # divide by RPM × cyl_count for instantaneous BSFC. Idle on a
+  # warm N62 should be ~1-2 g/s; wide-open throttle ~40-70 g/s.
+  # Verified by design as an emissions-mandated OBD-II PID; bench
+  # verification on the E70 is the harness-doc gate.
+  [[profile.param]]
+  id = "fuel_rate_gs"
+  label = "Engine fuel rate (g/s)"
+  unit = "g/s"
+  target = 0x12
+  query = "obd:62"
+  decode = "u16_half"
+  min = 0.0
+  max = 100.0
