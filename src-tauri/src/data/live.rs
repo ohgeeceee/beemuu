@@ -40,6 +40,19 @@ pub enum Decode {
     U16Tenths,
     /// u16 BE * 0.01 (BMW DIDs: MAF kg/h, ambient kPa, torque Nm)
     U16Div100,
+    /// u16 BE * 0.02 — SAE J1979 PID 0x5E engine fuel rate (L/h).
+    /// Scale = 1/50; raw 50 = 1.00 L/h; raw 65535 = ~1310 L/h.
+    /// Used for OBD 0x5E (engine_fuel_rate_lh).
+    U16Fiftieths,
+    /// u32 BE raw as f64 — SAE J1979 PID 0x5F engine runtime since
+    /// start (seconds). 4-byte big-endian unsigned; max ~4.29e9 s
+    /// (~136 years — far exceeds any real engine's lifetime).
+    /// Used for OBD 0x5F (engine_runtime).
+    U32Be,
+    /// u16 BE * 0.5 — SAE J1979 PID 0x62 engine fuel rate (g/s).
+    /// Scale = 1/2; raw 2 = 1.00 g/s; raw 65535 = ~32767.5 g/s.
+    /// Used for OBD 0x62 (engine_fuel_rate_gs).
+    U16Half,
     /// i16 BE raw, two's complement (foundation for s16_div4/s16_div100)
     S16,
     /// i16 BE / 4 (DME temp °C, can be negative)
@@ -212,7 +225,9 @@ pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
         | Decode::U16Milli
         | Decode::U16Times10
         | Decode::U16Tenths
-        | Decode::U16Div100 => {
+        | Decode::U16Div100
+        | Decode::U16Fiftieths
+        | Decode::U16Half => {
             if data.len() >= 2 {
                 let raw = u16::from_be_bytes([data[0], data[1]]) as f64;
                 Some(match decode {
@@ -221,8 +236,17 @@ pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
                     Decode::U16Times10 => raw * 10.0,
                     Decode::U16Tenths => raw * 0.1,
                     Decode::U16Div100 => raw * 0.01,
+                    Decode::U16Fiftieths => raw * 0.02,
+                    Decode::U16Half => raw * 0.5,
                     _ => raw,
                 })
+            } else {
+                None
+            }
+        }
+        Decode::U32Be => {
+            if data.len() >= 4 {
+                Some(u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as f64)
             } else {
                 None
             }
@@ -305,6 +329,9 @@ pub fn decode_from_str(s: &str) -> Option<Decode> {
         "u16_times10" => Decode::U16Times10,
         "u16_tenths" => Decode::U16Tenths,
         "u16_div100" => Decode::U16Div100,
+        "u16_fiftieths" => Decode::U16Fiftieths,
+        "u32_be" => Decode::U32Be,
+        "u16_half" => Decode::U16Half,
         "s16" => Decode::S16,
         "s16_div4" => Decode::S16Div4,
         "s16_div100" => Decode::S16Div100,
@@ -347,6 +374,9 @@ fn decode_to_str(d: Decode) -> &'static str {
         Decode::U16Times10 => "u16_times10",
         Decode::U16Tenths => "u16_tenths",
         Decode::U16Div100 => "u16_div100",
+        Decode::U16Fiftieths => "u16_fiftieths",
+        Decode::U32Be => "u32_be",
+        Decode::U16Half => "u16_half",
         Decode::S16 => "s16",
         Decode::S16Div4 => "s16_div4",
         Decode::S16Div100 => "s16_div100",
@@ -471,6 +501,59 @@ mod tests {
             assert!(approx(decode(Decode::U16Div100, &[0x00, 0x00]).unwrap(), 0.0));
         }
 
+    // ---- v0.14.3 new decoders (u16_fiftieths / u32_be / u16_half) ----
+    //
+    // OBD-II SAE J1979 fuel-rate + runtime PIDs the v0.14.2 N62 slice 1
+    // PR (#175) deferred pending new decoders. Plan: docs/v0.14.3_plan.md.
+
+    #[test]
+    fn u16_fiftieths_engine_fuel_rate_lh() {
+        // OBD 0x5E — SAE scale × 0.02 (i.e. 1/50).
+        // raw 50 -> 1.00 L/h (light idle load)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x00, 0x32]).unwrap(), 1.00));
+        // raw 250 -> 5.00 L/h (typical part-throttle cruise)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x00, 0xFA]).unwrap(), 5.00));
+        // raw 5000 -> 100.00 L/h (heavy load, scale top end for a V8)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x13, 0x88]).unwrap(), 100.00));
+        // raw 0xFFFF -> 1310.70 L/h (saturated / fault sentinel)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0xFF, 0xFF]).unwrap(), 1310.70));
+        // 0 -> 0 (engine off / pump not running)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x00, 0x00]).unwrap(), 0.0));
+    }
+
+    #[test]
+    fn u16_half_engine_fuel_rate_gs() {
+        // OBD 0x62 — SAE scale × 0.5 (i.e. 1/2).
+        // raw 2 -> 1.00 g/s (idle)
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0x02]).unwrap(), 1.00));
+        // raw 20 -> 10.00 g/s (cruise)
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0x14]).unwrap(), 10.00));
+        // raw 200 -> 100.00 g/s (wide-open throttle, V8-class)
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0xC8]).unwrap(), 100.00));
+        // raw 0xFFFF -> 32767.50 g/s (saturated / fault sentinel)
+        assert!(approx(decode(Decode::U16Half, &[0xFF, 0xFF]).unwrap(), 32767.50));
+        // 0 -> 0
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0x00]).unwrap(), 0.0));
+    }
+
+    #[test]
+    fn u32_be_engine_runtime() {
+        // OBD 0x5F — 4-byte BE seconds-since-start. unsigned, so no sign.
+        // 0 -> 0 (cold start)
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x00, 0x00, 0x00]).unwrap(), 0.0));
+        // 60 -> 60 s (1 min after start)
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x00, 0x00, 0x3C]).unwrap(), 60.0));
+        // 3600 -> 1 h
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x00, 0x0E, 0x10]).unwrap(), 3600.0));
+        // 86400 -> 1 day
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x01, 0x51, 0x80]).unwrap(), 86400.0));
+        // 0xFFFFFFFF -> ~4.29e9 s (~136 years — overflow sentinel for
+        // "PID supported but counter saturated"; the frontend caps
+        // the gauge at the engine's actual runtime).
+        let max = u32::MAX as f64;
+        assert!(approx(decode(Decode::U32Be, &[0xFF, 0xFF, 0xFF, 0xFF]).unwrap(), max));
+    }
+
     #[test]
     fn s16_basic_negative() {
         // Two's complement: 0x8000 = -32768 (i16 min)
@@ -545,9 +628,31 @@ mod tests {
         assert_eq!(decode(Decode::U16Times10, &[0x01]), None);
         assert_eq!(decode(Decode::U16Tenths, &[0x01]), None);
         assert_eq!(decode(Decode::U16Div100, &[]), None);
+        // v0.14.3: u16_fiftieths and u16_half are part of the u16
+        // family and follow the same 2-byte-minimum contract.
+        assert_eq!(decode(Decode::U16Fiftieths, &[0x01]), None);
+        assert_eq!(decode(Decode::U16Fiftieths, &[]), None);
+        assert_eq!(decode(Decode::U16Half, &[0x01]), None);
+        assert_eq!(decode(Decode::U16Half, &[]), None);
         assert_eq!(decode(Decode::S16, &[0x01]), None);
         assert_eq!(decode(Decode::S16Div4, &[0x01]), None);
         assert_eq!(decode(Decode::S16Div100, &[]), None);
+    }
+
+    #[test]
+    fn u32_be_short_buffer() {
+        // v0.14.3: u32_be needs 4 bytes — any shorter buffer returns None
+        // (matching the u16 family's 2-byte contract; u8 family's 1-byte).
+        assert_eq!(decode(Decode::U32Be, &[]), None);
+        assert_eq!(decode(Decode::U32Be, &[0x00]), None);
+        assert_eq!(decode(Decode::U32Be, &[0x00, 0x01, 0x02]), None);
+        // Exactly 4 bytes is the minimum valid input.
+        assert!(decode(Decode::U32Be, &[0x00, 0x00, 0x00, 0x00]).is_some());
+        // Trailing bytes past 4 are ignored (the decoder only reads the
+        // first 4). This matches the u16 family's behaviour with extra
+        // bytes — the wire layer trims responses, but defensive leniency
+        // is cheap.
+        assert!(decode(Decode::U32Be, &[0xFF, 0xFF, 0xFF, 0xFF, 0xAA]).is_some());
     }
 
     #[test]
@@ -568,7 +673,8 @@ mod tests {
         let names = [
             "temp_u8", "u16", "u8", "u8_tenths", "u8_div100", "u8_div4",
             "u16_quarter", "percent_a", "u16_milli", "u16_times10",
-            "u16_tenths", "u16_div100", "s16", "s16_div4", "s16_div100",
+            "u16_tenths", "u16_div100", "u16_fiftieths", "u32_be",
+            "u16_half", "s16", "s16_div4", "s16_div100",
         ];
         for name in names {
             let d = decode_from_str(name)
