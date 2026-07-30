@@ -1,21 +1,28 @@
-# N62 / E70 bench-verification harness — v0.14.2
+# N62 / E70 bench-verification harness — v0.14.3
 
 > **Status:** v0.14.2 slice 1 (PR #175) replaced the unverified
 > `local:10` oil-temp placeholder in `community/profiles/n62.toml`
 > with the standard OBD-II PID `0x5C` (engine oil temperature,
-> `byte - 40 °C`). Bench verification on the E70 X5 4.8i / N62 is
-> the gating step. **This doc is the harness for that step.**
+> `byte - 40 °C`). v0.14.3 slices 1–3 (PRs #185, #186, #187) added
+> the three deferred PIDs (`0x5E` fuel rate L/h, `0x5F` engine
+> runtime s, `0x62` fuel rate g/s) and the decoders they need.
+> Bench verification on the E70 X5 4.8i / N62 is the gating step
+> for every new entry. **This doc is the harness for that step.**
 
 ## What this is
 
-v0.14.2's N62 profile enrichment ships **only one new OBD-II PID
+v0.14.2's N62 profile enrichment shipped **only one new OBD-II PID
 (`0x5C`)** instead of the four the cycle plan originally called for
-(`0x5C`, `0x5E`, `0x5F`, `0x62`). The reason is in PR #175's
-description: the three deferred PIDs each require a decoder that
-doesn't yet exist in the catalog — shipping a profile entry that
-references a non-existent decoder breaks every consumer at load time
-with `unknown decode: X`, so the **decoder-first discipline is
-preserved**.
+(`0x5C`, `0x5E`, `0x5F`, `0x62`). v0.14.3 (PRs #185 + #186) added the
+three decoders the deferred PIDs need (`u16_fiftieths`, `u32_be`,
+`u16_half`) and re-enabled the three profile entries with the
+`[needs verification, N62/E70 bench]` discipline that the original
+plan called for. The historical reason this was a multi-cycle split
+is in PR #175's description: the three deferred PIDs each require a
+decoder that doesn't yet exist in the catalog — shipping a profile
+entry that references a non-existent decoder breaks every consumer
+at load time with `unknown decode: X`, so the **decoder-first
+discipline is preserved**.
 
 What the profile does ship, and what this doc verifies:
 
@@ -33,11 +40,23 @@ What the profile does ship, and what this doc verifies:
 - `0x42` (module voltage) — emissions-mandated; the N62 idle-voltage
   heuristic (see "Idle voltage target" in `community/profiles/n62.toml`)
   depends on this reading.
-- `0x5C` (engine oil temperature) — **the new one**. Standard SAE
+- `0x5C` (engine oil temperature) — **the v0.14.2 new PID**. Standard SAE
   J1979 PID, `byte - 40 °C`. Replaces the unverified `local:10`
-  placeholder. **This is the only PID that needs bench verification
-  on the E70 in this cycle** — the rest are emissions-mandated and
-  confirmed by design.
+  placeholder. Bench verification on the E70 is the gating step.
+- `0x5E` (engine fuel rate L/h) — **the v0.14.3 new PID**. Standard SAE
+  J1979 PID, `raw × 0.02` (`u16_fiftieths` decoder). Idle on a warm
+  N62 should be ~1–2 L/h; wide-open throttle ~50–90 L/h. Same
+  bench-verification gate as `0x5C`.
+- `0x5F` (engine runtime since start) — **the v0.14.3 new PID**.
+  Standard SAE J1979 PID, 4-byte BE seconds (`u32_be` decoder).
+  Resets on each ignition cycle; `0xFFFFFFFF` is the overflow
+  sentinel. Cold-reading row below is the verification target.
+- `0x62` (engine fuel rate g/s) — **the v0.14.3 new PID**. Standard
+  SAE J1979 PID, `raw × 0.5` (`u16_half` decoder). The load-bearing
+  PID for BSFC (brake-specific fuel consumption) heuristics — divide
+  by `rpm × cyl_count` for instantaneous BSFC. Idle on a warm N62
+  should be ~1–2 g/s; wide-open throttle ~40–70 g/s. Same
+  bench-verification gate as `0x5C` / `0x5E`.
 
 The harness is the report-back loop. You read each profile PID via
 the desktop app, compare against a known-good expected value at
@@ -70,9 +89,10 @@ Everything below is the recipe for doing that.
    K-line fallback on pin 7.
 2. Open the BeeEmUu app, click **Connect**, select **`n62`** from
    the profile dropdown.
-3. Click the **Live Data** tab. You should see the 10 gauges
+3. Click the **Live Data** tab. You should see the 13 gauges
    (engine speed, coolant, oil, IAT, load, throttle, MAP, speed,
-   voltage, ambient) populated within ~1 second.
+   voltage, ambient, fuel rate L/h, engine runtime, fuel rate g/s)
+   populated within ~1 second.
 
 If any gauge is missing, the corresponding `[[profile.param]]` entry
 failed to read — the most likely cause is the DME returning an NRC
@@ -99,6 +119,9 @@ the value:
 | Vehicle speed | `obd:0D` | `u8` | 0 km/h | Stationary |
 | Module voltage | `obd:42` | `u16_milli` | 12.0–12.6 V (battery, alternator not charging) | Alternator is OFF at key-on engine-off |
 | Ambient | `obd:46` | `temp_u8` | ambient | Climatronic sensor, not IAT |
+| Fuel rate (L/h) | `obd:5E` | `u16_fiftieths` | ~0 L/h (engine off) | **The v0.14.3 new PID**; raw × 0.02 |
+| Engine runtime | `obd:5F` | `u32_be` | ~0 s on a cold start (resets each ignition cycle) | **The v0.14.3 new PID**; 4-byte BE seconds; 0xFFFFFFFF = overflow sentinel |
+| Fuel rate (g/s) | `obd:62` | `u16_half` | ~0 g/s (engine off) | **The v0.14.3 new PID**; raw × 0.5; idle ~1–2, WOT ~40–70 |
 
 The **critical row is oil temp**. If `0x5C` returns a value within
 ±2 °C of the IAT reading, the encoder is `temp_u8` and the swap
@@ -106,6 +129,25 @@ from the `local:10` placeholder is **confirmed**. If it returns
 `-40 °C` (the SAE J1979 sentinel for "unsupported"), the PID is
 absent on this DME firmware and the slice 1 enrichment needs a
 fallback to `local:10` or a different OBD-II PID. See Step 4.
+
+The **v0.14.3 critical rows are fuel rate (L/h) at idle/WOT and
+fuel rate (g/s) at idle/WOT**. If both fuel-rate gauges read ~0
+L/h and ~0 g/s on a warm idle (engine running, oil temp ≥ 90 °C,
+throttle at idle), the decoders (`u16_fiftieths`, `u16_half`) are
+fine but the OBD-II PID is unsupported on this DME firmware and
+the entries should be removed. The v0.14.3 backend ships the
+support for that path: `protocol::nrc_from_error` parses the
+per-PID `(sid, nrc)` pair (PR #187) and the async Tauri command
+`remove_profile_pid` (also PR #187) writes the updated TOML
+behind a `tauri-plugin-dialog` confirmation. The frontend
+consumer of that backend (per-PID dim + one-click-remove UI) is
+**slice 3b, still open** — until slice 3b lands, the user has to
+edit `community/profiles/n62.toml` by hand to remove a stale
+fuel-rate entry. If the fuel-rate gauges read wildly *high*
+(> 100 L/h at idle), the decoder scale constant is wrong and
+`decode = "u16_fiftieths"` / `decode = "u16_half"` in
+`community/profiles/n62.toml` needs to be swapped — see Step 4
+for the report shape.
 
 ## Step 3 — capture the running readings
 
@@ -125,6 +167,9 @@ Read each gauge and record:
 | Vehicle speed | 0 km/h | 0–255 km/h | Stationary |
 | Module voltage | 13.8–14.4 V (alternator regulating) | 0–65.535 V | **< 13.5 V sustained = failing voltage regulator** |
 | Ambient | ambient (steady) | -40–150 °C | Climatronic sensor |
+| Fuel rate (L/h) | 1–2 L/h (idle, warm) | 0–100 L/h | **v0.14.3 row**; WOT 50–90 L/h; clamped to 0 if NRC 0x11/0x12 surfaces in the log |
+| Engine runtime | monotonic since ignition | 0–4 294 967 295 s | **v0.14.3 row**; if the gauge jumps to `0xFFFFFFFF` and stays, the decoder is fine but the DME hit the overflow sentinel — note the timestamp and continue |
+| Fuel rate (g/s) | 1–2 g/s (idle, warm) | 0–100 g/s | **v0.14.3 row**; BSFC numerator — divide by `rpm × 8` (N62 cyl count) for instantaneous BSFC; WOT 40–70 g/s |
 
 If any value is wildly off, the decoder scale or the OBD-II PID
 encoding on the DME is non-standard. **The fix is one constant
@@ -154,6 +199,9 @@ Open a GitHub issue at
 | Oil temp | _ °C | ambient ± 2 °C |
 | IAT | _ °C | ambient |
 | ... | ... | ... |
+| Fuel rate (L/h) | _ L/h | ~0 L/h (engine off) |
+| Engine runtime | _ s | ~0 s on cold start |
+| Fuel rate (g/s) | _ g/s | ~0 g/s (engine off) |
 
 **Running readings (idle, 10 min warm-up):**
 
@@ -163,6 +211,9 @@ Open a GitHub issue at
 | Coolant | _ °C | 88–95 |
 | Oil temp | _ °C | 95–110 |
 | ... | ... | ... |
+| Fuel rate (L/h) | _ L/h | 1–2 (idle), 50–90 (WOT) |
+| Engine runtime | _ s | monotonic since ignition (note any 0xFFFFFFFF jumps) |
+| Fuel rate (g/s) | _ g/s | 1–2 (idle), 40–70 (WOT) |
 
 **PID(s) that failed to read** (if any): [list, with the NRC the
 app surfaced in the log if available]
@@ -178,29 +229,47 @@ exhibited the documented failure mode):
 
 ## Step 5 — what we will do with the report
 
-A passing report (all 10 gauges within expected ranges, `0x5C` oil
-temp matches IAT at key-on and reaches 95–110 °C at idle cruise)
-**removes the `[needs verification]` label from the `0x5C` profile
-entry** in the next v0.14.x release cut and is the gating evidence
-for the v0.14.3+ work that re-enables the deferred `0x5E` / `0x5F`
-/ `0x62` PIDs (each still needs its own decoder first).
+A passing report (all 13 gauges within expected ranges; `0x5C` oil
+temp matches IAT at key-on and reaches 95–110 °C at idle cruise;
+`0x5E` ≈ 1–2 L/h at idle and 50–90 L/h at WOT; `0x5F` is monotonic
+since ignition; `0x62` ≈ 1–2 g/s at idle and 40–70 g/s at WOT)
+**removes the `[needs verification, N62/E70 bench]` label from all
+four v0.14.2/v0.14.3 PIDs (`0x5C`, `0x5E`, `0x5F`, `0x62`) in the
+next v0.14.x release cut** and is the gating evidence for the
+v0.14.4 cycle ("N62 Bench Verification") that consumes the report.
 
-A failing report (oil temp returns -40 °C, or any PID returns an
-NRC) **reverts the slice 1 enrichment for that PID only** — the
-`local:10` placeholder is restored as a `[UNVERIFIED placeholder]`
-with a comment pointing at the failing report, and the harness is
+A failing report (oil temp returns `-40 °C`, any of `0x5E` / `0x5F`
+/ `0x62` returns an NRC, or the fuel-rate gauges read wildly off)
+**reverts the enrichment for that PID only** — the corresponding
+`[[profile.param]]` entry is removed (or, for `0x5C`, restored to
+the `local:10` placeholder) and marked `[UNVERIFIED placeholder]`
+with a comment pointing at the failing report. The harness is
 extended with a new Step 2.5 that captures the raw PID request and
-response bytes via the **Parameter Explorer** (`src/js/explorer.js`).
+response bytes via the **Parameter Explorer**
+(`src/js/explorer.js`).
 
 ## Cross-references
 
-- v0.14.2 plan: `docs/v0.14.2_plan.md` (slice 3 lines 75-92,
-  142-151)
-- Companion slice: PR #175 (slice 1, `n62.toml` enrichment),
-  PR #177 (slice 2, Live Data panel UX polish)
+- v0.14.2 plan: `docs/v0.14.2_plan.md` (slice 3 lines 75–92,
+  142–151)
+- v0.14.3 plan: `docs/v0.14.3_plan.md` (slice 4 lines 126–131)
+- v0.14.3 cycle: this doc's Step 2 / Step 3 / Step 4 / Step 5
+  extensions are the harness-doc surface for the three PIDs added
+  by slices 1–3 (PRs #185, #186, #187)
+- Companion slice: PR #175 (slice 1, `n62.toml` `0x5C` enrichment),
+  PR #177 (slice 2, Live Data panel UX polish),
+  PR #185 (slice 1, three new decoders), PR #186 (slice 2, three
+  new profile entries), PR #187 (slice 3, per-PID NRC + remove UI)
 - N62 instrumentation context: `community/profiles/n62.toml`
   header block
 - NRC error surface: `src/js/live_data_panel.js::parseNrcError` +
-  `src/js/live_data_panel.js::isUnsupportedNrc` (slice 2)
+  `src/js/live_data_panel.js::isUnsupportedNrc` (slice 2,
+  PR #177); backend per-PID `(sid, nrc)` extraction
+  (`protocol::nrc_from_error`) + async `remove_profile_pid`
+  Tauri command (slice 3a, PR #187); frontend consumer of both
+  (per-PID dim + remove UI in `src/js/main.js::pollOnce` +
+  `src/js/live_data_panel.js`) is **slice 3b, still open**.
 - v0.14.0 broadcast harness (for users who eventually get an
   OBDLink SX on the same chassis): `docs/validation/can-broadcast.md`
+- Decoder spec: `docs/DECODE_FUNCTIONS.md` §10 (`u16_fiftieths`),
+  §11 (`u32_be`), §12 (`u16_half`)
