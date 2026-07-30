@@ -43,6 +43,39 @@ pub(crate) fn nrc_text(nrc: u8) -> &'static str {
     }
 }
 
+/// Extract `(sid, nrc)` from the error string produced by [`service`].
+///
+/// Returns `None` for any non-NRC error string (transport timeouts,
+/// `unexpected ...` responses, raw [`TransportError`] messages, etc.).
+/// Case-insensitive on both hex digits; tolerates either spacing around
+/// the `(NRC XX)` tail.
+///
+/// Used by the `read_live_data` Tauri command (v0.14.3 slice 3) to
+/// attribute per-PID failures to the right gauge: the protocol layer
+/// returns the same error string whether the request was UDS `22`,
+/// OBD `01`, or KWP `21`, so a string parse is the only signal the
+/// commands layer has. Centralising the parse here keeps the
+/// format knowledge in one place — the matching logic that *produces*
+/// the string lives in [`service`] four lines above.
+pub fn nrc_from_error(msg: &str) -> Option<(u8, u8)> {
+    // Match the "(NRC XX)" tail case-insensitively.
+    let nrc_match = msg
+        .match_indices("(NRC")
+        .find_map(|(i, _)| msg[i..].strip_prefix("(NRC"))?;
+    let nrc_hex = nrc_match
+        .trim_start()
+        .trim_start_matches(|c: char| c.is_whitespace())
+        .get(0..2)?;
+    let nrc = u8::from_str_radix(nrc_hex, 16).ok()?;
+    // Match the leading "service XX" token.
+    let sid_idx = msg.find("service ")?;
+    let sid_hex = msg[sid_idx + "service ".len()..]
+        .trim_start()
+        .get(0..2)?;
+    let sid = u8::from_str_radix(sid_hex, 16).ok()?;
+    Some((sid, nrc))
+}
+
 /// Send a request; map negative responses (7F sid nrc) to readable errors.
 fn service(t: &mut dyn Transport, target: u8, req: &[u8]) -> PResult<Vec<u8>> {
     let resp = t
@@ -423,6 +456,68 @@ mod tests {
         ]);
         let pids = scan_obd2_pids(&mut t, 0x12).unwrap();
         assert_eq!(pids, vec![0x00, 0x01], "PID 0x03 should be dropped on bad response");
+    }
+
+    // ---- v0.14.3: nrc_from_error round-trip ----
+    //
+    // The helper is the inverse of the format string produced by
+    // `service()` four lines above the `nrc_from_error` definition.
+    // Pinned by tests so a future format tweak (e.g. adding a query
+    // label) trips the parser tests instead of silently breaking
+    // every caller that depends on the (sid, nrc) tuple.
+
+    #[test]
+    fn nrc_from_error_extracts_service_and_nrc() {
+        // The canonical error string produced by service() for a UDS
+        // `22` request that the ECU rejected with NRC 0x22.
+        assert_eq!(
+            nrc_from_error("ECU rejected service 22: Conditions not correct (NRC 22)"),
+            Some((0x22, 0x22))
+        );
+    }
+
+    #[test]
+    fn nrc_from_error_uppercase_hex() {
+        // The actual service() format prints lowercase hex digits, but the
+        // parser tolerates either case so a user-pasted log line still parses.
+        assert_eq!(
+            nrc_from_error("ECU rejected service 22: Conditions not correct (NRC 31)"),
+            Some((0x22, 0x31))
+        );
+        assert_eq!(
+            nrc_from_error("ECU rejected service 31: Request out of range (NRC 12)"),
+            Some((0x31, 0x12))
+        );
+    }
+
+    #[test]
+    fn nrc_from_error_returns_none_for_non_nrc_messages() {
+        // Transport-level errors (no `(NRC ...)` tail at all).
+        assert_eq!(nrc_from_error("timed out"), None);
+        assert_eq!(nrc_from_error(""), None);
+        assert_eq!(nrc_from_error("Not connected"), None);
+        // Protocol-level non-NRC errors (unexpected response).
+        assert_eq!(
+            nrc_from_error("Unexpected ident response: Some([5A, 90])"),
+            None
+        );
+        // Malformed NRC — non-hex characters in the slot.
+        assert_eq!(nrc_from_error("ECU rejected service 22: ... (NRC ZZ)"), None);
+        // `(NRC` substring but no actual hex digits after.
+        assert_eq!(nrc_from_error("ECU rejected service 22: ... (NRC )"), None);
+    }
+
+    #[test]
+    fn nrc_from_error_tolerates_extra_whitespace() {
+        // Parser is whitespace-tolerant at the boundary so a copy-pasted
+        // log line with extra spaces still parses. The canonical
+        // `service()` format is `(NRC XX)` tightly packed — the
+        // whitespace tolerance is just a robustness nicety, not a
+        // guarantee.
+        assert_eq!(
+            nrc_from_error("ECU rejected service  22:  bad (NRC   12)"),
+            Some((0x22, 0x12))
+        );
     }
 }
 

@@ -247,59 +247,133 @@ pub fn list_profiles() -> Vec<ProfileInfo> {
         .collect()
 }
 
+/// A single per-PID failure from a live-data sweep. Returned alongside
+/// the successful values so the frontend can dim the affected gauge(s)
+/// without guessing which PID tripped the error.
+///
+/// Pre-v0.14.3, a single per-PID failure short-circuited the whole
+/// sweep with `Err(String)`; the frontend couldn't tell which PID
+/// failed and so couldn't offer a "remove this unsupported PID from
+/// the profile" affordance. v0.14.3 slice 3 splits the return shape
+/// into successful values + per-PID error records so the frontend
+/// can act on each failure independently.
+#[derive(Serialize)]
+pub struct LiveError {
+    /// The `LiveParam.id` of the failing PID (e.g. `"oil"`, `"coolant"`).
+    /// The frontend uses this to address the gauge cell.
+    pub id: String,
+    /// Human-readable label (e.g. `"Oil temp"`) — mirrors `LiveValue.label`.
+    pub label: String,
+    /// The service id that the ECU rejected, if the error string parsed.
+    /// `None` for transport-level errors (timeouts, "Not connected",
+    /// "Unexpected DID response: ...").
+    pub sid: Option<u8>,
+    /// The negative response code, if the error string parsed.
+    /// `None` for non-NRC errors (same conditions as `sid`).
+    pub nrc: Option<u8>,
+    /// Original error string from the protocol layer, verbatim. The
+    /// frontend's `live_data_panel.parseNrcError` keeps using this
+    /// as a fallback for legacy callers; structured `sid`/`nrc`
+    /// fields are the new fast path.
+    pub error: String,
+}
+
+/// Result of a single live-data sweep. `values` carries the
+/// successfully-decoded `LiveValue`s (only the params whose read
+/// AND decode succeeded). `errors` carries one `LiveError` per
+/// failed PID; an empty `errors` vec means the sweep was clean.
+#[derive(Serialize)]
+pub struct LiveSweepResult {
+    pub values: Vec<live::LiveValue>,
+    pub errors: Vec<LiveError>,
+}
+
 /// One polling sweep over a profile's parameters. Frontend calls this on a timer.
+///
+/// Returns a [`LiveSweepResult`] so the caller can distinguish between
+/// "all PIDs answered" (empty `errors`) and "one or more PIDs were
+/// rejected" (populated `errors` with structured `(sid, nrc)` per
+/// failed PID). The whole sweep only fails (`Err(_)`) for systemic
+/// problems — no transport, unknown profile, etc. — never for a
+/// single per-PID NRC.
 #[tauri::command]
 pub async fn read_live_data(
     state: tauri::State<'_, AppState>,
     profile: String,
-) -> Result<Vec<live::LiveValue>, String> {
+) -> Result<LiveSweepResult, String> {
     let params = live::profile_params(&profile).ok_or("Unknown profile")?;
     with_transport(&state, |t| {
-        let mut out = Vec::new();
+        let mut values = Vec::new();
+        let mut errors = Vec::new();
         for def in &params {
             let data = match def.query {
                 live::Query::Did(did) => protocol::read_did(t, def.target, did),
                 live::Query::Obd(pid) => protocol::read_obd_pid(t, def.target, pid),
                 live::Query::Local(id) => protocol::read_local_ident(t, def.target, id),
             };
-            if let Ok(data) = data {
-                // For U8Enum the value comes from the per-parameter
-                // enum_map, not the numeric decoder. The numeric
-                // pipeline returns None for it; we resolve the label
-                // here and surface it as `text`. Unknown bytes (e.g.
-                // a gear value the profile didn't anticipate) get a
-                // `0xNN ?` sentinel so the gauge renders an explicit
-                // "unknown state" rather than going silently to zero.
-                if matches!(def.decode, live::Decode::U8Enum) {
-                    if let Some(label) =
-                        live::decode_enum_string_or_unknown(def.decode, &data, &def.enum_map)
-                    {
-                        out.push(live::LiveValue {
+            match data {
+                Ok(data) => {
+                    // For U8Enum the value comes from the per-parameter
+                    // enum_map, not the numeric decoder. The numeric
+                    // pipeline returns None for it; we resolve the label
+                    // here and surface it as `text`. Unknown bytes (e.g.
+                    // a gear value the profile didn't anticipate) get a
+                    // `0xNN ?` sentinel so the gauge renders an explicit
+                    // "unknown state" rather than going silently to zero.
+                    if matches!(def.decode, live::Decode::U8Enum) {
+                        if let Some(label) =
+                            live::decode_enum_string_or_unknown(def.decode, &data, &def.enum_map)
+                        {
+                            values.push(live::LiveValue {
+                                id: def.id.clone(),
+                                label: def.label.clone(),
+                                unit: def.unit.clone(),
+                                value: 0.0,
+                                min: def.min,
+                                max: def.max,
+                                text: Some(label),
+                            });
+                        }
+                        continue;
+                    }
+                    if let Some(value) = live::decode(def.decode, &data) {
+                        values.push(live::LiveValue {
                             id: def.id.clone(),
                             label: def.label.clone(),
                             unit: def.unit.clone(),
-                            value: 0.0,
+                            value,
                             min: def.min,
                             max: def.max,
-                            text: Some(label),
+                            text: None,
                         });
                     }
-                    continue;
+                    // decode() returning None is silent — we don't
+                    // surface a per-PID error for it. The decode is
+                    // local CPU work; nothing went wrong on the wire.
                 }
-                if let Some(value) = live::decode(def.decode, &data) {
-                    out.push(live::LiveValue {
+                Err(err) => {
+                    // v0.14.3 slice 3: per-PID failures are surfaced
+                    // structured (sid, nrc) instead of failing the
+                    // whole sweep. The original error string is
+                    // preserved in `error` so the frontend's
+                    // `live_data_panel.parseNrcError` keeps working
+                    // as a fallback (and so non-NRC errors like
+                    // transport timeouts round-trip cleanly).
+                    let (sid, nrc) = match protocol::nrc_from_error(&err) {
+                        Some((s, n)) => (Some(s), Some(n)),
+                        None => (None, None),
+                    };
+                    errors.push(LiveError {
                         id: def.id.clone(),
                         label: def.label.clone(),
-                        unit: def.unit.clone(),
-                        value,
-                        min: def.min,
-                        max: def.max,
-                        text: None,
+                        sid,
+                        nrc,
+                        error: err,
                     });
                 }
             }
         }
-        Ok(out)
+        Ok(LiveSweepResult { values, errors })
     })
 }
 
@@ -652,6 +726,54 @@ pub fn export_profile(id: String) -> Result<String, String> {
 #[tauri::command]
 pub fn import_profiles(content: String) -> Result<Vec<String>, String> {
     crate::community::import_profiles_str(&content)
+}
+
+/// Remove one parameter from a profile, in memory + on disk.
+///
+/// v0.14.3 slice 3a — gates the frontend's "this PID isn't supported
+/// on my car, get it off the panel" affordance. Returns the full
+/// path of the TOML file written so the user can see what changed.
+///
+/// Threading: `async fn` (not in `SYNC_ALLOWLIST`) because it does
+/// file I/O via `tokio::fs`. The in-memory mutation runs first, then
+/// the file write — so a write failure leaves the in-memory state
+/// consistent with what the user just removed (and the next
+/// `read_live_data` will skip the PID even if the disk write fails).
+/// This is the inverse of the risk profile the project documents in
+/// `CONTRIBUTING.md` for unsanitised TOML edits; the trade-off is
+/// acceptable here because the user clicked the button explicitly.
+#[tauri::command]
+pub async fn remove_profile_pid(profile_id: String, param_id: String) -> Result<String, String> {
+    use std::path::PathBuf;
+    // Step 1: in-memory removal. Returns false if the profile or
+    // param id is unknown — surface a friendly error to the UI
+    // rather than silently succeeding.
+    if !live::remove_param_from_profile(&profile_id, &param_id) {
+        return Err(format!(
+            "No param '{param_id}' in profile '{profile_id}' (already removed, or unknown)"
+        ));
+    }
+    // Step 2: serialise the updated profile to TOML. `profile_to_toml`
+    // already exists; it round-trips the `[profile.theme]` block too
+    // so a per-profile gauge theme survives the edit.
+    let toml_src = live::profile_to_toml(&profile_id)
+        .ok_or_else(|| format!("Profile '{profile_id}' vanished mid-edit"))?;
+    // Step 3: write to the community directory. `find_dir()` is the
+    // same lookup `save_freeze_schema` uses — falls back to the
+    // cwd `community/` when the env var is unset (dev mode).
+    let dir = crate::community::find_dir()
+        .unwrap_or_else(|| PathBuf::from("community"));
+    let path = dir.join("profiles").join(format!("{profile_id}.toml"));
+    if let Some(parent) = path.parent() {
+        // `community/profiles/` may not exist on a fresh checkout;
+        // `save_freeze_schema` handles the same case by creating
+        // `community/freeze/`. Mirror that.
+        tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+    }
+    tokio::fs::write(&path, toml_src.as_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 /* ---------------- Profile editing ---------------- */
