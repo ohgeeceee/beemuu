@@ -382,6 +382,78 @@ label = "B58 3.0 turbo I6 ..."
 
 ---
 
+## v0.14.3 — SAE J1979 fuel-rate + runtime decoders
+
+The three decoders the v0.14.2 slice 1 PR (#175) deferred pending
+new decoders. Each follows the same shape as the existing
+`u16_div100` / `u16_tenths` family: 2-byte BE input, a single
+multiplicand, output as `f64`. The `u32_be` decoder is the first
+non-u16 numeric decoder in the catalog (4-byte BE unsigned) — it
+opens the door to OBD PIDs that need higher precision / range than
+16 bits can give (e.g. future odometer, fuel totals, durations).
+
+### 10. `u16_fiftieths` — raw × 0.02
+
+**Input:** 2 bytes, big-endian
+**Formula:** `value = raw as f64 * 0.02`
+**Output:** `f64`
+
+**Used by:** SAE J1979 PID `0x5E` engine fuel rate (L/h). Same
+SAE scale as Mode 01 PID `0x5E` in the emissions-mandated
+diagnostic set. raw 50 = 1.00 L/h, raw 65535 ≈ 1310.70 L/h
+(saturated / fault sentinel).
+
+| OBD PID | Label            | Unit | Range         | Notes |
+|---------|------------------|------|---------------|-------|
+| `0x5E`  | Engine fuel rate | L/h  | 0.00 … 1310.70 | N62 ME9.2 + every other OBD-II compliant ECU |
+
+**Cycle reference.** v0.14.3 plan slice 1 + N62 profile entries
+in slice 2.
+
+### 11. `u32_be` — 4-byte BE unsigned
+
+**Input:** 4 bytes, big-endian
+**Formula:** `value = raw as f64` (the `as f64` is lossless up to
+2^53; an `f64` mantissa is 52 bits + implicit, so a `u32` max
+(~4.29e9) fits exactly)
+**Output:** `f64`
+
+**Used by:** SAE J1979 PID `0x5F` engine runtime since start
+(seconds). raw 0 = cold start, raw 86400 = 1 day, raw `0xFFFFFFFF`
+= ~136 years (overflow sentinel for "PID supported but counter
+saturated"; the frontend caps the gauge at the engine's actual
+runtime).
+
+| OBD PID | Label          | Unit | Range       | Notes |
+|---------|----------------|------|-------------|-------|
+| `0x5F`  | Engine runtime | s    | 0 … 4.29e9  | Unsigned — never negative |
+
+**Why a separate `u32_be` variant and not a `u24` extension?**
+The existing `u24` decoder in this doc is **planned but not
+implemented** (the u24 case is rare in OBD-II; the freeze-frame
+table that motivates it is currently unused — see
+`community/freeze_schemas.toml`). Adding `u32_be` directly is
+cheaper than retrofitting `u24` + `u32` together, and it doesn't
+fall into the u16 / u8 short-buffer pattern that the existing
+match arms share.
+
+### 12. `u16_half` — raw × 0.5
+
+**Input:** 2 bytes, big-endian
+**Formula:** `value = raw as f64 * 0.5`
+**Output:** `f64`
+
+**Used by:** SAE J1979 PID `0x62` engine fuel rate (g/s). Same
+SAE scale as Mode 01 PID `0x62` in the emissions-mandated
+diagnostic set. raw 2 = 1.00 g/s, raw 65535 ≈ 32767.50 g/s
+(saturated / fault sentinel).
+
+| OBD PID | Label            | Unit | Range            | Notes |
+|---------|------------------|------|------------------|-------|
+| `0x62`  | Engine fuel rate | g/s  | 0.00 … 32767.50  | N62 ME9.2 + every other OBD-II compliant ECU |
+
+---
+
 ## Implementation Checklist for Contributors
 
 When adding a new decode function, update ALL of these:
@@ -424,4 +496,4 @@ When adding a new decode function, update ALL of these:
 
 ---
 
-*Last updated: 2026-07-06. This is a living document — PRs welcome.*
+*Last updated: 2026-07-30. v0.14.3 adds `u16_fiftieths`, `u32_be`, `u16_half` — see §10–12 below. This is a living document — PRs welcome.*
