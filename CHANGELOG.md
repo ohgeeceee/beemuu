@@ -165,6 +165,115 @@ and the chassis-specific verification doc.
   review configuration. Tier B because `src-tauri/Cargo.toml` is
   on the protected list — though the change is workflow-only.
 
+## [0.14.4] — Unreleased
+
+> **Cycle status:** all four slices merged — #198 (CLAUDE.md
+> invariants refresh), #199 (ci.yml Tauri Linux sysdeps fix),
+> #200 (ROADMAP v0.3.0 historical audit), #201 (story +
+> anonymize test coverage). The v0.14.4 release cut (version
+> bump in `Cargo.toml` + `tauri.conf.json`, git tag, release
+> notes publish, installer build) is a separate Tier C step.
+> Until that PR lands, this entry stays `## [0.14.4] —
+> Unreleased` per Keep-a-Changelog convention.
+
+### Added — Tier A surface (test coverage + doc-rot cleanup)
+
+- **52 unit tests for `src-tauri/src/story.rs` + `anonymize.rs`**
+  (PR #201, Tier A, **cycle headline slice**):
+  - 32 tests in `story.rs` (was 0): severity bucketing +
+    ordering, `priority_for`, `parse_cost_range` (single /
+    tilde / hyphen / **en-dash** / whitespace / empty /
+    garbage), `format_vehicle` (empty / VIN-only /
+    mileage-only / decoded), `build_context` freeze-frame
+    string assembly, and the full `generate()` pipeline
+    integration against the live community knowledge base
+    (empty snapshot → Info story, n55-specific DTC lookup,
+    generic fallback, severity = max of all findings,
+    recommendation sort, cost range sum, cost-max
+    invariant, DTC code case-insensitive lookup, summary
+    text counts, title format).
+  - 20 tests in `anonymize.rs` (was 0): `hash_vin`
+    properties (16 hex chars, stable, distinct,
+    case-sensitive — pinned as an invariant test), full
+    `anonymize()` pipeline (VIN never leaks, fingerprint
+    substitution, missing VIN → "unknown" fingerprint,
+    engine_family preserved, modules / DTCs / freeze
+    frames preserved, mileage stripped, empty modules,
+    fault_count None → 0, live_data always empty), and
+    `export_json` (no VIN / mileage leak, pretty-printed,
+    serde round-trip).
+  - Tier A because the slice is pure additions to existing
+    Rust modules; no `transport/**` / `protocol/**` /
+    `commands.rs` / frontend JS touches.
+  - Test count went from `149 → 201` pass in
+    `cargo test --lib --offline` (52 new, all green).
+
+- **CLAUDE.md "Hardware & timing invariants" refresh**
+  (PR #198, Tier A): four stale "NOT YET IMPLEMENTED" /
+  "migration in progress" claims were wrong against
+  `main`. Refreshed to "INVARIANT — enforced" with
+  citations:
+  - Async commands: migration complete (all transport
+    commands are `async fn`); the 24 sync `#[tauri::command]`
+    are in-memory / local-fs helpers gated by
+    `tests/async_commands.rs::SYNC_ALLOWLIST`.
+  - Tester Present keep-alive: shipped in
+    `src-tauri/src/keepalive.rs` (210 LOC, `INTERVAL = 3000 ms`,
+    `FRAME = [0x3E, 0x00]`).
+  - ISO-TP multi-frame: shipped in
+    `src-tauri/src/transport/isotp.rs` (430 LOC, FF/CF/FC
+    state machine).
+  - VIN reads: `protocol::read_vin` shipped at
+    `src-tauri/src/protocol/mod.rs:296`; all callers in
+    `commands.rs` route through it (lines 70, 533, 677, 930).
+  - ENET/DoIP UDP discovery is honestly preserved as
+    still-not-implemented.
+
+- **ROADMAP.md v0.3.0 historical audit** (PR #200, Tier A):
+  six items in the v0.3.0 "Real Car" historical section
+  were marked "🟢 Ready" but had actually shipped. Moved
+  to a new "✅ Done — historical (shipped)" table with PR
+  references + code locations:
+  - KWP2000 slow-module timeout → ✅ Done (v0.13.0) — PR #153.
+  - ISO-TP multi-frame → ✅ Done (v0.14.x).
+  - Dark/light theme toggle → ✅ Done (v0.7.0) — PR #109.
+  - Gauge theming → ✅ Done (v0.7.0) — PR #109.
+  - Save/load workspace layout → ✅ Done (v0.7.0) — PR #109.
+  - Export PNG/SVG from charts → ✅ Done (v0.11.0) — PR #136.
+  - Honest 🟡 items (ENET/DoIP, BLE, WiFi, CAN bus
+    listener, Mobile-responsive, real-car validation) left
+    alone — they're still genuinely pending.
+
+### Fixed — Tier A surface (CI workflow)
+
+- **`ci.yml::test-rust` missing Tauri Linux system
+  dependencies** (PR #199, Tier A, CI workflow): the
+  `CI & Autonomous Merge` workflow's `test-rust` job ran
+  `cargo test` on a bare `ubuntu-latest` runner that lacked
+  Tauri's Linux system libraries (glib, gtk, webkit2gtk-4.1).
+  The build failed in 20s with
+  `Package glib-2.0 was not found in the pkg-config search
+  path`. This blocked every PR because branch protection
+  treats the duplicate `Rust Core Tests (src-tauri)` job
+  names from `test.yml` and `ci.yml` as the same required
+  status check. Mirrored the `apt-get install` step from
+  `test.yml::rust` (lines 36-37) into `ci.yml::test-rust`.
+
+### What this cycle does NOT ship
+
+- ❌ No `transport/**` code changes. The K+DCAN / ENET/DoIP
+  paths were not touched.
+- ❌ No `protocol/**` code changes.
+- ❌ No frontend changes (JS / HTML / CSS). The Diagnostic
+  Story modal and the Secure Snapshot Share button wire
+  into pre-existing `src/js/main.js` functions
+  (`renderStory`, `doSecureShare`).
+- ❌ No community data changes. The story knowledge base in
+  `community/stories/{generic,n55}.toml` was loaded but not
+  modified.
+- ❌ No `git tag v0.14.4`. That's the Tier C release cut —
+  the next step after the version-bump PR lands.
+
 ## [0.14.3] — 2026-07-30
 
 > **Cycle status:** all five slices merged — #185 (decoders),
