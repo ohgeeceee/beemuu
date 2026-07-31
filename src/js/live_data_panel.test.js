@@ -12,6 +12,7 @@ const {
   snapshotCsvFilename,
   parseNrcError,
   isUnsupportedNrc,
+  classifyNrc,
   UNSUPPORTED_NRCS,
 } = require("./live_data_panel.js");
 
@@ -196,4 +197,62 @@ test("isUnsupportedNrc: flags the four canonical 'unsupported' NRCs only", () =>
   // The set itself is what we ship — pinned so a future edit doesn't silently change it.
   assert.equal(UNSUPPORTED_NRCS.size, 4);
   assert.equal(UNSUPPORTED_NRCS.has(0x31), true);
+});
+
+// ---------------------------------------------------------------------------
+// classifyNrc — slice 3b frontend rewire
+//
+// Three buckets the UI acts on:
+//
+//   "unsupported" — offer the "remove from profile" affordance.
+//   "transient"   — ECU is unhappy right now; no UI action.
+//   "unknown"     — no structured sid/nrc to act on; no UI action.
+// ---------------------------------------------------------------------------
+
+test("classifyNrc: structured (sid, nrc) fast path — unsupported for the four canonical NRCs", () => {
+  for (const nrc of [0x11, 0x12, 0x31, 0x14]) {
+    assert.equal(classifyNrc({ id: "oil", label: "Oil", sid: 0x22, nrc, error: "" }), "unsupported");
+  }
+});
+
+test("classifyNrc: structured (sid, nrc) fast path — transient for non-unsupported NRCs", () => {
+  // 0x22 conditionsNotCorrect, 0x33 securityAccessRequired, 0x78 responsePending.
+  for (const nrc of [0x22, 0x33, 0x78]) {
+    assert.equal(classifyNrc({ id: "rpm", label: "RPM", sid: 0x22, nrc, error: "" }), "transient");
+  }
+});
+
+test("classifyNrc: structured nrc=null falls back to parsing err.error", () => {
+  // Legacy callers / races where the backend populated `error` but
+  // not the structured fields — the verbatim error string still
+  // carries the (sid, nrc) pair and classifyNrc should parse it.
+  assert.equal(
+    classifyNrc({ id: "oil", label: "Oil", sid: null, nrc: null, error: "ECU rejected service 22: requestOutOfRange (NRC 31)" }),
+    "unsupported"
+  );
+  assert.equal(
+    classifyNrc({ id: "rpm", label: "RPM", sid: null, nrc: null, error: "ECU rejected service 22: conditionsNotCorrect (NRC 22)" }),
+    "transient"
+  );
+});
+
+test("classifyNrc: structured nrc=null + unparsable error string returns 'unknown'", () => {
+  // Transport timeout / "Not connected" / etc. — no NRC to act on,
+  // so the UI should not offer the remove affordance.
+  assert.equal(
+    classifyNrc({ id: "rpm", label: "RPM", sid: null, nrc: null, error: "transport timed out after 1.0s" }),
+    "unknown"
+  );
+});
+
+test("classifyNrc: defensive — null / non-object / missing fields never throw", () => {
+  assert.equal(classifyNrc(null), "unknown");
+  assert.equal(classifyNrc(undefined), "unknown");
+  assert.equal(classifyNrc(""), "unknown");
+  assert.equal(classifyNrc(42), "unknown");
+  // Empty object: no sid, no nrc, no error string → unknown.
+  assert.equal(classifyNrc({}), "unknown");
+  // Object with only `id`/`label` (the LiveError struct fields the
+  // UI cares about) but no error info → unknown.
+  assert.equal(classifyNrc({ id: "oil", label: "Oil" }), "unknown");
 });

@@ -1363,42 +1363,22 @@ function updateSnapshotButton() {
 }
 
 async function pollOnce() {
+  let result = { values: [], errors: [] };
   try {
-    const values = await invoke("read_live_data", { profile: $("live-profile").value });
-    for (const v of values) {
-      // Enum params (gear, engine state, etc.) have v.text set and
-      // v.value = 0.0; numeric params have v.text undefined. The
-      // Gauge renders text when given a label override.
-      const g = ensureGauge(v);
-      g.set(v.value, v.text);
-      // Peak tracking — applyValuesToPeaks is a pure reducer over the
-      // values array; it skips enum / non-finite values internally.
-      livePeakState = window.beeemuuLiveDataPanel.applyValuesToPeaks(
-        livePeakState,
-        values
-      );
-      const cell = document.querySelector(
-        '.gauge-cell[data-pid-id="' + v.id + '"]'
-      );
-      if (cell) {
-        updateRangeBar(cell, g, v);
-        const peakEl = cell.querySelector("[data-peak]");
-        if (peakEl) {
-          const peak = livePeakState[v.id];
-          peakEl.textContent =
-            "peak: " +
-            window.beeemuuLiveDataPanel.formatPeakForLabel(peak, g.unit);
-        }
-      }
-    }
-    renderPeakTable();
-    updateSnapshotButton();
+    // v0.14.3 slice 3b — `read_live_data` now returns
+    // `LiveSweepResult { values, errors }` (PR #187). `values` carries
+    // the successfully-read PIDs; `errors` carries one entry per PID
+    // the protocol layer rejected (structured `sid`/`nrc` from
+    // `protocol::nrc_from_error`, plus the verbatim error string).
+    // Per-PID UI (dim + remove-from-profile) lives in the loop below.
+    result = connected
+      ? await invoke("read_live_data", { profile: $("live-profile").value })
+      : result;
   } catch (e) {
-    // v0.14.2 slice 2 — NRC-aware error surface. The protocol layer
-    // raises a string like "ECU rejected service 22: ... (NRC 31)".
-    // We parse it and surface a friendly log line. Per-PID support
-    // tracking (which PID was rejected) is a v0.14.3 follow-up that
-    // requires the protocol layer to surface the DID in the error.
+    // Systemic failure (no transport, unknown profile, poisoned state
+    // lock) — `read_live_data` returns `Err(_)` for these. Same
+    // v0.14.2 slice 2 surface: parse the error string, log the
+    // canonical "unsupported" case, otherwise log raw.
     const nrc = window.beeemuuLiveDataPanel.parseNrcError(String(e));
     if (nrc && window.beeemuuLiveDataPanel.isUnsupportedNrc(nrc)) {
       log("Live data: unsupported PID — NRC 0x" + nrc.nrc.toString(16).toUpperCase() + " (sid 0x" + (nrc.sid !== null ? nrc.sid.toString(16).toUpperCase() : "??") + ").");
@@ -1406,6 +1386,122 @@ async function pollOnce() {
       log("Live data: " + e);
     }
     stopPolling();
+    return;
+  }
+  for (const v of result.values) {
+    // Enum params (gear, engine state, etc.) have v.text set and
+    // v.value = 0.0; numeric params have v.text undefined. The
+    // Gauge renders text when given a label override.
+    const g = ensureGauge(v);
+    g.set(v.value, v.text);
+    // Peak tracking — applyValuesToPeaks is a pure reducer over the
+    // values array; it skips enum / non-finite values internally.
+    livePeakState = window.beeemuuLiveDataPanel.applyValuesToPeaks(
+      livePeakState,
+      result.values
+    );
+    const cell = document.querySelector(
+      '.gauge-cell[data-pid-id="' + v.id + '"]'
+    );
+    if (cell) {
+      updateRangeBar(cell, g, v);
+      const peakEl = cell.querySelector("[data-peak]");
+      if (peakEl) {
+        const peak = livePeakState[v.id];
+        peakEl.textContent =
+          "peak: " +
+          window.beeemuuLiveDataPanel.formatPeakForLabel(peak, g.unit);
+      }
+      // v0.14.3 slice 3b — successful read clears any prior dim state
+      // (the PID may have been unsupported in a previous sweep and
+      // is now answering — e.g. after a re-key cycle).
+      cell.classList.remove("dimmed");
+      const btn = cell.querySelector("[data-pid-remove]");
+      if (btn) btn.remove();
+    }
+  }
+  // v0.14.3 slice 3b — per-PID NRC surface. For each per-PID error
+  // returned by `read_live_data`:
+  //   - log the canonical "unsupported" case via the structured
+  //     sid/nrc fast path;
+  //   - find the corresponding gauge cell, dim it, and append a
+  //     one-click "remove from profile" button that calls the async
+  //     `remove_profile_pid` Tauri command (PR #187).
+  // Transient / unknown buckets are logged but get no UI affordance —
+  // the next sweep will retry.
+  let unsupportedCount = 0;
+  for (const err of result.errors) {
+    const cls = window.beeemuuLiveDataPanel.classifyNrc(err);
+    if (cls === "unsupported") {
+      unsupportedCount++;
+      log(
+        "Live data: " + err.label + " (id=" + err.id + ") — unsupported on this ECU " +
+        "(NRC 0x" + String(err.nrc).toUpperCase() + ", sid 0x" +
+        String(err.sid).toUpperCase() + ")."
+      );
+    } else if (cls === "transient") {
+      log(
+        "Live data: " + err.label + " (id=" + err.id + ") — transient error " +
+        "(NRC 0x" + String(err.nrc).toUpperCase() + "). Will retry."
+      );
+      continue;
+    } else {
+      log("Live data: " + err.label + " (id=" + err.id + ") — " + err.error);
+      continue;
+    }
+    const cell = document.querySelector(
+      '.gauge-cell[data-pid-id="' + err.id + '"]'
+    );
+    if (!cell) continue;
+    cell.classList.add("dimmed");
+    // Avoid stacking buttons on repeated sweeps — idempotent render.
+    if (!cell.querySelector("[data-pid-remove]")) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-tiny pid-remove";
+      btn.dataset.pidRemove = err.id;
+      btn.textContent = "Remove from profile";
+      btn.title = "Removes this PID from the active profile TOML so it no longer appears in the sweep.";
+      btn.addEventListener("click", () => removePidFromProfile(err.id, err.label));
+      cell.appendChild(btn);
+    }
+  }
+  // v0.14.3 slice 3b — update the panel-head count badge. Hidden
+  // when zero so it doesn't take up layout space on a clean sweep.
+  const badge = $("live-unsupported-count");
+  if (badge) {
+    if (unsupportedCount > 0) {
+      badge.textContent = unsupportedCount + " unsupported on this ECU";
+      badge.hidden = false;
+    } else {
+      badge.textContent = "";
+      badge.hidden = true;
+    }
+  }
+  renderPeakTable();
+  updateSnapshotButton();
+}
+
+// v0.14.3 slice 3b — one-click remove-from-profile handler. Gated
+// behind the same `tauri-plugin-dialog` confirmation the v0.14.1
+// fix-issue-#161 work uses (dialog.js). On success, removes the
+// gauge cell from the DOM (the PID is gone from the in-memory
+// profile + the on-disk TOML, so the next sweep won't return it).
+async function removePidFromProfile(pidId, pidLabel) {
+  const profileId = $("live-profile").value;
+  if (!await window.beeemuuDialog.ask(
+    `Remove "${pidLabel}" (id=${pidId}) from profile "${profileId}"? ` +
+    `The next sweep won't request it. (You'll need to edit the TOML by hand to undo.)`
+  )) return;
+  try {
+    const path = await invoke("remove_profile_pid", { profileId, paramId: pidId });
+    log(`Removed ${pidLabel} (id=${pidId}) from profile ${profileId} (wrote ${path}).`);
+    const cell = document.querySelector(
+      '.gauge-cell[data-pid-id="' + pidId + '"]'
+    );
+    if (cell) cell.remove();
+  } catch (e) {
+    log("Failed to remove " + pidLabel + ": " + e);
   }
 }
 
@@ -2028,7 +2124,11 @@ async function buildLogParams() {
   const profile = $("log-profile").value;
   let values = [];
   try {
-    values = connected ? await invoke("read_live_data", { profile }) : [];
+    // v0.14.3 slice 3b — destructure the new `LiveSweepResult { values, errors }`
+    // shape (PR #187). The Logging tab only cares about `values` (the channel
+    // list); the per-PID errors are surfaced on the Live Data tab via pollOnce.
+    const result = connected ? await invoke("read_live_data", { profile }) : { values: [], errors: [] };
+    values = Array.isArray(result.values) ? result.values : [];
   } catch (_) { values = []; }
   const el = $("log-params");
   el.innerHTML = "";
@@ -2118,7 +2218,11 @@ function rebuildChart() {
 async function logTick() {
   if (!connected) return;
   try {
-    const values = await invoke("read_live_data", { profile: $("log-profile").value });
+    // v0.14.3 slice 3b — destructure the new `LiveSweepResult { values, errors }`
+    // shape (PR #187). The chart only consumes `values`; per-PID errors are
+    // surfaced on the Live Data tab via pollOnce.
+    const result = await invoke("read_live_data", { profile: $("log-profile").value });
+    const values = Array.isArray(result.values) ? result.values : [];
     const t = (Date.now() - logStart) / 1000;
     for (const v of values) {
       const s = logSeries.get(v.id);
