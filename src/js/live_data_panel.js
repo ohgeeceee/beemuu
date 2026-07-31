@@ -168,6 +168,40 @@ function isUnsupportedNrc(parsed) {
   return parsed && UNSUPPORTED_NRCS.has(parsed.nrc);
 }
 
+// Categorise a parsed NRC as one of three buckets the UI acts on:
+//
+//   "unsupported" — the PID is structurally absent on this ECU; the user
+//     should be offered the "remove from profile" affordance.
+//   "transient"  — the ECU is unhappy right now (NRC 31 conditionsNotCorrect,
+//     NRC 22 conditionsNotCorrect, etc.) but the PID is supported; no UI
+//     action — the next sweep will retry.
+//   "unknown"    — no structured sid/nrc to act on (transport timeout,
+//     "Not connected", "Unexpected DID response: ..."); same UI treatment
+//     as transient: no per-PID action, just log.
+//
+// The structured (sid, nrc) fields on `LiveError` are populated by
+// `protocol::nrc_from_error` (PR #187). When they're None, fall back to
+// parsing `err.error` (the verbatim protocol error string) so legacy
+// callers still get a sensible classification.
+function classifyNrc(err) {
+  if (!err || typeof err !== "object") return "unknown";
+  // Prefer the structured fields — they're the fast path.
+  let sid = typeof err.sid === "number" ? err.sid : null;
+  let nrc = typeof err.nrc === "number" ? err.nrc : null;
+  // Fallback: parse the verbatim error string (covers legacy callers
+  // and any future error string that hasn't been threaded through
+  // protocol::nrc_from_error yet).
+  if (nrc === null && typeof err.error === "string") {
+    const parsed = parseNrcError(err.error);
+    if (parsed) {
+      sid = sid !== null ? sid : parsed.sid;
+      nrc = parsed.nrc;
+    }
+  }
+  if (nrc === null) return "unknown";
+  return UNSUPPORTED_NRCS.has(nrc) ? "unsupported" : "transient";
+}
+
 // ---------------------------------------------------------------------------
 // Public surface
 // ---------------------------------------------------------------------------
@@ -182,6 +216,7 @@ const api = {
   snapshotCsvFilename,
   parseNrcError,
   isUnsupportedNrc,
+  classifyNrc,
   UNSUPPORTED_NRCS,
 };
 

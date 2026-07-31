@@ -281,6 +281,42 @@ body {
 .gauge-cell.severity-warning .gauge-label { color: #f4b400; font-weight: 600; }
 .gauge-cell.severity-critical .gauge-label { color: #e05545; font-weight: 600; }
 
+/* v0.14.3 slice 3b — per-PID dim state for PIDs the ECU rejected.
+   Applied when `read_live_data`'s `errors` vector contains an entry
+   for this PID with an "unsupported" classification (NRC 0x11, 0x12,
+   0x31, 0x14 — see UNSUPPORTED_NRCS in live_data_panel.js). Cleared
+   on the next sweep if the PID starts answering. */
+.gauge-cell.dimmed { opacity: 0.45; }
+.gauge-cell.dimmed .gauge-label::after {
+  content: " (unsupported)";
+  font-style: italic;
+  font-weight: normal;
+  color: var(--muted);
+}
+/* v0.14.3 slice 3b — one-click remove-from-profile button. Sits below
+   the peak label inside the gauge cell. Only present when the cell is
+   dimmed (see pollOnce in main.js). */
+.pid-remove {
+  display: block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.pid-remove:hover { color: var(--err); border-color: var(--err); }
+/* v0.14.3 slice 3b — count badge in the Live Data panel head. Shown
+   only when at least one PID is dimmed; otherwise the slot collapses. */
+.live-unsupported-count {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+.live-unsupported-count:empty { display: none; }
+
 /* ---------- v0.14.2 slice 2: Live Data panel UX polish ---------- */
 .poll-rate-select {
   background: #1a2332; color: var(--fg);
