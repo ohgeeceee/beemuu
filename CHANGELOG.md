@@ -167,15 +167,16 @@ and the chassis-specific verification doc.
 
 ## [0.14.3] — Unreleased
 
-> **Cycle status:** slices 1, 2, 3a, 4 merged (PRs #185, #186,
-> #187, plus this PR). Slice 3b (frontend rewire for the per-PID
-> dim + one-click-remove UI) is still open and is the gating slice
-> for the v0.14.3 release cut. The v0.14.3 release cut (version
-> bump in `Cargo.toml` + `tauri.conf.json`, git tag, release notes
-> publish, installer build) is a separate Tier C step that
-> follows slice 3b's merge. This CHANGELOG entry is the running
-> record of what lands under the v0.14.3 cycle, not a release
-> announcement.
+> **Cycle status:** all five slices merged — #185 (decoders),
+> #186 (profile entries), #187 (slice 3a backend),
+> #188 (slice 4 harness extension + cycle closeout),
+> #190 (slice 3b frontend rewire). The v0.14.3 release cut
+> (version bump in `Cargo.toml` + `tauri.conf.json`, git tag,
+> release notes publish, installer build) is a separate
+> Tier C step — the slices are all merged but the
+> version-surface bump requires an explicit release-cut PR.
+> Until that PR lands, this entry stays `## [0.14.3] —
+> Unreleased` per Keep-a-Changelog convention.
 
 ### Added — Tier A surface (decoder catalog + community data + docs)
 
@@ -207,40 +208,58 @@ and the chassis-specific verification doc.
 
 ### Added — Tier B surface (protocol + Tauri command)
 
-- **Per-PID NRC backend + `remove_profile_pid` Tauri command**
-  (PR #187, Tier B, **slice 3a — backend only; slice 3b
-  frontend rewire is still open**):
-  - New `protocol::nrc_from_error` helper at
-    `src-tauri/src/protocol/mod.rs` parses the canonical
-    `service()` error string into a structured `(sid, nrc)` pair
-    (case-insensitive hex, whitespace-tolerant). 4 unit tests.
-  - `read_live_data` return type splits into `LiveSweepResult {
-    values, errors }` so a per-PID failure no longer short-circuits
-    the whole sweep. `values` carries successful reads;
-    `errors` carries per-PID `{ id, label, sid, nrc, error }`
-    entries. The whole sweep still returns `Err(_)` for systemic
-    problems (no transport, unknown profile, poisoned state lock).
-  - New async Tauri command `remove_profile_pid` at
-    `src-tauri/src/commands.rs:746` — removes the matching
-    `LiveParam` from the in-memory profile registry, re-serialises
-    via `live::profile_to_toml`, writes the updated TOML to
-    `<community>/profiles/<id>.toml` via `tokio::fs::write`. Returns
-    the written path. Async because of the file I/O; gated behind
-    the `tauri-plugin-dialog` confirmation per
-    `docs/CONTRIBUTING.md`'s write-path discipline.
-  - `Cargo.toml`: `tokio = { ..., features = ["time", "fs"] }`
-    (adds the `fs` feature to the existing tokio dep; no new
-    crate enters the graph).
-  - `lib.rs`: registers `commands::remove_profile_pid` in the
-    `invoke_handler`.
+- **Per-PID NRC backend + frontend + remove-from-profile UI**
+  (PRs #187 + #190, Tier B):
+  - PR #187 (slice 3a, backend):
+    - New `protocol::nrc_from_error` helper at
+      `src-tauri/src/protocol/mod.rs` parses the canonical
+      `service()` error string into a structured `(sid, nrc)`
+      pair (case-insensitive hex, whitespace-tolerant).
+      4 unit tests.
+    - `read_live_data` return type splits into `LiveSweepResult {
+      values, errors }` so a per-PID failure no longer short-circuits
+      the whole sweep. `values` carries successful reads;
+      `errors` carries per-PID `{ id, label, sid, nrc, error }`
+      entries. The whole sweep still returns `Err(_)` for systemic
+      problems (no transport, unknown profile, poisoned state lock).
+    - New async Tauri command `remove_profile_pid` at
+      `src-tauri/src/commands.rs:746` — removes the matching
+      `LiveParam` from the in-memory profile registry, re-serialises
+      via `live::profile_to_toml`, writes the updated TOML to
+      `<community>/profiles/<id>.toml` via `tokio::fs::write`. Returns
+      the written path. Async because of the file I/O; gated behind
+      the `tauri-plugin-dialog` confirmation per
+      `docs/CONTRIBUTING.md`'s write-path discipline.
+    - `Cargo.toml`: `tokio = { ..., features = ["time", "fs"] }`
+      (adds the `fs` feature to the existing tokio dep; no new
+      crate enters the graph).
+    - `lib.rs`: registers `commands::remove_profile_pid` in the
+      `invoke_handler`.
+  - PR #190 (slice 3b, frontend):
+    - New `classifyNrc(err)` exported from `live_data_panel.js`
+      buckets each `LiveError` into `unsupported` / `transient` /
+      `unknown` using the structured `(sid, nrc)` fast path with
+      a fallback to parsing `err.error` (the verbatim protocol
+      error string) for legacy callers. 5 new tests in
+      `live_data_panel.test.js` (20 tests total in that file).
+    - `main.js::pollOnce` rewired to consume the new
+      `LiveSweepResult { values, errors }` return shape. All three
+      `read_live_data` call sites (Live Data tab `pollOnce`, Logging
+      tab `buildLogParams`, Logging tab `logTick`) updated.
+    - Per-PID dim UI: `.gauge-cell.dimmed` (opacity 0.45 + " (unsupported)"
+      `::after` pseudo-element). One-click "Remove from profile"
+      button calls `remove_profile_pid` via `invoke()`. New
+      `#live-unsupported-count` panel-head badge shows the count
+      of unsupported PIDs.
+    - CSS additions: `.gauge-cell.dimmed`, `.pid-remove`,
+      `.live-unsupported-count` in `src/css/app.css`.
+    - `src/index.html`: `#live-unsupported-count` slot in the Live
+      Data panel head, populated by pollOnce, hidden when zero.
+
   Tier B because the slice touches `src-tauri/src/protocol/**` and
-  adds a new entry to `src-tauri/src/commands.rs`. PR #187
-  explicitly notes the **frontend consumer is still open** —
-  `main.js::pollOnce` must rewire from `Vec<LiveValue>` to
-  `result.values.forEach + result.errors.forEach`, with per-PID
-  dim + one-click-remove UI in `src/index.html` +
-  `src/js/live_data_panel.js`. That's slice 3b and is the gate to
-  the v0.14.3 release cut.
+  adds a new entry to `src-tauri/src/commands.rs`. The backend +
+  frontend shipped together so the backend's new return shape and
+  the frontend's consumer are consistent at the same tagged release.
 
 ### Notes on the version surface
 
@@ -256,19 +275,20 @@ one. PR #188 (this v0.14.3 cycle's slice 4) deferred the
 backfill to a separate housekeeping PR to keep the slice 4
 scope tight.
 
-**The README release badge stays at `v0.14.0`** in this PR
-because CLAUDE.md golden rule #5 (the "don't let the badge
-lie" rule) requires the badge to reflect the most recent
-**fully shipped** release. v0.14.3 is not fully shipped until
-slice 3b merges; bumping the badge now would replace one lie
-(v0.14.0 ↔ v0.14.1/v0.14.2/v0.14.3a) with another (v0.14.3 ↔
-v0.14.3-incomplete). The badge bump + the corresponding
-`Cargo.toml` + `tauri.conf.json` version bumps land in the
-release-cut PR (Tier C) that follows slice 3b.
+**The README release badge stays at `v0.14.0`** until the
+release-cut PR (Tier C) lands. CLAUDE.md golden rule #5 (the
+"don't let the badge lie" rule) requires the badge to reflect
+the most recent **fully shipped** release. v0.14.3's five
+slices are all merged (`#185`, `#186`, `#187`, `#188`,
+`#190`), but the release-cut PR — version bumps in
+`Cargo.toml` + `tauri.conf.json`, git tag, release notes
+publish, installer build — hasn't run. The badge bump + the
+corresponding version-string bumps land in the release-cut PR.
 
 The v0.14.3 release cut itself (git tag, release notes
 publish, installer build) is a separate Tier C step that
-follows slice 3b's merge.
+follows the release-cut PR's merge. Until that lands, this
+entry stays `## [0.14.3] — Unreleased`.
 
 ## [0.13.0] — 2026-07-22
 
