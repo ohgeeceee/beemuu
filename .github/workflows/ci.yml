@@ -113,4 +113,18 @@ jobs:
           fi
 
           echo "All test suites passed. Merging PR #${PR_NUMBER} autonomously..."
-          gh pr merge "${PR_NUMBER}" --squash --auto --delete-branch
+          merge_err="/tmp/gh-pr-merge-${PR_NUMBER}.err"
+          if gh pr merge "${PR_NUMBER}" --squash --auto --delete-branch 2> >(tee "$merge_err" >&2); then
+            echo "Auto-merge enabled via gh pr merge."
+          elif grep -q "part of a stack and must be merged using the asynchronous merge REST API" "$merge_err"; then
+            echo "PR #${PR_NUMBER} is stacked. Falling back to async merge REST API..."
+            gh api \
+              --method PUT \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/merge-async" \
+              -f merge_method='squash' \
+              -f merge_action='default'
+          else
+            echo "Auto-merge failed for an unexpected reason."
+            exit 1
+          fi
