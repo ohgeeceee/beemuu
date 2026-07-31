@@ -431,7 +431,7 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 
 ---
 
-*Last updated: 2026-07-30. v0.14.3 partial close — slices 1, 2, 3a, 4 all merged (#185, #186, #187, plus this PR for the docs-only slice 4). Tier split so far: 3 Tier A (slice 1, slice 2, slice 4) + 1 Tier B (slice 3a backend, PR #187) + 1 Tier B still open (slice 3b frontend rewire). Three new decoders (`u16_fiftieths`, `u32_be`, `u16_half`) in `src-tauri/src/data/live.rs`; three new N62 profile entries (`0x5E` fuel rate L/h, `0x5F` engine runtime s, `0x62` fuel rate g/s) in `community/profiles/n62.toml`; backend half of per-PID NRC + remove-from-profile surface (`protocol::nrc_from_error`, `LiveSweepResult { values, errors }`, `remove_profile_pid` async Tauri command) in PR #187; `docs/validation/n62-real-car.md` extended with Step 2 / Step 3 / Step 4 / Step 5 tables covering all four v0.14.2/v0.14.3 PIDs. Slice 3b (the frontend consumer of the new backend contract — `main.js::pollOnce` rewire + per-PID dim UI) is still open and is the gating slice before the v0.14.3 release cut. The v0.14.3 release cut is a separate Tier C step (version bump, tag, release notes) and is the maintainer's call.*
+*Last updated: 2026-07-30. v0.14.3 closed — slices 1, 2, 3a, 3b, 4 all merged (#185, #186, #187, #190, plus #188 for the docs-only slice 4). Tier split: 3 Tier A (slice 1 decoders, slice 2 profile entries, slice 4 harness extension) + 2 Tier B (slice 3a backend — `protocol::nrc_from_error`, `LiveSweepResult { values, errors }`, async `remove_profile_pid` Tauri command — in PR #187; slice 3b frontend rewire — `main.js::pollOnce` consumer of the new return shape + `classifyNrc` helper + per-PID dim UI + `remove_profile_pid` button — in PR #190) + 0 Tier C in the slice list. Three new decoders (`u16_fiftieths`, `u32_be`, `u16_half`) in `src-tauri/src/data/live.rs`; three new N62 profile entries (`0x5E` fuel rate L/h, `0x5F` engine runtime s, `0x62` fuel rate g/s) in `community/profiles/n62.toml`; per-PID NRC + remove-from-profile surface on both ends in PR #187 + #190; `docs/validation/n62-real-car.md` extended with Step 2 / Step 3 / Step 4 / Step 5 tables covering all four v0.14.2/v0.14.3 PIDs. The v0.14.3 release cut itself (Cargo.toml + tauri.conf.json version bumps, git tag, release notes publish, installer build) is a separate Tier C step and is the maintainer's call — the slices are all merged but the version-surface bump requires an explicit release-cut PR.*
 ---
 
 ## v0.14.0 — "Live CAN" (In Progress — Tier A done, Tier B open)
@@ -531,38 +531,30 @@ cut a release tag).
 
 ---
 
-## v0.14.3 — "Finish the Bench" (In Progress — slices 1, 2, 4 done; slice 3 split)
+## v0.14.3 — "Finish the Bench" (Shipped 2026-07-30)
 
 Completes the v0.14.2 premise: every PID the slice 3 harness doc
 asks the user to verify is in the profile, with the decoders it
 needs, and the per-PID NRC error surface the slice 2 UI deferred
-is in place. 3 Tier A + 1 Tier B slice + 1 docs-only slice. No
+is in place. 3 Tier A + 2 Tier B slice (slice 3 split into 3a
+backend + 3b frontend, both shipped) + 1 docs-only slice. No
 `transport/**` changes. See
 [`docs/v0.14.3_plan.md`](docs/v0.14.3_plan.md).
-
-**Note:** slice 3 was split into **3a (backend, merged in PR
-#187)** and **3b (frontend rewire, still open)**. PR #187's
-description explains the split: the new `LiveSweepResult {
-values, errors }` shape is the backend contract, but the
-`main.js::pollOnce` consumer needs a non-trivial rewire to bind
-per-PID dim + remove UI to the new error vector — that's slice
-3b and is the gate to calling the v0.14.3 cycle truly shipped.
 
 ### Slices shipped
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Cycle plan + ROADMAP v0.14.3 header | ✅ Done (this PR, slice 4) | A | `docs/v0.14.3_plan.md` + this ROADMAP entry. Docs-only. |
+| Cycle plan + ROADMAP v0.14.3 header | ✅ Done (PR #188, slice 4) | A | `docs/v0.14.3_plan.md` + this ROADMAP entry. Docs-only. |
 | `u16_fiftieths` + `u32_be` + `u16_half` decoders | ✅ Done (PR #185) | A | Three new `Decode` variants in `src-tauri/src/data/live.rs`. Decoder spec sections in `docs/DECODE_FUNCTIONS.md` §10–12. |
 | `community/profiles/n62.toml` enrichment — add the three deferred PIDs (`0x5E` fuel rate L/h, `0x5F` engine runtime, `0x62` fuel rate g/s) | ✅ Done (PR #186) | A | Required the slice 1 decoders. Each entry carries the `[needs verification, N62/E70 bench]` marker per the harness doc. |
 | **Slice 3a** — `protocol::nrc_from_error` + `LiveSweepResult { values, errors }` + `remove_profile_pid` async Tauri command + `tokio` `fs` feature | ✅ Done (PR #187) | B | The backend half of the slice 3 surface. New async command at `src-tauri/src/commands.rs:746` (gated behind the `tauri-plugin-dialog` confirmation per `docs/CONTRIBUTING.md`'s write-path discipline). |
-| **Slice 3b** — frontend rewire: `main.js::pollOnce` switches from `Vec<LiveValue>` to `result.values.forEach + result.errors.forEach`; per-PID dim + one-click-remove UI in `src/index.html` + `src/js/live_data_panel.js` | 🔲 Open | B | The consumer half of the slice 3 contract. Without this, the backend's `remove_profile_pid` command and the per-PID `errors` array have no UI surface. |
-| `docs/validation/n62-real-car.md` extension + ROADMAP cycle closeout | ✅ Done (this PR, slice 4) | A | Adds the three new PIDs to the Step 2 / Step 3 / Step 4 / Step 5 tables. Closes the docs-only slice. The cycle-table closeout for slice 3 itself is gated on slice 3b. |
+| **Slice 3b** — frontend rewire: `main.js::pollOnce` consumes the new `LiveSweepResult`; `classifyNrc` helper buckets each `LiveError` into unsupported / transient / unknown; per-PID dim + one-click-remove UI | ✅ Done (PR #190) | B | The consumer half of the slice 3 contract. New `classifyNrc` exported from `live_data_panel.js` (5 new tests). New `#live-unsupported-count` badge in the Live Data panel head. New `.gauge-cell.dimmed` + `.pid-remove` CSS. One-click remove gated behind `tauri-plugin-dialog` confirmation per the issue-#161 fix pattern. |
+| `docs/validation/n62-real-car.md` extension + ROADMAP cycle closeout | ✅ Done (PR #188, slice 4) | A | Adds the three new PIDs to the Step 2 / Step 3 / Step 4 / Step 5 tables. Closes the docs-only slice. |
 
-The v0.14.3 release cut is a separate Tier C step (version bump,
-git tag, release notes publish). **Cannot be cut until slice 3b
-merges** — the backend + frontend must ship together so the
-backend's new return shape and the frontend's consumer are
-consistent at the same tagged release.
+The v0.14.3 release cut itself (Cargo.toml + tauri.conf.json
+version bumps, git tag, release notes publish, installer build)
+is a separate Tier C step — all five cycle slices are merged but
+the version-surface bump requires an explicit release-cut PR.
 
 ---
