@@ -165,18 +165,18 @@ and the chassis-specific verification doc.
   review configuration. Tier B because `src-tauri/Cargo.toml` is
   on the protected list — though the change is workflow-only.
 
-## [0.14.3] — Unreleased
+## [0.14.3] — 2026-07-30
 
 > **Cycle status:** all five slices merged — #185 (decoders),
 > #186 (profile entries), #187 (slice 3a backend),
 > #188 (slice 4 harness extension + cycle closeout),
-> #190 (slice 3b frontend rewire). The v0.14.3 release cut
-> (version bump in `Cargo.toml` + `tauri.conf.json`, git tag,
-> release notes publish, installer build) is a separate
-> Tier C step — the slices are all merged but the
-> version-surface bump requires an explicit release-cut PR.
-> Until that PR lands, this entry stays `## [0.14.3] —
-> Unreleased` per Keep-a-Changelog convention.
+> #190 (slice 3b frontend rewire). Version surface bumped
+> in the release-cut PR (this PR) to `0.14.3` across
+> `package.json`, `src-tauri/Cargo.toml`,
+> `src-tauri/tauri.conf.json`, and the README badge. The
+> git tag + release publish + installer build are the next
+> step (run locally via `git tag v0.14.3 && git push --tags`
+> to trigger `.github/workflows/release.yml`).
 
 ### Added — Tier A surface (decoder catalog + community data + docs)
 
@@ -286,9 +286,10 @@ publish, installer build — hasn't run. The badge bump + the
 corresponding version-string bumps land in the release-cut PR.
 
 The v0.14.3 release cut itself (git tag, release notes
-publish, installer build) is a separate Tier C step that
-follows the release-cut PR's merge. Until that lands, this
-entry stays `## [0.14.3] — Unreleased`.
+publish, installer build) runs locally via
+`git tag v0.14.3 && git push --tags`, which triggers
+`.github/workflows/release.yml` and publishes a draft
+release on GitHub.
 
 ## [0.13.0] — 2026-07-22
 
