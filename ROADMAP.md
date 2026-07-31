@@ -567,4 +567,58 @@ version bumps, git tag, release notes publish, installer build)
 is a separate Tier C step — all five cycle slices are merged but
 the version-surface bump requires an explicit release-cut PR.
 
+## v0.14.4 — "Story Coverage" (Shipped 2026-07-31)
+
+The "ship what we promised, harden what we shipped" cycle. v0.14.0
+through v0.14.3 shipped real diagnostic capabilities (Live Gauges,
+N62 harness doc, Live Data UX polish, N62 PID enrichment, per-PID
+NRC re-wire) but never audited or strengthened the supporting
+infrastructure. v0.14.4 closes three real gaps:
+
+1. **Test coverage** — `src-tauri/src/story.rs` (350 LOC) and
+   `src-tauri/src/anonymize.rs` (113 LOC) shipped with **zero
+   unit tests** despite being real, user-facing features (the
+   Generate Story modal at `src/index.html:513`; the Secure
+   Snapshot Share button at `src/js/main.js:1071`).
+2. **CLAUDE.md invariants accuracy** — the "Hardware & timing
+   invariants" section claimed `keepalive`, `ISO-TP multi-frame`,
+   and `read_vin` were `NOT YET IMPLEMENTED` even though all
+   three had shipped months ago.
+3. **ROADMAP doc-rot** — six "🟢 Ready" items in the v0.3.0
+   historical section had actually shipped but were never
+   re-tagged as ✅ Done.
+
+Plus a CI workflow fix (the `ci.yml::test-rust` job was missing
+the Tauri Linux system dependencies that `test.yml::rust` has,
+blocking every PR).
+
+4 Tier A slices, 0 Tier B, 0 Tier C in the slice list. See
+[`docs/v0.14.4_plan.md`](docs/v0.14.4_plan.md).
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.4 header + CHANGELOG entry | ✅ Done (PR #202, slice 0) | A | `docs/v0.14.4_plan.md` + this ROADMAP entry + CHANGELOG `## [0.14.4]` section. Docs-only. |
+| **`src-tauri/src/story.rs` test coverage (32 tests)** | ✅ Done (PR #201, slice 1) | A | Severity bucketing + ordering, `parse_cost_range` (single/tilde/hyphen/en-dash/whitespace/empty/garbage), `format_vehicle`, `build_context`, full `generate()` pipeline integration against the live `community/stories/*.toml`. Test count went from `0 → 32`. |
+| **`src-tauri/src/anonymize.rs` test coverage (20 tests)** | ✅ Done (PR #201, slice 1) | A | `hash_vin` properties (16 hex, stable, distinct, case-sensitive pinned), full `anonymize()` pipeline (VIN never leaks, fingerprint substitution, missing VIN → "unknown", engine_family preserved, mileage stripped, empty modules, live_data always empty), `export_json` (no leak, pretty, serde round-trip). Test count went from `0 → 20`. |
+| CLAUDE.md invariants refresh | ✅ Done (PR #198, slice 2) | A | Four stale "NOT YET IMPLEMENTED" claims replaced with "INVARIANT — enforced" + file:line citations. ENET/DoIP discovery honestly preserved as still-not-implemented. |
+| ROADMAP v0.3.0 historical audit | ✅ Done (PR #200, slice 3) | A | Six shipped items moved from 🟢 Ready to a new "✅ Done — historical (shipped)" table with PR references + code locations. |
+| `ci.yml::test-rust` Tauri Linux sysdeps fix | ✅ Done (PR #199, slice 4) | A | Mirrored the `apt-get install` step from `test.yml::rust` into `ci.yml::test-rust`. The duplicate `Rust Core Tests (src-tauri)` job was blocking every PR. |
+
+### Test count delta
+
+| Surface | Before v0.14.4 | After v0.14.4 |
+|---|---|---|
+| `cargo test --lib --offline` | 149 pass | **201 pass** (52 new) |
+| `cargo test --test async_commands` | 1 pass | 1 pass |
+| `node --test src/js/**/*.test.{js,cjs}` | 226 pass | 226 pass |
+| `pytest backend/tests/` | 166 pass | 166 pass |
+
+The v0.14.4 release cut itself (Cargo.toml + tauri.conf.json
+version bumps 0.14.3 → 0.14.4, git tag, release notes publish,
+installer build, landing-page deploy) is a separate Tier C step
+— all five cycle slices are merged but the version-surface bump
+requires an explicit release-cut PR.
+
 ---
