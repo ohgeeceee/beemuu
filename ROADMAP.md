@@ -44,26 +44,36 @@ of that file), and the corresponding DIDs are already uncommented in
 | N54 E-series KWP2000 local ID hunt | 🟡 | Same as above; E92 335i owners ideal |
 | E-series CAN broadcast frames | 🟡 | Validate 0x0AA (RPM), 0x1D0 (coolant), 0x545 (oil temp E46) |
 
-### ⭐ Protocol & Transport
+### ⭐ Protocol & Transport (shipped items moved to historical — see table below)
 
 | Item | Status | Notes |
 |------|--------|-------|
 | ENET/DoIP auto-detection | 🟡 | Detect adapter without manual selection |
-| KWP2000 slow-module timeout fix | 🟢 Ready | CIC and other modules timeout on slow responses |
 | BLE adapter support | 🟡 | Vgate iCar Pro BLE, OBDLink CX, etc. |
 | WiFi adapter support | 🟡 | Vgate iCar Pro WiFi, OBDLink MX+ WiFi |
 | CAN bus listener mode | 🟡 | E-series alternative to KWP2000 local IDs |
-| ISO-TP multi-frame (FF/CF/FC) | 🟢 Ready | Required for long UDS responses (VIN, full DTC list) |
 
-### UI / UX
+### UI / UX (shipped items moved to historical — see table below)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Dark/light theme toggle | 🟢 Ready | Currently dark-only; CSS variables exist |
-| Gauge theming | 🟢 Ready | Per-profile color schemes (e.g., M colors for S55) |
 | Mobile-responsive layout | 🟡 | Tauri supports mobile; needs testing |
-| Save/load workspace layout | 🟢 Ready | Remember which gauges user had open |
-| Export PNG/SVG from charts | 🟢 Ready | Useful for forum posts |
+
+### ✅ Protocol, Transport, UI/UX — historical (shipped)
+
+The items below landed after v0.3.0 cut but were never re-tagged
+on the v0.3.0 historical section. Pinning them here so the
+ROADMAP accurately reflects what shipped, with the PR that
+landed the work:
+
+| Item | Status | Notes |
+|------|--------|-------|
+| KWP2000 slow-module timeout fix | ✅ Done (v0.13.0) | `transport::kdcan::default_slow_modules()` + per-target deadline (1s default, 3s for slow modules). PR #153 (commit `fd9efc2`). |
+| ISO-TP multi-frame (FF/CF/FC) | ✅ Done (v0.14.x) | `src-tauri/src/transport/isotp.rs` (430 LOC, ~25 unit tests). Enforced by CLAUDE.md "Hardware & timing invariants" §ISO-TP multi-frame. |
+| Dark/light theme toggle | ✅ Done (v0.7.0) | `#btn-theme` in `src/index.html:49` + handler in `src/js/main.js:283`. localStorage persistence via `beeemuu_dark` key (migrated to `beeemuu_settings` per the v0.7.0 settings-schema). PR #109 (commit `afefc32`). |
+| Gauge theming | ✅ Done (v0.7.0) | `profileThemes` object in `src/js/main.js:21`; per-profile `[profile.theme]` block in the TOML community profile. PR #109. |
+| Save/load workspace layout | ✅ Done (v0.7.0) | `src/js/workspace.js` (pure helpers for the persisted layout). PR #109. |
+| Export PNG/SVG from charts | ✅ Done (v0.11.0) | `src/js/svg_export.js` (pure-JS SVG renderer; avoids the `canvas2svg` / `chartjs-plugin-svg-export` deps); PNG export via `canvas.toDataURL` upstream. Logging chart + histogram both supported. PR #136 (commit `7f92ccb`). |
 | Real-time data logging to disk | ✅ Done (v0.4.0) | Stream CSV to file instead of in-memory only |
 
 ### 🟡 Research: E-series Data Desert
