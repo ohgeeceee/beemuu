@@ -117,42 +117,69 @@ If a task seems to require splitting Beemuu into multiple apps/repos/domains
 
 ## Hardware & timing invariants
 
-These are the project's target invariants. Some are **not yet implemented**
-(tracked as v0.6.0 GitHub issues) — PRs that implement them are the top
-priority, and no change may make the current state worse.
+These are the project's enforced invariants. Each is gated by either a
+compile-time / test-time guard or a code-path contract — adding a
+regression requires landing an explicit follow-up. **No PR may
+re-introduce a violation; new violations are caught by CI.**
 
-- **Async commands (INVARIANT — migration in progress).** Any
-  `#[tauri::command]` that touches serial or network transport MUST be
-  `async fn` (or offload via `spawn_blocking`). Blocking I/O on the main
-  thread freezes the webview. Today only `fetch_dtc_schematics` is async;
-  `connect`, `scan_modules`, `read_faults`, `read_live_data`, `watch_tick`,
-  `run_service_function`, `security_access` are still sync — the migration
-  issue is the v0.6.0 release blocker. Never add a new sync
+- **Async commands (INVARIANT — enforced).** Any `#[tauri::command]`
+  that touches serial or network transport MUST be `async fn` (or
+  offload via `spawn_blocking`). Blocking I/O on the main thread
+  freezes the webview. The migration is **complete**: all
+  transport-touching commands (`connect`, `scan_modules`, `read_faults`,
+  `read_live_data`, `watch_tick`, `run_service_function`,
+  `security_access`, …) are `async fn`. The 24 sync `#[tauri::command]`
+  functions are the in-memory / local-filesystem helpers
+  (`list_ports`, `get_freeze_schema`, `list_profiles`,
+  `list_service_functions`, `get_opinions`, …) — they touch no
+  serial/network and no blocking adapter I/O. The
+  `tests/async_commands.rs` regression guard parses
+  `src/commands.rs` and asserts every non-async command is in the
+  `SYNC_ALLOWLIST` (24 entries). Adding a new sync command without
+  allowlisting it fails CI; making an allowlisted command async
+  fails CI until you remove it from the list. Never add a new sync
   transport-touching command.
-- **Tester Present keep-alive (NOT YET IMPLEMENTED).** During active
-  diagnostic sessions, `3E 00` / `3E 80` must be sent every 2000–4000 ms on
-  an isolated async worker. Currently `3E` is only sent during autodetect —
-  the keep-alive worker is a planned v0.6.0 issue. Don't add long blocking
-  operations that would stall such a worker.
-- **ISO-TP multi-frame (NOT YET IMPLEMENTED).** FF/CF/FC reassembly per ISO
-  15765-2 is required for full VIN reads and long DTC lists on F/G cars.
+- **Tester Present keep-alive (INVARIANT — enforced).** During active
+  diagnostic sessions, `3E 00` is sent every `INTERVAL = 3000 ms` on
+  an isolated async worker (`tauri::async_runtime::spawn`). Implemented
+  in `src-tauri/src/keepalive.rs` (210 LOC). The worker is started by
+  `commands::start_keepalive` (called from `connect`,
+  `run_service_function`, `security_access`) and stopped by
+  `commands::stop_keepalive` (called from `disconnect` and the same
+  writers). Tests in `keepalive::tests::` cover session survival,
+  compressed-idle behaviour, and transport-error backoff. Don't add
+  long blocking operations that would stall the keep-alive send.
+- **ISO-TP multi-frame (INVARIANT — enforced).** FF/CF/FC reassembly
+  per ISO 15765-2 is implemented in `src-tauri/src/transport/isotp.rs`
+  (430 LOC, ~25 unit tests). Required for long UDS responses
+  (full VIN reads, full DTC lists, freeze-frame blocks > 7 bytes on
+  F/G cars). Used transparently — callers go through
+  `IsoTpTransport` (per `transport::kdcan.rs` line 25) without
+  touching the frame layer. Don't reintroduce single-frame-only
+  code paths.
 - **Protocol/UI decoupling.** Serialization, handshake timers, and byte
   parsing stay decoupled from the UI render layer. The comms engine runs
   asynchronously and isolated; UI polls for state.
 - **No hardcoded car IPs.** F/G-series uses DoIP: broadcast UDP discovery to
   port `13400` across all active interfaces and use the VIN/IP the car
-  returns (typically `169.254.x.x`). Discovery itself is not yet implemented
-  (users currently enter the IP manually) — implement it, never hardcode
-  around it.
+  returns (typically `169.254.x.x`). **Discovery is still
+  not implemented** — users currently enter the IP manually — but
+  the architectural rule stands: when discovery lands, no code path
+  may hardcode a `169.254.x.x` literal.
 - **K+DCAN latency timer is hardware, not software.** Sequential block reads
   rely on the FTDI VCP latency timer being 1 ms. Do NOT "fix" slow reads by
   inflating software timeouts — detect/alert on the port setting instead.
-- **VIN reads (KNOWN GAP).** All VIN reads must go through
-  `protocol::read_vin`, which handles UDS `22 F1 90` (F/G/sim) vs KWP `1A 90`
-  (E-series DME, CAS fallback). **That function does not exist yet** —
-  `connect`/`read_vehicle_info` currently do a raw UDS DID read, which is
-  broken for E-series cars. Implementing `read_vin` and routing all callers
-  through it is a tracked v0.6.0 issue. Do not add new raw VIN DID reads.
+- **VIN reads (INVARIANT — enforced).** All VIN reads go through
+  `protocol::read_vin` (`src-tauri/src/protocol/mod.rs:296`), which
+  handles UDS `22 F1 90` (F/G/sim) vs KWP `1A 90` (E-series DME, CAS
+  fallback). All callers route through it: `commands::connect`
+  (line 70), `commands::read_vehicle_info` (line 533 + 930), and
+  the `read_vin_uds` / `read_vin_kwp` test paths at
+  `protocol/mod.rs:560, 570`. Tests pin the UDS-22-F190 and
+  KWP-1A-90 + CAS-fallback behaviour. **Do not add new raw VIN DID
+  reads anywhere.** All `0x22 0xF1 0x90` / `0x1A 0x90` byte
+  sequences must go through `read_vin` so the E-series KWP path is
+  exercised.
 
 ## PR expectations
 
