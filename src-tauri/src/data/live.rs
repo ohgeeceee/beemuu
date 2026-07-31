@@ -716,9 +716,68 @@ mod tests {
     }
 
     // ---- v0.14.3: remove_param_from_profile ----
+    //
+    // These tests touch the process-global profile store (see
+    // `store()` above). cargo test runs tests in parallel threads
+    // by default, and Rust's `#[test]` attribute gives no
+    // suite-level isolation, so without help these tests share
+    // mutable state with anything else that uses the store. The
+    // `with_fresh_store()` helper below serialises the three tests
+    // via a dedicated `TEST_LOCK` mutex (NOT the store's RwLock —
+    // holding that for the duration of a test body would block
+    // any reader-only call like `profile_params`, deadlocking the
+    // test). The guard resets the store to `builtin_profiles()` at
+    // entry and restores it at drop. Each test sees an unmodified
+    // 11-param `obd2` profile regardless of execution order or
+    // thread interleaving. The TEST_LOCK effectively serialises
+    // these three tests with respect to each other — the right
+    // cost for shared mutable state.
+
+    /// Mutex that serialises the three `remove_param_from_profile`
+    /// tests against each other. Not the store's RwLock (which
+    /// would deadlock with the tests' read+write interleaving);
+    /// just a suite-level ordering lock.
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// RAII guard: holds `TEST_LOCK` + a snapshot of the builtin
+    /// profiles. Restores `builtin_profiles()` on drop while
+    /// holding the lock, so a parallel test can't observe a
+    /// half-restored store.
+    struct FreshStoreGuard {
+        _guard: std::sync::MutexGuard<'static, ()>,
+    }
+
+    fn with_fresh_store() -> FreshStoreGuard {
+        let guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        // Acquire the store write lock briefly to reset state.
+        // Holding TEST_LOCK for the test body would block other
+        // tests that just want to read the store (e.g. any future
+        // read-only test of profile_params), so we acquire +
+        // release the store write lock here and re-acquire only
+        // in Drop.
+        {
+            let mut lock = store().write().unwrap();
+            *lock = builtin_profiles();
+        }
+        FreshStoreGuard { _guard: guard }
+    }
+
+    impl Drop for FreshStoreGuard {
+        fn drop(&mut self) {
+            // Holding TEST_LOCK (via the guard) ensures a parallel
+            // test that might be about to call `with_fresh_store`
+            // can't start until we've restored. The store write
+            // lock is a brief acquire-and-release; if it's poisoned
+            // we don't propagate — the next test resets anyway.
+            if let Ok(mut lock) = store().write() {
+                *lock = builtin_profiles();
+            }
+        }
+    }
 
     #[test]
     fn remove_param_from_profile_removes_matching_param() {
+        let _fresh = with_fresh_store();
         // Built-in `obd2` profile has 11 params (rpm, coolant, iat, …).
         // Removing `coolant` should drop it from the in-memory profile
         // and leave the others untouched.
@@ -733,6 +792,7 @@ mod tests {
 
     #[test]
     fn remove_param_from_profile_is_idempotent() {
+        let _fresh = with_fresh_store();
         // First call removes; second call on the same param id is a
         // no-op and returns false (nothing was removed). The profile
         // is still consistent — no extra params introduced.
@@ -745,6 +805,7 @@ mod tests {
 
     #[test]
     fn remove_param_from_profile_unknown_id_returns_false() {
+        let _fresh = with_fresh_store();
         // Unknown profile id: no mutation, returns false.
         let before = profile_params("obd2").unwrap().len();
         assert!(!remove_param_from_profile("does_not_exist", "coolant"));
