@@ -1,0 +1,105 @@
+name: CI & Autonomous Merge
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [ opened, synchronize, reopened, labeled ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. TEST SUITE MATRIX
+  # ---------------------------------------------------------------------------
+  test-rust:
+    name: Rust Core Tests (src-tauri)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Cargo Tests
+        run: |
+          cd src-tauri
+          cargo test --verbose
+
+  test-python:
+    name: Python Backend API Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run Pytest
+        run: pytest backend/tests/
+
+  test-frontend:
+    name: Frontend JS Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Native Node Test Suite
+        run: node --test src/js/*.test.js
+
+  # ---------------------------------------------------------------------------
+  # 2. AUTONOMOUS AUTO-MERGE (Tier A PRs)
+  # ---------------------------------------------------------------------------
+  auto-merge:
+    name: Auto-Merge Tier A PR
+    needs: [test-rust, test-python, test-frontend]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Evaluate & Auto-Merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Evaluating PR #${PR_NUMBER}: '${PR_TITLE}' for autonomous merge..."
+
+          # Optional Safeguard: Check if PR is tagged with 'tier-c' or explicitly contains '[tier-c]'
+          if [[ "${PR_TITLE}" =~ \[tier-c\] ]] || echo "${{ toJson(github.event.pull_request.labels.*.name) }}" | grep -i "tier-c"; then
+            echo "PR #${PR_NUMBER} is flagged as Tier C. Skipping auto-merge."
+            exit 0
+          fi
+
+          echo "All test suites passed. Merging PR #${PR_NUMBER} autonomously..."
+          gh pr merge "${PR_NUMBER}" --squash --auto --delete-branch
