@@ -197,7 +197,7 @@ and the chassis-specific verification doc.
   carries the same `[needs verification, N62/E70 bench]` mark
   the v0.14.2 slice 1 entry uses; bench verification on the
   E70 X5 4.8i is the gating step per the slice 3 harness doc.
-- **N62 / E70 harness-doc extension** (this PR, slice 4, Tier A):
+- **N62 / E70 harness-doc extension** (PR #188, slice 4, Tier A):
   `docs/validation/n62-real-car.md` Step 2 (cold readings),
   Step 3 (running readings), Step 4 (report template), and
   Step 5 (consequences) all extended for the three new PIDs.
