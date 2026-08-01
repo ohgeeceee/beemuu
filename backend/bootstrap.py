@@ -10,6 +10,7 @@ boot than ship silently insecure defaults.
 """
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 import time
@@ -64,3 +65,32 @@ def bootstrap_for_startup(db_path: Path | None = None) -> Path:
     resolved = db_path if db_path is not None else db._resolve_path(None)  # noqa: SLF001
     bootstrap_admin(resolved)
     return resolved
+
+
+def main() -> None:
+    """CLI entry point: ``python3 -m backend.bootstrap``.
+
+    Creates the SQLite schema (idempotent) and the first admin user from
+    ``BEEMUU_ADMIN_PASSWORD`` if one does not yet exist. Matches the
+    systemd unit's startup behavior so this script can be invoked manually
+    on a fresh VPS, from CI, or as a post-deploy belt-and-suspenders step.
+
+    Exits 2 with a clear message if ``BEEMUU_ADMIN_PASSWORD`` is unset or
+    empty — same posture as the in-process bootstrap.
+    """
+    parser = argparse.ArgumentParser(
+        description="Bootstrap beemuu-api admin schema + first admin user",
+    )
+    parser.add_argument(
+        "--db-path",
+        default=None,
+        help="Path to sqlite DB (default: $BEEMUU_DB_PATH or backend/data/beemuu.db)",
+    )
+    args = parser.parse_args()
+    db_path_arg = Path(args.db_path) if args.db_path else None
+    resolved = db_path_arg if db_path_arg is not None else db._resolve_path(None)  # noqa: SLF001
+    bootstrap_admin(resolved)
+
+
+if __name__ == "__main__":
+    main()
