@@ -272,7 +272,8 @@ def _to_dict_rows() -> list[dict]:
             "likely_causes": None,
             "severity": severity,
             "source": "seed:generic",
-            "verified": 1,  # SAE J2012 is a published standard; descriptions are technical facts
+            "verified": 1,
+            "confidence": "verified",  # SAE J2012 is a published standard; descriptions are technical facts
         }
         for code, title, severity in _ROWS
     ]

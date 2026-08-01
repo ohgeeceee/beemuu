@@ -41,8 +41,24 @@ class TestGenericSeed(unittest.TestCase):
         self._tmp, self.db_path = _fresh_db()
         self.addCleanup(self._tmp.cleanup)
 
-    def test_runs_without_error(self) -> None:
+    def test_existing_schema_gains_confidence_column_without_resetting_data(self) -> None:
+        with db.get_conn(self.db_path) as conn:
+            conn.execute("INSERT INTO dtc (code, category, title, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", ("P9999", "powertrain", "Existing", "test", 1, 1))
+            conn.commit()
+        db.init_db(self.db_path)
+        with db.get_conn(self.db_path) as conn:
+            row = conn.execute("SELECT title, confidence FROM dtc WHERE code = ?", ("P9999",)).fetchone()
+        self.assertEqual(row["title"], "Existing")
+        self.assertEqual(row["confidence"], "unverified")
+
+
+    def test_generic_seed_marks_standard_definitions_verified(self) -> None:
         seed_dtcs.run(self.db_path)
+        with db.get_conn(self.db_path) as conn:
+            row = conn.execute("SELECT verified, confidence, source FROM dtc WHERE code = ?", ("P0171",)).fetchone()
+        self.assertEqual(row["verified"], 1)
+        self.assertEqual(row["confidence"], "verified")
+        self.assertEqual(row["source"], "seed:generic")
 
     def test_seeds_at_least_200_codes(self) -> None:
         """Coverage test. 200+ curated generic codes is plenty for day-one

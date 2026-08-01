@@ -42,6 +42,13 @@ class TestBmwSeed(unittest.TestCase):
         self.assertIn("vanos", by_code["2A82"].lower())
         self.assertIn("lean", by_code["P0171"].lower())
 
+    def test_seed_bmw_entries_are_marked_community_confidence(self) -> None:
+        seed_bmw.run(self.db_path)
+        with db.get_conn(self.db_path) as conn:
+            row = conn.execute("SELECT verified, confidence, source FROM dtc WHERE code = ?", ("2A87",)).fetchone()
+        self.assertEqual(row["verified"], 1)
+        self.assertEqual(row["confidence"], "community")
+        self.assertEqual(row["source"], "seed:bmw")
     def test_seed_bmw_is_idempotent(self) -> None:
         seed_bmw.run(self.db_path)
         with db.get_conn(self.db_path) as conn:
