@@ -501,9 +501,10 @@ async function readFaults() {
     for (const d of dtcs) {
       const tr = document.createElement("tr");
       tr.className = "fault-clickable";
+      const badge = window.beeemuuDtcConfidence ? window.beeemuuDtcConfidence.badgeFor(d) : null;
       tr.innerHTML =
         `<td class="fault-code">${escapeHtml(d.code)}</td>` +
-        `<td>${escapeHtml(d.text)}</td>` +
+        `<td>${escapeHtml(d.text)}${badge ? ` <span class="${badge.className}" title="${badge.label} description">${badge.label}</span>` : ""}</td>` +
         `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
       tbody.appendChild(tr);
@@ -542,9 +543,10 @@ async function readFaults() {
     for (const d of dtcs) {
       const tr = document.createElement("tr");
       tr.className = "fault-clickable";
+      const badge = window.beeemuuDtcConfidence ? window.beeemuuDtcConfidence.badgeFor(d) : null;
       tr.innerHTML =
         `<td class="fault-code">${escapeHtml(d.code)}</td>` +
-        `<td>${escapeHtml(d.text)}</td>` +
+        `<td>${escapeHtml(d.text)}${badge ? ` <span class="${badge.className}" title="${badge.label} description">${badge.label}</span>` : ""}</td>` +
         `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
       tbody.appendChild(tr);
