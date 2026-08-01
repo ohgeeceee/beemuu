@@ -258,6 +258,8 @@ document.querySelectorAll("#info-share-menu .share-item").forEach((item) => {
     $("btn-info-share").setAttribute("aria-expanded", "false");
     if (action === "read") doReadVehicle();
     else if (action === "report") doExportReport();
+    else if (action === "print-health") doPrintHealthReport();
+    else if (action === "print-history") showServiceHistoryEditor();
     else if (action === "snapshot") doExportSnapshot();
     else if (action === "secure") doSecureShare();
     else if (action === "story") doGenerateStory();
@@ -3044,6 +3046,48 @@ function setInfoActionsEnabled(on) {
   document.querySelectorAll("#info-share-menu .share-item").forEach((el) => {
     if (el.dataset.action === "read") return; // Read is always available when connected
     el.disabled = !on;
+  });
+}
+
+function doPrintHealthReport() {
+  if (!lastVehicleInfo || !window.beeemuuPrintReports) return;
+  const api = window.beeemuuPrintReports;
+  api.printHtml(document, api.buildHealthReport(lastVehicleInfo, modules));
+}
+
+function showServiceHistoryEditor() {
+  if (!lastVehicleInfo || !window.beeemuuPrintReports) return;
+  const api = window.beeemuuPrintReports;
+  const vin = lastVehicleInfo.vin;
+  const entries = api.loadHistory(localStorage, vin);
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.id = "service-history-modal";
+  modal.innerHTML = `<div class="modal service-history-modal"><div class="modal-head">Service history</div><div class="modal-body"><p class="muted">Stored locally on this computer for VIN ${escapeHtml(vin || "unavailable")}.</p><div id="service-history-rows"></div><button class="btn btn-small" id="service-history-add">+ Add entry</button></div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn btn-primary" id="service-history-print">Save & print</button></div></div>`;
+  document.body.appendChild(modal);
+  const rows = modal.querySelector("#service-history-rows");
+  const addRow = (entry = {}) => {
+    const row = document.createElement("div");
+    row.className = "service-history-row";
+    row.innerHTML = `<input type="date" data-field="date" value="${escapeHtml(entry.date || "")}" aria-label="Service date"><input type="number" min="0" data-field="mileage_km" value="${escapeHtml(entry.mileage_km || "")}" placeholder="Mileage km"><input data-field="service" value="${escapeHtml(entry.service || "")}" placeholder="Service / repair"><input data-field="provider" value="${escapeHtml(entry.provider || "")}" placeholder="Provider"><input data-field="cost" value="${escapeHtml(entry.cost || "")}" placeholder="Cost"><input data-field="notes" value="${escapeHtml(entry.notes || "")}" placeholder="Notes"><button class="btn btn-small btn-danger" type="button">Remove</button>`;
+    row.querySelector("button").addEventListener("click", () => row.remove());
+    rows.appendChild(row);
+  };
+  entries.forEach(addRow);
+  if (!entries.length) addRow();
+  modal.querySelector("#service-history-add").addEventListener("click", () => addRow());
+  modal.querySelector("#service-history-close").addEventListener("click", () => modal.remove());
+  modal.querySelector("#service-history-print").addEventListener("click", () => {
+    const saved = Array.from(rows.querySelectorAll(".service-history-row")).map((row) => {
+      const entry = {};
+      row.querySelectorAll("[data-field]").forEach((input) => { entry[input.dataset.field] = input.value.trim(); });
+      return entry;
+    }).filter((entry) => Object.values(entry).some(Boolean));
+    try {
+      api.saveHistory(localStorage, vin, saved);
+      modal.remove();
+      api.printHtml(document, api.buildServiceHistoryReport(lastVehicleInfo, saved));
+    } catch (e) { log("Service history save failed: " + e); }
   });
 }
 
