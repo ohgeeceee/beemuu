@@ -3059,36 +3059,49 @@ function showServiceHistoryEditor() {
   if (!lastVehicleInfo || !window.beeemuuPrintReports) return;
   const api = window.beeemuuPrintReports;
   const vin = lastVehicleInfo.vin;
-  const entries = api.loadHistory(localStorage, vin);
+  const dossier = api.loadDossier(localStorage, vin);
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
   modal.id = "service-history-modal";
-  modal.innerHTML = `<div class="modal service-history-modal"><div class="modal-head">Service history</div><div class="modal-body"><p class="muted">Stored locally on this computer for VIN ${escapeHtml(vin || "unavailable")}.</p><div id="service-history-rows"></div><button class="btn btn-small" id="service-history-add">+ Add entry</button></div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn btn-primary" id="service-history-print">Save & print</button></div></div>`;
+  modal.innerHTML = `<div class="modal service-history-modal"><div class="modal-head">Vehicle history & maintenance dossier</div><div class="modal-body dossier-editor">
+    <p class="muted">Build a buyer-ready record stored locally for VIN ${escapeHtml(vin || "unavailable")}.</p>
+    <h3>Vehicle & ownership</h3><div class="dossier-profile-grid">
+      <label>Model<input data-profile="model" value="${escapeHtml(dossier.profile.model || "")}" placeholder="e.g. X5 35d"></label>
+      <label>Chassis<input data-profile="chassis" value="${escapeHtml(dossier.profile.chassis || "")}" placeholder="e.g. E70"></label>
+      <label>Ownership started<input type="date" data-profile="ownership_start" value="${escapeHtml(dossier.profile.ownership_start || "")}"></label>
+      <label class="wide">Seller overview<textarea data-profile="seller_notes" placeholder="Condition, ownership story, notable care and upgrades">${escapeHtml(dossier.profile.seller_notes || "")}</textarea></label>
+    </div>
+    <div class="dossier-section-head"><h3>Completed maintenance & repairs</h3><button class="btn btn-small" id="dossier-add-work">+ Add work</button></div><div id="dossier-work-rows"></div>
+    <div class="dossier-section-head"><h3>Upcoming maintenance</h3><button class="btn btn-small" id="dossier-add-upcoming">+ Add upcoming</button></div><div id="dossier-upcoming-rows"></div>
+    <p class="muted">Printing tip: choose A4 and turn off browser headers and footers for the cleanest dossier.</p>
+    </div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn" id="dossier-save">Save</button><button class="btn btn-primary" id="service-history-print">Save & print dossier</button></div></div>`;
   document.body.appendChild(modal);
-  const rows = modal.querySelector("#service-history-rows");
-  const addRow = (entry = {}) => {
-    const row = document.createElement("div");
-    row.className = "service-history-row";
-    row.innerHTML = `<input type="date" data-field="date" value="${escapeHtml(entry.date || "")}" aria-label="Service date"><input type="number" min="0" data-field="mileage_km" value="${escapeHtml(entry.mileage_km || "")}" placeholder="Mileage km"><input data-field="service" value="${escapeHtml(entry.service || "")}" placeholder="Service / repair"><input data-field="provider" value="${escapeHtml(entry.provider || "")}" placeholder="Provider"><input data-field="cost" value="${escapeHtml(entry.cost || "")}" placeholder="Cost"><input data-field="notes" value="${escapeHtml(entry.notes || "")}" placeholder="Notes"><button class="btn btn-small btn-danger" type="button">Remove</button>`;
-    row.querySelector("button").addEventListener("click", () => row.remove());
-    rows.appendChild(row);
+  const workRows = modal.querySelector("#dossier-work-rows");
+  const upcomingRows = modal.querySelector("#dossier-upcoming-rows");
+  const field = (name, value, placeholder = "", type = "text") => `<input type="${type}" data-field="${name}" value="${escapeHtml(value || "")}" placeholder="${placeholder}">`;
+  const addWork = (entry = {}) => {
+    const row = document.createElement("fieldset"); row.className = "dossier-entry";
+    row.innerHTML = `<legend>Work record</legend><div class="dossier-entry-grid">${field("date", entry.date, "", "date")}${field("mileage_km", entry.mileage_km, "Mileage km", "number")}<select data-field="category">${["Maintenance", "Repair", "Upgrade", "Inspection", "Recall", "Bodywork", "Other"].map((v) => `<option${entry.category === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work_performed", entry.work_performed, "Work performed")}${field("reason", entry.reason, "Reason / symptoms")}${field("provider", entry.provider, "Workshop / provider")}${field("parts", entry.parts, "Parts used")}${field("part_numbers", entry.part_numbers, "Part numbers")}${field("parts_cost", entry.parts_cost, "Parts cost", "number")}${field("labor_cost", entry.labor_cost, "Labor cost", "number")}${field("invoice_ref", entry.invoice_ref, "Invoice / receipt ref")}${field("warranty", entry.warranty, "Warranty")}</div><label class="dossier-diy"><input type="checkbox" data-field="diy"${entry.diy ? " checked" : ""}> Owner / DIY work</label><textarea data-field="notes" placeholder="Detailed notes">${escapeHtml(entry.notes || "")}</textarea><button class="btn btn-small btn-danger dossier-remove" type="button">Remove record</button>`;
+    row.querySelector(".dossier-remove").addEventListener("click", () => row.remove()); workRows.appendChild(row);
   };
-  entries.forEach(addRow);
-  if (!entries.length) addRow();
-  modal.querySelector("#service-history-add").addEventListener("click", () => addRow());
+  const addUpcoming = (entry = {}) => {
+    const row = document.createElement("fieldset"); row.className = "dossier-entry dossier-upcoming-entry";
+    row.innerHTML = `<legend>Upcoming item</legend><div class="dossier-entry-grid"><select data-field="priority">${["High", "Medium", "Low"].map((v) => `<option${entry.priority === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work", entry.work, "Planned work")}${field("due_date", entry.due_date, "", "date")}${field("due_mileage_km", entry.due_mileage_km, "Due mileage km", "number")}${field("estimated_cost", entry.estimated_cost, "Estimated cost", "number")}${field("notes", entry.notes, "Notes")}</div><button class="btn btn-small btn-danger dossier-remove" type="button">Remove item</button>`;
+    row.querySelector(".dossier-remove").addEventListener("click", () => row.remove()); upcomingRows.appendChild(row);
+  };
+  dossier.work.forEach(addWork); dossier.upcoming.forEach(addUpcoming);
+  if (!dossier.work.length) addWork();
+  modal.querySelector("#dossier-add-work").addEventListener("click", () => addWork());
+  modal.querySelector("#dossier-add-upcoming").addEventListener("click", () => addUpcoming());
   modal.querySelector("#service-history-close").addEventListener("click", () => modal.remove());
-  modal.querySelector("#service-history-print").addEventListener("click", () => {
-    const saved = Array.from(rows.querySelectorAll(".service-history-row")).map((row) => {
-      const entry = {};
-      row.querySelectorAll("[data-field]").forEach((input) => { entry[input.dataset.field] = input.value.trim(); });
-      return entry;
-    }).filter((entry) => Object.values(entry).some(Boolean));
-    try {
-      api.saveHistory(localStorage, vin, saved);
-      modal.remove();
-      api.printHtml(document, api.buildServiceHistoryReport(lastVehicleInfo, saved));
-    } catch (e) { log("Service history save failed: " + e); }
-  });
+  const gather = () => {
+    const collect = (row) => { const entry = {}; row.querySelectorAll("[data-field]").forEach((input) => { entry[input.dataset.field] = input.type === "checkbox" ? input.checked : input.value.trim(); }); return entry; };
+    const profile = {}; modal.querySelectorAll("[data-profile]").forEach((input) => { profile[input.dataset.profile] = input.value.trim(); });
+    return { profile, work: Array.from(workRows.children).map(collect).filter((e) => e.work_performed || e.date), upcoming: Array.from(upcomingRows.children).map(collect).filter((e) => e.work || e.due_date) };
+  };
+  const save = () => { const value = gather(); api.saveDossier(localStorage, vin, value); return value; };
+  modal.querySelector("#dossier-save").addEventListener("click", () => { try { save(); log("Vehicle dossier saved locally."); } catch (e) { log("Dossier save failed: " + e); } });
+  modal.querySelector("#service-history-print").addEventListener("click", () => { try { const value = save(); modal.remove(); api.printHtml(document, api.buildSalesDossierReport(lastVehicleInfo, value)); } catch (e) { log("Dossier save failed: " + e); } });
 }
 
 async function doExportReport() {

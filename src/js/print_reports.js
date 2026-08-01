@@ -6,6 +6,7 @@
   if (root) root.beeemuuPrintReports = api;
 })(typeof window !== "undefined" ? window : globalThis, function () {
   const STORAGE_KEY = "beeemuu_service_history_v1";
+  const DOSSIER_KEY = "beeemuu_vehicle_dossiers_v2";
 
   function safeText(value, fallback = "—") {
     if (value === null || value === undefined || String(value).trim() === "") return fallback;
@@ -38,6 +39,69 @@
     storage.setItem(STORAGE_KEY, JSON.stringify(parsed));
   }
 
+  function emptyDossier() {
+    return { profile: {}, work: [], upcoming: [] };
+  }
+
+  function migrateLegacyEntry(entry) {
+    return {
+      date: safeText(entry.date, ""), mileage_km: safeText(entry.mileage_km, ""), category: "Maintenance",
+      work_performed: safeText(entry.service, ""), reason: "", parts: "", part_numbers: "", parts_cost: "",
+      labor_cost: safeText(entry.cost, ""), provider: safeText(entry.provider, ""), diy: false,
+      invoice_ref: "", warranty: "", notes: safeText(entry.notes, ""),
+    };
+  }
+
+  function loadDossier(storage, vin) {
+    if (!storage || !vin) return emptyDossier();
+    try {
+      const dossiers = JSON.parse(storage.getItem(DOSSIER_KEY) || "{}");
+      const dossier = dossiers[vin];
+      if (dossier && typeof dossier === "object") {
+        return {
+          profile: dossier.profile && typeof dossier.profile === "object" ? dossier.profile : {},
+          work: Array.isArray(dossier.work) ? dossier.work : [],
+          upcoming: Array.isArray(dossier.upcoming) ? dossier.upcoming : [],
+        };
+      }
+    } catch (_) {}
+    return { profile: {}, work: loadHistory(storage, vin).map(migrateLegacyEntry), upcoming: [] };
+  }
+
+  function saveDossier(storage, vin, dossier) {
+    if (!storage || !vin) throw new Error("Read the vehicle VIN before saving its dossier.");
+    let dossiers = {};
+    try { dossiers = JSON.parse(storage.getItem(DOSSIER_KEY) || "{}"); } catch (_) {}
+    dossiers[vin] = dossier;
+    storage.setItem(DOSSIER_KEY, JSON.stringify(dossiers));
+  }
+
+  function moneyValue(value) {
+    const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function summarizeDossier(dossier) {
+    const work = Array.isArray(dossier?.work) ? dossier.work : [];
+    const sorted = work.slice().sort((a, b) => safeText(b.date, "").localeCompare(safeText(a.date, "")));
+    const categoryCounts = {};
+    for (const entry of work) {
+      const category = safeText(entry.category, "Other");
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+    }
+    return {
+      jobs: work.length,
+      total_cost: work.reduce((sum, entry) => sum + moneyValue(entry.parts_cost) + moneyValue(entry.labor_cost), 0),
+      latest_date: sorted[0]?.date || "",
+      latest_mileage_km: Number(sorted[0]?.mileage_km) || null,
+      category_counts: Object.fromEntries(Object.entries(categoryCounts).sort(([a], [b]) => a.localeCompare(b))),
+    };
+  }
+
+  function formatMoney(value) {
+    return `$${moneyValue(value).toFixed(2)}`;
+  }
+
   function vehicleBlock(info) {
     const decode = info?.decode || {};
     return `<dl class="vehicle-grid">
@@ -68,6 +132,32 @@
       <p class="disclaimer">Owner-entered record. Verify invoices and workshop documentation when proof of service is required.</p></article>`;
   }
 
+  function buildSalesDossierReport(info, dossier, generatedAt = new Date()) {
+    const profile = dossier?.profile || {};
+    const work = (dossier?.work || []).slice().sort((a, b) => safeText(a.date, "").localeCompare(safeText(b.date, "")));
+    const upcoming = dossier?.upcoming || [];
+    const summary = summarizeDossier(dossier);
+    const categories = Object.entries(summary.category_counts).map(([name, count]) => `${escapeHtml(name)}: ${count}`).join(" · ") || "No categories recorded";
+    const workCards = work.length ? work.map((entry) => {
+      const total = moneyValue(entry.parts_cost) + moneyValue(entry.labor_cost);
+      return `<section class="dossier-work"><div class="dossier-work-head"><strong>${escapeHtml(entry.date)} · ${escapeHtml(entry.category)}</strong><span>${escapeHtml(entry.mileage_km)}${entry.mileage_km ? " km" : ""}</span></div>
+        <h3>${escapeHtml(entry.work_performed)}</h3>
+        <dl class="dossier-details"><div><dt>Reason / symptoms</dt><dd>${escapeHtml(entry.reason)}</dd></div><div><dt>Performed by</dt><dd>${entry.diy ? "Owner / DIY" : escapeHtml(entry.provider)}</dd></div><div><dt>Parts</dt><dd>${escapeHtml(entry.parts)}</dd></div><div><dt>Part numbers</dt><dd>${escapeHtml(entry.part_numbers)}</dd></div><div><dt>Parts cost</dt><dd>${formatMoney(entry.parts_cost)}</dd></div><div><dt>Labor cost</dt><dd>${formatMoney(entry.labor_cost)}</dd></div><div><dt>Total</dt><dd>${formatMoney(total)}</dd></div><div><dt>Invoice / receipt</dt><dd>${escapeHtml(entry.invoice_ref)}</dd></div><div><dt>Warranty</dt><dd>${escapeHtml(entry.warranty)}</dd></div></dl>
+        ${entry.notes ? `<p><strong>Notes:</strong> ${escapeHtml(entry.notes)}</p>` : ""}</section>`;
+    }).join("") : "<p>No completed work has been recorded.</p>";
+    const upcomingRows = upcoming.length ? upcoming.map((entry) => `<tr><td>${escapeHtml(entry.priority)}</td><td>${escapeHtml(entry.work)}</td><td>${escapeHtml(entry.due_date)}</td><td>${escapeHtml(entry.due_mileage_km)}${entry.due_mileage_km ? " km" : ""}</td><td>${formatMoney(entry.estimated_cost)}</td><td>${escapeHtml(entry.notes)}</td></tr>`).join("") : `<tr><td colspan="6">No upcoming maintenance recorded.</td></tr>`;
+    const receiptRows = work.filter((entry) => entry.invoice_ref).map((entry) => `<li>☐ ${escapeHtml(entry.date)} — ${escapeHtml(entry.work_performed)} — ${escapeHtml(entry.invoice_ref)}</li>`).join("") || "<li>No receipt references recorded.</li>";
+    return `<article class="print-report dossier-report"><header><h1>Vehicle History &amp; Maintenance Dossier</h1><p>Prepared for sale · Generated ${escapeHtml(generatedAt.toLocaleString())}</p></header>
+      ${vehicleBlock(info)}
+      <dl class="vehicle-grid"><div><dt>Model</dt><dd>${escapeHtml(profile.model)}</dd></div><div><dt>Chassis</dt><dd>${escapeHtml(profile.chassis)}</dd></div><div><dt>Ownership since</dt><dd>${escapeHtml(profile.ownership_start)}</dd></div><div><dt>Recorded jobs</dt><dd>${summary.jobs}</dd></div></dl>
+      ${profile.seller_notes ? `<section class="dossier-overview"><h2>Owner's overview</h2><p>${escapeHtml(profile.seller_notes)}</p></section>` : ""}
+      <section><h2>Documented history summary</h2><div class="dossier-stats"><div><strong>${summary.jobs}</strong><span>jobs recorded</span></div><div><strong>${formatMoney(summary.total_cost)}</strong><span>documented spend</span></div><div><strong>${escapeHtml(summary.latest_date)}</strong><span>latest service</span></div><div><strong>${summary.latest_mileage_km ? escapeHtml(summary.latest_mileage_km) + " km" : "—"}</strong><span>latest service mileage</span></div></div><p>${categories}</p></section>
+      <section><h2>Completed maintenance and repairs</h2>${workCards}</section>
+      <section><h2>Upcoming maintenance</h2><table><thead><tr><th>Priority</th><th>Work</th><th>Due date</th><th>Due mileage</th><th>Estimate</th><th>Notes</th></tr></thead><tbody>${upcomingRows}</tbody></table></section>
+      <section><h2>Receipt and invoice checklist</h2><ul class="receipt-list">${receiptRows}</ul></section>
+      <p class="disclaimer">Owner-entered record prepared for a prospective buyer. Costs, dates, and work descriptions should be verified against the referenced invoices, receipts, and workshop documentation.</p></article>`;
+  }
+
   function printHtml(documentRef, html) {
     let host = documentRef.getElementById("print-report-host");
     if (!host) {
@@ -79,5 +169,8 @@
     documentRef.defaultView.print();
   }
 
-  return { STORAGE_KEY, loadHistory, saveHistory, buildHealthReport, buildServiceHistoryReport, printHtml };
+  return {
+    STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, summarizeDossier,
+    buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport, printHtml,
+  };
 });
