@@ -1,9 +1,8 @@
 """Write-side admin operations for the beemuu hosted backend.
 
 This module is the only place that mutates admin-gated tables (dtc,
-dtc_submission, schematics, schematic_link, hunt_challenge, audit_log).
-Every write path goes through write_audit() so the audit trail is
-mandatory, not optional.
+dtc_submission, schematics, schematic_link, audit_log). Every write path
+goes through write_audit() so the audit trail is mandatory, not optional.
 
 Public read endpoints (get_dtc_by_code, search_dtc, list_schematics,
 list_links_for_dtc, etc.) live in app.py / schematics.py / cross_links.py
@@ -305,80 +304,6 @@ def delete_schematic_link(db_path: Path, slug: str, code: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Hunt challenges
-# ---------------------------------------------------------------------------
-
-def list_hunt_challenges(db_path: Path, include_disabled: bool = False) -> list[dict]:
-    with db.get_conn(db_path) as conn:
-        if include_disabled:
-            rows = conn.execute(
-                "SELECT * FROM hunt_challenge ORDER BY id ASC"
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM hunt_challenge WHERE enabled = 1 ORDER BY id ASC"
-            ).fetchall()
-    out = []
-    for r in rows:
-        d = dict(r)
-        # Parse payload JSON if present
-        if d.get("payload"):
-            try:
-                d["payload"] = json.loads(d["payload"])
-            except (ValueError, TypeError):
-                pass
-        out.append(d)
-    return out
-
-
-def set_hunt_enabled(db_path: Path, slug: str, enabled: bool) -> bool:
-    slug = (slug or "").strip()
-    if not slug:
-        raise ValueError("slug is required")
-    with db.get_conn(db_path) as conn:
-        cur = conn.execute(
-            "UPDATE hunt_challenge SET enabled = ? WHERE slug = ?",
-            (1 if enabled else 0, slug),
-        )
-        conn.commit()
-    return cur.rowcount > 0
-
-
-def upsert_hunt_challenge(db_path: Path, payload: dict) -> dict:
-    slug = (payload.get("slug") or "").strip()
-    title = (payload.get("title") or "").strip()
-    if not (slug and title):
-        raise ValueError("slug and title are required")
-    points = int(payload.get("points") or 0)
-    description = payload.get("description")
-    enabled = 0 if payload.get("enabled") is False else 1
-    payload_json = payload.get("payload")
-    if isinstance(payload_json, (dict, list)):
-        payload_json = json.dumps(payload_json)
-    with db.get_conn(db_path) as conn:
-        existing = conn.execute(
-            "SELECT id FROM hunt_challenge WHERE slug = ?", (slug,)
-        ).fetchone()
-        if existing is None:
-            conn.execute(
-                "INSERT INTO hunt_challenge (slug, title, description, points, enabled, payload) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (slug, title, description, points, enabled, payload_json),
-            )
-        else:
-            conn.execute(
-                "UPDATE hunt_challenge SET title=?, description=?, points=?, "
-                "enabled=?, payload=? WHERE slug=?",
-                (title, description, points, enabled, payload_json, slug),
-            )
-        conn.commit()
-        row = conn.execute(
-            "SELECT * FROM hunt_challenge WHERE slug = ?", (slug,)
-        ).fetchone()
-    return dict(row)
-
-
-# ---------------------------------------------------------------------------
 # Diag sessions
 # ---------------------------------------------------------------------------
 
@@ -426,10 +351,6 @@ def dashboard_counts(db_path: Path) -> dict[str, int]:
             "schematics": _count("schematics"),
             "schematic_links": _count("schematic_link"),
             "diag_sessions": _count("diag_session"),
-            "hunt_challenges": _count("hunt_challenge"),
-            "hunt_enabled": conn.execute(
-                "SELECT COUNT(*) FROM hunt_challenge WHERE enabled = 1"
-            ).fetchone()[0],
             "leaderboard": _count("leaderboard_entry"),
             "audit_log": _count("audit_log"),
             "admin_users": _count("admin_user"),

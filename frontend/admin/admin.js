@@ -97,7 +97,6 @@
     submissions: loadSubmissions,
     schematics: loadSchematics,
     sessions: loadSessions,
-    hunt: loadHunt,
     audit: loadAudit,
   };
 
@@ -111,7 +110,6 @@
       $("#count-schematics").textContent = c.schematics ?? "0";
       $("#count-links").textContent = c.schematic_links ?? "0";
       $("#count-sessions").textContent = c.diag_sessions ?? "0";
-      $("#count-hunt").textContent = `${c.hunt_enabled ?? 0} / ${c.hunt_challenges ?? 0}`;
       $("#count-audit").textContent = c.audit_log ?? "0";
       const list = $("#recent-activity");
       const rows = data.recent_audit || [];
@@ -245,32 +243,6 @@
     }
   }
 
-  async function loadHunt() {
-    try {
-      const data = await api("GET", "/api/admin/hunt?include_disabled=1");
-      const tbody = $("#hunt-table tbody");
-      const rows = data.results || [];
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="muted">No hunt challenges.</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = rows.map((r) => `
-        <tr>
-          <td><code>${escapeHtml(r.slug)}</code></td>
-          <td>${escapeHtml(r.title)}</td>
-          <td>${escapeHtml(String(r.points))}</td>
-          <td>${r.enabled ? "enabled" : "disabled"}</td>
-          <td>
-            ${r.enabled
-              ? `<button class="danger" data-action="disable-hunt" data-slug="${escapeHtml(r.slug)}">Disable</button>`
-              : `<button class="ghost" data-action="enable-hunt" data-slug="${escapeHtml(r.slug)}">Enable</button>`}
-          </td>
-        </tr>`).join("");
-    } catch (err) {
-      toast(`Hunt load failed: ${err.message}`, "bad");
-    }
-  }
-
   async function loadAudit() {
     try {
       const data = await api("GET", "/api/admin/audit?limit=200");
@@ -345,22 +317,6 @@
     } catch (err) { toast(`Schematic upsert failed: ${err.message}`, "bad"); }
   });
 
-  $("#hunt-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const payload = {
-      slug: fd.get("slug"),
-      title: fd.get("title"),
-      points: parseInt(fd.get("points") || "0", 10),
-    };
-    try {
-      await api("POST", "/api/admin/hunt", payload);
-      toast(`Upserted ${payload.slug}`);
-      e.target.reset();
-      loadHunt();
-    } catch (err) { toast(`Hunt upsert failed: ${err.message}`, "bad"); }
-  });
-
   // -------- Delegated clicks for table actions --------
   document.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-action]");
@@ -389,14 +345,6 @@
         if (!code) return;
         await api("POST", "/api/admin/schematic-links", { slug: t.dataset.slug, code: code.toUpperCase() });
         toast(`Linked ${code.toUpperCase()} ↔ ${t.dataset.slug}`);
-      } else if (action === "disable-hunt") {
-        await api("DELETE", `/api/admin/hunt/${encodeURIComponent(t.dataset.slug)}/disable`);
-        toast(`Disabled ${t.dataset.slug}`);
-        loadHunt();
-      } else if (action === "enable-hunt") {
-        await api("DELETE", `/api/admin/hunt/${encodeURIComponent(t.dataset.slug)}/enable`);
-        toast(`Enabled ${t.dataset.slug}`);
-        loadHunt();
       }
     } catch (err) {
       toast(`${action} failed: ${err.message}`, "bad");
