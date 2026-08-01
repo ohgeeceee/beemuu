@@ -831,3 +831,25 @@ body[data-theme="dark"] .dash-section-title {
 body[data-theme="dark"] .share-menu { background: #161f2e; border-color: #2a3545; }
 body[data-theme="dark"] .share-item { color: #cdd7e3; }
 body[data-theme="dark"] .share-item:hover:not(:disabled) { background: #1d2b3d; }
+
+.service-history-modal { width: min(1100px, 94vw); }
+.service-history-row { display: grid; grid-template-columns: 140px 120px 1.4fr 1fr 100px 1.4fr auto; gap: 6px; margin-bottom: 8px; }
+.service-history-row input { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 3px; }
+#print-report-host { display: none; }
+@media print {
+  body > *:not(#print-report-host) { display: none !important; }
+  #print-report-host { display: block !important; color: #111; background: #fff; font: 10pt/1.4 Arial, sans-serif; }
+  .print-report { max-width: 190mm; margin: 0 auto; }
+  .print-report header { border-bottom: 2px solid #1f5f99; margin-bottom: 7mm; }
+  .print-report h1 { font-size: 22pt; margin: 0 0 2mm; }
+  .print-report h2 { font-size: 14pt; margin-top: 7mm; break-after: avoid; }
+  .vehicle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 8mm; }
+  .vehicle-grid div { border-bottom: 1px solid #bbb; }
+  .vehicle-grid dt { color: #555; font-size: 8pt; text-transform: uppercase; }
+  .vehicle-grid dd { margin: 0 0 2mm; font-weight: 600; }
+  .print-report table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  .print-report th, .print-report td { border: 1px solid #999; padding: 2mm; text-align: left; vertical-align: top; }
+  .print-report tr { break-inside: avoid; }
+  .print-report .disclaimer { margin-top: 8mm; color: #555; font-size: 8pt; }
+  @page { size: A4; margin: 12mm; }
+}
