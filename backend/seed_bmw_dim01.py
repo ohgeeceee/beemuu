@@ -244,6 +244,7 @@ def _rows() -> list[dict]:
             "severity": severity,
             "source": "seed:bmw-dim01",
             "verified": 1,
+            "confidence": "community",
         }
         for code, section, title, severity, url in _ROWS
     ]
