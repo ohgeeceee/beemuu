@@ -121,6 +121,13 @@ curl -s "https://api.beemuu.com/api/dtc/P0171" | python3 -m json.tool
 cd /var/www/beemuu
 sudo git pull
 sudo chown -R beemuu:beemuu /var/www/beemuu
+
+# Optional: explicit admin-schema bootstrap. The systemd unit already calls
+# this on every start (see backend/bootstrap.py:bootstrap_for_startup), but
+# running it manually after a deploy that swaps the DB file is cheap insurance.
+set -a; source /etc/beemuu/beemuu.env; set +a
+sudo ops/bootstrap-admin.sh
+
 sudo systemctl restart beemuu-api
 
 # Logs
@@ -145,7 +152,8 @@ sudo systemctl stop beemuu-api
 └── ops/
     ├── beemuu-api.service      # systemd unit (User=beemuu, port 8765)
     ├── beemuu.com.conf         # nginx vhost
-    └── bootstrap.sh            # DTC seed runner (shell wrapper)
+    ├── bootstrap.sh            # DTC seed runner (shell wrapper)
+    └── bootstrap-admin.sh      # Admin schema + first-admin bootstrap (shell wrapper)
 ```
 
 ## API endpoints
