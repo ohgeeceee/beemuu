@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>beemuu — admin</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <main id="app" class="shell">
+    <!-- Login screen -->
+    <section id="login-screen" class="panel hero" hidden>
+      <p class="eyebrow">beemuu admin</p>
+      <h1>Sign in</h1>
+      <p class="hint">Same-origin only. Cookies are HttpOnly; the session is bound to your IP for 7 days.</p>
+      <form id="login-form" class="form">
+        <label>
+          <span>Username</span>
+          <input type="text" name="username" autocomplete="username" required>
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">Sign in</button>
+        <p id="login-error" class="error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <!-- App shell, shown when authenticated -->
+    <section id="app-screen" hidden>
+      <header class="topbar">
+        <p class="eyebrow">beemuu admin</p>
+        <h1>Content manager</h1>
+        <p class="hint">Signed in as <strong id="who-name">…</strong> · <a href="#" id="logout-link">Sign out</a></p>
+      </header>
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="overview">Overview</button>
+        <button type="button" class="tab" data-tab="dtc">DTC catalog</button>
+        <button type="button" class="tab" data-tab="submissions">Submissions</button>
+        <button type="button" class="tab" data-tab="schematics">Schematics</button>
+        <button type="button" class="tab" data-tab="sessions">Diag sessions</button>
+        <button type="button" class="tab" data-tab="hunt">Hunt</button>
+        <button type="button" class="tab" data-tab="audit">Audit log</button>
+      </nav>
+
+      <!-- overview -->
+      <section class="panel" id="tab-overview" data-panel="overview">
+        <h2>Overview</h2>
+        <div id="counts" class="grid">
+          <article class="card"><span>DTCs</span><strong id="count-dtc">…</strong></article>
+          <article class="card"><span>DTC enabled</span><strong id="count-dtc-enabled">…</strong></article>
+          <article class="card"><span>Submissions (pending)</span><strong id="count-submissions">…</strong></article>
+          <article class="card"><span>Schematics</span><strong id="count-schematics">…</strong></article>
+          <article class="card"><span>Schematic links</span><strong id="count-links">…</strong></article>
+          <article class="card"><span>Diag sessions</span><strong id="count-sessions">…</strong></article>
+          <article class="card"><span>Hunt challenges</span><strong id="count-hunt">…</strong></article>
+          <article class="card"><span>Audit events</span><strong id="count-audit">…</strong></article>
+        </div>
+        <h3>Recent activity</h3>
+        <ul id="recent-activity" class="audit-list"><li class="muted">Loading…</li></ul>
+      </section>
+
+      <!-- dtc -->
+      <section class="panel" id="tab-dtc" data-panel="dtc" hidden>
+        <h2>DTC catalog</h2>
+        <form id="dtc-form" class="form inline">
+          <input type="text" name="code" placeholder="P0171" maxlength="8" required>
+          <select name="category">
+            <option value="powertrain">powertrain</option>
+            <option value="body">body</option>
+            <option value="chassis">chassis</option>
+            <option value="network">network</option>
+            <option value="bmw-specific">bmw-specific</option>
+          </select>
+          <input type="text" name="title" placeholder="Title" required>
+          <button type="submit">Upsert</button>
+        </form>
+        <p class="hint">Code is uppercased. Existing codes are updated in place; new ones are inserted. Use the API for full edit (description, severity, likely_causes).</p>
+        <div class="search-row">
+          <input type="search" id="dtc-search" placeholder="Search code or title…">
+          <select id="dtc-category">
+            <option value="">All categories</option>
+            <option value="powertrain">powertrain</option>
+            <option value="body">body</option>
+            <option value="chassis">chassis</option>
+            <option value="network">network</option>
+            <option value="bmw-specific">bmw-specific</option>
+          </select>
+        </div>
+        <table class="data" id="dtc-table">
+          <thead><tr><th>Code</th><th>Category</th><th>Title</th><th>Status</th><th></th></tr></thead>
+          <tbody><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </section>
+
+      <!-- submissions -->
+      <section class="panel" id="tab-submissions" data-panel="submissions" hidden>
+        <h2>Submission review queue</h2>
+        <div class="search-row">
+          <select id="sub-status">
+            <option value="pending" selected>pending</option>
+            <option value="approved">approved</option>
+            <option value="rejected">rejected</option>
+            <option value="all">all</option>
+          </select>
+        </div>
+        <table class="data" id="sub-table">
+          <thead><tr><th>ID</th><th>Code</th><th>Submitter</th><th>Symptoms</th><th>Submitted</th><th>Status</th><th></th></tr></thead>
+          <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </section>
+
+      <!-- schematics -->
+      <section class="panel" id="tab-schematics" data-panel="schematics" hidden>
+        <h2>Schematics catalog</h2>
+        <form id="sch-form" class="form inline">
+          <input type="text" name="slug" placeholder="slug" required>
+          <input type="text" name="title" placeholder="Title" required>
+          <input type="text" name="series" placeholder="E-series / F-series / G-series" required>
+          <input type="text" name="system" placeholder="system" required>
+          <input type="text" name="file_path" placeholder="static/schematics/x.svg" required>
+          <input type="text" name="mime" placeholder="image/svg+xml" required>
+          <input type="text" name="license" placeholder="CC0" required>
+          <button type="submit">Upsert</button>
+        </form>
+        <p class="hint">file_path is repo-relative. The static URL is served by nginx at <code>/static/schematics/...</code>.</p>
+        <table class="data" id="sch-table">
+          <thead><tr><th>Slug</th><th>Title</th><th>Series</th><th>System</th><th>License</th><th></th></tr></thead>
+          <tbody><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </section>
+
+      <!-- sessions -->
+      <section class="panel" id="tab-sessions" data-panel="sessions" hidden>
+        <h2>Diag sessions</h2>
+        <p class="hint">Most recent first. DTC codes in <code>dtc_codes</code> are a JSON array.</p>
+        <table class="data" id="session-table">
+          <thead><tr><th>ID</th><th>When</th><th>Client</th><th>VIN</th><th>Profile</th><th>Transport</th><th>DTCs</th></tr></thead>
+          <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </section>
+
+      <!-- hunt -->
+      <section class="panel" id="tab-hunt" data-panel="hunt" hidden>
+        <h2>Hunt challenges</h2>
+        <form id="hunt-form" class="form inline">
+          <input type="text" name="slug" placeholder="slug" required>
+          <input type="text" name="title" placeholder="Title" required>
+          <input type="number" name="points" placeholder="0" min="0" value="0">
+          <button type="submit">Upsert</button>
+        </form>
+        <table class="data" id="hunt-table">
+          <thead><tr><th>Slug</th><th>Title</th><th>Points</th><th>Status</th><th></th></tr></thead>
+          <tbody><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </section>
+
+      <!-- audit -->
+      <section class="panel" id="tab-audit" data-panel="audit" hidden>
+        <h2>Audit log</h2>
+        <p class="hint">Every admin write is recorded with admin_id, action, target, IP, and timestamp. Login attempts (success and failure) are logged even when no admin_id is known.</p>
+        <ul id="audit-list" class="audit-list"><li class="muted">Loading…</li></ul>
+      </section>
+    </section>
+
+    <p id="toast" class="toast" role="status" hidden></p>
+  </main>
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
