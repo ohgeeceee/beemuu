@@ -549,7 +549,7 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     # ------------------------------------------------------------------
-    # Admin GET routes — dashboard, audit, sessions, submissions, hunt
+    # Admin GET routes — dashboard, audit, sessions, submissions
     # ------------------------------------------------------------------
 
     def _handle_admin_get(self, path: str, query: dict) -> None:
@@ -619,11 +619,6 @@ class Handler(BaseHTTPRequestHandler):
                         "SELECT * FROM schematics WHERE enabled = 1 ORDER BY slug ASC"
                     ).fetchall()
             self._json({"results": [dict(r) for r in rows]})
-            return
-
-        if path == "/api/admin/hunt":
-            include_disabled = query.get("include_disabled", ["1"])[0] in ("1", "true", "yes")
-            self._json({"results": admin_api.list_hunt_challenges(db_path, include_disabled=include_disabled)})
             return
 
         if path == "/api/admin/sessions":
@@ -735,18 +730,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": True})
             return
 
-        if parsed.path == "/api/admin/hunt":
-            try:
-                row = admin_api.upsert_hunt_challenge(db_path, body)
-            except ValueError as exc:
-                self._json({"error": str(exc)}, status=400)
-                return
-            admin_api.write_audit(db_path, admin_id=admin_id,
-                                  action="hunt.upsert", target=row["slug"],
-                                  ip=self.client_address[0])
-            self._json(row)
-            return
-
         if parsed.path == "/api/admin/logout":
             token = self._cookie_token()
             if token:
@@ -847,33 +830,6 @@ class Handler(BaseHTTPRequestHandler):
                 return
             admin_api.write_audit(db_path, admin_id=admin_id,
                                   action="schematic.unlink", target=f"{slug}↔{code}",
-                                  ip=self.client_address[0])
-            self._json({"ok": True})
-            return
-
-        # /api/admin/hunt/<slug>/enable and /disable
-        if parsed.path.startswith("/api/admin/hunt/"):
-            tail = parsed.path[len("/api/admin/hunt/"):].rstrip("/")
-            if tail.endswith("/enable"):
-                slug = tail[: -len("/enable")]
-                enabled = True
-            elif tail.endswith("/disable"):
-                slug = tail[: -len("/disable")]
-                enabled = False
-            else:
-                self._json({"error": "not found"}, status=404)
-                return
-            try:
-                ok = admin_api.set_hunt_enabled(db_path, slug, enabled)
-            except ValueError as exc:
-                self._json({"error": str(exc)}, status=400)
-                return
-            if not ok:
-                self._json({"error": "not found"}, status=404)
-                return
-            admin_api.write_audit(db_path, admin_id=admin_id,
-                                  action=f"hunt.{'enable' if enabled else 'disable'}",
-                                  target=slug,
                                   ip=self.client_address[0])
             self._json({"ok": True})
             return

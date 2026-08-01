@@ -200,35 +200,6 @@ class TestSchematics(unittest.TestCase):
         self.assertFalse(admin_api.delete_schematic_link(self.db_path, "n54-injectors", "P0171"))
 
 
-class TestHunt(unittest.TestCase):
-    def setUp(self) -> None:
-        self._tmp, self.db_path = _fresh_db()
-        self.addCleanup(self._tmp.cleanup)
-
-    def test_upsert_and_toggle(self) -> None:
-        admin_api.upsert_hunt_challenge(self.db_path, {
-            "slug": "cold-start", "title": "Cold-start hunt", "points": 10,
-        })
-        rows = admin_api.list_hunt_challenges(self.db_path, include_disabled=True)
-        self.assertEqual(len(rows), 1)
-        self.assertTrue(rows[0]["enabled"])
-        self.assertTrue(admin_api.set_hunt_enabled(self.db_path, "cold-start", False))
-        rows = admin_api.list_hunt_challenges(self.db_path, include_disabled=False)
-        self.assertEqual(len(rows), 0)
-        rows = admin_api.list_hunt_challenges(self.db_path, include_disabled=True)
-        self.assertEqual(len(rows), 1)
-        self.assertFalse(rows[0]["enabled"])
-
-    def test_list_parses_payload_json(self) -> None:
-        # hunt_challenge.payload is stored as TEXT; verify we surface it parsed
-        admin_api.upsert_hunt_challenge(self.db_path, {
-            "slug": "obd-abc", "title": "abc", "points": 1,
-            "payload": {"answer": "P0171", "hint": "lean"},
-        })
-        rows = admin_api.list_hunt_challenges(self.db_path, include_disabled=True)
-        self.assertEqual(rows[0]["payload"], {"answer": "P0171", "hint": "lean"})
-
-
 class TestDashboard(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp, self.db_path = _fresh_db()
@@ -238,8 +209,8 @@ class TestDashboard(unittest.TestCase):
     def test_counts_returns_all_keys(self) -> None:
         c = admin_api.dashboard_counts(self.db_path)
         for key in ("dtc", "dtc_enabled", "dtc_submissions", "dtc_submissions_pending",
-                    "schematics", "schematic_links", "diag_sessions", "hunt_challenges",
-                    "hunt_enabled", "leaderboard", "audit_log", "admin_users"):
+                    "schematics", "schematic_links", "diag_sessions",
+                    "leaderboard", "audit_log", "admin_users"):
             self.assertIn(key, c)
         self.assertEqual(c["admin_users"], 1)
         self.assertEqual(c["dtc"], 0)

@@ -40,7 +40,6 @@
         <button type="button" class="tab" data-tab="submissions">Submissions</button>
         <button type="button" class="tab" data-tab="schematics">Schematics</button>
         <button type="button" class="tab" data-tab="sessions">Diag sessions</button>
-        <button type="button" class="tab" data-tab="hunt">Hunt</button>
         <button type="button" class="tab" data-tab="audit">Audit log</button>
       </nav>
 
@@ -54,7 +53,6 @@
           <article class="card"><span>Schematics</span><strong id="count-schematics">…</strong></article>
           <article class="card"><span>Schematic links</span><strong id="count-links">…</strong></article>
           <article class="card"><span>Diag sessions</span><strong id="count-sessions">…</strong></article>
-          <article class="card"><span>Hunt challenges</span><strong id="count-hunt">…</strong></article>
           <article class="card"><span>Audit events</span><strong id="count-audit">…</strong></article>
         </div>
         <h3>Recent activity</h3>
@@ -138,21 +136,6 @@
         <table class="data" id="session-table">
           <thead><tr><th>ID</th><th>When</th><th>Client</th><th>VIN</th><th>Profile</th><th>Transport</th><th>DTCs</th></tr></thead>
           <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </section>
-
-      <!-- hunt -->
-      <section class="panel" id="tab-hunt" data-panel="hunt" hidden>
-        <h2>Hunt challenges</h2>
-        <form id="hunt-form" class="form inline">
-          <input type="text" name="slug" placeholder="slug" required>
-          <input type="text" name="title" placeholder="Title" required>
-          <input type="number" name="points" placeholder="0" min="0" value="0">
-          <button type="submit">Upsert</button>
-        </form>
-        <table class="data" id="hunt-table">
-          <thead><tr><th>Slug</th><th>Title</th><th>Points</th><th>Status</th><th></th></tr></thead>
-          <tbody><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
         </table>
       </section>
 

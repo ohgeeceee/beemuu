@@ -330,20 +330,6 @@ class TestAdminWrites(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertGreaterEqual(_as_dict(body)["count"], 1)
 
-    def test_hunt_upsert_and_toggle(self) -> None:
-        status, _, body = self.client.post("/api/admin/hunt", {
-            "slug": "abc", "title": "ABC", "points": 5,
-        })
-        self.assertEqual(status, 200)
-        self.assertEqual(_as_dict(body)["points"], 5)
-        status, _, _ = self.client.delete("/api/admin/hunt/abc/disable")
-        self.assertEqual(status, 200)
-        # List with include_disabled=1 should still surface it
-        status, _, body = self.client.get("/api/admin/hunt?include_disabled=1")
-        self.assertEqual(status, 200)
-        abc = [r for r in _as_dict(body)["results"] if r["slug"] == "abc"][0]
-        self.assertFalse(abc["enabled"])
-
     def test_audit_log_records_writes(self) -> None:
         self.client.post("/api/admin/dtc", {
             "code": "P0171", "category": "powertrain", "title": "x",
