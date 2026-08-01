@@ -3081,7 +3081,24 @@ function showServiceHistoryEditor() {
   const field = (name, value, placeholder = "", type = "text") => `<input type="${type}" data-field="${name}" value="${escapeHtml(value || "")}" placeholder="${placeholder}">`;
   const addWork = (entry = {}) => {
     const row = document.createElement("fieldset"); row.className = "dossier-entry";
-    row.innerHTML = `<legend>Work record</legend><div class="dossier-entry-grid">${field("date", entry.date, "", "date")}${field("mileage_km", entry.mileage_km, "Mileage km", "number")}<select data-field="category">${["Maintenance", "Repair", "Upgrade", "Inspection", "Recall", "Bodywork", "Other"].map((v) => `<option${entry.category === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work_performed", entry.work_performed, "Work performed")}${field("reason", entry.reason, "Reason / symptoms")}${field("provider", entry.provider, "Workshop / provider")}${field("parts", entry.parts, "Parts used")}${field("part_numbers", entry.part_numbers, "Part numbers")}${field("parts_cost", entry.parts_cost, "Parts cost", "number")}${field("labor_cost", entry.labor_cost, "Labor cost", "number")}${field("invoice_ref", entry.invoice_ref, "Invoice / receipt ref")}${field("warranty", entry.warranty, "Warranty")}</div><label class="dossier-diy"><input type="checkbox" data-field="diy"${entry.diy ? " checked" : ""}> Owner / DIY work</label><textarea data-field="notes" placeholder="Detailed notes">${escapeHtml(entry.notes || "")}</textarea><button class="btn btn-small btn-danger dossier-remove" type="button">Remove record</button>`;
+    row.innerHTML = `<legend>Work record</legend><div class="dossier-entry-grid">${field("date", entry.date, "", "date")}${field("mileage_km", entry.mileage_km, "Mileage km", "number")}<select data-field="category">${["Maintenance", "Repair", "Upgrade", "Inspection", "Recall", "Bodywork", "Other"].map((v) => `<option${entry.category === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work_performed", entry.work_performed, "Work performed")}${field("reason", entry.reason, "Reason / symptoms")}${field("provider", entry.provider, "Workshop / provider")}${field("parts", entry.parts, "Parts used")}${field("part_numbers", entry.part_numbers, "Part numbers")}${field("parts_cost", entry.parts_cost, "Parts cost", "number")}${field("labor_cost", entry.labor_cost, "Labor cost", "number")}${field("invoice_ref", entry.invoice_ref, "Invoice / receipt ref")}${field("warranty", entry.warranty, "Warranty")}</div><label class="dossier-diy"><input type="checkbox" data-field="diy"${entry.diy ? " checked" : ""}> Owner / DIY work</label><textarea data-field="notes" placeholder="Detailed notes">${escapeHtml(entry.notes || "")}</textarea><div class="dossier-attachments"><button class="btn btn-small dossier-attach" type="button">Attach receipt / invoice</button><ul class="dossier-attachment-list"></ul></div><button class="btn btn-small btn-danger dossier-remove" type="button">Remove record</button>`;
+    row._attachments = Array.isArray(entry.attachments) ? entry.attachments.slice() : [];
+    const renderAttachments = () => {
+      const list = row.querySelector(".dossier-attachment-list");
+      list.innerHTML = row._attachments.map((attachment, index) => `<li><span>${escapeHtml(attachment.name)} <small>(${escapeHtml(attachment.kind)})</small></span><button type="button" class="btn btn-small" data-remove-attachment="${index}">Remove</button></li>`).join("");
+      list.querySelectorAll("[data-remove-attachment]").forEach((button) => button.addEventListener("click", () => { row._attachments.splice(Number(button.dataset.removeAttachment), 1); renderAttachments(); }));
+    };
+    renderAttachments();
+    row.querySelector(".dossier-attach").addEventListener("click", async () => {
+      try {
+        const dialog = window.__TAURI__?.dialog;
+        if (!dialog || typeof dialog.open !== "function") throw new Error("File picker is unavailable in this runtime.");
+        const selected = await dialog.open({ multiple: true, filters: [{ name: "Receipts and invoices", extensions: ["pdf", "jpg", "jpeg", "png", "webp"] }] });
+        const paths = selected == null ? [] : (Array.isArray(selected) ? selected : [selected]);
+        row._attachments.push(...api.normalizeAttachments(paths));
+        renderAttachments();
+      } catch (e) { log("Receipt attachment failed: " + e); }
+    });
     row.querySelector(".dossier-remove").addEventListener("click", () => row.remove()); workRows.appendChild(row);
   };
   const addUpcoming = (entry = {}) => {
@@ -3095,7 +3112,7 @@ function showServiceHistoryEditor() {
   modal.querySelector("#dossier-add-upcoming").addEventListener("click", () => addUpcoming());
   modal.querySelector("#service-history-close").addEventListener("click", () => modal.remove());
   const gather = () => {
-    const collect = (row) => { const entry = {}; row.querySelectorAll("[data-field]").forEach((input) => { entry[input.dataset.field] = input.type === "checkbox" ? input.checked : input.value.trim(); }); return entry; };
+    const collect = (row) => { const entry = {}; row.querySelectorAll("[data-field]").forEach((input) => { entry[input.dataset.field] = input.type === "checkbox" ? input.checked : input.value.trim(); }); if (Array.isArray(row._attachments)) entry.attachments = row._attachments.slice(); return entry; };
     const profile = {}; modal.querySelectorAll("[data-profile]").forEach((input) => { profile[input.dataset.profile] = input.value.trim(); });
     return { profile, work: Array.from(workRows.children).map(collect).filter((e) => e.work_performed || e.date), upcoming: Array.from(upcomingRows.children).map(collect).filter((e) => e.work || e.due_date) };
   };

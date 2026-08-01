@@ -898,3 +898,74 @@ body[data-theme="dark"] .share-item:hover:not(:disabled) { background: #1d2b3d; 
   .print-report .disclaimer { margin-top: 8mm; color: #555; font-size: 8pt; }
   @page { size: A4; margin: 12mm; }
 }
+
+.service-history-modal { width: min(1100px, 94vw); }
+.service-history-row { display: grid; grid-template-columns: 140px 120px 1.4fr 1fr 100px 1.4fr auto; gap: 6px; margin-bottom: 8px; }
+.service-history-row input { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 3px; }
+#print-report-host { display: none; }
+@media print {
+  body > *:not(#print-report-host) { display: none !important; }
+  #print-report-host { display: block !important; color: #111; background: #fff; font: 10pt/1.4 Arial, sans-serif; }
+  .print-report { max-width: 190mm; margin: 0 auto; }
+  .print-report header { border-bottom: 2px solid #1f5f99; margin-bottom: 7mm; }
+  .print-report h1 { font-size: 22pt; margin: 0 0 2mm; }
+  .print-report h2 { font-size: 14pt; margin-top: 7mm; break-after: avoid; }
+  .vehicle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 8mm; }
+  .vehicle-grid div { border-bottom: 1px solid #bbb; }
+  .vehicle-grid dt { color: #555; font-size: 8pt; text-transform: uppercase; }
+  .vehicle-grid dd { margin: 0 0 2mm; font-weight: 600; }
+  .print-report table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  .print-report th, .print-report td { border: 1px solid #999; padding: 2mm; text-align: left; vertical-align: top; }
+  .print-report tr { break-inside: avoid; }
+  .print-report .disclaimer { margin-top: 8mm; color: #555; font-size: 8pt; }
+  @page { size: A4; margin: 12mm; }
+}
+
+.service-history-modal { width: min(1180px, 96vw); max-height: 94vh; }
+.dossier-editor { overflow-y: auto; }
+.dossier-editor h3 { margin: 14px 0 8px; color: var(--heading-text); }
+.dossier-profile-grid, .dossier-entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dossier-profile-grid label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+.dossier-profile-grid .wide { grid-column: 1 / -1; }
+.dossier-profile-grid input, .dossier-profile-grid textarea, .dossier-entry input, .dossier-entry select, .dossier-entry textarea { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); }
+.dossier-profile-grid textarea, .dossier-entry textarea { min-height: 60px; resize: vertical; }
+.dossier-section-head { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.dossier-entry { border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 10px; background: var(--surface-sub); }
+.dossier-entry legend { padding: 0 5px; font-weight: 600; }
+.dossier-diy { display: inline-flex; gap: 6px; margin: 8px 12px 8px 0; }
+.dossier-attachments { display: inline-block; margin: 8px 12px 0 0; vertical-align: top; }
+.dossier-attachment-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.dossier-attachment-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--row-border); }
+.dossier-attachment-list small { color: var(--muted); }
+.dossier-remove { float: right; margin-top: 8px; }
+#print-report-host { display: none; }
+@media print {
+  body > *:not(#print-report-host) { display: none !important; }
+  #print-report-host { display: block !important; color: #111; background: #fff; font: 10pt/1.4 Arial, sans-serif; }
+  .print-report { max-width: 190mm; margin: 0 auto; }
+  .print-report header { border-bottom: 2px solid #1f5f99; margin-bottom: 7mm; }
+  .print-report h1 { font-size: 22pt; margin: 0 0 2mm; }
+  .print-report h2 { font-size: 14pt; margin-top: 7mm; break-after: avoid; }
+  .vehicle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 8mm; }
+  .vehicle-grid div { border-bottom: 1px solid #bbb; }
+  .vehicle-grid dt { color: #555; font-size: 8pt; text-transform: uppercase; }
+  .vehicle-grid dd { margin: 0 0 2mm; font-weight: 600; }
+  .print-report table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  .print-report th, .print-report td { border: 1px solid #999; padding: 2mm; text-align: left; vertical-align: top; }
+  .print-report tr { break-inside: avoid; }
+  .dossier-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 4mm 0; }
+  .dossier-stats div { border: 1px solid #999; padding: 3mm; text-align: center; }
+  .dossier-stats strong, .dossier-stats span { display: block; }
+  .dossier-stats strong { font-size: 13pt; }
+  .dossier-stats span { color: #555; font-size: 8pt; }
+  .dossier-work { border: 1px solid #999; border-left: 3px solid #1f5f99; padding: 3mm; margin: 3mm 0; break-inside: avoid; }
+  .dossier-work h3 { margin: 2mm 0; font-size: 12pt; }
+  .dossier-work-head { display: flex; justify-content: space-between; }
+  .dossier-details { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2mm 5mm; }
+  .dossier-details dt { color: #555; font-size: 7pt; text-transform: uppercase; }
+  .dossier-details dd { margin: 0; }
+  .dossier-overview { background: #f3f6f9; border: 1px solid #bbb; padding: 3mm; margin-top: 5mm; }
+  .receipt-list { list-style: none; padding-left: 0; }
+  .print-report .disclaimer { margin-top: 8mm; color: #555; font-size: 8pt; }
+  @page { size: A4; margin: 12mm; }
+}

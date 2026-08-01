@@ -102,6 +102,17 @@
     return `$${moneyValue(value).toFixed(2)}`;
   }
 
+  function normalizeAttachments(paths) {
+    return (Array.isArray(paths) ? paths : []).flatMap((path) => {
+      const value = String(path || "");
+      const name = value.split(/[\\/]/).pop() || "";
+      const extension = (name.split(".").pop() || "").toLowerCase();
+      if (extension === "pdf") return [{ name, path: value, kind: "PDF" }];
+      if (["jpg", "jpeg", "png", "webp"].includes(extension)) return [{ name, path: value, kind: "Image" }];
+      return [];
+    });
+  }
+
   function vehicleBlock(info) {
     const decode = info?.decode || {};
     return `<dl class="vehicle-grid">
@@ -146,7 +157,13 @@
         ${entry.notes ? `<p><strong>Notes:</strong> ${escapeHtml(entry.notes)}</p>` : ""}</section>`;
     }).join("") : "<p>No completed work has been recorded.</p>";
     const upcomingRows = upcoming.length ? upcoming.map((entry) => `<tr><td>${escapeHtml(entry.priority)}</td><td>${escapeHtml(entry.work)}</td><td>${escapeHtml(entry.due_date)}</td><td>${escapeHtml(entry.due_mileage_km)}${entry.due_mileage_km ? " km" : ""}</td><td>${formatMoney(entry.estimated_cost)}</td><td>${escapeHtml(entry.notes)}</td></tr>`).join("") : `<tr><td colspan="6">No upcoming maintenance recorded.</td></tr>`;
-    const receiptRows = work.filter((entry) => entry.invoice_ref).map((entry) => `<li>☐ ${escapeHtml(entry.date)} — ${escapeHtml(entry.work_performed)} — ${escapeHtml(entry.invoice_ref)}</li>`).join("") || "<li>No receipt references recorded.</li>";
+    const receiptRows = work.flatMap((entry) => {
+      const rows = [];
+      if (entry.invoice_ref) rows.push(`<li>☐ ${escapeHtml(entry.date)} — ${escapeHtml(entry.work_performed)} — ${escapeHtml(entry.invoice_ref)}</li>`);
+      for (const attachment of (entry.attachments || [])) rows.push(`<li>☐ ${escapeHtml(entry.date)} — ${escapeHtml(entry.work_performed)} — ${escapeHtml(attachment.name)} (${escapeHtml(attachment.kind)})</li>`);
+      return rows;
+    }).join("") || "<li>No receipt references or attachments recorded.</li>";
+    const attachmentCount = work.reduce((count, entry) => count + (entry.attachments || []).length, 0);
     return `<article class="print-report dossier-report"><header><h1>Vehicle History &amp; Maintenance Dossier</h1><p>Prepared for sale · Generated ${escapeHtml(generatedAt.toLocaleString())}</p></header>
       ${vehicleBlock(info)}
       <dl class="vehicle-grid"><div><dt>Model</dt><dd>${escapeHtml(profile.model)}</dd></div><div><dt>Chassis</dt><dd>${escapeHtml(profile.chassis)}</dd></div><div><dt>Ownership since</dt><dd>${escapeHtml(profile.ownership_start)}</dd></div><div><dt>Recorded jobs</dt><dd>${summary.jobs}</dd></div></dl>
@@ -154,7 +171,7 @@
       <section><h2>Documented history summary</h2><div class="dossier-stats"><div><strong>${summary.jobs}</strong><span>jobs recorded</span></div><div><strong>${formatMoney(summary.total_cost)}</strong><span>documented spend</span></div><div><strong>${escapeHtml(summary.latest_date)}</strong><span>latest service</span></div><div><strong>${summary.latest_mileage_km ? escapeHtml(summary.latest_mileage_km) + " km" : "—"}</strong><span>latest service mileage</span></div></div><p>${categories}</p></section>
       <section><h2>Completed maintenance and repairs</h2>${workCards}</section>
       <section><h2>Upcoming maintenance</h2><table><thead><tr><th>Priority</th><th>Work</th><th>Due date</th><th>Due mileage</th><th>Estimate</th><th>Notes</th></tr></thead><tbody>${upcomingRows}</tbody></table></section>
-      <section><h2>Receipt and invoice checklist</h2><ul class="receipt-list">${receiptRows}</ul></section>
+      <section><h2>Receipt and attachment index</h2><p>${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"} stored as local file references.</p><ul class="receipt-list">${receiptRows}</ul></section>
       <p class="disclaimer">Owner-entered record prepared for a prospective buyer. Costs, dates, and work descriptions should be verified against the referenced invoices, receipts, and workshop documentation.</p></article>`;
   }
 
@@ -171,6 +188,6 @@
 
   return {
     STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, summarizeDossier,
-    buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport, printHtml,
+    normalizeAttachments, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport, printHtml,
   };
 });

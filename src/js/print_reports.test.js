@@ -85,3 +85,31 @@ test("sales dossier report includes ownership, detailed work, totals, and upcomi
   assert.match(html, /Brake fluid/);
   assert.match(html, /Garage kept/);
 });
+
+test("sales dossier prints a receipt attachment index without exposing full local paths", () => {
+  const dossier = {
+    profile: {}, upcoming: [],
+    work: [{
+      date: "2025-01-10", mileage_km: "120000", category: "Repair", work_performed: "Water pump",
+      attachments: [
+        { name: "invoice-1042.pdf", path: "C:\\Users\\Owner\\Documents\\invoice-1042.pdf", kind: "PDF" },
+        { name: "receipt.jpg", path: "C:\\Receipts\\receipt.jpg", kind: "Image" },
+      ],
+    }],
+  };
+  const html = reports.buildSalesDossierReport(info, dossier);
+  assert.match(html, /Receipt and attachment index/);
+  assert.match(html, /invoice-1042\.pdf/);
+  assert.match(html, /receipt\.jpg/);
+  assert.match(html, /2 attachments/);
+  assert.doesNotMatch(html, /Users\\Owner/);
+});
+
+test("normalizing selected receipt paths keeps supported files and derives safe metadata", () => {
+  assert.deepEqual(reports.normalizeAttachments([
+    "C:\\Receipts\\invoice.pdf", "C:\\Receipts\\photo.JPG", "C:\\Receipts\\notes.exe",
+  ]), [
+    { name: "invoice.pdf", path: "C:\\Receipts\\invoice.pdf", kind: "PDF" },
+    { name: "photo.JPG", path: "C:\\Receipts\\photo.JPG", kind: "Image" },
+  ]);
+});
