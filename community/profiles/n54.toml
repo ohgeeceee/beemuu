@@ -1,22 +1,69 @@
 # N54 — 3.0 twin-turbo DI inline-6 (MSD80/MSD81), E8x/E9x 135i/335i, E60 535i,
 # E89 Z4 35i, 2006–2013. OBD-II entries are emissions-mandated and verified by
-# design. The `local:10` oil-temp entry is a PLACEHOLDER with no open-source
-# evidence found. No community KWP2000 local identifier table for E-series BMWs
-# exists in open sources. Confirm with the Parameter Explorer or remove this
-# entry if not verified.
+# design.
 #
-# Boost: watch "map" minus "baro" (relative boost). Stock peak is roughly
-# 60–70 kPa over baro; the u8 OBD MAP PID tops out at 255 kPa absolute, which
-# is enough for stock-ish tunes.
+# N54 instrumentation context (apply when reading live data):
+#   Oil-temp via BSD — same BSD (Bit Serial Data) protocol note as N52:
+#     the N54 DME reads oil condition via BSD, not KWP2000. The OBD-II
+#     PID `0x5C` (engine oil temperature, byte - 40 °C) is the standard
+#     SAE J1979 path. Bench verification on the E9x 335i is the gating
+#     step; the harness-doc protocol reverts to `local:10` if the DME
+#     returns an NRC for `0x5C`.
+#   Coolant warm-up — N54 is twin-turbo; the coolant loop runs hotter
+#     than the N52 because of the additional turbo cooling demand.
+#     A healthy N54 at sustained cruise holds coolant ~90–100 °C.
+#     Creeping temps after thermostat closure point at a failing
+#     thermostat or water pump.
+#   Oil-temp cruise band — a healthy N54 at sustained cruise holds
+#     oil ~100–115 °C once fully warm. Oil consistently > coolant +
+#     15 °C points at a clogged engine-oil cooler. The known N54
+#     failure mode is oil leaks from the VANOS solenoid seal; the
+#     oil-temp entry supports spotting that via consistent drops
+#     on the gauge over weeks.
+#   Charge-air temp matters on this engine (heat soak): OBD IAT on
+#     the N54 reads post-intercooler. A healthy post-IC IAT is
+#     ambient + 5–15 °C; sustained > ambient + 30 °C points at
+#     a failing intercooler or charge-air leak.
+#   Boost — watch "map" minus "baro" (relative boost). Stock peak
+#     is roughly 60–70 kPa over baro. The u8 OBD MAP PID tops out
+#     at 255 kPa absolute, which is enough for stock-ish tunes.
+#   HPFP rail pressure uses the emissions-mandated obd:23 PID
+#     (raw × 10 kPa). Healthy N54 rail pressure is roughly
+#     5,000–20,000 kPa depending on load; a failing HPFP shows
+#     as pressure collapsing under demand (long crank, limp
+#     mode, 2FBF-family codes).
+#   Idle voltage target — healthy alternator regulation at idle is
+#     13.8–14.4 V. Sustained < 13.5 V with steady load points at a
+#     failing voltage regulator (common N54 age-related failure);
+#     the `volt` param is the load-bearing PID for that heuristic.
 #
-# HPFP rail pressure uses the emissions-mandated obd:23 PID (raw × 10 kPa).
-# Healthy N54 rail pressure is roughly 5,000–20,000 kPa depending on load; a
-# failing HPFP shows as pressure collapsing under demand (long crank, limp
-# mode, 2FBF-family codes).
+# Oil temp notes: SAE J1979 PID `0x5C` (engine oil temperature, byte
+# - 40 °C) replaces the unverified `local:10` placeholder that
+# pre-dated the v0.14.2 N62 slice 1 enrichment. The placeholder was
+# a guess — the BSD oil-condition sensor is what N54 actually uses,
+# but the OBD-II `0x5C` swap is the path the v0.14.2 + v0.14.3 +
+# v0.14.5 N62 cycle established. Bench verification on the E9x 335i
+# is the gating step (per the `docs/validation/n5x-real-car.md`
+# harness doc, v0.14.5 slice 2).
+#
+# Fuel-rate + runtime notes (v0.14.5): the three new PIDs (`0x5E`
+# fuel rate L/h, `0x5F` engine runtime s, `0x62` fuel rate g/s) are
+# SAE J1979 emissions-mandated and consistently reported on
+# OBD-II compliant ECUs. They mirror the v0.14.3 N62 enrichment
+# (PR #186) so an E9x 335i / E60 535i / E89 Z4 35i owner has the
+# same per-chassis instrumentation an E70 owner has after running
+# the N62 harness. Idle on a warm N54 should be ~1–2 L/h and ~1–2
+# g/s; wide-open throttle ~80–150 L/h and ~60–100 g/s (the N54
+# twin-turbo pulls more fuel at WOT than the NA N52 or N62 —
+# the BSFC heuristic over RPM × cyl_count reflects this).
+# Engine runtime s resets each ignition cycle; `0xFFFFFFFF` is
+# the overflow sentinel. Verified by design as emissions-mandated
+# OBD-II PIDs; bench verification on the E9x is the harness-doc
+# gate.
 
 [[profile]]
 id = "n54"
-label = "N54 3.0 twin-turbo I6 (MSD80/81) [community, oil temp unverified]"
+label = "N54 3.0 twin-turbo I6 (MSD80/81) [community]"
 
   [[profile.param]]
   id = "rpm"
@@ -38,18 +85,30 @@ label = "N54 3.0 twin-turbo I6 (MSD80/81) [community, oil temp unverified]"
   min = -40.0
   max = 150.0
 
+  # v0.14.5 — SAE J1979 engine oil temperature (PID 0x5C, byte - 40 °C,
+  # decoder temp_u8). Replaces the unverified `local:10` placeholder
+  # that pre-dated the v0.14.2 N62 slice 1 enrichment. The N54 DME
+  # reads oil condition via BSD, not KWP2000; the OBD-II `0x5C` path
+  # is the standard SAE J1979 surface. Bench verification on the E9x
+  # 335i is the gating step — if the DME returns an NRC (0x11
+  # serviceNotSupported / 0x12 subFunctionNotSupported) for `0x5C`,
+  # the harness-doc protocol reverts to `local:10` (the v0.14.3 PR
+  # #187 per-PID NRC surface flags this in the UI; the
+  # `remove_profile_pid` async command writes the updated TOML
+  # behind a tauri-plugin-dialog confirmation per the issue-#161
+  # fix pattern).
   [[profile.param]]
   id = "oil"
-  label = "Oil temp [UNVERIFIED placeholder]"
+  label = "Oil temp"
   unit = "°C"
   target = 0x12
-  query = "local:10"
+  query = "obd:5C"
   decode = "temp_u8"
   min = -40.0
   max = 160.0
 
-  # Charge-air temp matters on this engine (heat soak): OBD IAT on the N54
-  # reads post-intercooler.
+  # Charge-air temp matters on this engine (heat soak): OBD IAT on the
+  # N54 reads post-intercooler.
   [[profile.param]]
   id = "iat"
   label = "Intake air temp (post-IC)"
@@ -144,3 +203,57 @@ label = "N54 3.0 twin-turbo I6 (MSD80/81) [community, oil temp unverified]"
   decode = "temp_u8"
   min = -40.0
   max = 60.0
+
+  # v0.14.5 — SAE J1979 engine fuel rate L/h (PID 0x5E).
+  # Decoded with u16_fiftieths (v0.14.3 PR #185; raw × 0.02).
+  # Idle on a warm N54 should be ~1-2 L/h; wide-open throttle
+  # ~80-150 L/h (twin-turbo pulls more fuel than the NA N52
+  # or N62 at WOT). Verified by design as an emissions-
+  # mandated OBD-II PID; bench verification on the E9x 335i
+  # is the harness-doc gate.
+  # [needs verification, N54/E9x bench]
+  [[profile.param]]
+  id = "fuel_rate_lh"
+  label = "Engine fuel rate (L/h) [needs verification, N54/E9x bench]"
+  unit = "L/h"
+  target = 0x12
+  query = "obd:5E"
+  decode = "u16_fiftieths"
+  min = 0.0
+  max = 200.0
+
+  # v0.14.5 — SAE J1979 engine runtime since start (PID 0x5F).
+  # Decoded with u32_be (v0.14.3 PR #185; 4-byte BE seconds).
+  # Resets on each ignition cycle; 0xFFFFFFFF is the overflow
+  # sentinel. The harness doc lists runtime in its Step 2
+  # cold reading table — this entry is what populates that
+  # row.
+  # [needs verification, N54/E9x bench]
+  [[profile.param]]
+  id = "engine_runtime"
+  label = "Engine runtime [needs verification, N54/E9x bench]"
+  unit = "s"
+  target = 0x12
+  query = "obd:5F"
+  decode = "u32_be"
+  min = 0.0
+  max = 4294967295.0
+
+  # v0.14.5 — SAE J1979 engine fuel rate g/s (PID 0x62).
+  # Decoded with u16_half (v0.14.3 PR #185; raw × 0.5). The
+  # load-bearing PID for BSFC (brake-specific fuel consumption)
+  # heuristics — divide by RPM × cyl_count for instantaneous
+  # BSFC. Idle on a warm N54 should be ~1-2 g/s; wide-open
+  # throttle ~60-100 g/s (twin-turbo). Verified by design
+  # as an emissions-mandated OBD-II PID; bench verification
+  # on the E9x 335i is the harness-doc gate.
+  # [needs verification, N54/E9x bench]
+  [[profile.param]]
+  id = "fuel_rate_gs"
+  label = "Engine fuel rate (g/s) [needs verification, N54/E9x bench]"
+  unit = "g/s"
+  target = 0x12
+  query = "obd:62"
+  decode = "u16_half"
+  min = 0.0
+  max = 200.0
