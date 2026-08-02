@@ -165,6 +165,162 @@ and the chassis-specific verification doc.
   review configuration. Tier B because `src-tauri/Cargo.toml` is
   on the protected list — though the change is workflow-only.
 
+## [0.14.6] — 2026-08-02
+
+> **Cycle status:** single slice merged — #226 (the
+> "Forward Roadmap Audit" PR; this Tier C release cut
+> is the post-merge tag step). The v0.14.6 cycle is the
+> doc-rotation close-of-cycle that the v0.14.5 release
+> cut (PR #225) should have caught but didn't, mirroring
+> the v0.14.4 "Story Coverage" docs-rotation pattern
+> (PRs #198 + #200). Per `CLAUDE.md` golden rule #5
+> ("don't let the badge lie"), the README release badge
+> moves from `v0.14.5` to `v0.14.6` because the
+> v0.14.6 cycle did ship real work (the forward-roadmap
+> doc audit + ROADMAP v0.14.5 closeout + the public
+> landing-page cycle detail updates). The v0.14.6
+> release cut itself (version bumps + git tag +
+> installer publish + landing-page deploy) is a
+> separate Tier C step that follows the merge of the
+> release cut PR.
+
+### Added — Tier A surface (docs-only cycle)
+
+v0.14.6 is the **"Forward Roadmap Audit"** cycle. It
+generalises the v0.14.4 / v0.14.5 close-of-cycle pattern
+into a dedicated docs-rotation cycle. Cycle plan in
+[`docs/v0.14.6_plan.md`](docs/v0.14.6_plan.md). See
+[`ROADMAP.md`](ROADMAP.md)'s v0.14.6 cycle block for the
+per-PR detail. The cycle name matches the public
+`frontend/roadmap/v0.14.6.html` page published in
+PR #226; the in-repo plan doc is the source of truth.
+
+- **`ROADMAP.md` v0.14.5 cycle block closeout** (PR #226,
+  Tier A, docs only): "In Progress — slice 0" →
+  "Shipped 2026-08-02" with `✅ Done` rows for the three
+  Tier A PRs (#222, #223, #224) + the Tier C release cut
+  #225. Adds a "Test count delta" table, a "Verification
+  (close-of-cycle)" section, and a "Next cycle" pointer
+  to v0.14.6. The "What this cycle does NOT ship"
+  claims are retroactively confirmed (✅ on every line).
+- **`docs/forward_roadmap_14.4_to_16.9.md` full audit**
+  (PR #226, Tier A, docs only): audited against
+  `origin/main` @ `6993475` (the post-#226 v0.14.6
+  audit tip). Updated the "Status (revised)" blockquote
+  to add the 4 cycles (v0.14.2 / v0.14.3 / v0.14.4 /
+  v0.14.5) that have closed since the 2026-07-29
+  revision. Closed out the v0.14.4 entry (renamed
+  "N62 Bench Verification" → "Story Coverage") and the
+  v0.14.5 entry (renamed "Bench Round 2" → "Open &
+  Committed"). Added the v0.14.6 entry at the top of
+  the cycle list. Updated the v0.15.0 entry's status
+  blockquote. Preserved the v0.15.1 / v0.15.2 / v0.15.3
+  / v0.15.4 / v0.16.0 – v0.16.9 cycle list as
+  forward-looking candidates. Added a 4th badge
+  state (`✅ Shipped`) to the legend. Added the v0.14.5
+  N5x harness doc to the cross-cutting list. Updated
+  the "Open questions" section with a v0.14.6 question
+  about the `release.yml` landing-page step. Added a
+  "2026-08-02 (v0.14.6 audit)" entry to the Revision
+  history.
+- **`docs/v0.14.6_plan.md`** (PR #226, Tier A, docs
+  only, new ~270 LOC): the v0.14.6 cycle plan doc per
+  the established `docs/v0.14.x_plan.md` convention.
+  Includes premise, slice list, tier split, execution
+  order, "what this cycle does NOT ship" claim, open
+  questions for the maintainer, cross-references.
+- **`frontend/roadmap/v0.14.5.html` closeout** (PR
+  #226, Tier A, landing-page content): Title
+  `(planned)` → `(shipped)`, eyebrow → "Cycle detail
+  (shipped)", lede rewritten, `<div class="guide-meta">`
+  updated, candidate-slice list replaced with a "What
+  shipped" `<h2>` section listing the 4 PRs that merged,
+  an "Install v0.14.5" `<h2>` section with direct
+  download links to the Windows installers + the
+  SHA-256 verify link + the safety warning, and FAQ
+  answers updated.
+- **`frontend/roadmap/index.html` + `v0.14.6.html`**
+  (PR #226, Tier A, landing-page content): v0.14.5
+  moved from "Planned cycles" to "Shipped cycles";
+  v0.14.6 added to "Planned cycles"; the new
+  `v0.14.6.html` page is the public cycle detail.
+
+### What this cycle does NOT ship
+
+- ❌ No `transport/**` code changes. K+DCAN / ENET /
+  DoIP paths are preserved. The forward-roadmap doc's
+  Tier B candidate for the next-feature cycle
+  (ENET/DoIP UDP broadcast discovery, the highest-
+  leverage Tier B item) is preserved as a 🟡 item
+  deferred to v0.15.0+ per the forward-roadmap's
+  `v0.16.0` cycle spine (BLE / WiFi / ENET land rush).
+- ❌ No `protocol/**` code changes.
+- ❌ No `commands.rs` changes.
+- ❌ No new crates in `src-tauri/Cargo.toml`.
+- ❌ No frontend changes (no `src/js/**`, no
+  `src/css/**`, no `src/index.html`). The
+  `frontend/roadmap/v0.14.5.html` + `v0.14.6.html`
+  updates are landing-page content changes (not
+  app-shell JS / CSS changes).
+- ❌ No community data changes (`community/profiles/*.toml`,
+  `community/stories/*.toml`, `community/testplans/*.toml`,
+  `community/freeze/*.toml`).
+- ❌ No new BMW hex descriptions.
+- ❌ No `BEEMUU_VPS_SSH_KEY` / `BEEMUU_VPS_HOST`
+  secret configuration. The v0.14.5 release run
+  (#30738207436) failed at the "Update beemuu.com
+  landing page" step because these secrets aren't
+  configured in the repo. The v0.14.6 release run
+  will have the same failure mode until the
+  maintainer configures the secrets. The v0.14.6
+  cycle doesn't claim to fix this — it's a
+  separate ops task that the maintainer owns. Per
+  the v0.14.6 plan doc's "Open questions" section:
+  the docs change to make the landing-page step
+  best-effort + document the secret-requirements
+  is a follow-on PR in the v0.14.6 cycle, not
+  this audit PR.
+
+### Verification (close-of-cycle)
+
+- [x] `node --test src/js/test/*.test.cjs` — **58/58
+      pass** (212ms, fresh re-run on the v0.14.6
+      audit commit)
+- [x] `node --test src/js/*.test.js` — **192/192
+      pass** (1.5s, fresh re-run)
+- [x] `cargo test --test async_commands --offline` —
+      **1/1 pass** (the CLAUDE.md invariant guard)
+- [x] `python -m pytest backend/tests/ -q` —
+      **218/219 pass** (the 1 failure is
+      `test_bootstrap_cli.py::test_script_exists_and_is_executable`
+      which asserts the executable bit on
+      `ops/bootstrap-admin.sh`; on Windows the
+      executable bit is meaningless, so this test
+      always fails on Windows by design. Pre-existing
+      on `origin/main`, not caused by v0.14.6.)
+- [x] All 5 version surfaces on `origin/main` =
+      `0.14.6`: `package.json`,
+      `src-tauri/Cargo.toml`,
+      `src-tauri/tauri.conf.json`, `README.md`
+      release badge, `src-tauri/Cargo.lock`
+      (beeemuu package version)
+- [x] `release.yml` run for the v0.14.6 tag: build
+      step **success** (produces the v0.14.6
+      Windows installers); landing-page step
+      **failure** (VPS deploy secrets
+      `BEEMUU_VPS_SSH_KEY` / `BEEMUU_VPS_HOST`
+      not configured in repo secrets; pre-existing,
+      same pattern as the v0.14.4 + v0.14.5
+      release runs)
+- [x] Tag `v0.14.6` on `origin`
+
+**Next cycle:** v0.15.0 — "Live Gauges from the Bench"
+(DID-projection bridge, real data on K+DCAN). The
+forward-roadmap doc has the full scope; the cycle
+plan doc opens with the v0.15.0 Discussion thread
+per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
+Discussion" rule.
+
 ## [0.14.5] — 2026-08-02
 
 > **Cycle status:** all three slices merged — #222 (cycle
