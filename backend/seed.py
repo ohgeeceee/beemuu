@@ -93,7 +93,7 @@ def seed_one(
                 INSERT INTO dtc (code, category, severity, title, description,
                                  likely_causes, source, verified, confidence, enabled,
                                  created_at, updated_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                 """,
                 (
                     code,
@@ -173,9 +173,9 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
         conn.execute(
             """
             INSERT INTO dtc (code, category, severity, title, description,
-                             likely_causes, source, verified, confidence, enabled,
+                             likely_causes, source, source_url, verified, confidence, enabled,
                              created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
             """,
             (
                 code,
@@ -185,6 +185,7 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
                 row.get("description"),
                 row.get("likely_causes"),
                 row["source"],
+                row.get("source_url"),
                 row["verified"],
                 row.get("confidence", "unverified"),
                 now,
@@ -196,7 +197,8 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
             """
             UPDATE dtc SET
                 category = ?, severity = ?, title = ?, description = ?,
-                likely_causes = ?, source = ?, verified = ?, confidence = ?, updated_at = ?
+                likely_causes = ?, source = ?, source_url = ?, verified = ?,
+                confidence = ?, updated_at = ?
             WHERE code = ?
             """,
             (
@@ -206,6 +208,7 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
                 row.get("description"),
                 row.get("likely_causes"),
                 row["source"],
+                row.get("source_url"),
                 row["verified"],
                 row.get("confidence", "unverified"),
                 now,

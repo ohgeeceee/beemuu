@@ -52,6 +52,16 @@ class TestDim01Seed(unittest.TestCase):
             ).fetchall()
         self.assertEqual(bad, [], f"rows missing title/source: {bad}")
 
+    def test_bmw_dim01_persists_source_url(self) -> None:
+        seed_bmw_dim01.run(self.db_path)
+        with db.get_conn(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT source_url, confidence FROM dtc WHERE code = ?", ("29CD",)
+            ).fetchone()
+        self.assertEqual(row["confidence"], "community")
+        self.assertIsNotNone(row["source_url"])
+        self.assertIn("bimmerfest", row["source_url"])
+
     def test_every_row_has_provenance_url(self) -> None:
         seed_bmw_dim01.run(self.db_path)
         with db.get_conn(self.db_path) as conn:
