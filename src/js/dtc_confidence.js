@@ -32,5 +32,26 @@
     return baseRowHtml + ` <span class="${badgeFor(d).className}" title="${badgeFor(d).label} description">${badgeFor(d).label}</span>`;
   }
 
-  return { classifyDtc, badgeFor, rowHtml };
+  function sourceLinkHtml(sourceUrl) {
+    if (typeof sourceUrl !== "string" || !/^https?:\/\//i.test(sourceUrl)) return "";
+    return ` <a class="dtc-source" href="${sourceUrl}" target="_blank" rel="noopener noreferrer" title="Open community source for this description">↗ Source</a>`;
+  }
+
+  // Look up source URL for a code via a caller-supplied async fn.
+  // Returns a rowHtml-shaped fragment that includes the badge and,
+  // when the lookup resolves, a "Source" link. Falls back gracefully
+  // to the badge-only HTML on any error or unknown code.
+  async function rowHtmlWithSource(d, baseRowHtml, lookupSource) {
+    const fragment = rowHtml(d, baseRowHtml);
+    if (typeof lookupSource !== "function") return fragment;
+    try {
+      const url = await lookupSource(d);
+      if (url) return fragment + sourceLinkHtml(url);
+    } catch (_) {
+      // Swallow network/lookup errors — the badge is still useful on its own.
+    }
+    return fragment;
+  }
+
+  return { classifyDtc, badgeFor, rowHtml, rowHtmlWithSource, sourceLinkHtml };
 });

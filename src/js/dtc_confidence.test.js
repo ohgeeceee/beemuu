@@ -27,3 +27,43 @@ test("rowHtml appends a badge after the existing description", () => {
   assert.match(html, /<td class="fault-code">2A98<\/td>/);
   assert.match(html, /dtc-badge-community/);
 });
+
+test("sourceLinkHtml escapes unsafe URLs and renders http(s) links", () => {
+  assert.equal(conf.sourceLinkHtml(""), "");
+  assert.equal(conf.sourceLinkHtml(null), "");
+  assert.equal(conf.sourceLinkHtml("javascript:alert(1)"), "");
+  assert.match(conf.sourceLinkHtml("https://bimmerfest.com/x"), /href="https:\/\/bimmerfest\.com\/x"/);
+  assert.match(conf.sourceLinkHtml("http://example.com"), /target="_blank"/);
+  assert.match(conf.sourceLinkHtml("https://example.com"), /rel="noopener noreferrer"/);
+});
+
+test("rowHtmlWithSource appends a Source link when the lookup resolves", async () => {
+  const html = await conf.rowHtmlWithSource(
+    { code: "2A98", text: "DISA intake manifold runner fault" },
+    '<td class="fault-code">2A98</td>',
+    async () => "https://bimmerfest.com/threads/error-code-2a82-and-2a99.604589/"
+  );
+  assert.match(html, /dtc-badge-community/);
+  assert.match(html, /dtc-source/);
+  assert.match(html, /href="https:\/\/bimmerfest\.com/);
+});
+
+test("rowHtmlWithSource degrades gracefully when the lookup throws", async () => {
+  const html = await conf.rowHtmlWithSource(
+    { code: "2A98", text: "DISA intake manifold runner fault" },
+    '<td class="fault-code">2A98</td>',
+    async () => { throw new Error("offline"); }
+  );
+  assert.match(html, /dtc-badge-community/);
+  assert.doesNotMatch(html, /dtc-source/);
+});
+
+test("rowHtmlWithSource works without a lookup function", async () => {
+  const html = await conf.rowHtmlWithSource(
+    { code: "2A98", text: "DISA intake manifold runner fault" },
+    '<td class="fault-code">2A98</td>',
+    null
+  );
+  assert.match(html, /dtc-badge-community/);
+  assert.doesNotMatch(html, /dtc-source/);
+});

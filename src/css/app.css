@@ -851,6 +851,17 @@ body[data-theme="dark"] .share-item:hover:not(:disabled) { background: #1d2b3d; 
   .print-report th, .print-report td { border: 1px solid #999; padding: 2mm; text-align: left; vertical-align: top; }
   .print-report tr { break-inside: avoid; }
   .print-report .disclaimer { margin-top: 8mm; color: #555; font-size: 8pt; }
+/* DTC confidence badge and source link */
+.dtc-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; vertical-align: middle; }
+.dtc-badge-verified { background: #e2f2e8; color: #2e8b57; border: 1px solid #2e8b57; }
+.dtc-badge-community { background: #fff3e0; color: #d9822b; border: 1px solid #d9822b; }
+.dtc-badge-unverified { background: var(--err-bg); color: var(--err); border: 1px solid var(--err); }
+body[data-theme="dark"] .dtc-badge-verified { background: #15301f; }
+body[data-theme="dark"] .dtc-badge-community { background: #3a2a1a; }
+body[data-theme="dark"] .dtc-badge-unverified { background: #3a1d1d; }
+.dtc-source { display: inline-block; margin-left: 6px; font-size: 11px; color: var(--blue-accent); text-decoration: none; vertical-align: middle; }
+.dtc-source:hover { text-decoration: underline; }
+body[data-theme="dark"] .dtc-source { color: #4da3ff; }
   @page { size: A4; margin: 12mm; }
 }
 

@@ -17,7 +17,7 @@ from backend import seed_bmw, seed_dtcs
 
 
 def _start_server(db_path, seed=False):
-    from backend import bootstrap
+    from backend import bootstrap, seed_bmw_dim01
     # The caller MUST have already set os.environ['BEEMUU_DB_PATH'] so that
     # the request handler (running in a thread, outside this mock) resolves
     # the same DB. Inside this function we only mock the admin password.
@@ -28,6 +28,7 @@ def _start_server(db_path, seed=False):
         if seed:
             seed_dtcs.run(db_path)
             seed_bmw.run(db_path)
+            seed_bmw_dim01.run(db_path)
     server = ThreadingHTTPServer(("127.0.0.1", 0), app_module.Handler)
     t = Thread(target=server.serve_forever, daemon=True)
     t.start()
@@ -86,12 +87,17 @@ class TestDtcEndpoints(unittest.TestCase):
         self.assertLessEqual(body["count"], 10)
 
     def test_search_filter_by_category(self):
-        status, body = self._get("/api/dtc?category=bmw-specific&limit=50")
+        status, body = self._get("/api/dtc?category=bmw-specific&limit=500")
         self.assertEqual(status, 200)
         for row in body["results"]:
             self.assertEqual(row["category"], "bmw-specific")
         codes = {r["code"] for r in body["results"]}
         self.assertIn("29E0", codes)
+        # 29CD is only seeded by seed_bmw_dim01 and carries a source URL.
+        self.assertIn("29CD", codes)
+        row = next(r for r in body["results"] if r["code"] == "29CD")
+        self.assertIsNotNone(row["source_url"])
+        self.assertTrue(row["source_url"].startswith("http"))
 
     def test_search_substring_q(self):
         status, body = self._get("/api/dtc?q=misfire&limit=20")
@@ -99,6 +105,18 @@ class TestDtcEndpoints(unittest.TestCase):
         for row in body["results"]:
             blob = (row["code"] + " " + row["title"]).lower()
             self.assertIn("misfire", blob)
+
+    def test_search_results_include_source_url(self):
+        # 29CD has a source URL via the BMW dim01 seed. The
+        # /api/dtc search endpoint must surface it so the desktop
+        # client can render a "Source" link.
+        status, body = self._get("/api/dtc?q=29CD&limit=5")
+        self.assertEqual(status, 200)
+        self.assertGreaterEqual(body["count"], 1)
+        row = next(r for r in body["results"] if r["code"] == "29CD")
+        self.assertIn("source_url", row)
+        self.assertIsNotNone(row["source_url"])
+        self.assertTrue(row["source_url"].startswith("http"))
 
     def test_search_invalid_category_returns_400(self):
         status, body = self._get("/api/dtc?category=bogus")
