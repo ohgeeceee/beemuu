@@ -165,6 +165,85 @@ and the chassis-specific verification doc.
   review configuration. Tier B because `src-tauri/Cargo.toml` is
   on the protected list — though the change is workflow-only.
 
+## [0.14.5] — Unreleased
+
+> **Cycle status:** slice 0 in flight (this PR — cycle plan +
+> ROADMAP header + this CHANGELOG section). Slices 1 (N52 +
+> N54 profile enrichment) and 2 (N5x harness doc) are open.
+> The v0.14.5 release cut (version bump in `Cargo.toml` +
+> `tauri.conf.json`, git tag, release notes publish, installer
+> build) is a separate Tier C step. Until that PR lands, this
+> entry stays `## [0.14.5] — Unreleased` per Keep-a-Changelog
+> convention.
+
+### Planned — Tier A surface (community data + harness doc)
+
+v0.14.5 is the "**Open & Committed**" cycle. It generalises
+the v0.14.2 / v0.14.3 N62 / E70 work to the **N52 / N54**
+E-series family that the existing community profiles
+(`community/profiles/n52.toml` + `community/profiles/n54.toml`)
+already cover but that v0.14.2 explicitly deferred to "the
+next cycle after N62 wraps up." Cycle name matches the
+public `frontend/roadmap/v0.14.5.html` page published in
+PR #221. See [`docs/v0.14.5_plan.md`](docs/v0.14.5_plan.md)
+for the full cycle plan.
+
+- **`community/profiles/n52.toml` + `n54.toml` enrichment**
+  (slice 1, Tier A, data only): replace the `local:10` oil-temp
+  placeholder (labelled `[UNVERIFIED placeholder]`) with the
+  standard OBD-II PID `0x5C` (engine oil temperature,
+  `byte - 40 °C`, decoder `temp_u8`), then add the three
+  v0.14.3 N62 PIDs (`0x5E` fuel rate L/h with `u16_fiftieths`,
+  `0x5F` engine runtime s with `u32_be`, `0x62` fuel rate g/s
+  with `u16_half`). Each new entry carries the
+  `[needs verification, N5x/E9x bench]` marker, matching the
+  v0.14.3 N62 discipline. The N52 instrumentation-context
+  header block grows with the BSD oil-condition sensor note
+  (N52's known oil-temp quirk: the DME reads oil condition
+  via BSD, not KWP2000). Removes the
+  `[community, oil temp unverified]` mark from the profile
+  `label` field once `0x5C` is in.
+- **`docs/validation/n5x-real-car.md` harness doc**
+  (slice 2, Tier A, docs only): mirrors
+  `docs/validation/n62-real-car.md` (PR #178 + PR #188).
+  Five-section shape: wire-up, cold readings, running
+  readings, report template, what-we-do-with-the-report.
+  Covers the E9x N52 (325i / 328i / 330i, MSV70 / MSV80)
+  and N54 (335i / E60 535i / E89 Z4 35i, MSD80 / MSD81)
+  chassis. The N52 BSD oil-condition sensor note is the
+  load-bearing difference from the N62 harness doc — the
+  OBD-II `0x5C` swap may surface an NRC on N52 if the DME
+  doesn't respond over OBD-II, and the harness report path
+  reverts to the `local:10` placeholder in that case.
+- **Cycle plan + ROADMAP v0.14.5 header** (this PR, slice 0,
+  Tier A, docs only): `docs/v0.14.5_plan.md` (new, ~270 LOC) +
+  the v0.14.5 cycle block in `ROADMAP.md` (the block inserted
+  after the v0.14.4 cycle block) + this CHANGELOG section.
+
+### What this cycle does NOT ship
+
+- ❌ No `transport/**` code changes (K+DCAN / ENET / DoIP
+  paths preserved). The forward-roadmap doc's Tier B
+  candidate for v0.14.5 (ENET/DoIP UDP broadcast discovery)
+  is preserved as a 🟡 item deferred to v0.15.0+ per the
+  forward-roadmap's `v0.16.0` cycle spine (BLE / WiFi / ENET
+  land rush).
+- ❌ No `protocol/**` code changes.
+- ❌ No `commands.rs` changes.
+- ❌ No new crates in `src-tauri/Cargo.toml` (the four
+  decoders the slice 1 PIDs use are already shipped).
+- ❌ No frontend changes (no `src/js/**`, no `src/css/**`,
+  no `src/index.html`).
+- ❌ No new BMW hex descriptions (per the v0.14.3 PR #186
+  source-policy precedent: the four v0.14.5 PIDs are SAE
+  J1979 emissions-mandated and sourced from the published
+  standard, not from forum threads).
+- ❌ No `git tag v0.14.5` (Tier C release cut, the next step
+  after slice 2 lands).
+- ❌ No CHANGELOG content changes for v0.14.0 / v0.14.1 /
+  v0.14.2 / v0.14.3 / v0.14.4 (already in the file via
+  the v0.14.x backfill PRs and PR #208's release cut).
+
 ## [0.14.4] — Unreleased
 
 > **Cycle status:** all four slices merged — #198 (CLAUDE.md

@@ -621,4 +621,72 @@ installer build, landing-page deploy) is a separate Tier C step
 — all five cycle slices are merged but the version-surface bump
 requires an explicit release-cut PR.
 
+## v0.14.5 — "Open & Committed" (In Progress — slice 0)
+
+**Premise.** v0.14.4 closed the test-coverage gap on the
+diagnostic-story + secure-snapshot features and the doc-rot
+findings on CLAUDE.md / ROADMAP / ci.yml, but didn't move
+the public surface. v0.14.5 is the cycle that **opens the
+project further** to the E-series owners the v0.14.2 /
+v0.14.3 cycles explicitly deferred. v0.14.2 / v0.14.3 /
+v0.14.4 worked the N62 / E70 chassis end-to-end (oil temp,
+fuel rate, engine runtime, harness doc, per-PID NRC +
+remove-from-profile UI, test coverage on the user-facing
+story + anonymize paths). v0.14.5 generalises that work
+to the **N52 / N54** E-series family that the existing
+community profiles already cover but that the v0.14.2
+cycle deferred to "the next cycle after N62 wraps up."
+
+The cycle name "Open & Committed" matches the public
+`frontend/roadmap/v0.14.5.html` page published in PR
+#221 and reflects two commitments: **open** the codebase
+to more E-series engines (N52 and N54 get the same OBD-II
+PID enrichment the N62 received in v0.14.2 + v0.14.3),
+and **committed** to the discipline that keeps the public
+surface honest (every new PID carries the `[needs
+verification, N5x/E9x bench]` marker until a real-car
+report lands; every cycle closes with a doc audit; every
+Tier A surface ships under the
+`tests/async_commands.rs` allowlist guard without
+regressions).
+
+See [`docs/v0.14.5_plan.md`](docs/v0.14.5_plan.md) for the
+full cycle plan, including the explicit "what we will NOT
+do" list (no `transport/**` changes, no `protocol/**`
+changes, no `commands.rs` changes, no new crates, no new
+BMW hex descriptions, no `git tag v0.14.5`).
+
+### Slices planned
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.5 header + CHANGELOG entry | 🔲 Open (this PR, slice 0) | A | `docs/v0.14.5_plan.md` + this ROADMAP entry + CHANGELOG `## [0.14.5] — Unreleased` section. Docs-only. |
+| `community/profiles/n52.toml` + `n54.toml` enrichment — `0x5C` oil-temp swap + three new PIDs (`0x5E` fuel rate L/h, `0x5F` engine runtime, `0x62` fuel rate g/s) | 🔲 Open (slice 1) | A | Mirrors v0.14.2 slice 1 (PR #175) + v0.14.3 slice 2 (PR #186). All four OBD-II PIDs are emissions-mandated; all four decoders are already shipped (no Rust change). Each new entry carries the `[needs verification, N5x/E9x bench]` marker. Removes the `[community, oil temp unverified]` mark from the profile `label` field once `0x5C` is in. |
+| `docs/validation/n5x-real-car.md` harness doc — E9x N52 / N54 family | 🔲 Open (slice 2) | A | Mirrors `docs/validation/n62-real-car.md` (PR #178 + PR #188). Five-section shape (wire-up, cold readings, running readings, report template, what we do with the report). The N52 BSD oil-condition sensor note is the load-bearing difference from N62. |
+
+### What this cycle does NOT ship
+
+- ❌ No `transport/**` code changes (K+DCAN / ENET / DoIP
+  paths preserved). The forward-roadmap doc's Tier B
+  candidate for v0.14.5 (ENET/DoIP UDP broadcast
+  discovery) is preserved as a 🟡 item deferred to v0.15.0+
+  per the forward-roadmap's `v0.16.0` cycle spine (BLE /
+  WiFi / ENET land rush).
+- ❌ No `protocol/**` code changes.
+- ❌ No `commands.rs` changes.
+- ❌ No new crates in `src-tauri/Cargo.toml` (the four
+  decoders the slice 1 PIDs use are already shipped).
+- ❌ No frontend changes (no `src/js/**`, no `src/css/**`,
+  no `src/index.html`).
+- ❌ No new BMW hex descriptions (per the v0.14.3 PR #186
+  source-policy precedent: the four v0.14.5 PIDs are SAE
+  J1979 emissions-mandated and sourced from the published
+  standard, not from forum threads).
+- ❌ No `git tag v0.14.5` (Tier C release cut, the next
+  step after slice 2 lands).
+
+Slices dispatch as PRs when the work completes — no
+Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2).
+Tier A throughout; no Tier B or Tier C in the slice list.
+
 ---
