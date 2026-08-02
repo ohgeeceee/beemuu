@@ -165,18 +165,19 @@ and the chassis-specific verification doc.
   review configuration. Tier B because `src-tauri/Cargo.toml` is
   on the protected list — though the change is workflow-only.
 
-## [0.14.5] — Unreleased
+## [0.14.5] — 2026-08-02
 
-> **Cycle status:** slice 0 in flight (this PR — cycle plan +
-> ROADMAP header + this CHANGELOG section). Slices 1 (N52 +
-> N54 profile enrichment) and 2 (N5x harness doc) are open.
-> The v0.14.5 release cut (version bump in `Cargo.toml` +
-> `tauri.conf.json`, git tag, release notes publish, installer
-> build) is a separate Tier C step. Until that PR lands, this
-> entry stays `## [0.14.5] — Unreleased` per Keep-a-Changelog
-> convention.
+> **Cycle status:** all three slices merged — #222 (cycle
+> plan + ROADMAP header + this CHANGELOG section), #223
+> (N52 + N54 profile enrichment), #224 (N5x harness
+> doc). The v0.14.5 release cut itself (version bumps
+> in `package.json` + `Cargo.toml` + `tauri.conf.json`,
+> README release badge bump, CHANGELOG date stamp) is
+> the Tier C step this PR is; the `git tag v0.14.5 &&
+> git push --tags` step that triggers `release.yml`
+> runs after the maintainer merges this PR.
 
-### Planned — Tier A surface (community data + harness doc)
+### Added — Tier A surface (community data + harness doc)
 
 v0.14.5 is the "**Open & Committed**" cycle. It generalises
 the v0.14.2 / v0.14.3 N62 / E70 work to the **N52 / N54**
@@ -244,16 +245,18 @@ for the full cycle plan.
   v0.14.2 / v0.14.3 / v0.14.4 (already in the file via
   the v0.14.x backfill PRs and PR #208's release cut).
 
-## [0.14.4] — Unreleased
+## [0.14.4] — 2026-07-31
 
 > **Cycle status:** all four slices merged — #198 (CLAUDE.md
 > invariants refresh), #199 (ci.yml Tauri Linux sysdeps fix),
 > #200 (ROADMAP v0.3.0 historical audit), #201 (story +
-> anonymize test coverage). The v0.14.4 release cut (version
-> bump in `Cargo.toml` + `tauri.conf.json`, git tag, release
-> notes publish, installer build) is a separate Tier C step.
-> Until that PR lands, this entry stays `## [0.14.4] —
-> Unreleased` per Keep-a-Changelog convention.
+> anonymize test coverage). The v0.14.4 release cut itself
+> (version bumps in `Cargo.toml` + `tauri.conf.json`, git tag
+> `v0.14.4`, release notes publish, installer build, landing-
+> page deploy) shipped via PR #208 on 2026-07-31 (commit
+> `4de03ee`). The README release badge moved to `v0.14.4`
+> at that point and is at `v0.14.5` after the v0.14.5 release
+> cut.
 
 ### Added — Tier A surface (test coverage + doc-rot cleanup)
 
