@@ -244,6 +244,62 @@ and the chassis-specific verification doc.
     listener, Mobile-responsive, real-car validation) left
     alone — they're still genuinely pending.
 
+### Added — Tier A surface (landing-site deltas, 2026-08-02)
+
+Landing-site-only changes for `beemuu.com` (the public website, not
+the desktop app or hosted API). 27 new static files in `frontend/`:
+15 new HTML pages, 8 per-category OG images, the Atom feed, the
+visual sitemap, the press kit, and the 404 page. All Tier A
+per `CLAUDE.md`; no protected paths touched.
+
+- **Glossary** (`glossary.html`): ~30 BMW diagnostic terms with
+  project-local definitions (KWP2000, UDS, DoIP, D-CAN, IBS, BDC,
+  ZGW, ISO-TP, RoutineControl, SecurityAccess, CBS, DME, EGS, KOMBI,
+  DPF, EGR, VANOS, Valvetronic).
+- **Protocols deep-dive** (`protocols.html`): KWP2000 vs UDS over
+  DoIP. Why E-series uses KWP2000 and F/G-series use UDS, the ISO-TP
+  segmentation layer, the timing and deadline story, the
+  Tester-Present keep-alive invariants.
+- **Hardware deep-dive** (`hardware.html`): FTDI latency timer (the
+  single most common cause of a working K+DCAN cable looking broken),
+  the $5 AliExpress ENET cable pinout, OBDLink vs clones, the DIY
+  ENET cable construction.
+- **Community knowledge base** (`community.html`): highlights the
+  3 community opinions, 12 guided testplans, 4 freeze-frame schemas,
+  10 engine profiles in the project's TOML knowledge base.
+- **Tools**:
+  - `tools/dtc-decoder.html` — SAE J2012 P/U/B/C code structure.
+  - `tools/known-codes.html` — the 220 BMW-specific codes organized
+    by subsystem family (27xx throttle, 29xx fuel rail, 2Axx VANOS,
+    30xx boost, etc.).
+  - `verify.html` — how to verify the SHA-256 of a downloaded
+    Beemuu installer; the published v0.14.4 hashes.
+- **Comparisons**:
+  - `compare/cbs-vs-battery.html` — when to do CBS reset vs battery
+    registration.
+  - `engines/n54-vs-n55.html` — N54 vs N55 3.0L inline-6; which is
+    more reliable.
+- **Master FAQ** (`faq.html`): 30+ Q&A across basics, cables, codes,
+  service functions, contributing, troubleshooting.
+- **Per-cycle roadmap**:
+  - `roadmap/index.html` — index of every per-cycle page.
+  - `roadmap/v0.14.4.html` — shipped cycle detail (4 slices, per-PR
+    breakdown).
+  - `roadmap/v0.14.5.html` — next planned cycle (candidates + open
+    questions).
+- **Press + OEM**:
+  - `press.html` — brand assets, project story, contact, GPL
+    disclaimer, "not affiliated with BMW AG".
+  - `oem.html` — honest Beemuu vs ISTA comparison.
+- **Per-category OG images**: 8 new 1200×630 PNGs (protocol,
+  glossary, hardware, community, download, service, compare,
+  verify). Wired to the relevant pages so social previews match the
+  page category.
+- **Atom feed** (`feed.xml`): 5 most recent releases, autodiscovered
+  from the homepage.
+- **404 page** (`404.html`): the custom page that nginx now serves
+  for unknown paths (see PR for the Tier C nginx config change).
+
 ### Fixed — Tier A surface (CI workflow)
 
 - **`ci.yml::test-rust` missing Tauri Linux system
