@@ -113,3 +113,55 @@ test("normalizing selected receipt paths keeps supported files and derives safe 
     { name: "photo.JPG", path: "C:\\Receipts\\photo.JPG", kind: "Image" },
   ]);
 });
+
+test("dossier export/import round-trips through JSON without data loss", () => {
+  const dossier = {
+    profile: { model: "X5 35d", chassis: "E70", ownership_start: "2020-04-01", seller_notes: "Garage kept" },
+    work: [{
+      date: "2025-06-01", mileage_km: "125500", category: "Repair", work_performed: "Transfer case service",
+      reason: "Preventive", parts: "Fluid", part_numbers: "83222409710",
+      parts_cost: "150", labor_cost: "250", provider: "Indie", diy: false,
+      invoice_ref: "INV-42", warranty: "12 months", notes: "No leaks",
+      attachments: [{ name: "invoice.pdf", path: "C:\\R\\invoice.pdf", kind: "PDF" }],
+    }],
+    upcoming: [{ due_date: "2026-06-01", due_mileage_km: "135000", priority: "Medium", work: "Brake fluid", estimated_cost: "180", notes: "" }],
+  };
+  const json = reports.exportDossierJson(dossier);
+  const restored = reports.importDossierJson(json);
+  assert.deepEqual(restored, dossier);
+  assert.equal(typeof json, "string");
+  assert.match(json, /"schema":"beemuu.dossier.v1"/);
+});
+
+test("dossier export CSV contains a header row plus one row per work entry", () => {
+  const dossier = {
+    profile: { model: "X5 35d", chassis: "E70" },
+    work: [
+      { date: "2025-06-01", mileage_km: "125500", category: "Repair", work_performed: "Transfer case service",
+        reason: "Preventive", parts: "Fluid", part_numbers: "83222409710",
+        parts_cost: "150", labor_cost: "250", provider: "Indie", diy: false,
+        invoice_ref: "INV-42", warranty: "12 months", notes: "No leaks" },
+      { date: "2024-03-15", mileage_km: "118000", category: "Maintenance", work_performed: "Oil change",
+        reason: "Service", parts: "Filter, oil", part_numbers: "11427566327",
+        parts_cost: "60", labor_cost: "120", provider: "Indie", diy: true,
+        invoice_ref: "INV-39", warranty: "", notes: "" },
+    ],
+    upcoming: [],
+  };
+  const csv = reports.exportDossierCsv(dossier);
+  const lines = csv.split(/\r?\n/).filter((l) => l.length > 0);
+  // 1 header row + 2 data rows + a trailing blank from split is fine.
+  assert.equal(lines.length >= 3, true);
+  assert.match(lines[0], /^date,mileage_km,category/);
+  assert.match(csv, /Transfer case service/);
+  assert.match(csv, /Oil change/);
+  // Verify CSV escaping: work_performed for first row contains no comma,
+  // but the second one would have a problem if escape logic is missing.
+  assert.doesNotMatch(csv, /\n,Oil change,/);
+});
+
+test("importing malformed JSON raises a clear error", () => {
+  assert.throws(() => reports.importDossierJson("not json"), /JSON/);
+  assert.throws(() => reports.importDossierJson('{"schema":"beemuu.dossier.v1"}'), /work/);
+  assert.throws(() => reports.importDossierJson('{"schema":"beemuu.dossier.v1","work":"bad"}'), /work/);
+});

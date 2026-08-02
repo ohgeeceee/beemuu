@@ -186,8 +186,73 @@
     documentRef.defaultView.print();
   }
 
+  // -- Dossier export / import -------------------------------------------------
+  // Format a dossier for backup, sharing between cars (e.g. moving the
+  // history from one E70 to another), or restoring after a reinstall.
+  // The schema version is checked on import so older JSON files can be
+  // migrated or rejected with a clear error.
+
+  const DOSSIER_SCHEMA = "beemuu.dossier.v1";
+
+  function exportDossierJson(dossier) {
+    return JSON.stringify({
+      schema: DOSSIER_SCHEMA,
+      exported_at: new Date().toISOString(),
+      profile: dossier?.profile || {},
+      work: Array.isArray(dossier?.work) ? dossier.work : [],
+      upcoming: Array.isArray(dossier?.upcoming) ? dossier.upcoming : [],
+    });
+  }
+
+  function importDossierJson(text) {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (_) {
+      throw new Error("Dossier JSON is not valid JSON");
+    }
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("Dossier JSON is not an object");
+    }
+    if (parsed.schema !== DOSSIER_SCHEMA) {
+      throw new Error(`Unsupported dossier schema: ${parsed.schema || "(missing)"}`);
+    }
+    if (!Array.isArray(parsed.work)) {
+      throw new Error("Dossier JSON is missing the 'work' array");
+    }
+    return {
+      profile: parsed.profile && typeof parsed.profile === "object" ? parsed.profile : {},
+      work: parsed.work,
+      upcoming: Array.isArray(parsed.upcoming) ? parsed.upcoming : [],
+    };
+  }
+
+  // CSV: header + one row per work entry. Stable column order so users
+  // can paste into Excel / Google Sheets without re-mapping.
+  const CSV_COLUMNS = [
+    "date", "mileage_km", "category", "work_performed", "reason", "parts", "part_numbers",
+    "parts_cost", "labor_cost", "provider", "diy", "invoice_ref", "warranty", "notes",
+  ];
+
+  function csvField(value) {
+    if (value === null || value === undefined) return "";
+    const str = String(value);
+    if (/[",\r\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+    return str;
+  }
+
+  function exportDossierCsv(dossier) {
+    const rows = Array.isArray(dossier?.work) ? dossier.work : [];
+    const lines = [CSV_COLUMNS.join(",")];
+    for (const entry of rows) {
+      lines.push(CSV_COLUMNS.map((c) => csvField(entry?.[c])).join(","));
+    }
+    return lines.join("\r\n") + "\r\n";
+  }
+
   return {
     STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, summarizeDossier,
-    normalizeAttachments, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport, printHtml,
+    normalizeAttachments, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport,
+    exportDossierJson, importDossierJson, exportDossierCsv, printHtml,
   };
 });

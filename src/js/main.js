@@ -3076,7 +3076,7 @@ function showServiceHistoryEditor() {
     <div class="dossier-section-head"><h3>Completed maintenance & repairs</h3><button class="btn btn-small" id="dossier-add-work">+ Add work</button></div><div id="dossier-work-rows"></div>
     <div class="dossier-section-head"><h3>Upcoming maintenance</h3><button class="btn btn-small" id="dossier-add-upcoming">+ Add upcoming</button></div><div id="dossier-upcoming-rows"></div>
     <p class="muted">Printing tip: choose A4 and turn off browser headers and footers for the cleanest dossier.</p>
-    </div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn" id="dossier-save">Save</button><button class="btn btn-primary" id="service-history-print">Save & print dossier</button></div></div>`;
+    </div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn" id="dossier-save">Save</button><button class="btn" id="dossier-export-json">Export JSON</button><button class="btn" id="dossier-import-json">Import JSON</button><button class="btn" id="dossier-export-csv">Export CSV</button><button class="btn btn-primary" id="service-history-print">Save & print dossier</button></div></div>`;
   document.body.appendChild(modal);
   const workRows = modal.querySelector("#dossier-work-rows");
   const upcomingRows = modal.querySelector("#dossier-upcoming-rows");
@@ -3120,6 +3120,100 @@ function showServiceHistoryEditor() {
   };
   const save = () => { const value = gather(); api.saveDossier(localStorage, vin, value); return value; };
   modal.querySelector("#dossier-save").addEventListener("click", () => { try { save(); log("Vehicle dossier saved locally."); } catch (e) { log("Dossier save failed: " + e); } });
+
+  // Export the dossier as JSON. Uses the same `export_text` Tauri command
+  // the rest of the app uses for log / report exports. Falls back to
+  // a download in non-Tauri runtimes (dev) so the feature still works
+  // when previewing the frontend in a plain browser.
+  modal.querySelector("#dossier-export-json").addEventListener("click", async () => {
+    try {
+      const value = save();
+      const json = api.exportDossierJson(value);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `beeemuu-dossier-${(lastVehicleInfo && lastVehicleInfo.vin) || "vehicle"}-${stamp}.json`;
+      try {
+        const path = await invoke("export_text", { filename, content: json });
+        log("Dossier exported: " + path);
+      } catch (_) {
+        // Plain browser fallback for dev previews.
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        log("Dossier downloaded: " + filename);
+      }
+    } catch (e) { log("Dossier export failed: " + e); }
+  });
+
+  // Import a previously-exported dossier JSON file. Validates schema
+  // and replaces the in-memory dossier; the user still has to press
+  // Save (or Save & print) to persist to localStorage.
+  modal.querySelector("#dossier-import-json").addEventListener("click", async () => {
+    try {
+      let text = null;
+      if (window.__TAURI__ && window.__TAURI__.dialog && typeof window.__TAURI__.dialog.open === "function") {
+        const dialog = window.__TAURI__.dialog;
+        const selected = await dialog.open({ multiple: false, filters: [{ name: "Dossier JSON", extensions: ["json"] }] });
+        if (!selected) return;
+        const path = Array.isArray(selected) ? selected[0] : selected;
+        text = await invoke("read_export_text", { filename: path.split(/[\\/]/).pop() });
+      } else {
+        const input = document.createElement("input");
+        input.type = "file"; input.accept = "application/json,.json";
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => applyImported(reader.result);
+          reader.readAsText(file);
+        });
+        input.click();
+        return; // applyImported will run via FileReader
+      }
+      if (text !== null) applyImported(text);
+    } catch (e) { log("Dossier import failed: " + e); }
+
+    function applyImported(raw) {
+      try {
+        const imported = api.importDossierJson(String(raw));
+        // Replace the in-memory form values and re-render rows.
+        Object.entries(imported.profile || {}).forEach(([k, v]) => {
+          const el = modal.querySelector(`[data-profile="${k}"]`);
+          if (el) el.value = v == null ? "" : String(v);
+        });
+        workRows.innerHTML = "";
+        (imported.work || []).forEach(addWork);
+        upcomingRows.innerHTML = "";
+        (imported.upcoming || []).forEach(addUpcoming);
+        if (!workRows.children.length) addWork();
+        log("Dossier imported. Press Save to persist locally.");
+      } catch (parseErr) { log("Dossier import failed: " + parseErr); }
+    }
+  });
+
+  // Export the work entries as a CSV file (handy for spreadsheet use).
+  modal.querySelector("#dossier-export-csv").addEventListener("click", async () => {
+    try {
+      const value = save();
+      const csv = api.exportDossierCsv(value);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `beeemuu-dossier-${(lastVehicleInfo && lastVehicleInfo.vin) || "vehicle"}-${stamp}.csv`;
+      try {
+        const path = await invoke("export_text", { filename, content: csv });
+        log("Dossier CSV exported: " + path);
+      } catch (_) {
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        log("Dossier CSV downloaded: " + filename);
+      }
+    } catch (e) { log("Dossier CSV export failed: " + e); }
+  });
   modal.querySelector("#service-history-print").addEventListener("click", () => { try { const value = save(); modal.remove(); api.printHtml(document, api.buildSalesDossierReport(lastVehicleInfo, value)); } catch (e) { log("Dossier save failed: " + e); } });
 }
 
