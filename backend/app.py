@@ -120,6 +120,7 @@ def _row_to_dtc(row: sqlite3.Row) -> dict:
         "description": row["description"],
         "likely_causes": row["likely_causes"],
         "source": row["source"],
+        "source_url": row["source_url"],
         "verified": bool(row["verified"]),
         "confidence": row["confidence"],
         "enabled": bool(row["enabled"]),

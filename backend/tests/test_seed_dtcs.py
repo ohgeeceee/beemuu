@@ -129,6 +129,17 @@ class TestGenericSeed(unittest.TestCase):
             n = conn.execute("SELECT COUNT(*) FROM dtc").fetchone()[0]
         self.assertGreater(n, 0)
 
+    def test_includes_high_frequency_evap_and_dpf_codes(self) -> None:
+        """Add coverage for commonly-seen EVAP / O2 / DPF codes any DIYer will hit."""
+        seed_dtcs.run(self.db_path)
+        with db.get_conn(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT code FROM dtc WHERE code IN (?, ?, ?, ?, ?, ?, ?)",
+                ("P0440", "P0455", "P0456", "P0136", "P0156", "P2463", "P04DB"),
+            ).fetchall()
+        found = {r["code"] for r in rows}
+        self.assertEqual(found, {"P0440", "P0455", "P0456", "P0136", "P0156", "P2463", "P04DB"})
+
 
 if __name__ == "__main__":
     unittest.main()
