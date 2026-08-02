@@ -321,6 +321,98 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.0] — Unreleased
+
+> **Cycle status:** slice 0 in flight (this PR — cycle plan +
+> ROADMAP header + this CHANGELOG section). Slices 1 (DID-
+> projection bridge, Tier A), 2 (Live Gauges panel data
+> source flip, Tier A), and 3 (`update_can_listen` async
+> Tauri command, Tier B) are open. The v0.15.0 release cut
+> (version bump in `Cargo.toml` + `tauri.conf.json`, git
+> tag, release notes publish, installer build) is a
+> separate Tier C step. Until that PR lands, this entry
+> stays `## [0.15.0] — Unreleased` per Keep-a-Changelog
+> convention.
+
+### Planned — Tier A surface (feature cycle)
+
+v0.15.0 is the **"Live Gauges from the Bench"** cycle.
+It connects the existing `read_live_data` UDS path to
+the v0.14.0 Live Gauges panel so it shows **real data
+on the K+DCAN cable**, without the OBDLink SX
+acquisition the v0.14.0 Tier B was waiting for. The
+"**DID-projection bridge**" the v0.14.2 plan deferred
+to "v0.14.3+" lands here. See
+[`docs/v0.15.0_plan.md`](docs/v0.15.0_plan.md) for
+the full cycle plan.
+
+This is the load-bearing user-facing win of v0.15.0:
+an E90 / E60 / E70 owner with the $15 K+DCAN cable can
+now see the same 6-gauge Live Gauges panel (RPM,
+coolant, oil temp, vehicle speed, battery voltage,
+throttle) that v0.14.0's sim-only panel showed. No
+new hardware required.
+
+- **`src/js/live_data_bridge.js` — DID-projection
+  bridge** (slice 1, Tier A, frontend): maps each
+  `[[profile.param]]` to the corresponding
+  `data-live-can-gauge` slot. Pure mapping logic +
+  tests. Reuses the v0.14.0 `can_decoders.js` for
+  byte-level decoding when the live-data value
+  comes through the broadcast path. ~150 LOC + 12
+  unit tests.
+- **`src/js/live_gauges.js` — data source flip**
+  (slice 2, Tier A, frontend): when `connected &&
+  profile selected`, the panel reads from the
+  bridge instead of the simulator mirror. The
+  sim-only fallback stays for non-connected
+  sessions. ~50 LOC + 4 unit tests.
+- **`src-tauri/src/commands.rs` —
+  `update_can_listen` async Tauri command**
+  (slice 3, Tier B, Rust): new Tauri command that
+  starts / stops the existing `watch_tick` loop
+  with a `ListenerMode::KwpDids { profile,
+  interval_ms }` variant. Different from the
+  v0.14.0 Tier B `ListenerMode::Simulator /
+  OBDLinkSx` because it reads through the
+  diagnostic protocol, not the raw CAN bus. Flag
+  the protected path at the top of the PR body;
+  human merges after the auto-merge bot's CI gate
+  passes. ~80 LOC + 3 integration tests.
+- **Cycle plan + ROADMAP v0.15.0 header** (this
+  PR, slice 0, Tier A, docs only):
+  `docs/v0.15.0_plan.md` (new, ~270 LOC) + the
+  v0.15.0 cycle block in `ROADMAP.md` + this
+  CHANGELOG section + the v0.14.6 ROADMAP-block
+  closeout (PR #226 shipped the audit but the
+  ROADMAP v0.14.6 block was missed; this PR
+  closes that gap as a fix-up).
+
+### What this cycle does NOT ship
+
+- ❌ No new transport support (BLE / WiFi / ENET
+  auto-detect). The forward-roadmap doc's `v0.16.0`
+  cycle spine ("Tier B Land Rush — BLE / WiFi /
+  ENET") is the next cycle's work.
+- ❌ No `protocol/**` code changes. The
+  `read_live_data` UDS path is already shipped
+  (it's what the v0.14.0 Tier B uses internally).
+  v0.15.0 only adds the bridge + the data-source-
+  flip in the frontend + the new
+  `ListenerMode::KwpDids` variant on top of the
+  existing `watch_tick` loop.
+- ❌ No `commands.rs` changes (slice 3 is the
+  exception: it adds a new `#[tauri::command]`,
+  but the change is a single additive line in the
+  command surface + the new Tauri command body).
+- ❌ No new crates in `src-tauri/Cargo.toml`.
+- ❌ No community data changes (the DID-projection
+  bridge works against the existing
+  `community/profiles/*.toml` data shape).
+- ❌ No new BMW hex descriptions.
+- ❌ No `git tag v0.15.0` (Tier C release cut,
+  separate step after all 3 slices land).
+
 ## [0.14.5] — 2026-08-02
 
 > **Cycle status:** all three slices merged — #222 (cycle

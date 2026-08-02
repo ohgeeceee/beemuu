@@ -733,4 +733,144 @@ doc-rotation close-of-cycle pattern, mirroring v0.14.4's
 ROADMAP v0.3.0 historical audit PR #200). Cycle plan in
 [`docs/v0.14.6_plan.md`](docs/v0.14.6_plan.md).
 
+## v0.14.6 — "Forward Roadmap Audit" (Shipped 2026-08-02)
+
+**Premise.** v0.14.6 is the doc-rotation close-of-cycle
+that the v0.14.5 release cut (PR #225) should have caught
+but didn't, mirroring the v0.14.4 "Story Coverage"
+docs-rotation pattern (PRs #198 + #200). It closes 4
+docs-rot findings the v0.14.5 release left on `main`:
+(1) the `ROADMAP.md` v0.14.5 cycle block that was still
+marked "In Progress — slice 0"; (2) the stale cycle
+names in `docs/forward_roadmap_14.4_to_16.9.md`
+("N62 Bench Verification" for v0.14.4 + "Bench Round 2"
+for v0.14.5); (3) the public `frontend/roadmap/v0.14.5.html`
+claiming v0.14.5 was "Planned"; (4) the forward-roadmap
+doc + the public landing-page cycle detail being out of
+sync.
+
+**Tier split:** 1 Tier A + 0 Tier B + 1 Tier C in the
+slice list. Single-slice docs-only cycle.
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP header + forward-roadmap audit + public landing page closeout | ✅ Done (PR #226) | A | `docs/v0.14.6_plan.md` (new, ~270 LOC) + the v0.14.5 cycle block closeout in `ROADMAP.md` + the v0.14.4 + v0.14.5 entries closed out in `docs/forward_roadmap_14.4_to_16.9.md` + the public `frontend/roadmap/v0.14.5.html` (planned → shipped + "What shipped" + install link) + the new `frontend/roadmap/v0.14.6.html` page. 6 files / +1136 / -560. |
+| Tier C release cut (version bumps + CHANGELOG date + cycle plan refresh) | ✅ Done (PR #227) | C | `package.json` / `Cargo.toml` / `tauri.conf.json` / `Cargo.lock` 0.14.5 → 0.14.6, README release badge `v0.14.5` → `v0.14.6`, CHANGELOG date stamp for v0.14.6, `docs/v0.14.6_plan.md` "Update 2026-08-02" blockquote. Merged 2026-08-02T08:07:13Z on `origin/main` @ `83aef4c`. Tag `v0.14.6` at `898fd3c`; draft release promoted to public 2026-08-02T08:16:16Z at <https://github.com/ohgeeceee/beemuu/releases/tag/v0.14.6> with both Windows installers attached. |
+
+### Verification (close-of-cycle)
+
+- [x] `node --test src/js/test/*.test.cjs` — **58/58
+      pass** (406ms, fresh re-run)
+- [x] `node --test src/js/*.test.js` — **192/192
+      pass** (1.5s, fresh re-run)
+- [x] `cargo test --test async_commands --offline` —
+      **1/1 pass** (the CLAUDE.md invariant guard)
+- [x] `python -m pytest backend/tests/ -q` —
+      **218/219 pass** (the 1 failure is
+      `test_bootstrap_cli.py::test_script_exists_and_is_executable`
+      which asserts the executable bit on
+      `ops/bootstrap-admin.sh`; on Windows the
+      executable bit is meaningless, so this test
+      always fails on Windows by design. Pre-existing
+      on `origin/main`, not caused by v0.14.6.)
+- [x] All 5 version surfaces on `origin/main` =
+      `0.14.6` at tag time
+- [x] `release.yml` run for the v0.14.6 tag: build
+      step **success** (produces the v0.14.6 Windows
+      installers); landing-page step **failure** (VPS
+      deploy secrets `BEEMUU_VPS_SSH_KEY` /
+      `BEEMUU_VPS_HOST` not configured in repo secrets;
+      pre-existing, same pattern as the v0.14.4 +
+      v0.14.5 release runs)
+- [x] Tag `v0.14.6` on `origin` at `898fd3c`
+
+### What this cycle does NOT ship (carried forward)
+
+- ✅ No `transport/**` code changes — confirmed
+- ✅ No `protocol/**` code changes — confirmed
+- ✅ No `commands.rs` changes — confirmed
+- ✅ No new crates in `src-tauri/Cargo.toml` —
+  confirmed
+- ✅ No frontend changes (no `src/js/**`, no
+  `src/css/**`, no `src/index.html`) — confirmed
+- ✅ No new BMW hex descriptions — confirmed
+- ✅ `git tag v0.14.6` shipped 2026-08-02 (PR #227
+  + the post-merge `git tag v0.14.6 && git push
+  --tags` step that triggered the release.yml
+  workflow)
+
+**Next cycle:** v0.15.0 — "Live Gauges from the Bench"
+(DID-projection bridge, real data on K+DCAN). The
+forward-roadmap doc has the full scope; cycle plan in
+[`docs/v0.15.0_plan.md`](docs/v0.15.0_plan.md).
+
+## v0.15.0 — "Live Gauges from the Bench" (In Progress — slice 0)
+
+**Premise.** v0.14.0 shipped the Live Gauges panel as
+**sim-only** by explicit user decision (the v0.14.2
+cycle-pick conversation, Option B). v0.15.0 connects
+the existing `read_live_data` UDS path to the Live
+Gauges panel so it shows **real data on the K+DCAN
+cable**, without the OBDLink SX acquisition the
+v0.14.0 Tier B was waiting for. The "**DID-projection
+bridge**" the v0.14.2 plan deferred to v0.14.3+ lands
+here.
+
+This is the load-bearing user-facing win of v0.15.0:
+an E90 / E60 / E70 owner with the $15 K+DCAN cable can
+now see the same 6-gauge Live Gauges panel (RPM,
+coolant, oil temp, vehicle speed, battery voltage,
+throttle) that v0.14.0's sim-only panel showed. No
+new hardware required.
+
+See [`docs/v0.15.0_plan.md`](docs/v0.15.0_plan.md) for
+the full cycle plan, including the explicit "what this
+cycle does NOT ship" list (no `transport/**` changes,
+no `protocol/**` changes, no `commands.rs` changes, no
+new crates, no new BMW hex descriptions, no `git tag
+v0.15.0`).
+
+### Slices planned
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP header + CHANGELOG entry | 🔲 Open (this PR, slice 0) | A | `docs/v0.15.0_plan.md` + this ROADMAP entry + CHANGELOG `## [0.15.0] — Unreleased` section. Docs-only. |
+| `src/js/live_data_bridge.js` — DID-projection bridge (pure mapping logic) | 🔲 Open (slice 1) | A | Maps each `[[profile.param]]` to the corresponding `data-live-can-gauge` slot. Reuses the v0.14.0 `can_decoders.js` for byte-level decoding when the live-data value comes through the broadcast path. ~150 LOC + 12 unit tests. |
+| `src/js/live_gauges.js` — data source flip (sim → K+DCAN) | 🔲 Open (slice 2) | A | When `connected && profile selected`, the panel reads from the bridge instead of the simulator mirror. The sim-only fallback stays for non-connected sessions. ~50 LOC + 4 unit tests. |
+| `src-tauri/src/commands.rs` — `update_can_listen` async Tauri command (Tier B) | 🔲 Open (slice 3) | **B** | New Tauri command that starts / stops the existing `watch_tick` loop with a `ListenerMode::KwpDids { profile, interval_ms }` variant. Touches `src-tauri/src/transport/kdcan.rs` + `commands.rs`. Flag the protected path at the top of the PR body; human merges after the auto-merge bot's CI gate passes. |
+
+### What this cycle does NOT ship
+
+- ❌ No new transport support (BLE / WiFi / ENET
+  auto-detect). The forward-roadmap doc's `v0.16.0`
+  cycle spine ("Tier B Land Rush — BLE / WiFi / ENET")
+  is the next cycle's work. ENET/DoIP auto-detect is
+  preserved as a 🟡 item per the v0.14.4 / v0.14.5 /
+  v0.14.6 closeout pattern.
+- ❌ No `protocol/**` code changes. The
+  `read_live_data` UDS path is already shipped (it's
+  what the v0.14.0 Tier B uses internally). v0.15.0
+  only adds the bridge + the data-source-flip in the
+  frontend + the new `ListenerMode::KwpDids` variant
+  on top of the existing `watch_tick` loop.
+- ❌ No new crates in `src-tauri/Cargo.toml`. The
+  `tauri-plugin-dialog` crate added in v0.14.1
+  (PR #169) is the only new runtime crate across
+  v0.14.x. v0.15.0 reuses it for the per-PID dim
+  + remove UI confirmation dialog (per the
+  v0.14.3 PR #190 frontend rewire pattern).
+- ❌ No community data changes (the DID-projection
+  bridge works against the existing
+  `community/profiles/*.toml` data shape; no
+  new DIDs, no new decoders, no new profile
+  entries).
+- ❌ No new BMW hex descriptions.
+- ❌ No `git tag v0.15.0` (Tier C release cut,
+  separate step after all 3 slices land).
+
+Slices dispatch as PRs when the work completes — no
+Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2).
+
 ---
