@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Beemuu releases</title>
+  <link href="https://beemuu.com/feed.xml" rel="self"/>
+  <link href="https://beemuu.com/changelog.html"/>
+  <id>urn:beemuu:releases</id>
+  <updated>2026-07-31T23:08:14Z</updated>
+  <subtitle>Beemuu Windows installer releases. Subscribe to be notified on every tagged release.</subtitle>
+    <entry>
+      <title>Beemuu v0.14.4</title>
+      <link href="https://github.com/ohgeeceee/beemuu/releases/tag/v0.14.4"/>
+      <id>urn:beemuu:release:v0.14.4</id>
+      <updated>2026-07-31T23:08:14Z</updated>
+      <published>2026-07-31T23:08:14Z</published>
+      <summary>Beemuu v0.14.4 Windows installer published.</summary>
+      <content type="html"><![CDATA[<p>Windows installers below:
+- `.exe` — NSIS installer (recommended for most users)
+- `.msi` — MSI installer</p><p>⚠️ Modifying vehicle electronics carries inherent risks. Always use a battery maintainer before flashing or deep coding.</p>]]></content>
+    </entry>
+    <entry>
+      <title>Beemuu v0.6.0</title>
+      <link href="https://github.com/ohgeeceee/beemuu/releases/tag/v0.6.0"/>
+      <id>urn:beemuu:release:v0.6.0</id>
+      <updated>2026-07-18T06:21:49Z</updated>
+      <published>2026-07-18T06:21:49Z</published>
+      <summary>Beemuu v0.6.0 Windows installer published.</summary>
+      <content type="html"><![CDATA[<p>Windows installers below:
+- `.exe` — NSIS installer (recommended for most users)
+- `.msi` — MSI installer</p><p>⚠️ Modifying vehicle electronics carries inherent risks. Always use a battery maintainer before flashing or deep coding.</p>]]></content>
+    </entry>
+    <entry>
+      <title>Beemuu v0.5.0</title>
+      <link href="https://github.com/ohgeeceee/beemuu/releases/tag/v0.5.0"/>
+      <id>urn:beemuu:release:v0.5.0</id>
+      <updated>2026-07-18T06:21:48Z</updated>
+      <published>2026-07-18T06:21:48Z</published>
+      <summary>Beemuu v0.5.0 Windows installer published.</summary>
+      <content type="html"><![CDATA[<p>Windows installers below:
+- `.exe` — NSIS installer (recommended for most users)
+- `.msi` — MSI installer</p><p>⚠️ Modifying vehicle electronics carries inherent risks. Always use a battery maintainer before flashing or deep coding.</p>]]></content>
+    </entry>
+    <entry>
+      <title>Beemuu v0.4.0</title>
+      <link href="https://github.com/ohgeeceee/beemuu/releases/tag/v0.4.0"/>
+      <id>urn:beemuu:release:v0.4.0</id>
+      <updated>2026-07-18T06:21:48Z</updated>
+      <published>2026-07-18T06:21:48Z</published>
+      <summary>Beemuu v0.4.0 Windows installer published.</summary>
+      <content type="html"><![CDATA[<p>Windows installers below:
+- `.exe` — NSIS installer (recommended for most users)
+- `.msi` — MSI installer</p><p>⚠️ Modifying vehicle electronics carries inherent risks. Always use a battery maintainer before flashing or deep coding.</p>]]></content>
+    </entry>
+    <entry>
+      <title>Beemuu v0.2.0</title>
+      <link href="https://github.com/ohgeeceee/beemuu/releases/tag/v0.2.0"/>
+      <id>urn:beemuu:release:v0.2.0</id>
+      <updated>2026-07-06T23:19:35Z</updated>
+      <published>2026-07-06T23:19:35Z</published>
+      <summary>Beemuu v0.2.0 Windows installer published.</summary>
+      <content type="html"><![CDATA[<p># BeeEmUu v0.2.0 Release Notes
+
+## What's New
+
+### Community Data — The Big One
+- **~150 DTC fault texts** (was 7). Covers misfire, fuel, VANOS, turbo, lambda, throttle, cooling, sensors, battery, transmission, DSC, body, CAN, HVAC, airbag, immobilizer — all sourced from OBDb (CC-BY-SA), BimmerFest, SpoolStreet, and public docs.
+- **5 OBDb-verified UDS DIDs** for B58 and F-series N55: oil temp (4506), coolant (411E), IAT (4015), ATF temp (DA12), kickdown (DA1F).
+- **7 commented DIDs** waiting for new decode functions (`u16_tenths`, `u16_div100`, `s16`, `u8_enum`, etc.) — unlock ~40% more OBDb data.
+- **10 deep-research artifacts** in `research/` documenting the hunt for open-source BMW diagnostic data.
+
+### Project Infrastructure
+- **CI pipeline** (GitHub Actions): TOML validation, proprietary-data heuristic scan, `cargo fmt`, `cargo clippy`, `cargo test` on Ubuntu + Windows.
+- **Dependabot** auto-PRs for npm, Rust, and GitHub Actions security updates.
+- **CHANGELOG.md** with [Keep a Changelog](https://keepachangelog.com/) format.
+- **CONTRIBUTING.md** complete rewrite — data vs. code paths, confidence labels, Parameter Explorer workflow, commit style, PR checklist.
+- **docs/open_source_maintenance_guide.md** — release rhythm, contributor funnel, automation, legal hygiene.
+- **docs/forum_post.md** — 4 ready-to-copy templates (BimmerPost, Reddit, Twitter, YouTube).
+- **New issue template** `did_mapping.md` — standardized form for contributors who find new DIDs on their cars.
+
+### Honest Status Updates
+- E-series `local:10` oil temp placeholder now carries a prominent warning: **no open-source KWP2000 local ID table exists for BMW E-series**. This is a structural data desert, not a bug.
+- `freeze_schemas.toml` now warns it is **simulator-only** — no real-world BMW freeze-frame layouts exist in open sources.
+- N52 profile notes that oil temperature travels via **BSD protocol**, not KWP2000.
+
+## Known Limitations
+- E-series KWP2000 local identif</p>]]></content>
+    </entry>
+</feed>
