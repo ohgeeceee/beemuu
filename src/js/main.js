@@ -488,6 +488,20 @@ async function readFaults() {
   const tbody = $("fault-rows");
   tbody.innerHTML = "<tr><td colspan='3' class='muted'>Reading…</td></tr>";
 
+  // Best-effort: append a "Source" link to a fault row's description
+  // cell once the hosted API resolves a community URL for the code.
+  // The row renders immediately; the link is filled in async.
+  function enrichRowWithSource(tr, code) {
+    if (!window.beeemuuDtcSourceLookup) return;
+    window.beeemuuDtcSourceLookup.lookup(code).then((url) => {
+      if (!url) return;
+      const link = window.beeemuuDtcConfidence ? window.beeemuuDtcConfidence.sourceLinkHtml(url) : "";
+      if (!link) return;
+      const cell = tr.querySelector("td:nth-child(2)");
+      if (cell && !cell.querySelector(".dtc-source")) cell.insertAdjacentHTML("beforeend", link);
+    });
+  }
+
   // In session replay, faults are already in the module data.
   if (sessionReplay) {
     const m = modules.find((x) => x.address === selectedAddress);
@@ -507,6 +521,7 @@ async function readFaults() {
         `<td>${escapeHtml(d.text)}${badge ? ` <span class="${badge.className}" title="${badge.label} description">${badge.label}</span>` : ""}</td>` +
         `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
+      enrichRowWithSource(tr, d.code);
       tbody.appendChild(tr);
     }
     return;
@@ -549,6 +564,7 @@ async function readFaults() {
         `<td>${escapeHtml(d.text)}${badge ? ` <span class="${badge.className}" title="${badge.label} description">${badge.label}</span>` : ""}</td>` +
         `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
+      enrichRowWithSource(tr, d.code);
       tbody.appendChild(tr);
     }
     // v0.12.0 Fault Memory (slice 5): if the local history has
