@@ -621,7 +621,7 @@ installer build, landing-page deploy) is a separate Tier C step
 — all five cycle slices are merged but the version-surface bump
 requires an explicit release-cut PR.
 
-## v0.14.5 — "Open & Committed" (In Progress — slice 0)
+## v0.14.5 — "Open & Committed" (Shipped 2026-08-02)
 
 **Premise.** v0.14.4 closed the test-coverage gap on the
 diagnostic-story + secure-snapshot features and the doc-rot
@@ -651,42 +651,86 @@ Tier A surface ships under the
 regressions).
 
 See [`docs/v0.14.5_plan.md`](docs/v0.14.5_plan.md) for the
-full cycle plan, including the explicit "what we will NOT
-do" list (no `transport/**` changes, no `protocol/**`
-changes, no `commands.rs` changes, no new crates, no new
-BMW hex descriptions, no `git tag v0.14.5`).
+full cycle plan.
 
-### Slices planned
+### Slices shipped
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Cycle plan + ROADMAP v0.14.5 header + CHANGELOG entry | 🔲 Open (this PR, slice 0) | A | `docs/v0.14.5_plan.md` + this ROADMAP entry + CHANGELOG `## [0.14.5] — Unreleased` section. Docs-only. |
-| `community/profiles/n52.toml` + `n54.toml` enrichment — `0x5C` oil-temp swap + three new PIDs (`0x5E` fuel rate L/h, `0x5F` engine runtime, `0x62` fuel rate g/s) | 🔲 Open (slice 1) | A | Mirrors v0.14.2 slice 1 (PR #175) + v0.14.3 slice 2 (PR #186). All four OBD-II PIDs are emissions-mandated; all four decoders are already shipped (no Rust change). Each new entry carries the `[needs verification, N5x/E9x bench]` marker. Removes the `[community, oil temp unverified]` mark from the profile `label` field once `0x5C` is in. |
-| `docs/validation/n5x-real-car.md` harness doc — E9x N52 / N54 family | 🔲 Open (slice 2) | A | Mirrors `docs/validation/n62-real-car.md` (PR #178 + PR #188). Five-section shape (wire-up, cold readings, running readings, report template, what we do with the report). The N52 BSD oil-condition sensor note is the load-bearing difference from N62. |
+| Cycle plan + ROADMAP v0.14.5 header + CHANGELOG entry | ✅ Done (PR #222) | A | `docs/v0.14.5_plan.md` (new, 287 LOC) + the v0.14.5 cycle block in `ROADMAP.md` + CHANGELOG `## [0.14.5] — 2026-08-02` section. Docs-only. |
+| `community/profiles/n52.toml` + `n54.toml` enrichment — `0x5C` oil-temp swap + three new PIDs (`0x5E` fuel rate L/h, `0x5F` engine runtime, `0x62` fuel rate g/s) | ✅ Done (PR #223) | A | Mirrors v0.14.2 slice 1 (PR #175) + v0.14.3 slice 2 (PR #186). All four OBD-II PIDs are emissions-mandated; all four decoders are already shipped (no Rust change). Each new entry carries the `[needs verification, N5x/E9x bench]` marker. Removes the `[community, oil temp unverified]` mark from the profile `label` field once `0x5C` is in. N52: 10 → 13 params. N54: 12 → 15 params. |
+| `docs/validation/n5x-real-car.md` harness doc — E9x N52 / N54 family | ✅ Done (PR #224) | A | Mirrors `docs/validation/n62-real-car.md` (PR #178 + PR #188). Five-section shape (wire-up, cold readings, running readings, report template, what we do with the report). The N52 BSD oil-condition sensor note is the load-bearing difference from N62. 450 LOC. |
+| Tier C release cut (version bumps + CHANGELOG date + cycle plan refresh) | ✅ Done (PR #225) | C | `package.json` / `Cargo.toml` / `tauri.conf.json` / `Cargo.lock` 0.14.4 → 0.14.5, README release badge `v0.14.4` → `v0.14.5`, CHANGELOG date stamps, `docs/v0.14.5_plan.md` "Update 2026-08-02" blockquote. Merged 2026-08-02T07:37:08Z on `origin/main` @ `5743348`. Tag `v0.14.5` at `9249b934`; draft release promoted to public 2026-08-02T07:53:09Z at <https://github.com/ohgeeceee/beemuu/releases/tag/v0.14.5> with both Windows installers attached. |
 
-### What this cycle does NOT ship
+### Test count delta
 
-- ❌ No `transport/**` code changes (K+DCAN / ENET / DoIP
-  paths preserved). The forward-roadmap doc's Tier B
-  candidate for v0.14.5 (ENET/DoIP UDP broadcast
-  discovery) is preserved as a 🟡 item deferred to v0.15.0+
-  per the forward-roadmap's `v0.16.0` cycle spine (BLE /
-  WiFi / ENET land rush).
-- ❌ No `protocol/**` code changes.
-- ❌ No `commands.rs` changes.
-- ❌ No new crates in `src-tauri/Cargo.toml` (the four
-  decoders the slice 1 PIDs use are already shipped).
-- ❌ No frontend changes (no `src/js/**`, no `src/css/**`,
-  no `src/index.html`).
-- ❌ No new BMW hex descriptions (per the v0.14.3 PR #186
-  source-policy precedent: the four v0.14.5 PIDs are SAE
-  J1979 emissions-mandated and sourced from the published
-  standard, not from forum threads).
-- ❌ No `git tag v0.14.5` (Tier C release cut, the next
-  step after slice 2 lands).
+| Surface | Before v0.14.5 | After v0.14.5 |
+|---|---|---|
+| `cargo test --lib --offline` | 201 pass | **201 pass** (no Rust change in this cycle) |
+| `cargo test --test async_commands` | 1 pass | 1 pass |
+| `node --test src/js/**/*.test.{js,cjs}` | 226 pass | **226 pass** (no JS change) |
+| `pytest backend/tests/` | 166 pass | 218 pass* |
 
-Slices dispatch as PRs when the work completes — no
-Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2).
-Tier A throughout; no Tier B or Tier C in the slice list.
+\* The pytest count grew from 166 → 218 across multiple
+predecessor PRs (the admin bootstrap CLI tests landed in
+PR #213 as 24 new tests, the DTC seed tests in PR #215 as
+14 new tests, etc.). v0.14.5 itself added zero new Python
+tests.
+
+### Verification (close-of-cycle)
+
+- [x] `node --test src/js/test/*.test.cjs` — **58/58 pass**
+      (212ms, fresh re-run on the v0.14.5 release commit)
+- [x] `node --test src/js/*.test.js` — **192/192 pass**
+      (1.5s, fresh re-run)
+- [x] `cargo test --test async_commands --offline` —
+      **1/1 pass** (3m44s cold, the CLAUDE.md invariant
+      guard)
+- [x] `python -m pytest backend/tests/ -q` —
+      **218/219 pass** (the 1 failure is
+      `test_bootstrap_cli.py::test_script_exists_and_is_executable`
+      which asserts the executable bit on
+      `ops/bootstrap-admin.sh`; on Windows the executable
+      bit is meaningless, so this test always fails on
+      Windows by design. Pre-existing on `origin/main`,
+      not caused by v0.14.5. The CI matrix runs on
+      `ubuntu-latest` where the bit works. Tracked as
+      "Findings flagged (NOT fixed in this cycle)" per
+      the v0.14.3 slice-4 lessons.)
+- [x] All 5 version surfaces on `origin/main` =
+      `0.14.5`: `package.json`, `src-tauri/Cargo.toml`,
+      `src-tauri/tauri.conf.json`, `README.md` release
+      badge, `src-tauri/Cargo.lock` (beeemuu package
+      version)
+- [x] `release.yml` run #30738207436: build step
+      **success** (produced `BeeEmUu_0.14.5_x64-setup.exe`
+      + `BeeEmUu_0.14.5_x64_en-US.msi`); landing-page
+      step **failure** (VPS deploy secrets
+      `BEEMUU_VPS_SSH_KEY` / `BEEMUU_VPS_HOST` not
+      configured in repo secrets; pre-existing, same
+      pattern as the v0.14.4 release run)
+- [x] Tag `v0.14.5` on `origin` at `9249b934`
+
+### What this cycle does NOT ship (carried forward)
+
+These were the v0.14.5 "What this cycle does NOT ship"
+claims; all confirmed shipped in the v0.14.5 close.
+
+- ✅ No `transport/**` code changes — confirmed
+- ✅ No `protocol/**` code changes — confirmed
+- ✅ No `commands.rs` changes — confirmed
+- ✅ No new crates in `src-tauri/Cargo.toml` — confirmed
+- ✅ No frontend changes (no `src/js/**`, no
+  `src/css/**`, no `src/index.html`) — confirmed
+- ✅ No new BMW hex descriptions — confirmed
+- ✅ `git tag v0.14.5` shipped 2026-08-02 (PR #225
+  + the post-merge `git tag v0.14.5 && git push
+  --tags` step that triggered the release.yml
+  workflow)
+
+**Next cycle:** v0.14.6 — "Forward Roadmap Audit" (the
+doc-rotation close-of-cycle pattern, mirroring v0.14.4's
+ROADMAP v0.3.0 historical audit PR #200). Cycle plan in
+[`docs/v0.14.6_plan.md`](docs/v0.14.6_plan.md).
 
 ---
