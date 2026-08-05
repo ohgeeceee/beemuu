@@ -21,6 +21,10 @@ let lastDtcs = []; // cached DTCs for CSV export
 const profileThemes = {}; // profile id -> gauge colour overrides from [profile.theme]
 let workspaceState = {}; // persisted UI prefs — single source of truth (js/workspace.js)
 let workspaceSaveTimer = null; // debounce handle for workspace.json writes
+// v0.15.0 slice 2c — K+DCAN data source handle. Initialized below at
+// boot; pollOnce() feeds it each read_live_data sweep; live_gauges.js
+// reads through it instead of the simulator mirror.
+let kdcanDataSource = null;
 
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
@@ -179,6 +183,29 @@ function restoreActiveTab() {
   if (!name) return;
   const tab = document.querySelector(`.tab[data-view="${name}"]`);
   if (tab && !tab.classList.contains("hidden")) tab.click();
+}
+
+/* ---------------- v0.15.0 slice 2c — K+DCAN data source ---------------- */
+// Initialize the K+DCAN data source so the Live Gauges panel can
+// read real DID data from the K+DCAN cable. The wiring module
+// (`live_data_source_wiring.js`) is passive — main.js drives the
+// `read_live_data` invoke; this module just transforms each
+// LiveSweepResult into bridge cache updates. The `setSource` call
+// below swaps the Live Gauges controller's source from the sim-only
+// default to the bridge-backed kdcan source.
+try {
+  const wiring = window.beeemuuKdcanDataSource;
+  if (wiring && typeof wiring.initKdcanDataSource === "function") {
+    kdcanDataSource = wiring.initKdcanDataSource({ invoke, log });
+    const kdcanSrc = kdcanDataSource.getKdcanSource();
+    const gaugesApi = window.beeemuuLiveGauges;
+    if (kdcanSrc && gaugesApi && gaugesApi.controller && typeof gaugesApi.controller.setSource === "function") {
+      gaugesApi.controller.setSource(kdcanSrc);
+      log("K+DCAN data source wired to Live Gauges panel");
+    }
+  }
+} catch (e) {
+  log("K+DCAN data source init failed: " + e);
 }
 
 /* ---------------- tabs ---------------- */
@@ -1394,6 +1421,15 @@ async function pollOnce() {
     result = connected
       ? await invoke("read_live_data", { profile: $("live-profile").value })
       : result;
+    // v0.15.0 slice 2c — feed the same sweep into the K+DCAN
+    // bridge so the Live Gauges panel can render real values
+    // (RPM, coolant, oil temp, etc.) from the K+DCAN cable.
+    // No-op when `kdcanDataSource` is null (init not run yet) or
+    // when the panel hasn't been started (applySweepFromTauri
+    // guards on `running`).
+    if (kdcanDataSource) {
+      kdcanDataSource.applySweep(result.values || [], result.errors || []);
+    }
   } catch (e) {
     // Systemic failure (no transport, unknown profile, poisoned state
     // lock) — `read_live_data` returns `Err(_)` for these. Same

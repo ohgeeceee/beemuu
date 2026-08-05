@@ -37,11 +37,15 @@ function createLiveGaugesController(options) {
     canvasFor,
     status,
     button,
-    source = null,
+    source: initialSource = null,
     setIntervalFn = setInterval,
     clearIntervalFn = clearInterval,
     onSourceTick = null, // (latestValues) => void — for the panel header to mirror fps
   } = options;
+  // v0.15.0 slice 2c — wrap `source` in a holder so setSource() can
+  // reassign it. The destructured `source` from options above is a
+  // const binding; the live reference lives on `sourceHolder.source`.
+  const sourceHolder = { source: initialSource };
   const gauges = {};
   const values = {};
   const peaks = {}; // slice 5: per-gauge peak across the active session
@@ -60,8 +64,8 @@ function createLiveGaugesController(options) {
   }
 
   function render() {
-    if (source && typeof source.latestValues === "function") {
-      const fresh = source.latestValues();
+    if (sourceHolder.source && typeof sourceHolder.source.latestValues === "function") {
+      const fresh = sourceHolder.source.latestValues();
       if (fresh && typeof fresh === "object") {
         setValues(fresh);
       }
@@ -92,8 +96,8 @@ function createLiveGaugesController(options) {
 
   function start() {
     if (timer) return timer;
-    if (source && typeof source.start === "function") {
-      source.start();
+    if (sourceHolder.source && typeof sourceHolder.source.start === "function") {
+      sourceHolder.source.start();
       sourceRunning = true;
     }
     timer = setIntervalFn(render, 100);
@@ -104,8 +108,8 @@ function createLiveGaugesController(options) {
   function stop() {
     if (timer) clearIntervalFn(timer);
     timer = null;
-    if (source && sourceRunning && typeof source.stop === "function") {
-      source.stop();
+    if (sourceHolder.source && sourceRunning && typeof sourceHolder.source.stop === "function") {
+      sourceHolder.source.stop();
       sourceRunning = false;
     }
     updateStatus(false);
@@ -122,10 +126,29 @@ function createLiveGaugesController(options) {
   }
 
   function framesPerSecond() {
-    if (source && typeof source.framesPerSecond === "function") {
-      return source.framesPerSecond();
+    if (sourceHolder.source && typeof sourceHolder.source.framesPerSecond === "function") {
+      return sourceHolder.source.framesPerSecond();
     }
     return 0;
+  }
+
+  // v0.15.0 slice 2c — swap the data source at runtime. Used by
+  // main.js to flip the Live Gauges panel from the sim-only source
+  // (the default in mountLiveGauges) to the K+DCAN source adapter
+  // once initKdcanDataSource() has run. Stops the old source if
+  // running, replaces in closure, starts the new one if the
+  // controller is currently ticking.
+  function setSource(newSource) {
+    const wasRunning = timer !== null;
+    if (sourceHolder.source && sourceRunning && typeof sourceHolder.source.stop === "function") {
+      sourceHolder.source.stop();
+    }
+    sourceRunning = false;
+    sourceHolder.source = newSource || null;
+    if (wasRunning && sourceHolder.source && typeof sourceHolder.source.start === "function") {
+      sourceHolder.source.start();
+      sourceRunning = true;
+    }
   }
 
   updateStatus(false);
@@ -135,6 +158,7 @@ function createLiveGaugesController(options) {
     render,
     start,
     stop,
+    setSource,
     isRunning: () => timer !== null,
     peakFor,
     resetPeaks,
@@ -185,6 +209,12 @@ function mountLiveGauges(documentRef = document) {
   button.addEventListener("click", () => {
     if (controller.isRunning()) controller.stop(); else controller.start();
   });
+  // v0.15.0 slice 2c — stash the controller on the window surface so
+  // main.js can grab it (after initKdcanDataSource runs) and call
+  // setSource(kdcanSource) to flip the panel from sim to K+DCAN.
+  if (typeof window !== "undefined") {
+    window.beeemuuLiveGauges.controller = controller;
+  }
   return controller;
 }
 
