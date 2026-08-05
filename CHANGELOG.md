@@ -389,6 +389,21 @@ new hardware required.
   slice 3 (`update_can_listen`) was dropped because the
   architecture converged on the existing `read_live_data`
   async Tauri command.
+## [0.15.1] — Unreleased
+
+> **Cycle status:** slice 0 in flight (this PR — cycle plan +
+> ROADMAP header + this CHANGELOG section). Slices 1 (test-
+> plan walk on real freeze-frames, Tier A), 2
+> (`record_walk_result` async Tauri command, Tier B), and 3
+> (walk export to HTML with real freeze-frame snippets,
+> Tier A) are open. The v0.15.1 release cut (version
+> bump in `Cargo.toml` + `tauri.conf.json`, git tag,
+> release notes publish, installer build) is a separate
+> Tier C step. Until that PR lands, this entry stays
+> `## [0.15.1] — Unreleased` per Keep-a-Changelog
+> convention.
+
+### Planned — Tier A surface (feature cycle)
 - **Cycle plan + ROADMAP v0.15.0 header** (this
   PR, slice 0, Tier A, docs only):
   `docs/v0.15.0_plan.md` (new, ~270 LOC) + the

@@ -875,4 +875,52 @@ v0.15.0`).
 Slices dispatch as PRs when the work completes — no
 Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2).
 
+## v0.15.1 — "Test-Plan Walks on the Bench" (In Progress — cycle plan)
+
+**Premise.** v0.7.0 / v0.8.0 / v0.9.0 / v0.10.0 shipped the
+walkthrough bundle, the test-plan walk reducer, the verified
+routine marker, and the share-as-HTML export — all on the
+simulator. v0.15.1 ports the test-plan walk to **real-car
+sessions**: walks against the K+DCAN cable, records results
+against the real freeze-frame data, exports to the same
+self-contained HTML.
+
+See [`docs/v0.15.1_plan.md`](docs/v0.15.1_plan.md) for the
+full cycle plan, including the explicit "what this cycle does
+NOT ship" list (no `transport/**` changes, no
+`protocol/**` changes, no `commands.rs` write-surface changes).
+
+### Slices planned
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP header + CHANGELOG entry | 🔲 Open (this PR, slice 0) | A | `docs/v0.15.1_plan.md` + this ROADMAP entry + CHANGELOG `## [0.15.1] — Unreleased` section. Docs-only. |
+| Test-plan walk on real freeze-frames | 🟢 Open (slice 1) | A | Reuses the v0.14.0 freeze-frame schema split (PR #170) so each walk step knows which freeze-frame fields to read from which DME. Frontend-only. |
+| `record_walk_result` async Tauri command | 🟡 Open (slice 2) | **B** | Saves a walk outcome (passed/failed/skipped per step) to `<HOME>/beeemuu/walks/<timestamp>.json`. Mirrors the v0.12.0 DTC history pattern. `async_commands` allowlist guard applies. Touches `src-tauri/src/commands.rs`. |
+| Walk export to HTML includes real freeze-frame snippets | 🟢 Open (slice 3) | A | The v0.11.0 share-as-HTML PR (#142) embeds the freeze-frame in the HTML; this slice ensures the embedded freeze-frame is the **real one** for walks on real cars, not the simulator's. Frontend-only. |
+
+### What this cycle does NOT ship
+
+- ❌ No new transport support (BLE / WiFi / ENET
+  auto-detect). The forward-roadmap doc's `v0.16.0`
+  cycle spine ("Tier B Land Rush — BLE / WiFi / ENET") is
+  the next cycle's work.
+- ❌ No `protocol/**` code changes. The
+  `read_freeze_frame` async command is already shipped
+  (v0.11.0 / PR #142). v0.15.1 only adds the
+  `record_walk_result` write surface + the freeze-frame
+  wiring in the walk reducer.
+- ❌ No community data changes (the v0.15.0
+  DID-projection bridge works against the existing
+  `community/profiles/*.toml` data shape; no new DIDs,
+  no new decoders, no new profile entries).
+- ❌ No new BMW hex descriptions.
+- ❌ No `git tag v0.15.1` (Tier C release cut,
+  separate step after all 3 slices land).
+
+Slices dispatch as PRs when the work completes — no
+Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2) since the
+cycle premise was ratified by the v0.15.0 Discussion thread
+(PR #228 plan doc + community feedback).
+
 ---
