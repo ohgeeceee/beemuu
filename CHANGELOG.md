@@ -321,20 +321,21 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
-## [0.15.0] — Unreleased
+## [0.15.0] — 2026-08-05
 
-> **Cycle status:** slice 0 in flight (this PR — cycle plan +
-> ROADMAP header + this CHANGELOG section). Slices 1 (DID-
-> projection bridge, Tier A), 2 (Live Gauges panel data
-> source flip, Tier A), and 3 (`update_can_listen` async
-> Tauri command, Tier B) are open. The v0.15.0 release cut
-> (version bump in `Cargo.toml` + `tauri.conf.json`, git
-> tag, release notes publish, installer build) is a
-> separate Tier C step. Until that PR lands, this entry
-> stays `## [0.15.0] — Unreleased` per Keep-a-Changelog
-> convention.
+> **Cycle status:** shipped 2026-08-05 via PRs #228,
+> #229, #234, #235 (all Tier A — frontend-only). The cycle’s
+> 4-slice shape (1 + 2a + 2b + 2c) diverged from the original
+> plan’s "1 + 2 + 3" shape: the planned Tier B
+> `update_can_listen` async Tauri command was dropped because
+> the frontend converged on main.js driving `read_live_data`
+> polling directly (the existing async Tauri command added
+> in v0.14.2 / PR #175). No new `transport/**`,
+> `protocol/**`, or `commands.rs` surface was needed. Tag
+> `v0.15.0` + release cut + landing-page deploy is the next
+> step (Tier C, separate PR).
 
-### Planned — Tier A surface (feature cycle)
+### Added — Tier A surface (feature cycle)
 
 v0.15.0 is the **"Live Gauges from the Bench"** cycle.
 It connects the existing `read_live_data` UDS path to
@@ -354,31 +355,40 @@ throttle) that v0.14.0's sim-only panel showed. No
 new hardware required.
 
 - **`src/js/live_data_bridge.js` — DID-projection
-  bridge** (slice 1, Tier A, frontend): maps each
-  `[[profile.param]]` to the corresponding
-  `data-live-can-gauge` slot. Pure mapping logic +
-  tests. Reuses the v0.14.0 `can_decoders.js` for
-  byte-level decoding when the live-data value
-  comes through the broadcast path. ~150 LOC + 12
-  unit tests.
-- **`src/js/live_gauges.js` — data source flip**
-  (slice 2, Tier A, frontend): when `connected &&
-  profile selected`, the panel reads from the
-  bridge instead of the simulator mirror. The
-  sim-only fallback stays for non-connected
-  sessions. ~50 LOC + 4 unit tests.
-- **`src-tauri/src/commands.rs` —
-  `update_can_listen` async Tauri command**
-  (slice 3, Tier B, Rust): new Tauri command that
-  starts / stops the existing `watch_tick` loop
-  with a `ListenerMode::KwpDids { profile,
-  interval_ms }` variant. Different from the
-  v0.14.0 Tier B `ListenerMode::Simulator /
-  OBDLinkSx` because it reads through the
-  diagnostic protocol, not the raw CAN bus. Flag
-  the protected path at the top of the PR body;
-  human merges after the auto-merge bot's CI gate
-  passes. ~80 LOC + 3 integration tests.
+  bridge** (slice 1, PR #229, Tier A, frontend):
+  maps each `[[profile.param]]` to the corresponding
+  `data-live-can-gauge` slot. Pure mapping logic.
+  Reuses the v0.14.0 `can_decoders.js` for byte-level
+  decoding when the live-data value comes through the
+  broadcast path. 192 LOC + 20 unit tests.
+- **`src/js/live_kdcan_source.js` — K+DCAN source
+  adapter** (slice 2a, PR #229, Tier A, frontend):
+  wraps the bridge in the source shape
+  `live_gauges.js` expects. 128 LOC + 6 unit tests.
+- **`src/js/live_data_source_wiring.js` — K+DCAN data
+  source wiring module** (slice 2b, PR #234, Tier A,
+  frontend): `initKdcanDataSource({invoke, log})` factory
+  that creates the bridge + K+DCAN source adapter.
+  94 LOC. (No internal setInterval — main.js drives polling.)
+- **`src/js/main.js` + `src/js/live_gauges.js` —
+  caller integration** (slice 2c, PR #235, Tier A,
+  frontend): main.js polls `read_live_data`, feeds the
+  bridge cache, swaps the Live Gauges source from sim
+  to K+DCAN. Adds `controller.setSource()` +
+  `window.beeemuuLiveGauges.controller` surface + 10
+  wiring tests + 4 `setSource` tests.
+- **Cycle plan + ROADMAP v0.15.0 header** (slice 0,
+  PR #228, Tier A, docs only):
+  `docs/v0.15.0_plan.md` (new, ~270 LOC) + the
+  v0.15.0 cycle block in `ROADMAP.md` + this CHANGELOG
+  section + the v0.14.6 ROADMAP-block closeout.
+- **This slice 0.5 doc-amend PR** (Tier A, docs only):
+  amends `docs/v0.15.0_plan.md` + `ROADMAP.md` to reflect
+  the actual 4-slice shape (1 + 2a + 2b + 2c) instead of
+  the original plan’s "1 + 2 + 3" shape; documents that
+  slice 3 (`update_can_listen`) was dropped because the
+  architecture converged on the existing `read_live_data`
+  async Tauri command.
 - **Cycle plan + ROADMAP v0.15.0 header** (this
   PR, slice 0, Tier A, docs only):
   `docs/v0.15.0_plan.md` (new, ~270 LOC) + the
@@ -401,10 +411,10 @@ new hardware required.
   flip in the frontend + the new
   `ListenerMode::KwpDids` variant on top of the
   existing `watch_tick` loop.
-- ❌ No `commands.rs` changes (slice 3 is the
-  exception: it adds a new `#[tauri::command]`,
-  but the change is a single additive line in the
-  command surface + the new Tauri command body).
+- ❌ No `commands.rs` changes (v0.15.0 is fully
+  frontend — main.js drives the existing `read_live_data`
+  async Tauri command added in v0.14.2; no new
+  command surface was needed).
 - ❌ No new crates in `src-tauri/Cargo.toml`.
 - ❌ No community data changes (the DID-projection
   bridge works against the existing
