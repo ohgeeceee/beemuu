@@ -331,9 +331,9 @@ Discussion" rule.
 > the frontend converged on main.js driving `read_live_data`
 > polling directly (the existing async Tauri command added
 > in v0.14.2 / PR #175). No new `transport/**`,
-> `protocol/**`, or `commands.rs` surface was needed. Tag
-> `v0.15.0` + release cut + landing-page deploy is the next
-> step (Tier C, separate PR).
+> `protocol/**`, or `commands.rs` surface was needed.
+> Release cut (version bumps + tag + `release.yml` +
+> landing-page deploy) lands via this PR.
 
 ### Added — Tier A surface (feature cycle)
 
