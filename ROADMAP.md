@@ -806,7 +806,7 @@ slice list. Single-slice docs-only cycle.
 forward-roadmap doc has the full scope; cycle plan in
 [`docs/v0.15.0_plan.md`](docs/v0.15.0_plan.md).
 
-## v0.15.0 — "Live Gauges from the Bench" (In Progress — slice 0)
+## v0.15.0 — "Live Gauges from the Bench" (Shipped 2026-08-05)
 
 **Premise.** v0.14.0 shipped the Live Gauges panel as
 **sim-only** by explicit user decision (the v0.14.2
@@ -832,14 +832,16 @@ no `protocol/**` changes, no `commands.rs` changes, no
 new crates, no new BMW hex descriptions, no `git tag
 v0.15.0`).
 
-### Slices planned
+### Slices shipped
 
-| Item | Status | Tier | Notes |
-|------|--------|------|-------|
-| Cycle plan + ROADMAP header + CHANGELOG entry | 🔲 Open (this PR, slice 0) | A | `docs/v0.15.0_plan.md` + this ROADMAP entry + CHANGELOG `## [0.15.0] — Unreleased` section. Docs-only. |
-| `src/js/live_data_bridge.js` — DID-projection bridge (pure mapping logic) | 🔲 Open (slice 1) | A | Maps each `[[profile.param]]` to the corresponding `data-live-can-gauge` slot. Reuses the v0.14.0 `can_decoders.js` for byte-level decoding when the live-data value comes through the broadcast path. ~150 LOC + 12 unit tests. |
-| `src/js/live_gauges.js` — data source flip (sim → K+DCAN) | 🔲 Open (slice 2) | A | When `connected && profile selected`, the panel reads from the bridge instead of the simulator mirror. The sim-only fallback stays for non-connected sessions. ~50 LOC + 4 unit tests. |
-| `src-tauri/src/commands.rs` — `update_can_listen` async Tauri command (Tier B) | 🔲 Open (slice 3) | **B** | New Tauri command that starts / stops the existing `watch_tick` loop with a `ListenerMode::KwpDids { profile, interval_ms }` variant. Touches `src-tauri/src/transport/kdcan.rs` + `commands.rs`. Flag the protected path at the top of the PR body; human merges after the auto-merge bot's CI gate passes. |
+| Item | Status | Tier | PR | Notes |
+|------|--------|------|----|-------|
+| Cycle plan + ROADMAP header + CHANGELOG entry | ✓ Shipped | A | #228 | `docs/v0.15.0_plan.md` + this ROADMAP entry + CHANGELOG `## [0.15.0]` section. Docs-only. |
+| `src/js/live_data_bridge.js` — DID-projection bridge (pure mapping logic) | ✓ Shipped | A | #229 | Maps each `[[profile.param]]` to the corresponding `data-live-can-gauge` slot. 192 LOC + 20 unit tests. |
+| `src/js/live_kdcan_source.js` — K+DCAN source adapter (slice 2a) | ✓ Shipped | A | #229 | Wraps the bridge in the source shape `live_gauges.js` expects. 128 LOC + 6 unit tests. |
+| `src/js/live_data_source_wiring.js` — K+DCAN data source wiring module (slice 2b) | ✓ Shipped | A | #234 | `initKdcanDataSource({invoke, log})` factory. 94 LOC. (No internal setInterval — main.js drives the polling.) |
+| `src/js/main.js` + `src/js/live_gauges.js` — caller integration (slice 2c) | ✓ Shipped | A | #235 | main.js polls `read_live_data`, feeds the bridge cache, swaps the Live Gauges source from sim to K+DCAN. Adds `controller.setSource()` + `window.beeemuuLiveGauges.controller` surface + 10 wiring tests + 4 `setSource` tests. |
+| (Planned: `src-tauri/src/commands.rs` — `update_can_listen` async Tauri command) | ❌ Dropped | — | — | Architecture converged on main.js driving `read_live_data` polling directly (the existing async Tauri command from v0.14.2 / PR #175). No new `commands.rs` surface was needed. |
 
 ### What this cycle does NOT ship
 
