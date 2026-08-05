@@ -166,3 +166,77 @@ test("slice 7: source returning null/undefined doesn't crash the render", () => 
   h.timer()();
   assert.deepEqual(h.controller.gauges.rpm.calls, []);
 });
+
+// v0.15.0 slice 2c — setSource (runtime source swap).
+//
+// The Live Gauges panel auto-mounts with a sim-only source. main.js
+// later calls controller.setSource(kdcanSource) once
+// initKdcanDataSource() has run. These tests cover the swap.
+
+test("slice 2c: setSource replaces a stopped source (no auto-restart)", () => {
+  const oldSource = {
+    start: () => {},
+    stop: () => {},
+    latestValues: () => ({ rpm: 100 }),
+    framesPerSecond: () => 0,
+  };
+  const newSource = {
+    start: () => {},
+    stop: () => {},
+    latestValues: () => ({ rpm: 200 }),
+    framesPerSecond: () => 0,
+  };
+  let newStartCount = 0;
+  newSource.start = () => { newStartCount += 1; };
+  const h = harness({ source: oldSource });
+  h.controller.setSource(newSource);
+  // Controller is stopped — new source should NOT be started.
+  assert.equal(newStartCount, 0);
+  // Render tick should now read from newSource.
+  h.controller.start();
+  h.timer()();
+  assert.deepEqual(h.controller.gauges.rpm.calls, [200]);
+});
+
+test("slice 2c: setSource while running stops old + starts new", () => {
+  let oldStopCount = 0;
+  const oldSource = {
+    start: () => {},
+    stop: () => { oldStopCount += 1; },
+    latestValues: () => ({ rpm: 100 }),
+    framesPerSecond: () => 0,
+  };
+  let newStartCount = 0;
+  const newSource = {
+    start: () => { newStartCount += 1; },
+    stop: () => {},
+    latestValues: () => ({ rpm: 200 }),
+    framesPerSecond: () => 0,
+  };
+  const h = harness({ source: oldSource });
+  h.controller.start();
+  assert.equal(h.controller.isRunning(), true);
+  h.controller.setSource(newSource);
+  assert.equal(oldStopCount, 1);
+  assert.equal(newStartCount, 1);
+});
+
+test("slice 2c: setSource(null) detaches the source", () => {
+  const source = {
+    start: () => {},
+    stop: () => {},
+    latestValues: () => ({ rpm: 100 }),
+    framesPerSecond: () => 0,
+  };
+  const h = harness({ source });
+  h.controller.setSource(null);
+  h.controller.start();
+  // No source → render does nothing (calls stays empty).
+  h.timer()();
+  assert.deepEqual(h.controller.gauges.rpm.calls, []);
+});
+
+test("slice 2c: setSource exposes the method on the controller surface", () => {
+  const h = harness();
+  assert.equal(typeof h.controller.setSource, "function");
+});
