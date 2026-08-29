@@ -7,7 +7,8 @@
 //!
 //! FMT = 0x80 | payload_len (for len <= 0x3F), or 0x80 with an extra length
 //! byte for longer payloads. SRC is the tester address 0xF1. CS is the
-//! 8-bit sum of all preceding bytes.
+//! 8-bit sum of all preceding bytes. Sending raw payload_len as FMT
+//! (e.g. 0x05 for `1A 80`) is rejected; use 0x80 | len (`0x82`).
 //!
 //! D-CAN cars (E9x and later E-series, ~2007+): 115200 baud, 8N1 (BMW-FAST).
 //! K-line cars (pre-2007): 10400 baud, 8N1 (ISO 14230), with fast-init.
@@ -153,7 +154,8 @@ impl KdcanTransport {
                 let mut echo = vec![0u8; frame.len()];
                 if t.read_exact_timeout(&mut echo, deadline).is_ok() && echo == frame {
                     if let Ok(resp) = t.read_frame(deadline) {
-                        if resp.first() == Some(&0x7E) {
+                        let payload = Self::payload_from_frame(&resp).unwrap_or(resp);
+                        if payload.first() == Some(&0x7E) {
                             return Ok(t);
                         }
                     }
@@ -203,25 +205,74 @@ impl KdcanTransport {
         }
     }
 
+    /// BMW-FAST / ISO 14230 request frame.
+    ///
+    /// FMT is `0x80 | payload_len` when `payload_len <= 0x3F`, matching the
+    /// file header and what INPA / Android K+DCAN apps put on the wire.
+    /// (The previous implementation sent a raw `payload+3` length byte —
+    /// `0x05` for `1A 80` — which real E90 D-CAN modules ignore. The FTDI
+    /// still echoes TX, so traffic showed `Malformed frame: short` after
+    /// the full 1 s / 3 s deadline.)
     fn build_frame(target: u8, payload: &[u8]) -> Vec<u8> {
-        let len = (payload.len() + 3) as u8;
-        let mut frame = vec![len, target, TESTER];
+        let mut frame = if payload.len() <= 0x3F {
+            vec![0x80 | payload.len() as u8, target, TESTER]
+        } else {
+            vec![0x80, payload.len() as u8, target, TESTER]
+        };
         frame.extend_from_slice(payload);
         let sum: u8 = frame.iter().fold(0, |a, &b| a.wrapping_add(b));
         frame.push(sum);
         frame
     }
 
+    /// On-wire size of a frame whose header is already in `buf`.
+    ///
+    /// BMW-FAST: first byte `0x80 | n` → `n + 4` (FMT, TGT, SRC, n bytes, CS).
+    /// Extended: first byte `0x80`, second byte `n` → `n + 5`.
+    /// Legacy Beemuu length-prefix (first byte `< 0x80`): `first + 1`.
+    fn expected_frame_len(buf: &[u8]) -> Option<usize> {
+        let b0 = *buf.first()?;
+        if b0 & 0xC0 == 0x80 {
+            let indicated = (b0 & 0x3F) as usize;
+            if indicated == 0 {
+                let n = *buf.get(1)? as usize;
+                Some(n + 5)
+            } else {
+                Some(indicated + 4)
+            }
+        } else {
+            Some(b0 as usize + 1)
+        }
+    }
+
+    /// Strip FMT/TGT/SRC (and optional extended length) plus the checksum,
+    /// leaving the KWP/UDS service payload.
+    fn payload_from_frame(resp: &[u8]) -> Result<Vec<u8>> {
+        if resp.len() < 4 {
+            return Err(TransportError::BadFrame("short".into()));
+        }
+        let start = if resp[0] == 0x80 && resp.len() >= 5 { 4 } else { 3 };
+        if resp.len() <= start {
+            return Err(TransportError::BadFrame("short".into()));
+        }
+        Ok(resp[start..resp.len() - 1].to_vec())
+    }
+
     fn read_frame(&mut self, deadline: Instant) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; 256];
         let mut pos = 0;
         while Instant::now() < deadline {
-            match self.port.read(&mut buf[pos..pos+1]) {
-                Ok(0) => return Err(TransportError::Io("eof".into())),
-                Ok(n) => {
-                    pos += n;
-                    if pos >= 3 && pos >= buf[0] as usize + 1 { break; }
+            if let Some(need) = Self::expected_frame_len(&buf[..pos]) {
+                if need > buf.len() {
+                    return Err(TransportError::BadFrame(format!("oversize {need}")));
                 }
+                if pos >= need {
+                    return Ok(buf[..need].to_vec());
+                }
+            }
+            match self.port.read(&mut buf[pos..pos + 1]) {
+                Ok(0) => return Err(TransportError::Io("eof".into())),
+                Ok(n) => pos += n,
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => continue,
                 Err(e) => return Err(TransportError::Io(e.to_string())),
             }
@@ -267,8 +318,7 @@ impl Transport for KdcanTransport {
         let mut echo = vec![0u8; frame.len()];
         self.read_exact_timeout(&mut echo, deadline)?;
         let resp = self.read_frame(deadline)?;
-        if resp.len() < 3 { return Err(TransportError::BadFrame("short".into())); }
-        Ok(resp[3..resp.len()-1].to_vec())
+        Self::payload_from_frame(&resp)
     }
 
     fn disconnect(&mut self) {}
@@ -345,5 +395,47 @@ mod tests {
         // Slow deadline must be strictly greater than the default — otherwise
         // the per-target override has no effect.
         assert!(SLOW_RESPONSE_DEADLINE > DEFAULT_RESPONSE_DEADLINE);
+    }
+
+    #[test]
+    fn build_frame_uses_bmw_fast_fmt_not_raw_length() {
+        let frame = KdcanTransport::build_frame(0x12, &[0x1A, 0x80]);
+        // 1A 80 → payload_len 2 → FMT 0x82. The old code sent 0x05.
+        assert_eq!(frame[0], 0x82, "FMT must be 0x80 | payload_len");
+        assert_eq!(frame[1], 0x12);
+        assert_eq!(frame[2], TESTER);
+        assert_eq!(&frame[3..5], &[0x1A, 0x80]);
+        let cs = frame[..5].iter().fold(0u8, |a, &b| a.wrapping_add(b));
+        assert_eq!(*frame.last().unwrap(), cs);
+        assert_eq!(frame.len(), 6);
+    }
+
+    #[test]
+    fn build_frame_tester_present_is_six_bytes() {
+        let frame = KdcanTransport::build_frame(0x12, &[0x3E, 0x00]);
+        assert_eq!(frame[0], 0x82);
+        assert_eq!(&frame[3..5], &[0x3E, 0x00]);
+    }
+
+    #[test]
+    fn expected_frame_len_bmw_fast_and_legacy() {
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x82]), Some(6));
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x81, 0x12, 0xF1, 0x7E, 0x00]), Some(5));
+        // Extended: 0x80, len=10 → 10 + 5
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x80]), None);
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x80, 10]), Some(15));
+        // Legacy Beemuu length-prefix (first byte < 0x80)
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x05]), Some(6));
+    }
+
+    #[test]
+    fn payload_from_frame_strips_bmw_fast_header() {
+        let frame = KdcanTransport::build_frame(0x12, &[0x1A, 0x80]);
+        // Fake a 5A 80 reply with the same header shape.
+        let mut resp = vec![0x82, 0xF1, 0x12, 0x5A, 0x80];
+        let cs = resp.iter().fold(0u8, |a, &b| a.wrapping_add(b));
+        resp.push(cs);
+        assert_eq!(KdcanTransport::payload_from_frame(&resp).unwrap(), vec![0x5A, 0x80]);
+        assert!(KdcanTransport::payload_from_frame(&frame[..2]).is_err());
     }
 }
