@@ -5,6 +5,21 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — Tier B (K+DCAN transport)
+
+- **BMW-FAST FMT on K+DCAN** (Tier B): `build_frame` was sending a raw
+  length byte (`0x05` for `1A 80`) instead of BMW-FAST
+  `FMT = 0x80 | payload_len` (`0x82`). Real E90 D-CAN modules ignored
+  those frames; the FTDI still echoed TX, so Traffic showed
+  `Malformed frame: short` after the full 1 s / 3 s deadline. The
+  same adapter worked in an Android K+DCAN app. Read-path length
+  decode now accepts BMW-FAST, extended, and the legacy Beemuu
+  prefix. Unit tests pin the on-wire shape. Verified 2026-08-28 on a
+  2006 E90 330i (DME answered in ~15 ms; vehicle test found 9
+  control units).
+
 ## [0.14.0] — 2026-07-25
 
 ### Added — Tier A surface (live features on the desktop + beemuu.com)
