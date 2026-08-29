@@ -19,6 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prefix. Unit tests pin the on-wire shape. Verified 2026-08-28 on a
   2006 E90 330i (DME answered in ~15 ms; vehicle test found 9
   control units).
+### Planned — Tier A (read-only research, not a v0.15.1 slice)
+
+- **E90 FRM coding dump** (Tier A): a read-only card on the Service
+  Functions tab that identifies FRM (`0x72`, KWP `1A 80`) and
+  exports a local-ID + DID probe to `~/beeemuu-exports/`. Mirror-fold
+  state is always **Unknown** — no bit map and no ECU write
+  (`write_did` / `0x3B` / `set_coding_parameter` are not added).
+  Reuses existing `scan_modules`, `probe_range`, `read_vehicle_info`,
+  and `export_text`. Harness:
+  [`docs/validation/coding-mirror-fold.md`](docs/validation/coding-mirror-fold.md).
+  To change automatic mirror folding on the car, use NCS Expert.
+  Community overlay texts for FRM `9CC1` / `9CCD` / `9CCE` /
+  `9CD0` (observed on that E90; `9CCC` and `E58B` stay unknown).
 
 ## [0.14.0] — 2026-07-25
 
