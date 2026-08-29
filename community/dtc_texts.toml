@@ -64,6 +64,18 @@
 "A559" = "Clamp 30g_f cutoff"
 "A8B6" = "Error will not cause a warning light"
 
+# --- FRM (4) ---
+# Observed 2026-08-28 on a 2006 E90 330i FRM (P/N 6988000). Wording is
+# community-paraphrased from public forum ISTA traces (BimmerFest,
+# e90post, 5post) — not copied from ISTA. 9CCC and E58B were also
+# present on that car; both stay out until a grounded sentence exists.
+# 9CC1 wording differs by FRM version (mirror LIN vs left SMC); this
+# entry uses the mirror-LIN reading seen on FRM_87 traces.
+"9CC1" = "FRM: communication with driver-side exterior mirror disturbed (LIN)"
+"9CCD" = "FRM: driver-side exterior mirror drive faulty"
+"9CCE" = "FRM: battery exhausted / deep discharge"
+"9CD0" = "FRM: driver-side exterior mirror actuation defective"
+
 # --- CAN (18) ---
 "3BD6" = "PT-CAN message vehicle speed checksum wrong/alive check"
 "3BD7" = "PT-CAN no message vehicle speed"

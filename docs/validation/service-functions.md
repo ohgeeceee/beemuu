@@ -139,6 +139,7 @@ with invented IDs (v0.8.0 plan, PR #2):
 | Steering-angle calibration | No in-repo routine ID |
 | EGS adaptation reset | No in-repo routine ID |
 | EMF (parking brake) service mode | No in-repo routine ID |
+| E90 automatic mirror folding | Variant coding (`Spiegel_Komfort_einklapp` on FRM), not a `0x31` routine. Read-only dump: [`coding-mirror-fold.md`](coding-mirror-fold.md). Writes stay out of scope (v0.8.0). |
 
 If you can ground one via a capture (§ 4 step 3), it ships as a new
 `verified: false` entry first and upgrades through this same harness.
