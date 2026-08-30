@@ -8,7 +8,7 @@ label = Test Plugin Profile [community]
 [[profile.param]]
 id = test_gear
 label = Test Gear Position
-unit = 
+unit = ""
 target = 0x18
 query = did:DA0A
 decode = u8_enum
@@ -19,7 +19,7 @@ max = 15.0
 [[profile.param]]
 id = test_engine_state
 label = Test Engine State
-unit = 
+unit = ""
 target = 0x12
 query = did:4004
 decode = u8_enum
