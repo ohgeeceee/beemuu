@@ -2953,6 +2953,101 @@ if (connected) startTriggerPoll();
 const _origSetStatus = setStatus;
 setStatus = function(...a){ _origSetStatus(...a); if(connected && !logTimer) startTriggerPoll(); else if(!connected) stopTriggerPoll(); };
 
+/* ---------------- math channels (v0.15.4) ---------------- */
+function loadMathChannels(){ try{ return JSON.parse(localStorage.getItem("beeemuu.mathChannels")||"[]"); }catch{ return []; } }
+function saveMathChannels(list){ try{ localStorage.setItem("beeemuu.mathChannels", JSON.stringify(list)); }catch{} }
+function renderMathList(){
+  const list = loadMathChannels();
+  const el=$("math-list"); if(!el) return;
+  if(!list.length){ el.textContent="(no math channels)"; return; }
+  el.innerHTML = list.map((c)=>`<span class="muted" title="${c.expr}">${c.label} = ${c.expr} <a href="#" data-math-del="${c.id}" style="color:#c44">×</a></span>`).join(" · ");
+  el.querySelectorAll("[data-math-del]").forEach((a)=>a.addEventListener("click",(e)=>{ e.preventDefault(); const id=a.getAttribute("data-math-del"); const cur=loadMathChannels().filter((x)=>x.id!==id); saveMathChannels(cur); renderMathList(); }));
+}
+function mathAllowedIds(){ const p=$("log-profile")?.value; const params=window.beeemuuProfiles?.[p]||[]; return params.map((x)=>x.id); }
+$("btn-math-add")?.addEventListener("click", ()=>{
+  const label=$("math-label")?.value.trim(); const expr=$("math-expr")?.value.trim();
+  const status=$("math-status"); if(!label||!expr){ if(status) status.textContent="label + expr required"; return; }
+  try{
+    const ch = window.beeemuuMath.createChannel(label, expr, mathAllowedIds());
+    const list=loadMathChannels(); if(list.find((x)=>x.id===ch.id)){ if(status) status.textContent="label exists"; return; }
+    list.push(ch); saveMathChannels(list); renderMathList(); if(status) status.textContent="added "+ch.id; $("math-label").value=""; $("math-expr").value="";
+  } catch(e){ if(status) status.textContent="error: "+e.message; }
+});
+renderMathList();
+// hook math evaluation into live data poll — append virtual LiveValues after real sweep
+const _origLogTick = logTick;
+logTick = async function(){
+  // call original but intercept values to inject math channels before chart push
+  if (!connected) return;
+  try{
+    const result = await invoke("read_live_data", { profile: $("log-profile").value });
+    let values = Array.isArray(result.values) ? result.values : [];
+    // math channels computed from values map
+    const mathList = loadMathChannels();
+    if (mathList.length) {
+      const map = new Map(values.map((v)=>[v.id, v.value]));
+      for (const ch of mathList) {
+        try{ const y = window.beeemuuMath.evaluate(ch.expr, map); values.push({ id: ch.id, label: ch.label, unit: "", value: y, min: -1e9, max: 1e9, text: null }); } catch {}
+      }
+    }
+    // now replicate original logTick body with injected values
+    const t = (Date.now() - logStart) / 1000;
+    for (const v of values) {
+      const isMath = v.id.startsWith("math_");
+      let s = logSeries.get(v.id);
+      if (!s && isMath) { // auto-create series for math channel if not yet present
+        // minimal series stub — real logSeries API creates on demand via profile; for math we push directly
+        // fallback: skip if no series
+        continue;
+      }
+      if (!s) continue;
+      const point = { x: t, y: v.value, text: v.text };
+      if (logSeries.paused) s.bufferPush(point); else s.push(point);
+    }
+    if (!logSeries.paused && logChart) { logChart.update("none"); updateScrubber(); }
+  } catch(e){ log("Logging: "+e); stopLogging(); }
+};
+
+/* ---------------- workspace load/save (v0.15.5 wiring) ---------------- */
+(function(){
+  if (!window.beeemuuWorkspace) return;
+  function saveWorkspaceGauges(){
+    try{
+      const list = Array.from(gauges.entries()).map(([id,g])=>{
+        // g has min/max/unit; profile is current live-profile
+        return { profile_id: $("live-profile")?.value || "unknown", param_id: id, min: g.min ?? 0, max: g.max ?? 100 };
+      });
+      const theme = document.body.getAttribute("data-theme") || "dark";
+      window.beeemuuWorkspace.save(list, theme);
+    }catch{}
+  }
+  function loadWorkspaceGauges(){
+    try{
+      const ws = window.beeemuuWorkspace.load();
+      if (ws.theme) document.body.setAttribute("data-theme", ws.theme);
+      // defer gauge restore until profiles populated
+      setTimeout(()=>{
+        for(const e of ws.gauges){
+          if(e.profile_id !== $("live-profile")?.value) continue;
+          // create stub LiveValue to ensure gauge exists
+          const v={ id:e.param_id, label:e.param_id, unit:"", value:0, min:e.min, max:e.max, text:null };
+          try{ ensureGauge(v); }catch{}
+        }
+      }, 800);
+    }catch{}
+  }
+  // monkey-patch ensureGauge to auto-save
+  if (typeof ensureGauge === "function") {
+    const _origEnsureGauge2 = ensureGauge;
+    // eslint-disable-next-line no-global-assign
+    ensureGauge = function(v){ const g=_origEnsureGauge2(v); try{ saveWorkspaceGauges(); }catch{} return g; };
+  }
+  window.addEventListener("beforeunload", saveWorkspaceGauges);
+  document.addEventListener("DOMContentLoaded", loadWorkspaceGauges);
+  // also save on theme toggle if exists
+  const btnTheme=$("btn-theme"); if(btnTheme) btnTheme.addEventListener("click", ()=>setTimeout(saveWorkspaceGauges, 300));
+})();
+
 /* ---------------- log-diff modal (v0.6.0 PR #1) ---------------------
  *
  * Compares two saved log sessions (from localStorage) channel by

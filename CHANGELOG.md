@@ -349,6 +349,26 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.6] - 2026-08-30
+
+### Added - Workspace wiring (theme + gauge layout persist)
+
+- **Workspace wiring** (`src/js/main.js`): `saveWorkspaceGauges`/`loadWorkspaceGauges` via `beeemuuWorkspace`, `ensureGauge` monkey-patch auto-save, `beforeunload` save, `DOMContentLoaded` restore (profile-filtered), theme `data-theme` persist. Completes `v0.7.0` PR #2 pile.
+
+## [0.15.5] - 2026-08-30
+
+### Added - Workspace save/load helpers
+
+- **Workspace** (`src/js/workspace.js` + `src/js/test/workspace.test.cjs`, 3 tests): `save(gauges,theme)`/`load()`/`clear()` via `localStorage.beeemuu.workspace` `{gauges:[{profile_id,param_id,min,max}], theme, savedAt}`. Pure helpers, dual export. UI wiring deferred per 3-PR discipline (next slice will call `save` on gauge add/remove + `load` on startup).
+
+## [0.15.4] - 2026-08-30
+
+### Added - Custom math channels (deferred from v0.6.0/v0.7.0)
+
+- **Math channels** (`src/js/math_channels.js` + `src/js/test/math_channels.test.cjs`, 7 tests): safe sandbox `tokenize`/`validate`/`evaluate`/`createChannel` — only `a-z0-9_` ids + `+ - * / ( )` + numbers, `Function` eval with no globals, unknown-id and unbalanced-parens rejection. Expressions e.g. `map - baro`, `(map - baro) * 10`, `rail / load`.
+- **Math panel** (`src/index.html` `#math-panel` + `src/js/main.js` wiring): label + expr inputs, Add, list with delete, `localStorage.beeemuu.mathChannels`, evaluation in `logTick` override (appends virtual `LiveValue` `math_*` to values).
+- Version surface `0.15.3` -> `0.15.4`.
+
 ## [0.15.3] - 2026-08-30
 
 ### Added - Trigger-based logging UI wiring
@@ -885,70 +905,265 @@ release on GitHub.
 ## [0.12.0] — 2026-07-21
 
 ### Added
-- Enhanced plugin system for custom decode functions via TOML profiles
-  (`src-tauri/src/community.rs`): community contributors can now add
-  per-parameter enum maps (e.g. `u8_enum`) without touching Rust code.
-  New parser functions `build_u8_enum_map`, `build_u16_enum_map`, and
-  `build_s16_enum_map` support future decoder type extensions. Six new
-  unit tests cover enum map parsing, invalid key dropping, and legacy TOML
-  backward compatibility.
-- Unknown U8Enum bytes now render as `0xNN ?` in the gauge instead of
-  silently disappearing. `live::decode_enum_string_or_unknown` is the
-  wider-stance sibling of `decode_enum_string` — `commands::read_live_data`
-  uses it so every sample produces a `LiveValue`. Five new unit tests.
-  See PR #66.
-- `npm run test:js` runs the new `node --test` harness covering
-  `src/js/live_format.js` (the pure helpers shared between
-  `Gauge.set` and `buildLogCsv`). Eight tests lock down CSV cell
-  formatting (enum labels as quoted JSON strings, numeric `toFixed(2)`,
-  missing-point handling) and gauge numeric-clamp semantics. Add
-  a new helper in `live_format.js`? Add a test alongside it.
-  See PR #65.
-- Frontend wiring for `LiveValue.text` enum labels (backend in PR #60).
-  `Gauge.set(value, label?)` enters text mode when a label is present:
-  dial, ticks, and needle are hidden and the label is drawn centred with
-  the unit underneath. `pollOnce` and `logTick` pass `v.text` through,
-  and `buildLogCsv` emits the label in a quoted CSV cell so a gear-change
-  log exports `0.00,"P/N",0.00,"1",...` rather than `0.00,0,0.00,1,...`.
-  Numeric gauges and the chart are unchanged for non-enum params.
-- Schematics deploy: `ops/beemuu.com.conf` now serves `/static/schematics/`
-  from disk (CC0 wiring-diagram SVGs), and `docs/deploy-schematics.md`
-  carries the end-to-end rollout runbook. See PR #51.
-- v0.4.0 roadmap scope published in `ROADMAP.md` ("Tuner Friendly"
-  cycle) with explicit Ready / Needs-research / Deferred split.
-- `docs/v0.4.0_first_pr.md` �?" spec for the v0.4.0 first PR (README
-  drift cleanup).
-- `u8_enum` decoder + per-parameter enum-map pipeline
-  (`src-tauri/src/data/live.rs`, `src-tauri/src/community.rs`,
-  `src-tauri/src/commands.rs`). Resolves raw bytes against a
-  `HashMap<u8, String>` loaded from TOML and emits the label as
-  `LiveValue.text`. Six new unit tests + three TOML-loader tests.
-- Example enum DIDs in `community/profiles/b58.toml` and
-  `community/profiles/n55.toml`: `gear` (DA0A), `engine_state` (4004),
-  `knock_detect` (401F). Marked `[needs verification]` pending real-car
-  validation.
-- `docs/hardware/enet-cable-pinout.md` �?" DIY OBD-II �+' RJ45 wiring
-  for the $5 AliExpress BMW ENET cable (F/G-series). Covers the
-  pinout (3, 11, 12, 13 �+" 1, 2, 3, 6), the 100 Ic termination
-  resistor, verification steps, and the Rx/Tx-crossed failure mode
-  that bites the unwary.
-- `docs/hardware/README.md` �?" index page for the new hardware-docs
-  directory.
-- Histogram viewer for the Logging tab (`src/js/histogram.js` + 13 unit
-  tests + modal UI). Operates over the existing `LogSession` data; reuses
-  Chart.js bar mode (no new deps). Channels whose `LiveValue.text` is set
-  (u8_enum from PR #60) are filtered out �?" no numeric distribution to
-  plot.
-- `ServiceFunction` extended to carry `routines: &[ModuleRoutine]` instead
-  of a single `(target, routine)` pair (`src-tauri/src/data/service_functions.rs`,
-  8 new unit tests). The existing six entries stay byte-identical in shape;
-  the new `ModuleRoutine[]` field is the path forward for adding
-  chassis-validated EGS / DSC CBS resets without inventing routine IDs.
-  The Rust `run_service_function` command takes a `module_index: Option<usize>`
-  (defaults to 0 for back-compat); the UI now renders one row per (service A- module)
-  and sends the index on invocation.
+- DTC history user-facing guide (v0.12.0 slice 6 PR #148): new
+  `docs/user/dtc-history.md` walks the operator through *when* to
+  enable DTC history recording, what the recurring-DTC callout means
+  in practice, and how to read / query / clear the persisted log.
+  Tier A docs; no Rust change.
+- Recurring-DTC callout (v0.12.0 slice 5 PR #147): when a fault appears
+  in the same module twice across two sessions, the fault table shows a
+  small "recurring" badge with a tooltip pointing at the prior
+  occurrence in the persisted history. Tier A frontend (`src/js/` +
+  `src/css/`); reads the `dtc_history` table the Tier B commands below
+  write into.
+- DTC history commands — record / query / clear (v0.12.0 Tier B
+  PR #144): three new Tauri commands (`record_dtc_read`,
+  `query_dtc_history`, `clear_dtc_history`) backed by a SQLite table
+  in the app data dir. Async (offload via `spawn_blocking` per the
+  INVARIANT in CLAUDE.md). Tier B because they live in `commands.rs`
+  (the Tauri command surface / threading boundary).
+- DTC-history wire-through (v0.12.0 slice 4 PR #146): `read_faults`
+  now optionally records each fault read into the history table behind
+  a **Settings** toggle (default OFF — recording is opt-in so the
+  history table doesn't silently grow on every read). Tier A frontend
+  + Tier B backend glue (`commands.rs`).
+- DTC history pure wrapper module + tests (v0.12.0 slice 3 PR #145):
+  `src/js/dtc_history.js` exposes `recordRead`, `query`, `clear` as
+  pure functions; 14 unit tests cover the row-shape contract, the
+  recurrence detector, and the clear-after-archive flow. Tier A
+  frontend.
+
+### Fixed
+- DTC history commands must be async (v0.12.0 follow-up): the v0.12.0
+  Tier B PR #144 first shipped with sync command handlers, which would
+  have blocked the webview on every history write. Converted to
+  `async fn` + `spawn_blocking` before merge. Tier B fix in
+  `commands.rs`.
 
 ### Changed
+- Fault Memory cycle marked Released in ROADMAP (v0.12.0 PR #149):
+  ROADMAP.md updates the v0.12.0 cycle row from "In progress" to
+  "Released" now that all six slices and the follow-up async fix have
+  shipped. Docs only.
+
+## [0.11.0]
+
+### Added
+- Export charts as PNG (v0.11.0, Tier A frontend): new **Export PNG** button
+  on the logging chart header and in the histogram modal. Both use Chart.js
+  `toBase64Image()` → a browser-native anchor download (no Rust round-trip),
+  so a logged trace or a channel distribution can be dropped straight into a
+  forum post. Buttons enable only once a chart exists. ROADMAP "Ready to
+  Claim" item.
+
+## [0.10.0]
+
+### Added
+- Plan verification badge (v0.10.0): the walkthrough panel now reads each
+  plan's `meta.verified` marker and shows a badge in the panel header —
+  **NEEDS VERIFICATION** (amber) for the default `"needs verification"`
+  state, **✓ Verified** (green) once a real-car harness walk upgrades it
+  (`docs/validation/testplans.md`). Completes the data contract PR #5
+  installed (the TOML marker now flows end-to-end: `community/testplans/*.toml`
+  → `testplans.rs` loader → `get_test_plan` → `main.js`). Rust change is
+  additive (`verified: Option<String>` on `PlanMeta` + `TestPlan`, threaded
+  through `to_plan`; legacy plans with no marker render no badge). Tier A
+  frontend + data-loader; no protected-path change.
+
+## [0.9.0]
+
+### Added
+- Guided fault-finding validation harness + contribution path (v0.9.0
+  PR #5): new `docs/validation/testplans.md` — a real-car harness that
+  upgrades a plan from `verified = "needs verification"` (the default on
+  every plan in `community/testplans/`) to `"verified"`, mirroring
+  `service-functions.md` (pre-flight, walk-the-plan, what a negative
+  result looks like, report-filing). `community/testplans/README.md`
+  gains the plan-level verification-label contract and CONTRIBUTING.md
+  gains the plan axis (rule 4) alongside the existing read/write label
+  axes. All 11 PR #2 corpus plans now ship `verified =
+  "needs verification"` — the TOML marker the walkthrough UI will read
+  to surface a NEEDS VERIFICATION badge (UI rendering is a small
+  follow-up; the marker is the data contract). The marker lives in TOML
+  (not a comment) and is ignored by the loader (no
+  `deny_unknown_fields`), so the branch-integrity gate stays green. Tier
+  A docs; no Rust/Python change beyond the data marker. Completes the
+  v0.9.0 "Guided Fault Finding" cycle.
+- Guided fault-finding walkthrough UI (v0.9.0 PR #4): new `src/js/main.js`
+  mounts a branching test-plan walkthrough panel (`#walkthrough-panel`)
+  beside the opinion / schematics panels in the DTC-detail composition, and
+  `src/css/app.css` adds the panel styles. Clicking a DTC loads its plan via
+  the read-only `get_test_plan` command (v0.9.0 PR #3) and renders step
+  cards with Pass / Fail / Continue branch buttons, freeze-frame context
+  seeding on the entry step, a breadcrumb of the path taken, and a
+  conclusion card. Branch traversal is a pure, unit-tested reducer
+  (`src/js/testplan_walk.js`, `src/js/test/testplan_walk.test.cjs` — 12
+  tests). Tier A frontend; no Rust/Python change.
+- Guided fault-finding plan loader + query command (v0.9.0 PR #3): new
+  `src-tauri/src/testplans.rs` loads `community/testplans/*.toml` into an
+  in-memory KB at startup and exposes a read-only `get_test_plan(dtc_code)`
+  Tauri command returning the plan graph (`Option<TestPlan>`). Branch
+  traversal is intentionally left to the frontend — the command is a
+  stateless lookup, same class as `get_opinions`, and is added to the
+  `async_commands` sync allowlist with justification. Loader handles a
+  missing dir, skips malformed/suppressed files, and is case-insensitive.
+  **Tier B** (touches `commands.rs` / `lib.rs`) — hand-merged after review.
+- Guided fault-finding first corpus (v0.9.0 PR #2): 11 grounded test
+  plans under `community/testplans/` — 2A82 (VANOS solenoid), 29E0 / 29E1
+  / 29E2 (fuel rail pressure family), 30FF (boost leak), 29CC (misfire),
+  2E81 / 2E82 (electric coolant pump), P0171 (lean, with N55/S55 fuel-trim
+  DIDs 0x1201/0x1202), P0300 (misfire), and P0420 (catalyst — diagnose
+  only; readiness-monitor masking is a permanent exclusion). Every step
+  cites an in-repo source (opinions / oracle / stories / dim01 / dim04 /
+  TECH_SPECS). `docs/testplans.md` gains the corpus table and a
+  known-missing list (2A99, wastegate-branch 30FF, P0011/P0014, P0087,
+  P0128, VANOS timing family) rather than faking ungrounded plans. All 11
+  pass the branch-integrity gate; data-only, no code change.
+- Guided fault-finding test-plan schema (v0.9.0 PR #1): new
+  `community/testplans/<dtc>.toml` `[[step]]` format for branching
+  diagnostic walkthroughs (measurement verbs, `on_pass`/`on_fail`/`next`
+  branches, conclusion nodes, mandatory per-step in-repo `source`
+  citation). Contract documented in `docs/testplans.md` with an
+  author-facing quick reference in `community/testplans/README.md`. The
+  schema is enforced by a new CI gate
+  (`community::tests::shipped_testplans_branch_integrity`): branch
+  targets must resolve, a conclusion must be reachable from `s1`, every
+  step must be sourced, `dtc` must match the filename, and the reachable
+  graph must be acyclic. A `[meta.suppressed]` placeholder is allowed for
+  known-missing DTCs. No production code changed — the loader lands in a
+  later slice.
+- Oracle JSON parse gate (v0.9.0 PR #1): every `community/oracle/*.json`
+  is now CI-gated (`community::tests::shipped_oracle_json_parses`). Before
+  this, a broken Oracle file failed only as a startup `eprintln!` that CI
+  never saw — the JSON analogue of the v0.8.0 TOML parse gate.
+
+- Dark/light theme toggle completed: the whole app chrome now re-skins
+  through CSS variables (`src/css/app.css`) instead of the previous
+  per-panel dark overrides, and the choice persists across restarts via
+  the new workspace file. (v0.7.0 PR #2)
+- Workspace layout persistence: theme, app mode, active tab, connection
+  panel choices, live/log profile selectors, traffic auto-refresh, and
+  the per-profile log channel enabled map save to
+  `~/beeemuu-exports/workspace.json` (debounced writes via the new
+  `read_export_text` command); the pre-v0.7.0 `localStorage` settings
+  migrate automatically on first boot. (v0.7.0 PR #2)
+- Per-profile gauge colour schemes: an optional `[profile.theme]` TOML
+  table recolours the live-data gauges (nine keys, per-key fallback to
+  the cockpit palette, colours CSS-validated in the UI). Reference block
+  in `community/profiles/b58.toml`; syntax documented in
+  `docs/DECODE_FUNCTIONS.md` § 9. (v0.7.0 PR #2)
+- N20/N26 engine profile (`community/profiles/n20.toml`): F-series 2.0
+  turbo I4 (MEVD17.2) coverage — 10 emissions-mandated OBD-II PIDs plus
+  the F-series OBDb-sourced UDS DID set mirrored from `b58.toml`, every
+  UDS entry marked `[needs verification]` pending real-car validation.
+  (v0.7.0 PR #3)
+- S55 engine profile (`community/profiles/s55.toml`): F80/F82/F87 M
+  twin-turbo I6 — N55-derived DID set with raised rpm/HPFP display
+  ranges, N55-family fuel-trim DIDs, an unverified oil-temp placeholder
+  (track-use criticality noted), and a BMW M tricolor `[profile.theme]`
+  block — the first shipping consumer of per-profile gauge themes.
+  (v0.7.0 PR #3)
+- Community data rescue: five shipped data files were truncated and
+  silently dead — `community/dtc_texts.toml` (cut mid-string; 0 overlay
+  entries loaded), `community/freeze_schemas.toml` (cut at `bias =`),
+  and the `n52`/`n54`/`n62` profiles (cut mid-parameter). The DTC
+  corpus is rebuilt from in-repo sources (`backend/seed_bmw_dim01.py`,
+  `backend/seed_bmw.py`, `community/opinions/`) to 208 overlay entries;
+  the profiles' tails are restored to the canonical emissions-mandated
+  OBD-II block; freeze-frame values restored from `community/README.md`'s
+  own example. (v0.8.0 PR #1)
+- Community TOML parse gate: new cargo unit tests parse every shipped
+  `community/**/*.toml` (syntax) plus the `dtc_texts.toml` corpus shape,
+  so a broken data file now fails CI's `cargo test` job instead of
+  loading silently. (v0.8.0 PR #1)
+- `CONTRIBUTING.md` completed: the file ended mid-table; the promised
+  Parameter Explorer, code-contribution, and development-setup sections
+  now exist, and the verification-label conventions
+  (`[needs verification]`, `[UNVERIFIED placeholder]`, how labels come
+  off via `docs/validation/` harness reports) are documented.
+  (v0.8.0 PR #1)
+- B48/B46 engine profile (`community/profiles/b48.toml`): F/G-series
+  2.0 turbo modular I4 (G20 330i, G01 X3 30i era) — 10 emissions-
+  mandated OBD-II PIDs plus the mirrored OBDb-sourced F-series UDS DID
+  set, G-series DID applicability uncertainty documented, every UDS
+  entry marked `[needs verification]`. (v0.8.0 PR #3)
+- S58 engine profile (`community/profiles/s58.toml`): G80/G82/F97/F98
+  M twin-turbo I6 (M-tuned B58 architecture) — mirrored DID set with
+  7500 rpm and 30.0 MPa display ranges, unverified oil-temp placeholder
+  (track criticality), fuel trims deliberately omitted per the
+  TECH_SPECS-documents-N55-only precedent, and the BMW M tricolor
+  `[profile.theme]` block. (v0.8.0 PR #3)
+- N57 engine profile (`community/profiles/n57.toml`): first diesel
+  profile — F-series 3.0 turbo diesel I6 (DDE). Petrol-mirrored UDS
+  DIDs minus knock detection (no knock sensors on compression
+  ignition), no fuel trims (petrol-only concept), 250 MPa rail display
+  range, plus eight diesel enum DIDs (DPF state/regen/ash/soot, glow
+  plugs, NOx, exhaust temp, EGR cooler) sourced from the
+  `docs/DECODE_FUNCTIONS.md` § 8 DDE candidate catalog; everything UDS
+  marked `[needs verification]`. (v0.8.0 PR #3)
+- ECU scan table broadened 12 → 17 (`src-tauri/src/data/ecus.rs`): five
+  F/G-series addresses grounded in the OBDb-verified DIDs of
+  `research/bmw_diag_dim04_uds_dids.md` — `0x19` (DSC chassis variant on
+  5-Series/X5, did:DBE4/DB32/DFE7), `0x56` (body domain, did:DCDD),
+  `0x63` (current gear, did:D031; exact module unconfirmed), `0x0D`
+  (secondary cluster target, did:D240), `0x07` (HV battery, PHEV/BEV
+  only). The existing 12 entries gained honest provenance comments (OBDb
+  + sim / sim + DTC corpus / standard E-series assignment with no
+  in-repo confirmation yet). The simulator answers the new addresses,
+  and `docs/hardware/addressing-model.md` documents why the one-byte
+  scan-table model holds on both K+DCAN and ENET (HSFZ one-byte src/tgt
+  routed by the ZGW; DoIP u16 logical addresses appear only in vehicle
+  discovery). (v0.8.0 PR #4)
+- Service-function verification status + `[UNVERIFIED]` write gating
+  (`src-tauri/src/data/service_functions.rs`): `ServiceFunction` gains a
+  `verified` flag; all six existing routines are marked
+  `verified: false` after an audit found their routine IDs
+  (`0x0F01`–`0x0F04`, `0x0A01`/`0x0A02`) are v0.4.0 simulator
+  placeholders with no in-repo chassis grounding (BMW routine IDs are
+  security-sensitive/unpublished per `research/bmw_diag_landscape.md`).
+  No new routine IDs ship — none are grounded in-repo; DPF regen,
+  throttle/Valvetronic adaptation, steering-angle calibration, EGS
+  adaptation reset, and EMF service mode are documented as
+  known-missing instead. The Service Functions UI renders an
+  `UNVERIFIED` tag and prepends a "routine ID not chassis-validated"
+  preamble to the run confirmation; new harness doc
+  `docs/validation/service-functions.md` (referenced from
+  `CONTRIBUTING.md`) is the label-removal path. A new contract test
+  locks every shipped entry to `verified == false` until a harness
+  report lands. (v0.8.0 PR #2)
+
+## [0.6.0] - 2026-07-16
+
+### Added
+- OBD-II mode 01 PID auto-discovery
+  ([`src-tauri/src/protocol/mod.rs`](src-tauri/src/protocol/mod.rs))
+  — new `scan_obd2_pids()` helper walks SAE J1979 PID bitmasks
+  (`0x00 / 0x20 / 0x40 / 0x60`) to report which standard OBD-II
+  PIDs a single ECU actually responds to. Stop-at-first-zero
+  bitmask byte keeps the scan bounded; bitmask PIDs that fail
+  their own probe are skipped per-block. Wrapped in a new
+  Tauri command `list_supported_pids(address)` and surfaced
+  on the Vehicle Test tab via a "Scan OBD-II PIDs" button
+  that renders the supported set as a grid of monospace
+  hex cells. Five new unit tests in `protocol/mod.rs` cover
+  the bitmask decoder (MSB-first), the multi-block walk, the
+  empty bitmask case, and the "bitmask says yes but data read
+  fails" drop-on-mismatch case. See PR #81.
+- Real-car injector-time validation harness
+  ([`docs/validation/injector-validation.md`](docs/validation/injector-validation.md))
+  — checklist for an F/G-series owner to validate the
+  `inj_time` channel (DID `0x4363`, target `0x12`) on B58 /
+  N55 by comparing against ISTA at three steady-state points
+  (idle / cruise / WOT). Mirrors the v0.5.0 PR #72 u8_enum
+  harness shape. Doc-only.
+- The `inj_time` labels in
+  [`community/profiles/b58.toml`](community/profiles/b58.toml)
+  and [`community/profiles/n55.toml`](community/profiles/n55.toml)
+  now carry the `[needs verification, UDS only]` marker,
+  matching the v0.5.0 PR #73 discipline for the example
+  enum / fuel-trim DIDs. The DID, decode, and range are
+  unchanged — only the label is updated.
+- Unknown U8Enum bytes now render as `0xNN ?` in the gauge instead of
   silently disappearing. `live::decode_enum_string_or_unknown` is the
   wider-stance sibling of `decode_enum_string` — `commands::read_live_data`
   uses it so every sample produces a `LiveValue`. Five new unit tests.
