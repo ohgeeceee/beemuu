@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import hashlib
 import json
 import os
 import sqlite3
@@ -23,6 +24,7 @@ from . import admin_api, auth, bootstrap, cross_links, db, schematics
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 ADMIN = FRONTEND / "admin"
+SHARED_LOGS = ROOT / "shared_logs"
 
 # Cookie name for the admin session. Limit to safe ASCII; auth.lookup_session
 # treats anything it can't find as None, so a hostile cookie value is harmless.
@@ -416,6 +418,20 @@ class Handler(BaseHTTPRequestHandler):
             slug = tail
             self._handle_schematic_by_slug(slug)
             return
+        # Shared log viewer — read-only, no auth, id = sha256 of CSV
+        if parsed.path == "/api/logs":
+            self._handle_logs_list(parse_qs(parsed.query))
+            return
+        if parsed.path.startswith("/api/logs/"):
+            log_id = parsed.path[len("/api/logs/"):].strip().strip("/")
+            self._handle_log_by_id(log_id)
+            return
+        if parsed.path in ("/log-viewer.html", "/log-viewer"):
+            self._file(FRONTEND / "log-viewer.html", "text/html; charset=utf-8")
+            return
+        if parsed.path == "/log-viewer.js":
+            self._file(FRONTEND / "log-viewer.js", "application/javascript; charset=utf-8")
+            return
         if parsed.path in ("/", "/index.html"):
             self._file(FRONTEND / "index.html", "text/html; charset=utf-8")
             return
@@ -642,6 +658,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/admin/login":
             self._handle_admin_login()
+            return
+
+        if parsed.path == "/api/logs":
+            self._handle_log_create()
             return
 
         # Only /api/admin/* POSTs require admin auth. Any other POST path
@@ -1044,6 +1064,62 @@ class Handler(BaseHTTPRequestHandler):
             db_path, slug, include_disabled=include_disabled
         )
         self._json({"slug": slug, "count": len(results), "results": results})
+
+    def _handle_logs_list(self, query: dict) -> None:
+        limit = int(query.get("limit", ["50"])[0]) if query.get("limit") else 50
+        limit = max(1, min(100, limit))
+        SHARED_LOGS.mkdir(exist_ok=True)
+        files = sorted(SHARED_LOGS.glob("*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+        results = [{"id": p.stem, "size": p.stat().st_size, "mtime": int(p.stat().st_mtime)} for p in files]
+        self._json({"count": len(results), "results": results})
+
+    def _handle_log_by_id(self, log_id: str) -> None:
+        if not log_id or not all(c in "0123456789abcdef" for c in log_id.lower()) or len(log_id) < 8:
+            self._json({"error": "invalid id"}, status=400)
+            return
+        path = SHARED_LOGS / f"{log_id.lower()}.csv"
+        if not path.is_file():
+            self._json({"error": "not found", "id": log_id}, status=404)
+            return
+        try:
+            body = path.read_bytes()
+        except OSError:
+            self._json({"error": "read failed"}, status=500)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_log_create(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self._json({"error": "invalid Content-Length"}, status=400)
+            return
+        if length <= 0 or length > 5 * 1024 * 1024:
+            self._json({"error": "body too large or empty (max 5MB)"}, status=400)
+            return
+        raw = self.rfile.read(length)
+        if not raw or len(raw) < 10:
+            self._json({"error": "empty csv"}, status=400)
+            return
+        # basic csv sanity: must contain comma and newline
+        if b"," not in raw or b"\n" not in raw:
+            self._json({"error": "not csv"}, status=400)
+            return
+        log_id = hashlib.sha256(raw).hexdigest()[:16]
+        SHARED_LOGS.mkdir(parents=True, exist_ok=True)
+        path = SHARED_LOGS / f"{log_id}.csv"
+        if not path.is_file():
+            try:
+                path.write_bytes(raw)
+            except OSError as e:
+                self._json({"error": f"write failed: {e}"}, status=500)
+                return
+        self._json({"id": log_id, "url": f"/log-viewer.html?id={log_id}", "size": len(raw)})
 
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"{self.address_string()} - {fmt % args}")
