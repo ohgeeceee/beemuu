@@ -349,6 +349,14 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.4] - 2026-08-30
+
+### Added - Custom math channels (deferred from v0.6.0/v0.7.0)
+
+- **Math channels** (`src/js/math_channels.js` + `src/js/test/math_channels.test.cjs`, 7 tests): safe sandbox `tokenize`/`validate`/`evaluate`/`createChannel` — only `a-z0-9_` ids + `+ - * / ( )` + numbers, `Function` eval with no globals, unknown-id and unbalanced-parens rejection. Expressions e.g. `map - baro`, `(map - baro) * 10`, `rail / load`.
+- **Math panel** (`src/index.html` `#math-panel` + `src/js/main.js` wiring): label + expr inputs, Add, list with delete, `localStorage.beeemuu.mathChannels`, evaluation in `logTick` override (appends virtual `LiveValue` `math_*` to values).
+- Version surface `0.15.3` -> `0.15.4`.
+
 ## [0.15.3] - 2026-08-30
 
 ### Added - Trigger-based logging UI wiring
