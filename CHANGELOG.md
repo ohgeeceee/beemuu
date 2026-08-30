@@ -321,6 +321,13 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.2] - 2026-08-30
+
+### Added - Trigger-based logging engine (deferred from v0.6.0/v0.7.0)
+
+- **Trigger engine** (src/js/trigger.js + src/js/test/trigger.test.cjs, 6 tests): pure helpers evaluateThreshold, evaluateDtcTrigger, shouldAutoStart. Threshold ops > >= < <= == != + DTC */specific code. Dual export (CommonJS + window.beeemuuTrigger). No DOM, no Chart.js.
+- Logging tab wiring deferred to next slice (poll-loop integration + UI panel) per 3-PR spine discipline.
+
 ## [0.15.1] — 2026-08-30
 
 ### Added — Injector duty cycle (v0.6.0 PR #2)
