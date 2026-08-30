@@ -15,8 +15,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v0.5.1](https://img.shields.io/badge/release-v0.5.1-success.svg)](RELEASE_NOTES_v0.5.1.md)
-[![v0.15.3](https://img.shields.io/badge/release-v0.15.3-blue.svg)](CHANGELOG.md)
+[![v0.15.6](https://img.shields.io/badge/release-v0.15.6-blue.svg)](CHANGELOG.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core — for talking to your BMW's ECUs over OBD-II. It speaks **UDS**
@@ -118,35 +117,6 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The active release cycle is **v0.5.1 — "Ground Truth + Plugins"** (released
-2026-08-30). Items shipped in this cycle:
-
-- **Plugin system for custom decoders** ✅ — community contributors can add
-  per-parameter enum maps via TOML (`community/profiles/*.toml`) without touching
-  Rust. Extensible parser (`build_u8_enum_map` + stubs for `u16/s16_enum`) in
-  [`src-tauri/src/community.rs`](src-tauri/src/community.rs). See
-  [`RELEASE_NOTES_v0.5.1.md`](RELEASE_NOTES_v0.5.1.md).
-- **Histograms of logged channels** ✅ — distribution of values over a
-  CSV log (knock retard, boost error, etc.). Client-side; no protocol
-  change. Shipped in v0.4.0.
-- **`u8_enum` decoder + enum tables** ✅ — gear position, engine state, knock
-  state as named strings, not numbers. Spec in
-  [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8. Shipped in v0.4.0.
-- **CBS reset for EGS / DSC** — extend the existing CBS reset to other
-  modules. (`src-tauri/src/data/service_functions.rs`.) Deferred pending
-  real-car validation.
-- **$5 AliExpress ENET cable pinout doc** ✅ — shipped in v0.4.0.
-  See [`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md)
-  for the OBD-II → RJ45 wiring + 100 Ω termination.
-
-Larger items (log merge, custom math channels, knock visualisation,
-real-car B58/N55 F-series validation, OBDLink MX+ support) are 🟡 and
-will move to 🟢 once the prerequisites land. See [`ROADMAP.md`](ROADMAP.md)
-for full status.
-
-### Recently shipped (v0.3.0 — 2026-07-11)
-
-For context — these are already in the binary and are *not* "coming":
 The previous cycle was **v0.8.0 — "Service Bay"** (PRs #114 / #115 /
 #116 merged; PR #117 pending human merge): service-function breadth
 with `[UNVERIFIED]` write gating, DTC-text rescue + corpus growth to
@@ -243,14 +213,6 @@ For context — these are in the binary and are *not* "coming":
   as a grid of monospace hex cells. Useful diagnostic before
   opening Parameter Explorer. 5 new unit tests.
 
-### v0.5.1 "Ground Truth + Plugins" — new in this release
-
-- **Plugin system for custom decoders** ✅ — extensible enum-map parser in
-  [`src-tauri/src/community.rs`](src-tauri/src/community.rs) (`build_u8_enum_map`
-  + stubs for `u16_enum`/`s16_enum`). Community TOML profiles now formally
-  support per-parameter `enum = { ... }` maps without Rust changes.
-  ([`RELEASE_NOTES_v0.5.1.md`](RELEASE_NOTES_v0.5.1.md))
-
 ### Ideas being explored (not on the roadmap yet)
 
 These are not promised and not scheduled. They are mentioned in
@@ -264,10 +226,7 @@ PR — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) Rule 2
 - **Tuning Fingerprint Detector** — compare live-data distributions
   against a stock baseline (useful when buying used).
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.5.1**
-(2026-08-30), "Ground Truth + Plugins" — Plugin system for custom decoders
-via TOML. See [`RELEASE_NOTES_v0.5.1.md`](RELEASE_NOTES_v0.5.1.md).
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.15.3**
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.15.6**
 (2026-07-16), "Real Hardware" — log-merge modal, injector-time
 validation harness, OBD-II PID auto-discovery. See
 [`RELEASE_NOTES_v0.6.0.md`](RELEASE_NOTES_v0.6.0.md).

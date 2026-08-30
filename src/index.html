@@ -240,6 +240,14 @@
           <label><input type="checkbox" id="trigger-dtc-enabled" /> Auto-start on DTC</label>
           <span id="trigger-status" class="muted" style="margin-left:auto"></span>
         </div>
+        <div id="math-panel" class="panel" style="padding:8px 10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border);">
+          <span class="muted" style="font-weight:600">Math:</span>
+          <input id="math-label" type="text" placeholder="label e.g. boost" style="width:110px" />
+          <input id="math-expr" type="text" placeholder="expr e.g. map - baro" style="width:180px" />
+          <button id="btn-math-add" class="btn btn-small">Add</button>
+          <span id="math-list" class="muted"></span>
+          <span id="math-status" class="muted" style="margin-left:auto"></span>
+        </div>
         <div class="log-body">
           <div class="log-params" id="log-params"></div>
           <div class="log-chart-wrap">
@@ -687,6 +695,7 @@
   <script src="js/dtc_history.js"></script>
   <script src="js/recurring_dtc.js"></script>
   <script src="js/trigger.js"></script>
+  <script src="js/math_channels.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>
