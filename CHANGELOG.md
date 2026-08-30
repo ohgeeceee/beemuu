@@ -349,6 +349,12 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.5] - 2026-08-30
+
+### Added - Workspace save/load helpers
+
+- **Workspace** (`src/js/workspace.js` + `src/js/test/workspace.test.cjs`, 3 tests): `save(gauges,theme)`/`load()`/`clear()` via `localStorage.beeemuu.workspace` `{gauges:[{profile_id,param_id,min,max}], theme, savedAt}`. Pure helpers, dual export. UI wiring deferred per 3-PR discipline (next slice will call `save` on gauge add/remove + `load` on startup).
+
 ## [0.15.4] - 2026-08-30
 
 ### Added - Custom math channels (deferred from v0.6.0/v0.7.0)
