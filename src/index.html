@@ -229,6 +229,17 @@
           <button id="btn-log-restore" class="btn btn-small">Restore</button>
           <button id="btn-log-restore-dismiss" class="btn btn-small">Dismiss</button>
         </div>
+        <div id="trigger-panel" class="panel" style="padding:8px 10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border);">
+          <span class="muted" style="font-weight:600">Trigger:</span>
+          <select id="trigger-channel" title="Channel to watch"></select>
+          <select id="trigger-op"><option value=">">></option><option value=">=">≥</option><option value="<"><</option><option value="<=">≤</option><option value="==">==</option></select>
+          <input id="trigger-threshold" type="number" placeholder="threshold" style="width:90px" />
+          <label><input type="checkbox" id="trigger-enabled" /> Auto-start on threshold</label>
+          <span class="muted">|</span>
+          <input id="trigger-dtc" type="text" placeholder="DTC e.g. 2A82 or * for any" style="width:130px" />
+          <label><input type="checkbox" id="trigger-dtc-enabled" /> Auto-start on DTC</label>
+          <span id="trigger-status" class="muted" style="margin-left:auto"></span>
+        </div>
         <div class="log-body">
           <div class="log-params" id="log-params"></div>
           <div class="log-chart-wrap">
@@ -675,6 +686,7 @@
   <script src="js/walkthrough_bundle.js"></script>
   <script src="js/dtc_history.js"></script>
   <script src="js/recurring_dtc.js"></script>
+  <script src="js/trigger.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>

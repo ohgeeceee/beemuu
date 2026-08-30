@@ -2901,6 +2901,58 @@ $("log-diff-close").addEventListener("click", () => {
   $("log-diff-overlay").classList.add("hidden");
 });
 
+/* ---------------- trigger-based logging (v0.15.2+) ---------------- */
+function loadTriggers() {
+  try { return JSON.parse(localStorage.getItem("beeemuu.triggers") || "null") || []; } catch { return []; }
+}
+function saveTriggers(triggers) { try { localStorage.setItem("beeemuu.triggers", JSON.stringify(triggers)); } catch {} }
+function populateTriggerChannels() {
+  const sel = $("trigger-channel");
+  if (!sel) return;
+  const profile = $("log-profile")?.value;
+  const params = window.beeemuuProfiles?.[profile] || [];
+  sel.innerHTML = params.map((p) => `<option value="${p.id}">${p.label} (${p.id})</option>`).join("") || `<option value="">(no params)</option>`;
+}
+function triggerToList() {
+  const thr = { channelId: $("trigger-channel")?.value, op: $("trigger-op")?.value || ">", threshold: parseFloat($("trigger-threshold")?.value), enabled: $("trigger-enabled")?.checked };
+  const dtc = { type: "dtc", code: ($("trigger-dtc")?.value || "").trim() || "*", enabled: $("trigger-dtc-enabled")?.checked };
+  const list = [];
+  if (thr.enabled && thr.channelId && !Number.isNaN(thr.threshold)) list.push(thr);
+  if (dtc.enabled) list.push(dtc);
+  return list;
+}
+let triggerPoll = null;
+function startTriggerPoll() {
+  if (triggerPoll) return;
+  triggerPoll = setInterval(async () => {
+    if (!connected || logTimer) return;
+    const triggers = triggerToList();
+    if (!triggers.length) { const s=$("trigger-status"); if(s) s.textContent="idle"; return; }
+    try {
+      const live = await invoke("read_live_data", { profile: $("log-profile").value });
+      const values = Array.isArray(live.values) ? live.values : [];
+      // DTC check is best-effort: read from first present ECU if any
+      let dtcs = [];
+      try { const m = modules.find((x)=>x.present); if (m) dtcs = await invoke("read_faults", { address: m.address }); } catch {}
+      const fire = window.beeemuuTrigger && window.beeemuuTrigger.shouldAutoStart(triggers, values, dtcs);
+      const s=$("trigger-status"); if(s) s.textContent = fire ? "trigger fired → starting" : "watching…";
+      if (fire) { log("Trigger fired → auto-starting logging"); startLogging(); }
+    } catch {}
+  }, 1000);
+}
+function stopTriggerPoll() { if (triggerPoll) { clearInterval(triggerPoll); triggerPoll=null; } }
+["change","input"].forEach((ev)=>{
+  ["trigger-channel","trigger-op","trigger-threshold","trigger-enabled","trigger-dtc","trigger-dtc-enabled"].forEach((id)=>{
+    const el=$(id); if(el) el.addEventListener(ev, ()=>{ saveTriggers(triggerToList()); const s=$("trigger-status"); if(s) s.textContent="watching…"; });
+  });
+});
+if ($("log-profile")) $("log-profile").addEventListener("change", populateTriggerChannels);
+populateTriggerChannels();
+if (connected) startTriggerPoll();
+// hook connect/disconnect to start/stop poll
+const _origSetStatus = setStatus;
+setStatus = function(...a){ _origSetStatus(...a); if(connected && !logTimer) startTriggerPoll(); else if(!connected) stopTriggerPoll(); };
+
 /* ---------------- log-diff modal (v0.6.0 PR #1) ---------------------
  *
  * Compares two saved log sessions (from localStorage) channel by

@@ -268,3 +268,17 @@ label = "B58 3.0 turbo I6 (DME 8.x, F/G-series) [community, OBDb-verified DIDs]"
   enum = { "0" = "None", "1" = "Light", "2" = "Moderate", "3" = "Severe" }
   min = 0.0
   max = 3.0
+
+  # ---- v0.6.0 injector duty cycle (B58 F/G-series only) ----
+  # Same placeholder scheme as N55 0x4401. B58 DID is 0x4402 to keep
+  # per-engine IDs distinct. Scale u16_fiftieths (0.02) → 0-100%.
+
+  [[profile.param]]
+  id = "inj_duty"
+  label = "Injector duty cycle (DME) [needs verification, UDS only]"
+  unit = "%"
+  target = 0x12
+  query = "did:4402"
+  decode = "u16_fiftieths"
+  min = 0.0
+  max = 100.0

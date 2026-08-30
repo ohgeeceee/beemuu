@@ -349,6 +349,27 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.3] - 2026-08-30
+
+### Added - Trigger-based logging UI wiring
+
+- **Logging tab trigger panel** (`src/index.html` `#trigger-panel` + `src/js/main.js` trigger poll): threshold (`channel + op + value`) and DTC (`code or *`) toggles, `localStorage` persist, 1s poll via `read_live_data` + `read_faults`, auto `startLogging()` on `shouldAutoStart`. Script tag `js/trigger.js` loaded before `main.js`.
+- Version surface `0.15.2` -> `0.15.3`.
+
+## [0.15.2] - 2026-08-30
+
+### Added - Trigger-based logging engine (deferred from v0.6.0/v0.7.0)
+
+- **Trigger engine** (src/js/trigger.js + src/js/test/trigger.test.cjs, 6 tests): pure helpers evaluateThreshold, evaluateDtcTrigger, shouldAutoStart. Threshold ops > >= < <= == != + DTC */specific code. Dual export (CommonJS + window.beeemuuTrigger). No DOM, no Chart.js.
+- Logging tab wiring deferred to next slice (poll-loop integration + UI panel) per 3-PR spine discipline.
+
+## [0.15.1] — 2026-08-30
+
+### Added — Injector duty cycle (v0.6.0 PR #2)
+
+- **Injector duty cycle DIDs** (`community/profiles/n55.toml` `did:4401`, `community/profiles/b58.toml` `did:4402`): new `inj_duty` param `unit="%"` `decode="u16_fiftieths"` (raw*0.02, 0-100% -> raw 0-5000). Marked `[needs verification, UDS only]` per v0.5-v0.6 discipline; KWP2000 (E-series) will NOT respond. Uses existing `Decode::U16Fiftieths` (no Rust change, TOML-only).
+- Version surface bump `0.15.0` -> `0.15.1` (`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`).
+
 ## [0.15.0] — 2026-08-05
 
 > **Cycle status:** shipped 2026-08-05 via PRs #228,
