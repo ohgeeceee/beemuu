@@ -10,9 +10,21 @@ let selectedAddress = null;
 const gauges = new Map(); // id -> Gauge
 let pollTimer = null;
 let sessionReplay = false; // true when viewing a loaded snapshot
+
+// v0.14.2 slice 2 — Live Data panel UX polish. Peak tracking is a
+// pure reducer (applyValuesToPeaks); this Map<string, number> is the
+// per-session state the panel reads back. Reset on profile change.
+let livePeakState = {};
 let unlockStates = new Map(); // address -> bool
 let secCountdown = null; // interval id for NRC 0x37 retry countdown
 let lastDtcs = []; // cached DTCs for CSV export
+const profileThemes = {}; // profile id -> gauge colour overrides from [profile.theme]
+let workspaceState = {}; // persisted UI prefs — single source of truth (js/workspace.js)
+let workspaceSaveTimer = null; // debounce handle for workspace.json writes
+// v0.15.0 slice 2c — K+DCAN data source handle. Initialized below at
+// boot; pollOnce() feeds it each read_live_data sweep; live_gauges.js
+// reads through it instead of the simulator mirror.
+let kdcanDataSource = null;
 
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
@@ -24,66 +36,176 @@ function log(text) {
 }
 
 /* ---------------- theme toggle ---------------- */
+/* DOM-only: flip body[data-theme] and the button glyph. Persistence is
+ * workspace.json (v0.7.0) — gather + debounced save happens in
+ * saveSettings(), so the toggle just calls it. The pre-v0.7.0
+ * localStorage key ("beeemuu_dark") is migrated once at boot by
+ * loadWorkspace(); the OS `prefers-color-scheme` preference remains the
+ * default when no workspace file exists. */
 function applyTheme(dark) {
   document.body.dataset.theme = dark ? "dark" : "light";
   $("btn-theme").textContent = dark ? "☀" : "🌙";
-  try { localStorage.setItem("beeemuu_dark", dark ? "1" : "0"); } catch (_) {}
 }
 function toggleTheme() {
   applyTheme(document.body.dataset.theme !== "dark");
+  saveSettings();
 }
-function loadTheme() {
-  let dark = false;
-  try { dark = localStorage.getItem("beeemuu_dark") === "1"; } catch (_) {}
-  // Respect OS preference if no saved choice
-  if (dark || (!localStorage.getItem("beeemuu_dark") && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-    applyTheme(true);
+
+/* ---------------- persistent workspace ---------------- */
+/* v0.7.0 — all UI prefs live in ~/beeemuu-exports/workspace.json (one
+ * persistence system, same folder as the other exports). workspaceState
+ * is the in-memory source of truth; the pure (de)serialisation rules
+ * live in js/workspace.js so they stay Node-testable. saveSettings()
+ * gathers the current DOM into workspaceState and debounces a file
+ * write; it replaces the pre-v0.7.0 localStorage keys
+ * ("beeemuu_settings", "beeemuu_mode", "beeemuu_dark"), which
+ * loadWorkspace() migrates once at boot. Recorded log sessions
+ * ("beeemuu-log-session-*") are captured data, not prefs, and stay in
+ * localStorage. */
+function saveSettings() {
+  try {
+    const ws = workspaceState;
+    ws.theme = document.body.dataset.theme === "dark" ? "dark" : "light";
+    ws.mode = $("app-mode").value;
+    const tab = document.querySelector(".tab.active");
+    if (tab) ws.activeTab = tab.dataset.view;
+    ws.conn = {
+      kind: $("conn-kind").value,
+      port: $("conn-port").value,
+      dcan: $("conn-dcan").value,
+      addr: $("conn-addr").value,
+      // "options open" = at least one cable panel is expanded. (The
+      // pre-v0.7.0 code ANDed the two panels instead, which was never
+      // true — only one kind's panel is visible at a time — so the flag
+      // effectively always saved false.)
+      optsOpen: !($("conn-kdcan-opts").classList.contains("hidden") && $("conn-enet-opts").classList.contains("hidden")),
+    };
+    ws.liveProfile = $("live-profile").value;
+    ws.logProfile = $("log-profile").value;
+    ws.trafficAuto = $("traffic-auto").checked;
+    // v0.12.0 Fault Memory: opt-in to recording DTC reads to a local
+    // JSONL log under ~/beeemuu-exports/. Default off; the user toggles
+    // it on in the Settings panel. The recording hook in readFaults()
+    // is a no-op when this is false.
+    ws.recordDtcHistory = $("record-dtc-history") ? $("record-dtc-history").checked : false;
+    // Log channel enabled map for the *current* log profile, read from
+    // the checkbox DOM. Only written when checkbox rows exist —
+    // otherwise every boot (no connection => no rows) would wipe the
+    // saved map for this profile.
+    const boxes = document.querySelectorAll("#log-params input[data-id]");
+    if (boxes.length) {
+      const map = {};
+      boxes.forEach((b) => { map[b.dataset.id] = b.checked; });
+      if (!ws.logChannels || typeof ws.logChannels !== "object") ws.logChannels = {};
+      ws.logChannels[$("log-profile").value] = map;
+    }
+  } catch (_) {}
+  clearTimeout(workspaceSaveTimer);
+  workspaceSaveTimer = setTimeout(flushWorkspace, 500);
+}
+
+async function flushWorkspace() {
+  try {
+    await invoke("export_text", {
+      filename: "workspace.json",
+      content: window.Workspace.serializeWorkspace(workspaceState),
+    });
+  } catch (e) {
+    log("Workspace save failed: " + e);
   }
 }
 
-/* ---------------- persistent settings ---------------- */
-function saveSettings() {
+/* Load workspace.json once at boot. Missing / unreadable / corrupt
+ * file -> one-time migration from the legacy localStorage keys ->
+ * defaults. The legacy keys are left in place afterwards (inert — never
+ * read again while workspace.json exists); workspace.json is the system
+ * of record from the first save on. */
+async function loadWorkspace() {
+  let state = null;
   try {
-    const s = {
-      connKind: $("conn-kind").value,
-      connPort: $("conn-port").value,
-      connDcan: $("conn-dcan").value,
-      connAddr: $("conn-addr").value,
-      connOptsOpen: !($("conn-kdcan-opts").classList.contains("hidden") || $("conn-enet-opts").classList.contains("hidden")),
-      liveProfile: $("live-profile").value,
-      logProfile: $("log-profile").value,
-      trafficAuto: $("traffic-auto").checked,
+    const text = await invoke("read_export_text", { filename: "workspace.json" });
+    state = window.Workspace.parseWorkspace(text);
+  } catch (_) { /* missing file or read error — fall through to legacy */ }
+  if (state) return state;
+  let legacy = { dark: null, settings: null, mode: null };
+  try {
+    legacy = {
+      dark: localStorage.getItem("beeemuu_dark"),
+      settings: localStorage.getItem("beeemuu_settings"),
+      mode: localStorage.getItem("beeemuu_mode"),
     };
-    localStorage.setItem("beeemuu_settings", JSON.stringify(s));
+  } catch (_) {}
+  return window.Workspace.migrateLegacy(legacy);
+}
+
+/* Apply workspaceState to the DOM. Same restore order as the pre-v0.7.0
+ * loadSettings(): connection fields first (the port list must refresh
+ * before the saved port is re-selected), then profile selectors, then
+ * the mode select — applyMode() and the active-tab restore run after
+ * this in init(). */
+async function loadSettings() {
+  const s = workspaceState;
+  try {
+    if (s.conn && typeof s.conn === "object") {
+      if (s.conn.kind) $("conn-kind").value = s.conn.kind;
+      if (s.conn.dcan) $("conn-dcan").value = s.conn.dcan;
+      if (s.conn.addr) $("conn-addr").value = s.conn.addr;
+    }
+    if (s.liveProfile) $("live-profile").value = s.liveProfile;
+    if (s.logProfile) $("log-profile").value = s.logProfile;
+    if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
+    // v0.12.0 Fault Memory: restore the opt-in recording toggle.
+    // Default off if missing — older workspace files (pre-v0.12.0)
+    // won't carry this key, and we don't want to suddenly enable
+    // recording for users upgrading.
+    if ($("record-dtc-history")) {
+      $("record-dtc-history").checked = s.recordDtcHistory === true;
+    }
+    const kind = $("conn-kind").value;
+    // Restore the collapsed/expanded connection options state.
+    const open = !!(s.conn && s.conn.optsOpen) && (kind === "kdcan" || kind === "enet");
+    $("conn-kdcan-opts").classList.toggle("hidden", !(open && kind === "kdcan"));
+    $("conn-enet-opts").classList.toggle("hidden", !(open && kind === "enet"));
+    $("btn-conn-adv").setAttribute("aria-expanded", String(!!open));
+    if (kind === "kdcan") {
+      await refreshPorts();
+      if (s.conn && s.conn.port) $("conn-port").value = s.conn.port;
+    }
+    if (s.mode) $("app-mode").value = s.mode;
   } catch (_) {}
 }
-async function loadSettings() {
-  try {
-    const raw = localStorage.getItem("beeemuu_settings");
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s.connKind) $("conn-kind").value = s.connKind;
-      if (s.connDcan) $("conn-dcan").value = s.connDcan;
-      if (s.connAddr) $("conn-addr").value = s.connAddr;
-      if (s.liveProfile) $("live-profile").value = s.liveProfile;
-      if (s.logProfile) $("log-profile").value = s.logProfile;
-      if (typeof s.trafficAuto === "boolean") $("traffic-auto").checked = s.trafficAuto;
-      const kind = $("conn-kind").value;
-      // Restore the collapsed/expanded connection options state.
-      const open = s.connOptsOpen && (kind === "kdcan" || kind === "enet");
-      $("conn-kdcan-opts").classList.toggle("hidden", !(open && kind === "kdcan"));
-      $("conn-enet-opts").classList.toggle("hidden", !(open && kind === "enet"));
-      $("btn-conn-adv").setAttribute("aria-expanded", String(!!open));
-      if (kind === "kdcan") {
-        await refreshPorts();
-        if (s.connPort) $("conn-port").value = s.connPort;
-      }
+
+/* Re-activate the saved tab after applyMode() has run — the mode
+ * decides which tabs are visible, and a tab hidden by the current mode
+ * must not be re-activated. */
+function restoreActiveTab() {
+  const name = workspaceState.activeTab;
+  if (!name) return;
+  const tab = document.querySelector(`.tab[data-view="${name}"]`);
+  if (tab && !tab.classList.contains("hidden")) tab.click();
+}
+
+/* ---------------- v0.15.0 slice 2c — K+DCAN data source ---------------- */
+// Initialize the K+DCAN data source so the Live Gauges panel can
+// read real DID data from the K+DCAN cable. The wiring module
+// (`live_data_source_wiring.js`) is passive — main.js drives the
+// `read_live_data` invoke; this module just transforms each
+// LiveSweepResult into bridge cache updates. The `setSource` call
+// below swaps the Live Gauges controller's source from the sim-only
+// default to the bridge-backed kdcan source.
+try {
+  const wiring = window.beeemuuKdcanDataSource;
+  if (wiring && typeof wiring.initKdcanDataSource === "function") {
+    kdcanDataSource = wiring.initKdcanDataSource({ invoke, log });
+    const kdcanSrc = kdcanDataSource.getKdcanSource();
+    const gaugesApi = window.beeemuuLiveGauges;
+    if (kdcanSrc && gaugesApi && gaugesApi.controller && typeof gaugesApi.controller.setSource === "function") {
+      gaugesApi.controller.setSource(kdcanSrc);
+      log("K+DCAN data source wired to Live Gauges panel");
     }
-    // Restore mode selection (default Basic).
-    let mode = "basic";
-    try { const m = localStorage.getItem("beeemuu_mode"); if (m) mode = m; } catch (_) {}
-    $("app-mode").value = mode;
-  } catch (_) {}
+  }
+} catch (e) {
+  log("K+DCAN data source init failed: " + e);
 }
 
 /* ---------------- tabs ---------------- */
@@ -94,6 +216,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     tab.classList.add("active");
     $("view-" + tab.dataset.view).classList.add("active");
+    saveSettings(); // persist the active tab (v0.7.0 workspace)
   });
 });
 
@@ -115,7 +238,7 @@ function applyMode(mode) {
     // keep current view in sync (in case view was hidden then shown)
     $("view-" + active.dataset.view).classList.add("active");
   }
-  try { localStorage.setItem("beeemuu_mode", mode); } catch (_) {}
+  saveSettings(); // persist the mode (v0.7.0 workspace; was beeemuu_mode)
 }
 
 $("app-mode").addEventListener("change", () => applyMode($("app-mode").value));
@@ -162,6 +285,8 @@ document.querySelectorAll("#info-share-menu .share-item").forEach((item) => {
     $("btn-info-share").setAttribute("aria-expanded", "false");
     if (action === "read") doReadVehicle();
     else if (action === "report") doExportReport();
+    else if (action === "print-health") doPrintHealthReport();
+    else if (action === "print-history") showServiceHistoryEditor();
     else if (action === "snapshot") doExportSnapshot();
     else if (action === "secure") doSecureShare();
     else if (action === "story") doGenerateStory();
@@ -211,10 +336,47 @@ function connConfig() {
     return { kind: "kdcan", port: $("conn-port").value, dcan: dcanVal === "true" };
   }
   if (kind === "enet") {
-    return { kind: "enet", addr: $("conn-addr").value.trim() };
+    const addr = $("conn-addr").value.trim();
+    // Empty field => discover the car first (DoIP broadcast, UDP 13400);
+    // a typed address connects directly with zero behavior change.
+    return { kind: "enet", addr, auto_discover: addr === "" };
   }
   return { kind: "sim" };
 }
+
+$("btn-enet-discover").addEventListener("click", async () => {
+  const btn = $("btn-enet-discover");
+  const sel = $("enet-discovered");
+  btn.disabled = true;
+  setStatus("Discovering ENET targets (UDP 13400, ~3 s)…");
+  try {
+    const targets = await invoke("discover_enet_targets");
+    if (!targets.length) {
+      sel.classList.add("hidden");
+      setStatus("No vehicle answered discovery — enter the IP manually (typically 169.254.x.x).");
+      return;
+    }
+    // textContent/value only — discovered strings never touch innerHTML.
+    sel.innerHTML = "";
+    for (const t of targets) {
+      const opt = document.createElement("option");
+      opt.value = `${t.ip}:${t.port}`;
+      opt.textContent = `${t.vin} — ${t.ip}:${t.port}`;
+      sel.appendChild(opt);
+    }
+    sel.classList.remove("hidden");
+    $("conn-addr").value = sel.value; // pre-fill with the first hit
+    setStatus(`Discovered ${targets.length} ENET target${targets.length === 1 ? "" : "s"}.`);
+  } catch (e) {
+    setStatus("Discovery failed: " + e);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("enet-discovered").addEventListener("change", () => {
+  $("conn-addr").value = $("enet-discovered").value;
+});
 
 $("btn-connect").addEventListener("click", async () => {
   if (connected) {
@@ -234,6 +396,7 @@ $("btn-connect").addEventListener("click", async () => {
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
     renderTree();
+    refreshFrmCodingCard();
     return;
   }
   if (sessionReplay) {
@@ -250,6 +413,7 @@ $("btn-connect").addEventListener("click", async () => {
     $("btn-connect").classList.add("btn-primary");
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
+    refreshFrmCodingCard();
     return;
   }
   try {
@@ -259,7 +423,7 @@ $("btn-connect").addEventListener("click", async () => {
     $("btn-connect").textContent = "Disconnect";
     const vin = info.vin ? `VIN ${info.vin}` : "VIN unavailable";
     $("vehicle-banner").innerHTML =
-      `<span class='vehicle-label'>${info.transport_name} &nbsp;·&nbsp; ${vin}</span>`;
+      `<span class='vehicle-label'>${escapeHtml(info.transport_name)} &nbsp;·&nbsp; ${escapeHtml(vin)}</span>`;
     setStatus("Connected via " + info.transport_name);
     log("");
     // Auto-select suggested profile if available
@@ -277,6 +441,7 @@ $("btn-connect").addEventListener("click", async () => {
       }
     }
     saveSettings();
+    refreshFrmCodingCard();
   } catch (e) {
     setStatus("Disconnected");
     log("Connect failed: " + e);
@@ -297,6 +462,7 @@ $("btn-scan").addEventListener("click", async () => {
     fillSecurityEcus();
     const found = modules.filter((m) => m.present).length;
     setStatus(`Vehicle test complete — ${found} control units found`);
+    refreshFrmCodingCard();
   } catch (e) {
     log("Scan failed: " + e);
     setStatus("Connected");
@@ -319,9 +485,9 @@ function renderTree() {
       : "";
     div.innerHTML =
       `<span class="ecu-status ${statusCls}"></span>` +
-      `<span class="ecu-name">${m.name}</span>` +
+      `<span class="ecu-name">${escapeHtml(m.name)}</span>` +
       secIcon +
-      `<span class="ecu-desc">${m.description}</span>` +
+      `<span class="ecu-desc">${escapeHtml(m.description)}</span>` +
       (m.present && faults > 0 ? `<span class="ecu-badge">${faults}</span>` : "");
     if (m.present) {
       div.addEventListener("click", () => selectModule(m.address));
@@ -343,6 +509,7 @@ async function selectModule(address) {
   $("btn-export-faults").disabled = false;
   $("btn-clear-faults").disabled = sessionReplay;
   $("freeze-panel").classList.add("hidden");
+  showObdPidPanel();
   await readFaults();
   await loadOracle(address);
 }
@@ -351,6 +518,20 @@ async function readFaults() {
   if (selectedAddress == null) return;
   const tbody = $("fault-rows");
   tbody.innerHTML = "<tr><td colspan='3' class='muted'>Reading…</td></tr>";
+
+  // Best-effort: append a "Source" link to a fault row's description
+  // cell once the hosted API resolves a community URL for the code.
+  // The row renders immediately; the link is filled in async.
+  function enrichRowWithSource(tr, code) {
+    if (!window.beeemuuDtcSourceLookup) return;
+    window.beeemuuDtcSourceLookup.lookup(code).then((url) => {
+      if (!url) return;
+      const link = window.beeemuuDtcConfidence ? window.beeemuuDtcConfidence.sourceLinkHtml(url) : "";
+      if (!link) return;
+      const cell = tr.querySelector("td:nth-child(2)");
+      if (cell && !cell.querySelector(".dtc-source")) cell.insertAdjacentHTML("beforeend", link);
+    });
+  }
 
   // In session replay, faults are already in the module data.
   if (sessionReplay) {
@@ -365,11 +546,13 @@ async function readFaults() {
     for (const d of dtcs) {
       const tr = document.createElement("tr");
       tr.className = "fault-clickable";
+      const badge = window.beeemuuDtcConfidence ? window.beeemuuDtcConfidence.badgeFor(d) : null;
       tr.innerHTML =
-        `<td class="fault-code">${d.code}</td>` +
-        `<td>${d.text}</td>` +
-        `<td class="muted">${d.status_text}</td>`;
+        `<td class="fault-code">${escapeHtml(d.code)}</td>` +
+        `<td>${escapeHtml(d.text)}${badge ? ` <span class="${badge.className}" title="${badge.label} description">${badge.label}</span>` : ""}</td>` +
+        `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
+      enrichRowWithSource(tr, d.code);
       tbody.appendChild(tr);
     }
     return;
@@ -378,6 +561,26 @@ async function readFaults() {
   try {
     const dtcs = await invoke("read_faults", { address: selectedAddress });
     lastDtcs = dtcs;
+    // v0.12.0 Fault Memory: record this read to the local history if the
+    // user opted in. Best-effort — a recording failure (e.g. home dir not
+    // writable, slice 2 PR #144 not yet merged) should not break the
+    // DTC read UI. Empty-dtc reads are not recorded by design (the
+    // timeline is "I saw these faults", not "I read this module").
+    if (
+      dtcs.length > 0 &&
+      window.beeemuuDtcHistory &&
+      typeof window.beeemuuDtcHistory.recordDtcRead === "function" &&
+      $("record-dtc-history") &&
+      $("record-dtc-history").checked
+    ) {
+      try {
+        const vin = ($("info-vin") && $("info-vin").textContent) ? $("info-vin").textContent.trim() : null;
+        const summary = await window.beeemuuDtcHistory.recordDtcRead(vin, selectedAddress, dtcs);
+        log(`Recorded ${summary.appended} DTC${summary.appended === 1 ? "" : "s"} to ${summary.file_path}`);
+      } catch (recErr) {
+        log("DTC history record skipped: " + recErr);
+      }
+    }
     if (dtcs.length === 0) {
       tbody.innerHTML = "<tr><td colspan='3' class='fault-ok'>No faults stored.</td></tr>";
       return;
@@ -386,15 +589,64 @@ async function readFaults() {
     for (const d of dtcs) {
       const tr = document.createElement("tr");
       tr.className = "fault-clickable";
+      const badge = window.beeemuuDtcConfidence ? window.beeemuuDtcConfidence.badgeFor(d) : null;
       tr.innerHTML =
-        `<td class="fault-code">${d.code}</td>` +
-        `<td>${d.text}</td>` +
-        `<td class="muted">${d.status_text}</td>`;
+        `<td class="fault-code">${escapeHtml(d.code)}</td>` +
+        `<td>${escapeHtml(d.text)}${badge ? ` <span class="${badge.className}" title="${badge.label} description">${badge.label}</span>` : ""}</td>` +
+        `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
+      enrichRowWithSource(tr, d.code);
       tbody.appendChild(tr);
     }
+    // v0.12.0 Fault Memory (slice 5): if the local history has
+    // past occurrences of any DTC the user just read, surface a
+    // "seen before" banner under the table. Best-effort — a query
+    // failure hides the banner silently rather than breaking the
+    // DTC read flow.
+    await renderHistoryCallout(dtcs);
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan='3' class='muted'>Read failed: ${e}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan='3' class='muted'>Read failed: ${escapeHtml(String(e))}</td></tr>`;
+  }
+}
+
+// v0.12.0 Fault Memory (slice 5) — "seen before" callout.
+//
+// When the user reads faults, query the local DTC history and surface
+// any past occurrences of the codes they just read. Pure frontend
+// read; matches the plan's "headline UI moment of the cycle".
+//
+// Best-effort: any failure (no Tauri backend, no history file, query
+// error) hides the callout silently rather than breaking the DTC read.
+async function renderHistoryCallout(dtcs) {
+  const banner = $("fault-history-callout");
+  const list = $("fault-history-callout-list");
+  if (!banner || !list) return;
+  // Always start by hiding — only show when the helper says so.
+  banner.classList.add("hidden");
+  list.innerHTML = "";
+  if (!Array.isArray(dtcs) || dtcs.length === 0) return;
+  if (!window.beeemuuDtcHistory || typeof window.beeemuuDtcHistory.queryDtcHistory !== "function") return;
+  if (!window.beeemuuRecurringDtc || typeof window.beeemuuRecurringDtc.computeCallout !== "function") return;
+  let summary;
+  try {
+    const vin = ($("info-vin") && $("info-vin").textContent) ? $("info-vin").textContent.trim() : null;
+    summary = await window.beeemuuDtcHistory.queryDtcHistory(vin, null);
+  } catch (_) {
+    return; // best-effort: query failed → no banner
+  }
+  const rows = window.beeemuuRecurringDtc.computeCallout(dtcs, summary, Date.now());
+  if (!rows || rows.length === 0) return;
+  banner.classList.remove("hidden");
+  list.innerHTML = "";
+  for (const r of rows) {
+    const li = document.createElement("li");
+    li.className = "fault-history-callout-item";
+    const mod = r.same_address ? "same module" : "different module";
+    li.innerHTML =
+      `<span class="fault-history-callout-code">${escapeHtml(r.code)}</span>` +
+      ` appeared <b>${r.occurrences}</b> time${r.occurrences === 1 ? "" : "s"} ` +
+      `in the past 14 days (last: ${escapeHtml(r.last_seen_human)}, ${escapeHtml(mod)})`;
+    list.appendChild(li);
   }
 }
 
@@ -420,12 +672,12 @@ async function showFreezeFrame(code) {
       for (const it of items) {
         const cell = document.createElement("div");
         cell.className = "freeze-item";
-        cell.innerHTML = `<div class="fi-label">${it.label}</div><div class="fi-value">${it.value}</div>`;
+        cell.innerHTML = `<div class="fi-label">${escapeHtml(it.label)}</div><div class="fi-value">${escapeHtml(it.value)}</div>`;
         body.appendChild(cell);
       }
     }
   } catch (e) {
-    body.innerHTML = `<span class='muted'>No freeze frame available (${e})</span>`;
+    body.innerHTML = `<span class='muted'>No freeze frame available (${escapeHtml(String(e))})</span>`;
   }
   // Also load second opinion + schematics for this DTC. These are
   // async and independent of each other; we run them both and the UI
@@ -433,6 +685,7 @@ async function showFreezeFrame(code) {
   await Promise.all([
     loadOpinion(code),
     loadSchematics(code),
+    loadTestPlan(code),
   ]);
 }
 
@@ -526,7 +779,7 @@ async function loadOpinion(code) {
     const result = await invoke("get_opinions", { dtcCode: code, dtcText: dtcText });
     renderOpinion(result);
   } catch (e) {
-    body.innerHTML = `<span class='muted'>No opinions available: ${e}</span>`;
+    body.innerHTML = `<span class='muted'>No opinions available: ${escapeHtml(String(e))}</span>`;
   }
 }
 
@@ -541,20 +794,21 @@ function renderOpinion(result) {
   for (const p of perspectives) {
     const has = result.perspectives.some((o) => o.perspective === p);
     if (has) {
-      html += `<button class="opinion-tab ${p === 'diy' ? 'active' : ''}" data-pov="${p}" onclick="switchOpinionTab(this)">${p.toUpperCase()}</button>`;
+      html += `<button class="opinion-tab ${p === 'diy' ? 'active' : ''}" data-pov="${p}">${p.toUpperCase()}</button>`;
     }
   }
   html += '</div>';
   html += '<div class="opinion-cards">';
   for (const o of result.perspectives) {
-    const cost = o.cost_usd ? ` · ~$${o.cost_usd}` : '';
+    const cost = o.cost_usd ? ` · ~$${escapeHtml(String(o.cost_usd))}` : '';
     const time = o.time_estimate ? ` · ${escapeHtml(o.time_estimate)}` : '';
     const diff = o.difficulty ? ` · ${escapeHtml(o.difficulty)}` : '';
     const source = o.source_url
       ? `<a href="${escapeHtml(o.source_url)}" target="_blank" class="op-source">${escapeHtml(o.source)}</a>`
       : `<span class="op-source">${escapeHtml(o.source)}</span>`;
-    html += `<div class="opinion-card op-card-${o.perspective}">
-      <div class="op-perspective op-perspective-${o.perspective}">${o.perspective.toUpperCase()}</div>
+    const pov = escapeHtml(o.perspective || "");
+    html += `<div class="opinion-card op-card-${pov}">
+      <div class="op-perspective op-perspective-${pov}">${escapeHtml((o.perspective || "").toUpperCase())}</div>
       <div class="op-action">${escapeHtml(o.action)}</div>
       <div class="op-meta">${cost}${time}${diff}</div>
       <div class="op-note">${escapeHtml(o.note)}</div>
@@ -563,6 +817,8 @@ function renderOpinion(result) {
   }
   html += '</div>';
   body.innerHTML = html;
+  body.querySelectorAll(".opinion-tab").forEach((t) =>
+    t.addEventListener("click", () => switchOpinionTab(t)));
 }
 
 function switchOpinionTab(btn) {
@@ -573,6 +829,292 @@ function switchOpinionTab(btn) {
   body.querySelectorAll(".opinion-card").forEach((c) => {
     c.style.display = c.classList.contains(`op-card-${pov}`) ? "block" : "none";
   });
+}
+
+/* ---------- guided fault-finding walkthrough (v0.9.0 PR #4) ---------- *
+ * Renders the branching test plan for the active DTC into the
+ * #walkthrough-panel, mounted in index.html beside the opinion /
+ * schematics panels. The plan graph comes from the read-only
+ * `get_test_plan` Rust command (v0.9.0 PR #3); branch *traversal* is
+ * pure UI state computed by `TestPlanWalk.walk` (src/js/testplan_walk.js),
+ * unit-tested under `node --test`. The command is stateless — the UI
+ * owns the answer sequence. Pattern mirrors loadOpinion/loadSchematics:
+ * async, independent, surfaces as data arrives, degrades gracefully.
+ */
+
+// The live answer sequence taken by the user for the active DTC. Reset
+// whenever a new DTC is opened. Empty = sitting at the entry step.
+let walkAnswers = [];
+let walkPlan = null;
+
+function walkSourceLabel(source) {
+  // The per-step `source` cites an in-repo file (e.g.
+  // community/opinions/2A82.toml). Render it as a quiet mono caption.
+  return source ? escapeHtml(source) : "";
+}
+
+function renderWalkStep() {
+  const body = $("walkthrough-body");
+  if (!walkPlan) {
+    body.innerHTML = "<span class='muted'>Click a DTC row to start a guided test plan, where one exists.</span>";
+    return;
+  }
+  const r = TestPlanWalk.walk(walkPlan, walkAnswers);
+  const step = r.current;
+
+  // Freeze-frame seeding: surface the fault-time context if present.
+  let ffContext = "";
+  if (!r.done && !r.invalid && step && step.id === TestPlanWalk.entryStep(walkPlan)) {
+    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
+    const ff = sessionReplay
+      ? (modules.find((x) => x.address === selectedAddress)?.dtcs?.find((d) => d.code === walkPlan.dtc)?.freeze_frame || [])
+      : [];
+    // We only have freeze frames via the read_freeze_frame command path;
+    // for session replay we pull from the loaded DTC. Keep it light:
+    // the composition already loads the freeze panel in parallel.
+    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
+      const parts = dtc.freeze_frame
+        .map((f) => `${escapeHtml(f.label)} ${escapeHtml(f.value)}`)
+        .join(" · ");
+      ffContext = `<div class="wt-ff">At fault time: ${parts}</div>`;
+    }
+    void ff; // (placeholder for future replay wiring; see plan PR #4)
+  }
+
+  if (r.invalid) {
+    body.innerHTML =
+      `<div class="wt-invalid">⚠ This plan step has no valid branch for that answer. The plan author needs to fix it — your spot is preserved.</div>` +
+      (step ? renderStepCard(step, r, ffContext, true) : "");
+    return;
+  }
+
+  if (r.done) {
+    body.innerHTML =
+      `<div class="wt-conclusion">✅ Conclusion: ${escapeHtml(step.conclusion || "")}</div>` +
+      `<div class="wt-source">${walkSourceLabel(step.source)}</div>` +
+      `<button class="wt-restart" id="wt-restart">↻ Start over</button>` +
+      breadcrumbHtml(r);
+    const restart = $("wt-restart");
+    if (restart) restart.addEventListener("click", () => {
+      walkAnswers = [];
+      renderWalkStep();
+    });
+    return;
+  }
+
+  body.innerHTML = renderStepCard(step, r, ffContext, false) + breadcrumbHtml(r);
+}
+
+function renderStepCard(step, r, ffContext, frozen) {
+  if (!step) return "";
+  const m = step.measurement || null;
+  let measureHtml = "";
+  if (m) {
+    if (m.kind === "did") {
+      const did = m.did || "";
+      const range = (m.expected_min != null && m.expected_max != null)
+        ? ` (expect ${m.expected_min}–${m.expected_max})`
+        : "";
+      const label = m.label ? escapeHtml(m.label) : "live data";
+      measureHtml =
+        `<div class="wt-measure">📟 Measure: ${label} <code>${escapeHtml(did)}</code>${escapeHtml(range)}` +
+        ` <button class="wt-deeplink" data-did="${escapeHtml(did)}">Open in Live Data</button></div>`;
+    } else {
+      const q = m.question ? escapeHtml(m.question) : "Observe:";
+      measureHtml = `<div class="wt-measure">👀 ${q}</div>`;
+    }
+  }
+  const instr = step.instruction ? escapeHtml(step.instruction) : "";
+  const opts = TestPlanWalk.optionsFor(step);
+  const buttons = opts
+    .map((o) => `<button class="wt-answer" data-ans="${escapeHtml(o.answer)}">${escapeHtml(o.label)}</button>`)
+    .join("");
+  const source = walkSourceLabel(step.source);
+
+  const html =
+    `${ffContext}` +
+    `<div class="wt-step">` +
+    `<div class="wt-instr">${instr}</div>` +
+    `${measureHtml}` +
+    `<div class="wt-buttons">${buttons}</div>` +
+    `<div class="wt-source">${source}</div>` +
+    `</div>`;
+  // Wire buttons after insertion.
+  queueMicrotask(() => {
+    document.querySelectorAll("#walkthrough-body .wt-answer").forEach((b) => {
+      b.onclick = () => {
+        walkAnswers.push(b.dataset.ans);
+        renderWalkStep();
+      };
+    });
+    const dl = document.querySelector("#walkthrough-body .wt-deeplink");
+    if (dl) dl.onclick = () => openLiveDataForDid(dl.dataset.did);
+  });
+  return html;
+}
+
+function breadcrumbHtml(r) {
+  const crumbs = r.path
+    .filter((p) => p.answer)
+    .map((p) => {
+      const label = p.answer === "pass" ? "Pass" : p.answer === "fail" ? "Fail" : "→";
+      return `<span class="wt-crumb">${escapeHtml(label)}</span>`;
+    })
+    .join("");
+  return crumbs ? `<div class="wt-breadcrumb">Path: ${crumbs}</div>` : "";
+}
+
+// Best-effort deep link: jump to the Live Data tab and preselect the DID
+// if the panel supports it. Degrades to a no-op if Live Data isn't wired
+// for DID preselection in this build.
+function openLiveDataForDid(did) {
+  const tab = document.querySelector('[data-view="live"]') || document.querySelector("#tab-live");
+  if (tab && tab.click) tab.click();
+  // Surface the DID so the user can poll it manually; the live panel is
+  // the read verb and stays the source of truth for measured values.
+  log(`Open Live Data and poll ${did} to compare against the plan's expected range.`);
+}
+
+// v0.11.0 PR — Share walkthrough: snapshot the current walkthrough
+// (plan + answers + log chart + freeze frame + meta) into a single
+// self-contained HTML file the user can attach to a forum post. Pure
+// frontend — no Rust round-trip beyond the existing `export_text` IPC.
+// The bundle is stateless (a static render of the snapshot) so we don't
+// need to inline the reducer source; the chart is pre-rendered to SVG
+// at export time via the existing `window.beeemuuSvg.chartToSvg`.
+$("btn-walk-share").addEventListener("click", async () => {
+  if (!walkPlan) { log("No walkthrough loaded yet."); return; }
+  if (!window.beeemuuWalkthroughBundle || !window.beeemuuWalkthroughBundle.buildBundleHtml) {
+    log("Walkthrough bundle module not loaded.");
+    return;
+  }
+  // Snapshot the log series into the chart data shape the bundle expects.
+  // Use a single fake "Chart-like" object so we can reuse chartToSvg().
+  const datasets = [...logSeries.entries()].map(([, s]) => ({
+    label: s.label,
+    borderColor: s.color,
+    data: typeof s.getAllData === "function" ? s.getAllData() : [],
+  })).filter((d) => d.data.length > 0);
+  let logChartSvg = "";
+  if (datasets.length && window.beeemuuSvg && typeof window.beeemuuSvg.chartToSvg === "function") {
+    try {
+      logChartSvg = window.beeemuuSvg.chartToSvg({ data: { datasets } }) || "";
+    } catch (e) {
+      log("Chart render for bundle failed: " + e);
+    }
+  }
+  // Freeze-frame context for the current DTC, if the active DTC row carries it.
+  let freezeFrame = [];
+  try {
+    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
+    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
+      freezeFrame = dtc.freeze_frame.map((f) => ({ label: f.label, value: f.value }));
+    }
+  } catch (_) { /* best-effort */ }
+  const html = window.beeemuuWalkthroughBundle.buildBundleHtml({
+    plan: walkPlan,
+    walkAnswers: walkAnswers.slice(),
+    logChartSvg,
+    freezeFrame,
+    meta: {
+      vehicleLabel: $("info-vin") ? $("info-vin").textContent || "" : "",
+      profileName: $("log-profile") ? $("log-profile").value || "" : "",
+      appVersion: "0.10.0",
+      exportedAtIso: new Date().toISOString(),
+    },
+  });
+  if (!html) { log("Failed to build walkthrough bundle."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const safeDtc = (walkPlan.dtc || "unknown").replace(/[^A-Za-z0-9_-]/g, "_");
+  try {
+    const path = await invoke("export_text", {
+      filename: `beeemuu-walkthrough-${safeDtc}-${stamp}.html`,
+      content: html,
+    });
+    log("Walkthrough saved: " + path);
+  } catch (e) {
+    log("Walkthrough export failed: " + e);
+  }
+});
+
+async function loadTestPlan(code) {
+  const panel = $("walkthrough-panel");
+  const body = $("walkthrough-body");
+  const codeEl = $("walkthrough-code");
+  const verifiedEl = $("walkthrough-verified");
+  if (!panel || !body) return;
+  panel.classList.remove("hidden");
+  codeEl.textContent = code || "";
+  walkPlan = null;
+  walkAnswers = [];
+  body.innerHTML = "<span class='muted'>Looking up a guided test plan…</span>";
+  try {
+    const plan = await invoke("get_test_plan", { dtcCode: code });
+    // Plan-level verification badge. Render only once the plan is
+    // resolved: `meta.verified` ("needs verification" default, "verified"
+    // after a real-car harness walk) drives the label + the click target
+    // (the harness doc that explains how to upgrade it). Absent marker =>
+    // no badge (legacy plans).
+    if (verifiedEl) {
+      renderPlanVerifiedBadge(verifiedEl, plan ? plan.verified : undefined);
+    }
+    if (!plan || !plan.steps || plan.steps.length === 0) {
+      body.innerHTML = "<span class='muted'>No guided test plan curated for this DTC yet. Contribute one via docs/testplans.md.</span>";
+      const share = $("btn-walk-share");
+      if (share) share.disabled = true;
+      return;
+    }
+    walkPlan = plan;
+    const share = $("btn-walk-share");
+    if (share) share.disabled = false;
+    renderWalkStep();
+  } catch (e) {
+    body.innerHTML = `<span class='muted'>No guided test plan available: ${escapeHtml(String(e))}</span>`;
+  }
+}
+
+// Render the plan verification badge into `el` from the TOML meta.verified
+// string. The NEEDS VERIFICATION badge links to the real-car harness doc
+// (the procedure to upgrade it); a verified plan shows a static green tag.
+function renderPlanVerifiedBadge(el, verified) {
+  const v = plan_verified_state(verified);
+  if (!v) {
+    el.className = "walkthrough-verified hidden";
+    el.removeAttribute("title");
+    el.onclick = null;
+    return;
+  }
+  el.textContent = v.label;
+  el.className = `walkthrough-verified ${v.cls}`;
+  if (v.href) {
+    el.title = v.title;
+    el.style.cursor = "pointer";
+    el.onclick = () => window.open(v.href, "_blank", "noopener");
+  } else {
+    el.removeAttribute("title");
+    el.style.cursor = "default";
+    el.onclick = null;
+  }
+}
+
+// Map the plan's meta.verified string to badge label + class (+ optional
+// harness link). NEEDS VERIFICATION links to the real-car validation
+// harness doc (the procedure to upgrade the plan); VERIFIED is static.
+// Returns null when the marker is absent, so legacy/unknown plans show
+// nothing.
+function plan_verified_state(verified) {
+  if (verified === "verified") {
+    return { label: "✓ Verified", cls: "is-verified" };
+  }
+  if (verified === "needs verification") {
+    return {
+      label: "NEEDS VERIFICATION",
+      cls: "is-unverified",
+      href: "https://github.com/ohgeeceee/beeemuu/blob/main/docs/validation/testplans.md",
+      title: "Plan not yet confirmed on a real car — open the validation harness to upgrade it",
+    };
+  }
+  return null;
 }
 
 /* ---------- secure snapshot share ---------- */
@@ -599,11 +1141,44 @@ async function doSecureShare() {
 
 $("btn-read-faults").addEventListener("click", readFaults);
 
+/* ---------------- OBD-II PID scan ---------------- */
+// Show the OBD-II panel only when a present ECU is selected. Hidden
+// alongside the rest of the detail panels when nothing is selected.
+function showObdPidPanel() {
+  const panel = $("obd-pid-panel");
+  if (!panel) return;
+  const present = modules.find((m) => m.address === selectedAddress)?.present;
+  panel.classList.toggle("hidden", !present);
+}
+
+$("btn-obd-pid-scan").addEventListener("click", async () => {
+  if (selectedAddress == null) { log("Select a control unit first."); return; }
+  if (!connected) { log("Connect first."); return; }
+  showObdPidPanel();
+  const body = $("obd-pid-body");
+  body.innerHTML = `<span class="muted">Scanning OBD-II PIDs on 0x${selectedAddress.toString(16).toUpperCase().padStart(2, "0")}…</span>`;
+  try {
+    const pids = await invoke("list_supported_pids", { address: selectedAddress });
+    if (!pids || pids.length === 0) {
+      body.innerHTML = `<span class="muted">No OBD-II PIDs responded. The ECU may not implement mode 01 (BMW-specific DME modules often don't), or the adapter is not in OBD-II mode.</span>`;
+      return;
+    }
+    const cells = pids
+      .map((p) => `<span class="obd-pid-cell" title="PID 0x${p.toString(16).toUpperCase().padStart(2, "0")}">0x${p.toString(16).toUpperCase().padStart(2, "0")}</span>`)
+      .join("");
+    body.innerHTML = `<span>${pids.length} PID${pids.length === 1 ? "" : "s"} responded:</span><div class="obd-pid-grid">${cells}</div>`;
+    log(`OBD-II scan complete: ${pids.length} PID(s) supported on 0x${selectedAddress.toString(16).toUpperCase().padStart(2, "0")}`);
+  } catch (e) {
+    body.innerHTML = `<span class="muted">Scan failed: ${escapeHtml(String(e))}</span>`;
+    log("OBD-II scan failed: " + e);
+  }
+});
+
 $("btn-clear-faults").addEventListener("click", async () => {
   if (selectedAddress == null) return;
   if (sessionReplay) { log("Cannot clear faults in session replay."); return; }
   const m = modules.find((x) => x.address === selectedAddress);
-  if (!confirm(`Clear the fault memory of ${m.name}? Stored freeze-frame data will be lost.`)) return;
+  if (!await window.beeemuuDialog.ask(`Clear the fault memory of ${m.name}? Stored freeze-frame data will be lost.`)) return;
   try {
     await invoke("clear_faults", { address: selectedAddress });
     log(`${m.name}: fault memory cleared`);
@@ -646,7 +1221,7 @@ async function loadOracle(address) {
     const result = await invoke("query_oracle", { address });
     renderOracle(result);
   } catch (e) {
-    body.innerHTML = `<span class='muted'>Oracle offline: ${e}</span>`;
+    body.innerHTML = `<span class='muted'>Oracle offline: ${escapeHtml(String(e))}</span>`;
   }
 }
 
@@ -663,11 +1238,11 @@ function renderOracle(result) {
   html += '</div>';
   html += '<div class="oracle-outcomes">';
   for (const o of result.outcomes) {
-    const cost = o.cost_estimate_usd ? ` · ~$${o.cost_estimate_usd}` : '';
-    const parts = o.part_numbers && o.part_numbers.length ? `<div class="fix-parts">Parts: ${o.part_numbers.join(', ')}</div>` : '';
+    const cost = o.cost_estimate_usd ? ` · ~$${escapeHtml(String(o.cost_estimate_usd))}` : '';
+    const parts = o.part_numbers && o.part_numbers.length ? `<div class="fix-parts">Parts: ${o.part_numbers.map((p) => escapeHtml(String(p))).join(', ')}</div>` : '';
     html += `<div class="oracle-fix">
       <div class="fix-cat">${escapeHtml(o.fix_category)}</div>
-      <div class="fix-meta">Confidence: ${o.confidence}%${cost}</div>
+      <div class="fix-meta">Confidence: ${escapeHtml(String(o.confidence))}%${cost}</div>
       ${parts}
       <div class="fix-note">${escapeHtml(o.note)}</div>
     </div>`;
@@ -686,14 +1261,31 @@ function ensureGauge(v) {
   if (gauges.has(v.id)) return gauges.get(v.id);
   const cell = document.createElement("div");
   cell.className = "gauge-cell";
+  cell.dataset.pidId = v.id;
   const canvas = document.createElement("canvas");
   const label = document.createElement("div");
   label.className = "gauge-label";
   label.textContent = v.label;
+  // v0.14.2 slice 2 — range bar + peak label under the gauge label.
+  // The fill width is set in pollOnce() from (value-min)/(max-min)
+  // so the user can read "88 °C on a 90 °C hot scale" at a glance.
+  const range = document.createElement("div");
+  range.className = "gauge-range";
+  const rangeFill = document.createElement("div");
+  rangeFill.className = "gauge-range-fill";
+  range.appendChild(rangeFill);
+  const peak = document.createElement("div");
+  peak.className = "gauge-peak";
+  peak.dataset.peak = v.id;
+  peak.textContent = "peak: —";
   cell.appendChild(canvas);
   cell.appendChild(label);
+  cell.appendChild(range);
+  cell.appendChild(peak);
   $("gauge-grid").appendChild(cell);
-  const g = new Gauge(canvas, v);
+  // Per-profile [profile.theme] colour scheme (stashed by loadProfiles);
+  // undefined => the Gauge renders its built-in cockpit palette.
+  const g = new Gauge(canvas, { ...v, colors: profileThemes[$("live-profile").value] });
   gauges.set(v.id, g);
   // v0.5.0 PR #3 — set the initial severity class on the gauge
   // cell based on the current v.text. The Gauge's draw() method
@@ -706,11 +1298,31 @@ function ensureGauge(v) {
   return g;
 }
 
+/* Map a profile's `[profile.theme]` TOML map (snake_case keys, as TOML
+ * authors write them) onto the Gauge's camelCase colour keys. Unknown
+ * TOML keys drop here; colour-string validation happens in the Gauge
+ * itself (resolveThemeColors). Returns undefined when nothing usable. */
+function mapProfileTheme(t) {
+  if (!t || typeof t !== "object") return undefined;
+  const KEYS = {
+    dial: "dial", dial_edge: "dialEdge", track: "track", arc: "arc",
+    arc_hot: "arcHot", tick: "tick", needle: "needle",
+    readout: "readout", unit: "unit",
+  };
+  const out = {};
+  for (const [tomlKey, jsKey] of Object.entries(KEYS)) {
+    if (typeof t[tomlKey] === "string") out[jsKey] = t[tomlKey];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 async function loadProfiles() {
   const profiles = await invoke("list_profiles");
   const sel = $("live-profile");
   sel.innerHTML = "";
   for (const p of profiles) {
+    const theme = mapProfileTheme(p.theme);
+    if (theme) profileThemes[p.id] = theme; else delete profileThemes[p.id];
     const o = document.createElement("option");
     o.value = p.id;
     o.textContent = p.label;
@@ -722,27 +1334,241 @@ $("live-profile").addEventListener("change", () => {
   // different profile = different parameter set: rebuild gauges
   gauges.clear();
   $("gauge-grid").innerHTML = "";
+  // v0.14.2 slice 2 — peak state is per-profile. A new profile may
+  // have a different parameter set, so a stale peak for an id the
+  // new profile doesn't have would never be cleared by pollOnce
+  // (no sweep). Reset the peak state here.
+  livePeakState = {};
+  renderPeakTable();
+  updateSnapshotButton();
   saveSettings();
 });
 
+// v0.14.2 slice 2 — the polling rate is read from the live-poll-rate
+// <select> via beeemuuLiveDataPanel.resolvePollRateMs, which falls back
+// to 250 ms for any unknown / out-of-range value. Read once on each
+// startPolling so changing the dropdown restarts the interval.
+function currentPollRateMs() {
+  const sel = $("live-poll-rate");
+  return window.beeemuuLiveDataPanel.resolvePollRateMs(sel ? sel.value : 250);
+}
+
+// Render the per-gauge range bar fill from the gauge's stored
+// (min, max) and the current numeric value. Skipped for enum /
+// text-mode gauges — they have no numeric range to draw against.
+function updateRangeBar(cell, g, v) {
+  const fill = cell.querySelector(".gauge-range-fill");
+  if (!fill) return;
+  if (v.text !== undefined && v.text !== null) {
+    fill.style.width = "0%";
+    return;
+  }
+  const n = Number(v.value);
+  const span = g.max - g.min;
+  if (!Number.isFinite(n) || !Number.isFinite(span) || span <= 0) {
+    fill.style.width = "0%";
+    return;
+  }
+  const frac = Math.max(0, Math.min(1, (n - g.min) / span));
+  fill.style.width = (frac * 100).toFixed(1) + "%";
+}
+
+// Render the per-session peak table under the gauge grid. Reads from
+// livePeakState and the gauges Map for label + unit. Hidden when no
+// peaks have been recorded yet.
+function renderPeakTable() {
+  const body = $("live-peaks-body");
+  const wrap = $("live-peaks");
+  if (!body || !wrap) return;
+  const ids = Object.keys(livePeakState).sort();
+  if (ids.length === 0) {
+    wrap.hidden = true;
+    body.innerHTML = "";
+    return;
+  }
+  wrap.hidden = false;
+  body.innerHTML = ids
+    .map((id) => {
+      const g = gauges.get(id);
+      const label = g ? g.label : id;
+      const unit = g ? g.unit || "" : "";
+      const text = window.beeemuuLiveDataPanel.formatPeakForLabel(
+        livePeakState[id],
+        unit
+      );
+      return (
+        "<tr><td>" + label + "</td>" +
+        "<td>" + text + (unit ? " " + unit : "") + "</td></tr>"
+      );
+    })
+    .join("");
+}
+
+// Enable / disable the snapshot button based on whether the live panel
+// has any data to save. The button is disabled until at least one
+// successful poll has populated a gauge.
+function updateSnapshotButton() {
+  const btn = $("btn-live-snapshot");
+  if (!btn) return;
+  btn.disabled = gauges.size === 0;
+}
+
 async function pollOnce() {
+  let result = { values: [], errors: [] };
   try {
-    const values = await invoke("read_live_data", { profile: $("live-profile").value });
-    for (const v of values) {
-      // Enum params (gear, engine state, etc.) have v.text set and
-      // v.value = 0.0; numeric params have v.text undefined. The
-      // Gauge renders text when given a label override.
-      ensureGauge(v).set(v.value, v.text);
+    // v0.14.3 slice 3b — `read_live_data` now returns
+    // `LiveSweepResult { values, errors }` (PR #187). `values` carries
+    // the successfully-read PIDs; `errors` carries one entry per PID
+    // the protocol layer rejected (structured `sid`/`nrc` from
+    // `protocol::nrc_from_error`, plus the verbatim error string).
+    // Per-PID UI (dim + remove-from-profile) lives in the loop below.
+    result = connected
+      ? await invoke("read_live_data", { profile: $("live-profile").value })
+      : result;
+    // v0.15.0 slice 2c — feed the same sweep into the K+DCAN
+    // bridge so the Live Gauges panel can render real values
+    // (RPM, coolant, oil temp, etc.) from the K+DCAN cable.
+    // No-op when `kdcanDataSource` is null (init not run yet) or
+    // when the panel hasn't been started (applySweepFromTauri
+    // guards on `running`).
+    if (kdcanDataSource) {
+      kdcanDataSource.applySweep(result.values || [], result.errors || []);
     }
   } catch (e) {
-    log("Live data: " + e);
+    // Systemic failure (no transport, unknown profile, poisoned state
+    // lock) — `read_live_data` returns `Err(_)` for these. Same
+    // v0.14.2 slice 2 surface: parse the error string, log the
+    // canonical "unsupported" case, otherwise log raw.
+    const nrc = window.beeemuuLiveDataPanel.parseNrcError(String(e));
+    if (nrc && window.beeemuuLiveDataPanel.isUnsupportedNrc(nrc)) {
+      log("Live data: unsupported PID — NRC 0x" + nrc.nrc.toString(16).toUpperCase() + " (sid 0x" + (nrc.sid !== null ? nrc.sid.toString(16).toUpperCase() : "??") + ").");
+    } else {
+      log("Live data: " + e);
+    }
     stopPolling();
+    return;
+  }
+  for (const v of result.values) {
+    // Enum params (gear, engine state, etc.) have v.text set and
+    // v.value = 0.0; numeric params have v.text undefined. The
+    // Gauge renders text when given a label override.
+    const g = ensureGauge(v);
+    g.set(v.value, v.text);
+    // Peak tracking — applyValuesToPeaks is a pure reducer over the
+    // values array; it skips enum / non-finite values internally.
+    livePeakState = window.beeemuuLiveDataPanel.applyValuesToPeaks(
+      livePeakState,
+      result.values
+    );
+    const cell = document.querySelector(
+      '.gauge-cell[data-pid-id="' + v.id + '"]'
+    );
+    if (cell) {
+      updateRangeBar(cell, g, v);
+      const peakEl = cell.querySelector("[data-peak]");
+      if (peakEl) {
+        const peak = livePeakState[v.id];
+        peakEl.textContent =
+          "peak: " +
+          window.beeemuuLiveDataPanel.formatPeakForLabel(peak, g.unit);
+      }
+      // v0.14.3 slice 3b — successful read clears any prior dim state
+      // (the PID may have been unsupported in a previous sweep and
+      // is now answering — e.g. after a re-key cycle).
+      cell.classList.remove("dimmed");
+      const btn = cell.querySelector("[data-pid-remove]");
+      if (btn) btn.remove();
+    }
+  }
+  // v0.14.3 slice 3b — per-PID NRC surface. For each per-PID error
+  // returned by `read_live_data`:
+  //   - log the canonical "unsupported" case via the structured
+  //     sid/nrc fast path;
+  //   - find the corresponding gauge cell, dim it, and append a
+  //     one-click "remove from profile" button that calls the async
+  //     `remove_profile_pid` Tauri command (PR #187).
+  // Transient / unknown buckets are logged but get no UI affordance —
+  // the next sweep will retry.
+  let unsupportedCount = 0;
+  for (const err of result.errors) {
+    const cls = window.beeemuuLiveDataPanel.classifyNrc(err);
+    if (cls === "unsupported") {
+      unsupportedCount++;
+      log(
+        "Live data: " + err.label + " (id=" + err.id + ") — unsupported on this ECU " +
+        "(NRC 0x" + String(err.nrc).toUpperCase() + ", sid 0x" +
+        String(err.sid).toUpperCase() + ")."
+      );
+    } else if (cls === "transient") {
+      log(
+        "Live data: " + err.label + " (id=" + err.id + ") — transient error " +
+        "(NRC 0x" + String(err.nrc).toUpperCase() + "). Will retry."
+      );
+      continue;
+    } else {
+      log("Live data: " + err.label + " (id=" + err.id + ") — " + err.error);
+      continue;
+    }
+    const cell = document.querySelector(
+      '.gauge-cell[data-pid-id="' + err.id + '"]'
+    );
+    if (!cell) continue;
+    cell.classList.add("dimmed");
+    // Avoid stacking buttons on repeated sweeps — idempotent render.
+    if (!cell.querySelector("[data-pid-remove]")) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-tiny pid-remove";
+      btn.dataset.pidRemove = err.id;
+      btn.textContent = "Remove from profile";
+      btn.title = "Removes this PID from the active profile TOML so it no longer appears in the sweep.";
+      btn.addEventListener("click", () => removePidFromProfile(err.id, err.label));
+      cell.appendChild(btn);
+    }
+  }
+  // v0.14.3 slice 3b — update the panel-head count badge. Hidden
+  // when zero so it doesn't take up layout space on a clean sweep.
+  const badge = $("live-unsupported-count");
+  if (badge) {
+    if (unsupportedCount > 0) {
+      badge.textContent = unsupportedCount + " unsupported on this ECU";
+      badge.hidden = false;
+    } else {
+      badge.textContent = "";
+      badge.hidden = true;
+    }
+  }
+  renderPeakTable();
+  updateSnapshotButton();
+}
+
+// v0.14.3 slice 3b — one-click remove-from-profile handler. Gated
+// behind the same `tauri-plugin-dialog` confirmation the v0.14.1
+// fix-issue-#161 work uses (dialog.js). On success, removes the
+// gauge cell from the DOM (the PID is gone from the in-memory
+// profile + the on-disk TOML, so the next sweep won't return it).
+async function removePidFromProfile(pidId, pidLabel) {
+  const profileId = $("live-profile").value;
+  if (!await window.beeemuuDialog.ask(
+    `Remove "${pidLabel}" (id=${pidId}) from profile "${profileId}"? ` +
+    `The next sweep won't request it. (You'll need to edit the TOML by hand to undo.)`
+  )) return;
+  try {
+    const path = await invoke("remove_profile_pid", { profileId, paramId: pidId });
+    log(`Removed ${pidLabel} (id=${pidId}) from profile ${profileId} (wrote ${path}).`);
+    const cell = document.querySelector(
+      '.gauge-cell[data-pid-id="' + pidId + '"]'
+    );
+    if (cell) cell.remove();
+  } catch (e) {
+    log("Failed to remove " + pidLabel + ": " + e);
   }
 }
 
 function startPolling() {
   if (pollTimer) return;
-  pollTimer = setInterval(pollOnce, 250);
+  const ms = currentPollRateMs();
+  pollTimer = setInterval(pollOnce, ms);
   pollOnce();
 }
 function stopPolling() {
@@ -760,11 +1586,229 @@ $("live-poll").addEventListener("change", (e) => {
   }
 });
 
+// v0.14.2 slice 2 — changing the polling rate restarts the interval so the
+// new rate takes effect immediately. startPolling is idempotent (it
+// no-ops when pollTimer is already set), so we always stopPolling()
+// first when the user changes rate mid-session.
+$("live-poll-rate").addEventListener("change", () => {
+  if (pollTimer) {
+    stopPolling();
+    startPolling();
+  }
+  saveSettings();
+});
+
+// v0.14.2 slice 2 — Save snapshot. Builds a one-row CSV via
+// beeemuuLiveDataPanel.buildSnapshotCsv (matching the v0.11.0
+// log-export header shape) and writes it via the same export_text
+// Tauri command the DTC + log exporters use. The filename pattern
+// (beeemuu-live-snapshot-<iso>.csv) matches the v0.11.0 naming
+// convention so a user can see "live snapshot" files alongside
+// their log exports in <HOME>/beeemuu/.
+$("btn-live-snapshot").addEventListener("click", async () => {
+  if (gauges.size === 0) { log("Live data: nothing to snapshot yet."); return; }
+  const values = [];
+  for (const [id, g] of gauges) {
+    const text = g.textOverride;
+    values.push({
+      id,
+      label: g.label,
+      unit: g.unit || "",
+      value: g.value,
+      text: text === null || text === undefined ? null : text,
+    });
+  }
+  const profile = $("live-profile");
+  const profileLabel = profile ? profile.options[profile.selectedIndex]?.text || profile.value : "";
+  const csv = window.beeemuuLiveDataPanel.buildSnapshotCsv(values, profileLabel);
+  const filename = window.beeemuuLiveDataPanel.snapshotCsvFilename();
+  try {
+    const path = await invoke("export_text", { filename, content: csv });
+    log("Live snapshot saved: " + path);
+  } catch (e) {
+    log("Live snapshot failed: " + e);
+  }
+});
+
+// v0.14.2 slice 2 — Reset peaks. Clears the per-session peak state
+// and refreshes the table. The peak labels on each gauge cell are
+// updated on the next pollOnce() (the next sweep sets them from the
+// new state).
+$("btn-live-peaks-reset").addEventListener("click", () => {
+  livePeakState = {};
+  for (const cell of document.querySelectorAll("[data-peak]")) {
+    cell.textContent = "peak: —";
+  }
+  renderPeakTable();
+});
+
 /* needle easing loop */
 (function animate() {
   for (const g of gauges.values()) g.tick();
   requestAnimationFrame(animate);
 })();
+
+/* ---------------- FRM coding dump (read-only) ---------------- */
+// Fallback copy of frm_coding_dump.js. Classic <script> tags share one
+// `const` scope; an earlier `const api` used to abort that file on load.
+function createFrmCodingDumpFallback() {
+  const FRM_ADDRESS = 0x72;
+  const FRM_NAME = "FRM";
+  const MIRROR_FOLD_STATE = "Unknown";
+  const LOCAL_PROBE = { mode: "local", start: 0, end: 0xff };
+  const DID_PROBE = { mode: "did", start: 0, end: 0xff };
+  const hexId = (mode, id) =>
+    "0x" + Number(id).toString(16).toUpperCase().padStart(mode === "did" ? 4 : 2, "0");
+  const sanitizeVin = (vin) => {
+    if (typeof vin !== "string") return "unknown";
+    const cleaned = vin.trim().replace(/[^A-Za-z0-9]/g, "");
+    return cleaned.length ? cleaned : "unknown";
+  };
+  const exportStamp = (now) => {
+    const d = now instanceof Date ? now : new Date();
+    return d.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  };
+  const formatProbeSection = (mode, results) => {
+    const rows = Array.isArray(results) ? results : [];
+    const label = mode === "did" ? "did (UDS 22)" : "local (KWP 21)";
+    const lines = [`# ${label} — ${rows.length} answered`];
+    for (const r of rows) {
+      const hex = r && r.hex != null ? String(r.hex) : "";
+      lines.push(`${hexId(mode, r.id)}  ${hex}`.trimEnd());
+    }
+    return lines.join("\n");
+  };
+  return {
+    FRM_ADDRESS,
+    FRM_NAME,
+    MIRROR_FOLD_STATE,
+    LOCAL_PROBE,
+    DID_PROBE,
+    findFrm: (list) =>
+      Array.isArray(list) ? list.find((m) => m && m.address === FRM_ADDRESS) || null : null,
+    identLabel: (frm, opts) => {
+      if (!(opts && opts.connected)) return "Not connected";
+      if (frm && frm.present && frm.ident) return String(frm.ident);
+      if (frm && frm.present) return "FRM present (no ident string)";
+      return "FRM not scanned — Export will identify 0x72";
+    },
+    sanitizeVin,
+    exportStamp,
+    dumpFilename: (opts) =>
+      `beeemuu-frm-coding-${sanitizeVin(opts && opts.vin)}-${exportStamp(opts && opts.now)}.txt`,
+    formatIdentId: hexId,
+    formatProbeSection,
+    buildDumpText: (opts) => {
+      const o = opts || {};
+      return [
+        [
+          "# BeeEmUu FRM coding dump (read-only)",
+          "# Research capture only. Does not decode Spiegel_Komfort_einklapp.",
+          `# Mirror-fold state: ${MIRROR_FOLD_STATE}`,
+          "# See docs/validation/coding-mirror-fold.md",
+          "#",
+          `# exported_at: ${o.exportedAt || ""}`,
+          `# vin: ${o.vin || "unavailable"}`,
+          `# target: 0x${FRM_ADDRESS.toString(16).toUpperCase()} ${FRM_NAME}`,
+          `# ident: ${o.ident || "(none)"}`,
+          "#",
+        ].join("\n"),
+        formatProbeSection("local", o.localResults),
+        "#",
+        formatProbeSection("did", o.didResults),
+        "",
+      ].join("\n");
+    },
+  };
+}
+
+function frmCodingApi() {
+  if (window.beeemuuFrmCodingDump) return window.beeemuuFrmCodingDump;
+  window.beeemuuFrmCodingDump = createFrmCodingDumpFallback();
+  return window.beeemuuFrmCodingDump;
+}
+
+async function refreshFrmCodingCard() {
+  const api = frmCodingApi();
+  const identEl = $("frm-coding-ident");
+  const stateEl = $("frm-coding-state");
+  if (!identEl || !api) return;
+  if (stateEl) stateEl.textContent = api.MIRROR_FOLD_STATE;
+  identEl.textContent = api.identLabel(api.findFrm(modules), { connected });
+}
+
+async function exportFrmCodingDump() {
+  const api = frmCodingApi();
+  if (!api) { log("FRM dump helper not loaded."); return; }
+  if (!connected) { log("Connect first."); return; }
+  const btn = $("btn-frm-coding-export");
+  if (btn) btn.disabled = true;
+  try {
+    let frm = api.findFrm(modules);
+    if (!frm || !frm.present || !frm.ident) {
+      log("Identifying FRM (0x72) via vehicle test…");
+      setStatus("FRM identify…");
+      modules = await invoke("scan_modules");
+      fillExplorerEcus();
+      fillSecurityEcus();
+      renderTree();
+      refreshFrmCodingCard();
+      frm = api.findFrm(modules);
+    }
+    if (!frm || !frm.present) {
+      log("FRM (0x72) did not answer identify (1A 80).");
+      setStatus("Connected");
+      return;
+    }
+    log("Probing FRM local IDs (0x00–0xFF)…");
+    setStatus("FRM local-ID probe…");
+    const localResults = await invoke("probe_range", {
+      address: api.FRM_ADDRESS,
+      mode: api.LOCAL_PROBE.mode,
+      start: api.LOCAL_PROBE.start,
+      end: api.LOCAL_PROBE.end,
+    });
+    log("Probing FRM DIDs (0x0000–0x00FF)…");
+    setStatus("FRM DID probe…");
+    const didResults = await invoke("probe_range", {
+      address: api.FRM_ADDRESS,
+      mode: api.DID_PROBE.mode,
+      start: api.DID_PROBE.start,
+      end: api.DID_PROBE.end,
+    });
+    let vin = lastVehicleInfo && lastVehicleInfo.vin;
+    if (!vin) {
+      try {
+        const info = await invoke("read_vehicle_info");
+        lastVehicleInfo = info;
+        vin = info.vin;
+      } catch (_) { /* filename falls back to unknown */ }
+    }
+    const now = new Date();
+    const content = api.buildDumpText({
+      ident: frm.ident,
+      vin: vin || null,
+      localResults,
+      didResults,
+      exportedAt: now.toISOString(),
+    });
+    const filename = api.dumpFilename({ vin, now });
+    const path = await invoke("export_text", { filename, content });
+    log("FRM coding dump saved: " + path);
+    setStatus("Connected");
+    refreshFrmCodingCard();
+  } catch (e) {
+    log("FRM coding dump failed: " + e);
+    setStatus("Connected");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+const frmExportBtn = $("btn-frm-coding-export");
+if (frmExportBtn) {
+  frmExportBtn.addEventListener("click", exportFrmCodingDump);
+}
 
 /* ---------------- service functions ---------------- */
 async function loadServiceFunctions() {
@@ -784,11 +1828,16 @@ async function loadServiceFunctions() {
       const labelWithModule = sf.routines.length > 1
         ? `${sf.label} (${r.moduleLabel})`
         : sf.label;
+      // v0.8.0: `verified === false` means the routine ID has never been
+      // validated on a real chassis (simulator-grade). Render the
+      // [UNVERIFIED] marker; the confirmation below gains a second line.
+      const unverified = sf.verified === false;
       item.innerHTML =
         `<div class="service-info">` +
         `<div class="service-label">${labelWithModule}</div>` +
         `<div class="service-desc">${sf.description}</div>` +
         `</div>` +
+        (unverified ? `<span class="unverified-tag" title="Routine ID not chassis-validated — see docs/validation/service-functions.md">UNVERIFIED</span>` : ``) +
         `<span class="risk-tag risk-${sf.risk}">${sf.risk === "high" ? "ACTUATES HARDWARE" : "RESET"}</span>`;
       const btn = document.createElement("button");
       btn.className = "btn";
@@ -798,7 +1847,13 @@ async function loadServiceFunctions() {
         const warning = sf.risk === "high"
           ? `"${labelWithModule}" actuates vehicle hardware.\n\n${sf.description}\n\nProceed?`
           : `Run "${labelWithModule}"?`;
-        if (!confirm(warning)) return;
+        // Write-path discipline (CONTRIBUTING.md): an unverified write
+        // can change ECU state, so the existing risk confirmation gains
+        // a "routine ID not chassis-validated" preamble.
+        const gating = unverified
+          ? `UNVERIFIED routine: the routine ID behind "${labelWithModule}" has NOT been validated on a real chassis — it is a simulator placeholder. On a real car it may invoke a different function, or none.\n\nValidation harness: docs/validation/service-functions.md\n\n`
+          : ``;
+        if (!await window.beeemuuDialog.ask(gating + warning)) return;
         btn.disabled = true;
         try {
           const msg = await invoke("run_service_function", {
@@ -864,7 +1919,7 @@ $("btn-probe").addEventListener("click", async () => {
     }
     setStatus(`Probe complete — ${results.length} identifiers answered`);
   } catch (e) {
-    ul.innerHTML = `<li class='tree-empty'>Probe failed: ${e}</li>`;
+    ul.innerHTML = `<li class='tree-empty'>Probe failed: ${escapeHtml(String(e))}</li>`;
     setStatus("Connected");
   }
 });
@@ -1121,7 +2176,7 @@ async function previewSchema() {
       container.appendChild(cell);
     }
   } catch (e) {
-    $("schema-preview").innerHTML = `<span class="muted">Preview failed: ${e}</span>`;
+    $("schema-preview").innerHTML = `<span class="muted">Preview failed: ${escapeHtml(String(e))}</span>`;
   }
 }
 
@@ -1291,14 +2346,23 @@ async function buildLogParams() {
   const profile = $("log-profile").value;
   let values = [];
   try {
-    values = connected ? await invoke("read_live_data", { profile }) : [];
+    // v0.14.3 slice 3b — destructure the new `LiveSweepResult { values, errors }`
+    // shape (PR #187). The Logging tab only cares about `values` (the channel
+    // list); the per-PID errors are surfaced on the Live Data tab via pollOnce.
+    const result = connected ? await invoke("read_live_data", { profile }) : { values: [], errors: [] };
+    values = Array.isArray(result.values) ? result.values : [];
   } catch (_) { values = []; }
   const el = $("log-params");
   el.innerHTML = "";
+  // Enabled default: the saved workspace map for this profile wins when
+  // it has an entry for the channel; otherwise the first three channels
+  // are on (pre-v0.7.0 behaviour).
+  const savedEnabled = (workspaceState.logChannels && workspaceState.logChannels[profile]) || {};
   values.forEach((v, i) => {
     const color = LOG_COLORS[i % LOG_COLORS.length];
     if (!logSeries.has(v.id)) {
-      logSeries.set(v.id, new LogSeries(v.label, v.unit, color, i < 3));
+      const enabled = typeof savedEnabled[v.id] === "boolean" ? savedEnabled[v.id] : i < 3;
+      logSeries.set(v.id, new LogSeries(v.label, v.unit, color, enabled));
     } else {
       const s = logSeries.get(v.id);
       s.label = v.label;
@@ -1315,11 +2379,12 @@ async function buildLogParams() {
     if (sev) row.classList.add(sev);
     row.innerHTML =
       `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${v.id}" />` +
-      `<span class="swatch" style="background:${s.color}"></span>` +
-      `<span>${s.label}</span>`;
+      `<span class="swatch" style="background:${escapeHtml(s.color)}"></span>` +
+      `<span>${escapeHtml(s.label)}</span>`;
     row.querySelector("input").addEventListener("change", (e) => {
       s.enabled = e.target.checked;
       rebuildChart();
+      saveSettings(); // persist the channel enabled map (v0.7.0 workspace)
     });
     el.appendChild(row);
   });
@@ -1375,7 +2440,11 @@ function rebuildChart() {
 async function logTick() {
   if (!connected) return;
   try {
-    const values = await invoke("read_live_data", { profile: $("log-profile").value });
+    // v0.14.3 slice 3b — destructure the new `LiveSweepResult { values, errors }`
+    // shape (PR #187). The chart only consumes `values`; per-PID errors are
+    // surfaced on the Live Data tab via pollOnce.
+    const result = await invoke("read_live_data", { profile: $("log-profile").value });
+    const values = Array.isArray(result.values) ? result.values : [];
     const t = (Date.now() - logStart) / 1000;
     for (const v of values) {
       const s = logSeries.get(v.id);
@@ -1414,6 +2483,8 @@ function startLogging() {
   $("btn-log-start").textContent = "Stop recording";
   $("btn-log-start").classList.remove("btn-primary");
   $("btn-log-export").disabled = false;
+  $("btn-log-export-png").disabled = false;
+  $("btn-log-export-svg").disabled = false;
   $("btn-log-histogram").disabled = false;
   $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
@@ -1568,11 +2639,12 @@ function restoreSession() {
     row.className = "log-param";
     row.innerHTML =
       `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${id}" />` +
-      `<span class="swatch" style="background:${s.color}"></span>` +
-      `<span>${s.label}</span>`;
+      `<span class="swatch" style="background:${escapeHtml(s.color)}"></span>` +
+      `<span>${escapeHtml(s.label)}</span>`;
     row.querySelector("input").addEventListener("change", (e) => {
       s.enabled = e.target.checked;
       rebuildChart();
+      saveSettings(); // persist the channel enabled map (v0.7.0 workspace)
     });
     el.appendChild(row);
   }
@@ -1582,6 +2654,8 @@ function restoreSession() {
   updatePlayButton();
   $("log-status").textContent = "Restored saved session.";
   $("btn-log-export").disabled = false;
+  $("btn-log-export-png").disabled = false;
+  $("btn-log-export-svg").disabled = false;
   $("btn-log-histogram").disabled = false;
   $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
@@ -1613,45 +2687,72 @@ $("btn-log-clear").addEventListener("click", () => {
   updatePlayButton();
   renderMarkerList();
 });
-/* Build the CSV string from the current log series data. */
-function buildLogCsv() {
-  const enabled = [...logSeries.entries()].filter(([, s]) => s.enabled && s.getAllData().length);
-  if (!enabled.length) return null;
-  const allData = enabled[0][1].getAllData();
-  const rows = allData.length;
-  let csv = "time_s," + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(",") + "\n";
-  for (let i = 0; i < rows; i++) {
-    const t = allData[i]?.x ?? "";
-    let row = t.toFixed ? t.toFixed(2) : t;
-    for (const [, s] of enabled) {
-      const p = s.getAllData()[i];
-      // Enum labels (when point.text is set) are emitted as quoted CSV
-      // strings; numerics keep the existing two-decimal format.
-      row += "," + (p
-        ? (p.text !== undefined && p.text !== null
-            ? JSON.stringify(p.text)
-            : (p.y ?? "").toFixed(2))
-        : "");
-      // Shared with the test harness (`src/js/test/live_format.test.cjs`)
-      // and Gauge.set in gauges.js. Keep the rule in one place.
-      row += "," + window.LiveFormat.csvCell(s.getAllData()[i]);
-    }
-    csv += row + "\n";
-  }
-  return csv;
+/* Build the CSV string from the current log series data.
+ *
+ * v0.11.0: extracted to `src/js/csv_log_export.js` so the units-row
+ * option (`withUnits`) is independently testable. This thin wrapper
+ * passes through the live `logSeries` map and the shared LiveFormat
+ * helper so the wire format is byte-identical to the pre-extraction
+ * version.
+ */
+function buildLogCsv(opts) {
+  if (!window.beeemuuCsvLog || !window.beeemuuCsvLog.buildLogCsv) return null;
+  return window.beeemuuCsvLog.buildLogCsv([...logSeries.entries()], {
+    withUnits: !!(opts && opts.withUnits),
+    liveFormat: window.LiveFormat,
+  });
 }
 
 $("btn-log-export").addEventListener("click", async () => {
-  const csv = buildLogCsv();
+  const withUnits = $("log-export-units") && $("log-export-units").checked;
+  const csv = buildLogCsv({ withUnits });
   if (!csv) { log("Nothing recorded yet."); return; }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  // Filename carries a `-units` suffix when the units row is on, so a
+  // user can tell at a glance which CSV variant they're sharing.
+  const suffix = withUnits ? "-units" : "";
   try {
-    const path = await invoke("export_text", { filename: `beeemuu-log-${stamp}.csv`, content: csv });
+    const path = await invoke("export_text", { filename: `beeemuu-log-${stamp}${suffix}.csv`, content: csv });
     log("Saved: " + path);
   } catch (e) {
     log("Export failed: " + e);
   }
 });
+// Export the live logging chart as a PNG (client-side, via Chart.js
+// toBase64Image -> anchor download; no Rust round-trip needed).
+$("btn-log-export-png").addEventListener("click", () => {
+  if (!logChart) { log("Nothing charted yet."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  downloadDataUrl(`beeemuu-log-${stamp}.png`, logChart.toBase64Image("image/png", 1));
+});
+// Export the live logging chart as an SVG (v0.11.0, mirrors PNG export).
+// Chart.js has no toSVG(); we render from the same data the canvas is
+// drawing via src/js/svg_export.js (no new dependency, no Rust round-trip).
+$("btn-log-export-svg").addEventListener("click", () => {
+  if (!logChart) { log("Nothing charted yet."); return; }
+  if (!window.beeemuuSvg || !window.beeemuuSvg.chartToSvg) {
+    log("SVG export unavailable (svg_export.js not loaded).");
+    return;
+  }
+  const svg = window.beeemuuSvg.chartToSvg(logChart);
+  if (!svg) { log("No chart data to export."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  // SVG uses a data: URL too, but base64-encoding would bloat it ~33%;
+  // use a URL-encoded string so the file is human-readable as-is.
+  downloadDataUrl(
+    `beeemuu-log-${stamp}.svg`,
+    "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
+  );
+});
+// Trigger a browser-native download of a data: URL (PNG/SVG).
+function downloadDataUrl(filename, dataUrl) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 $("btn-log-play").addEventListener("click", togglePlay);
 $("btn-log-step-back").addEventListener("click", () => stepTime(-1));
 $("btn-log-step-forward").addEventListener("click", () => stepTime(1));
@@ -1725,6 +2826,8 @@ function renderHistogram() {
       },
     },
   });
+  $("histogram-export").disabled = false;
+  $("histogram-export-svg").disabled = false;
   // Stats readout
   const s = result.stats;
   const fmt = (v) => (Number.isFinite(v) ? v.toFixed(2) : "—");
@@ -1759,6 +2862,34 @@ $("histogram-bins").addEventListener("change", renderHistogram);
 $("histogram-close").addEventListener("click", () => {
   $("histogram-overlay").classList.add("hidden");
   if (histChart) { histChart.destroy(); histChart = null; }
+  $("histogram-export").disabled = true;
+  $("histogram-export-svg").disabled = true;
+});
+// Export the histogram as a PNG (client-side anchor download).
+$("histogram-export").addEventListener("click", () => {
+  if (!histChart) return;
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  downloadDataUrl(`beeemuu-histogram-${stamp}.png`, histChart.toBase64Image("image/png", 1));
+});
+// Export the histogram as an SVG (v0.11.0, mirrors PNG export).
+// Same renderer approach as the logging chart: pull data from histChart.data
+// and the result binEdges/labels the histogram module already exposes.
+$("histogram-export-svg").addEventListener("click", () => {
+  if (!histChart) return;
+  if (!window.beeemuuSvg || !window.beeemuuSvg.histogramToSvg) {
+    log("SVG export unavailable (svg_export.js not loaded).");
+    return;
+  }
+  const labels = histChart.data.labels || [];
+  const counts = (histChart.data.datasets[0] && histChart.data.datasets[0].data) || [];
+  const axisLabel = histChart.options.scales.x.title.text || "value";
+  const svg = window.beeemuuSvg.histogramToSvg({ labels, counts, axisLabel });
+  if (!svg) { log("No histogram data to export."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  downloadDataUrl(
+    `beeemuu-histogram-${stamp}.svg`,
+    "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg)
+  );
 });
 
 // v0.6.0 PR #1 — Compare logs modal: button + select + recompute + close.
@@ -1769,6 +2900,58 @@ $("log-diff-recompute").addEventListener("click", renderLogDiffTable);
 $("log-diff-close").addEventListener("click", () => {
   $("log-diff-overlay").classList.add("hidden");
 });
+
+/* ---------------- trigger-based logging (v0.15.2+) ---------------- */
+function loadTriggers() {
+  try { return JSON.parse(localStorage.getItem("beeemuu.triggers") || "null") || []; } catch { return []; }
+}
+function saveTriggers(triggers) { try { localStorage.setItem("beeemuu.triggers", JSON.stringify(triggers)); } catch {} }
+function populateTriggerChannels() {
+  const sel = $("trigger-channel");
+  if (!sel) return;
+  const profile = $("log-profile")?.value;
+  const params = window.beeemuuProfiles?.[profile] || [];
+  sel.innerHTML = params.map((p) => `<option value="${p.id}">${p.label} (${p.id})</option>`).join("") || `<option value="">(no params)</option>`;
+}
+function triggerToList() {
+  const thr = { channelId: $("trigger-channel")?.value, op: $("trigger-op")?.value || ">", threshold: parseFloat($("trigger-threshold")?.value), enabled: $("trigger-enabled")?.checked };
+  const dtc = { type: "dtc", code: ($("trigger-dtc")?.value || "").trim() || "*", enabled: $("trigger-dtc-enabled")?.checked };
+  const list = [];
+  if (thr.enabled && thr.channelId && !Number.isNaN(thr.threshold)) list.push(thr);
+  if (dtc.enabled) list.push(dtc);
+  return list;
+}
+let triggerPoll = null;
+function startTriggerPoll() {
+  if (triggerPoll) return;
+  triggerPoll = setInterval(async () => {
+    if (!connected || logTimer) return;
+    const triggers = triggerToList();
+    if (!triggers.length) { const s=$("trigger-status"); if(s) s.textContent="idle"; return; }
+    try {
+      const live = await invoke("read_live_data", { profile: $("log-profile").value });
+      const values = Array.isArray(live.values) ? live.values : [];
+      // DTC check is best-effort: read from first present ECU if any
+      let dtcs = [];
+      try { const m = modules.find((x)=>x.present); if (m) dtcs = await invoke("read_faults", { address: m.address }); } catch {}
+      const fire = window.beeemuuTrigger && window.beeemuuTrigger.shouldAutoStart(triggers, values, dtcs);
+      const s=$("trigger-status"); if(s) s.textContent = fire ? "trigger fired → starting" : "watching…";
+      if (fire) { log("Trigger fired → auto-starting logging"); startLogging(); }
+    } catch {}
+  }, 1000);
+}
+function stopTriggerPoll() { if (triggerPoll) { clearInterval(triggerPoll); triggerPoll=null; } }
+["change","input"].forEach((ev)=>{
+  ["trigger-channel","trigger-op","trigger-threshold","trigger-enabled","trigger-dtc","trigger-dtc-enabled"].forEach((id)=>{
+    const el=$(id); if(el) el.addEventListener(ev, ()=>{ saveTriggers(triggerToList()); const s=$("trigger-status"); if(s) s.textContent="watching…"; });
+  });
+});
+if ($("log-profile")) $("log-profile").addEventListener("change", populateTriggerChannels);
+populateTriggerChannels();
+if (connected) startTriggerPoll();
+// hook connect/disconnect to start/stop poll
+const _origSetStatus = setStatus;
+setStatus = function(...a){ _origSetStatus(...a); if(connected && !logTimer) startTriggerPoll(); else if(!connected) stopTriggerPoll(); };
 
 /* ---------------- log-diff modal (v0.6.0 PR #1) ---------------------
  *
@@ -1976,7 +3159,10 @@ document.querySelectorAll(".tab").forEach((tab) => {
   });
 });
 
-$("log-profile").addEventListener("change", buildLogParams);
+$("log-profile").addEventListener("change", () => {
+  buildLogParams();
+  saveSettings(); // persist the selected log profile (v0.7.0 workspace)
+});
 
 /* ---------------- vehicle info ---------------- */
 let lastVehicleInfo = null;
@@ -1991,7 +3177,7 @@ async function doReadVehicle() {
     renderVehicleInfo(info);
     setInfoActionsEnabled(true);
   } catch (e) {
-    body.innerHTML = `<p class='muted'>Read failed: ${e}</p>`;
+    body.innerHTML = `<p class='muted'>Read failed: ${escapeHtml(String(e))}</p>`;
   }
 }
 
@@ -2084,12 +3270,14 @@ function renderStory(story) {
         </ol>
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="copyStoryText()">Copy text</button>
-        <button class="btn btn-primary" onclick="document.getElementById('story-modal').remove()">Close</button>
+        <button class="btn" id="story-copy-btn">Copy text</button>
+        <button class="btn btn-primary" id="story-close-btn">Close</button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
+  modal.querySelector("#story-copy-btn").addEventListener("click", copyStoryText);
+  modal.querySelector("#story-close-btn").addEventListener("click", () => modal.remove());
   // Store raw text for copy
   modal.dataset.rawText = formatStoryPlain(story);
 }
@@ -2131,6 +3319,172 @@ function setInfoActionsEnabled(on) {
     if (el.dataset.action === "read") return; // Read is always available when connected
     el.disabled = !on;
   });
+}
+
+function doPrintHealthReport() {
+  if (!lastVehicleInfo || !window.beeemuuPrintReports) return;
+  const api = window.beeemuuPrintReports;
+  api.printHtml(document, api.buildHealthReport(lastVehicleInfo, modules));
+}
+
+function showServiceHistoryEditor() {
+  if (!lastVehicleInfo || !window.beeemuuPrintReports) return;
+  const api = window.beeemuuPrintReports;
+  const vin = lastVehicleInfo.vin;
+  const dossier = api.loadDossier(localStorage, vin);
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.id = "service-history-modal";
+  modal.innerHTML = `<div class="modal service-history-modal"><div class="modal-head">Vehicle history & maintenance dossier</div><div class="modal-body dossier-editor">
+    <p class="muted">Build a buyer-ready record stored locally for VIN ${escapeHtml(vin || "unavailable")}.</p>
+    <h3>Vehicle & ownership</h3><div class="dossier-profile-grid">
+      <label>Model<input data-profile="model" value="${escapeHtml(dossier.profile.model || "")}" placeholder="e.g. X5 35d"></label>
+      <label>Chassis<input data-profile="chassis" value="${escapeHtml(dossier.profile.chassis || "")}" placeholder="e.g. E70"></label>
+      <label>Ownership started<input type="date" data-profile="ownership_start" value="${escapeHtml(dossier.profile.ownership_start || "")}"></label>
+      <label class="wide">Seller overview<textarea data-profile="seller_notes" placeholder="Condition, ownership story, notable care and upgrades">${escapeHtml(dossier.profile.seller_notes || "")}</textarea></label>
+    </div>
+    <div class="dossier-section-head"><h3>Completed maintenance & repairs</h3><button class="btn btn-small" id="dossier-add-work">+ Add work</button></div><div id="dossier-work-rows"></div>
+    <div class="dossier-section-head"><h3>Upcoming maintenance</h3><button class="btn btn-small" id="dossier-add-upcoming">+ Add upcoming</button></div><div id="dossier-upcoming-rows"></div>
+    <p class="muted">Printing tip: choose A4 and turn off browser headers and footers for the cleanest dossier.</p>
+    </div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn" id="dossier-save">Save</button><button class="btn" id="dossier-export-json">Export JSON</button><button class="btn" id="dossier-import-json">Import JSON</button><button class="btn" id="dossier-export-csv">Export CSV</button><button class="btn btn-primary" id="service-history-print">Save & print dossier</button></div></div>`;
+  document.body.appendChild(modal);
+  const workRows = modal.querySelector("#dossier-work-rows");
+  const upcomingRows = modal.querySelector("#dossier-upcoming-rows");
+  const field = (name, value, placeholder = "", type = "text") => `<input type="${type}" data-field="${name}" value="${escapeHtml(value || "")}" placeholder="${placeholder}">`;
+  const addWork = (entry = {}) => {
+    const row = document.createElement("fieldset"); row.className = "dossier-entry";
+    row.innerHTML = `<legend>Work record</legend><div class="dossier-entry-grid">${field("date", entry.date, "", "date")}${field("mileage_km", entry.mileage_km, "Mileage km", "number")}<select data-field="category">${["Maintenance", "Repair", "Upgrade", "Inspection", "Recall", "Bodywork", "Other"].map((v) => `<option${entry.category === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work_performed", entry.work_performed, "Work performed")}${field("reason", entry.reason, "Reason / symptoms")}${field("provider", entry.provider, "Workshop / provider")}${field("parts", entry.parts, "Parts used")}${field("part_numbers", entry.part_numbers, "Part numbers")}${field("parts_cost", entry.parts_cost, "Parts cost", "number")}${field("labor_cost", entry.labor_cost, "Labor cost", "number")}${field("invoice_ref", entry.invoice_ref, "Invoice / receipt ref")}${field("warranty", entry.warranty, "Warranty")}</div><label class="dossier-diy"><input type="checkbox" data-field="diy"${entry.diy ? " checked" : ""}> Owner / DIY work</label><textarea data-field="notes" placeholder="Detailed notes">${escapeHtml(entry.notes || "")}</textarea><div class="dossier-attachments"><button class="btn btn-small dossier-attach" type="button">Attach receipt / invoice</button><ul class="dossier-attachment-list"></ul></div><button class="btn btn-small btn-danger dossier-remove" type="button">Remove record</button>`;
+    row._attachments = Array.isArray(entry.attachments) ? entry.attachments.slice() : [];
+    const renderAttachments = () => {
+      const list = row.querySelector(".dossier-attachment-list");
+      list.innerHTML = row._attachments.map((attachment, index) => `<li><span>${escapeHtml(attachment.name)} <small>(${escapeHtml(attachment.kind)})</small></span><button type="button" class="btn btn-small" data-remove-attachment="${index}">Remove</button></li>`).join("");
+      list.querySelectorAll("[data-remove-attachment]").forEach((button) => button.addEventListener("click", () => { row._attachments.splice(Number(button.dataset.removeAttachment), 1); renderAttachments(); }));
+    };
+    renderAttachments();
+    row.querySelector(".dossier-attach").addEventListener("click", async () => {
+      try {
+        const dialog = window.__TAURI__?.dialog;
+        if (!dialog || typeof dialog.open !== "function") throw new Error("File picker is unavailable in this runtime.");
+        const selected = await dialog.open({ multiple: true, filters: [{ name: "Receipts and invoices", extensions: ["pdf", "jpg", "jpeg", "png", "webp"] }] });
+        const paths = selected == null ? [] : (Array.isArray(selected) ? selected : [selected]);
+        row._attachments.push(...api.normalizeAttachments(paths));
+        renderAttachments();
+      } catch (e) { log("Receipt attachment failed: " + e); }
+    });
+    row.querySelector(".dossier-remove").addEventListener("click", () => row.remove()); workRows.appendChild(row);
+  };
+  const addUpcoming = (entry = {}) => {
+    const row = document.createElement("fieldset"); row.className = "dossier-entry dossier-upcoming-entry";
+    row.innerHTML = `<legend>Upcoming item</legend><div class="dossier-entry-grid"><select data-field="priority">${["High", "Medium", "Low"].map((v) => `<option${entry.priority === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work", entry.work, "Planned work")}${field("due_date", entry.due_date, "", "date")}${field("due_mileage_km", entry.due_mileage_km, "Due mileage km", "number")}${field("estimated_cost", entry.estimated_cost, "Estimated cost", "number")}${field("notes", entry.notes, "Notes")}</div><button class="btn btn-small btn-danger dossier-remove" type="button">Remove item</button>`;
+    row.querySelector(".dossier-remove").addEventListener("click", () => row.remove()); upcomingRows.appendChild(row);
+  };
+  dossier.work.forEach(addWork); dossier.upcoming.forEach(addUpcoming);
+  if (!dossier.work.length) addWork();
+  modal.querySelector("#dossier-add-work").addEventListener("click", () => addWork());
+  modal.querySelector("#dossier-add-upcoming").addEventListener("click", () => addUpcoming());
+  modal.querySelector("#service-history-close").addEventListener("click", () => modal.remove());
+  const gather = () => {
+    const collect = (row) => { const entry = {}; row.querySelectorAll("[data-field]").forEach((input) => { entry[input.dataset.field] = input.type === "checkbox" ? input.checked : input.value.trim(); }); if (Array.isArray(row._attachments)) entry.attachments = row._attachments.slice(); return entry; };
+    const profile = {}; modal.querySelectorAll("[data-profile]").forEach((input) => { profile[input.dataset.profile] = input.value.trim(); });
+    return { profile, work: Array.from(workRows.children).map(collect).filter((e) => e.work_performed || e.date), upcoming: Array.from(upcomingRows.children).map(collect).filter((e) => e.work || e.due_date) };
+  };
+  const save = () => { const value = gather(); api.saveDossier(localStorage, vin, value); return value; };
+  modal.querySelector("#dossier-save").addEventListener("click", () => { try { save(); log("Vehicle dossier saved locally."); } catch (e) { log("Dossier save failed: " + e); } });
+
+  // Export the dossier as JSON. Uses the same `export_text` Tauri command
+  // the rest of the app uses for log / report exports. Falls back to
+  // a download in non-Tauri runtimes (dev) so the feature still works
+  // when previewing the frontend in a plain browser.
+  modal.querySelector("#dossier-export-json").addEventListener("click", async () => {
+    try {
+      const value = save();
+      const json = api.exportDossierJson(value);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `beeemuu-dossier-${(lastVehicleInfo && lastVehicleInfo.vin) || "vehicle"}-${stamp}.json`;
+      try {
+        const path = await invoke("export_text", { filename, content: json });
+        log("Dossier exported: " + path);
+      } catch (_) {
+        // Plain browser fallback for dev previews.
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        log("Dossier downloaded: " + filename);
+      }
+    } catch (e) { log("Dossier export failed: " + e); }
+  });
+
+  // Import a previously-exported dossier JSON file. Validates schema
+  // and replaces the in-memory dossier; the user still has to press
+  // Save (or Save & print) to persist to localStorage.
+  modal.querySelector("#dossier-import-json").addEventListener("click", async () => {
+    try {
+      let text = null;
+      if (window.__TAURI__ && window.__TAURI__.dialog && typeof window.__TAURI__.dialog.open === "function") {
+        const dialog = window.__TAURI__.dialog;
+        const selected = await dialog.open({ multiple: false, filters: [{ name: "Dossier JSON", extensions: ["json"] }] });
+        if (!selected) return;
+        const path = Array.isArray(selected) ? selected[0] : selected;
+        text = await invoke("read_export_text", { filename: path.split(/[\\/]/).pop() });
+      } else {
+        const input = document.createElement("input");
+        input.type = "file"; input.accept = "application/json,.json";
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => applyImported(reader.result);
+          reader.readAsText(file);
+        });
+        input.click();
+        return; // applyImported will run via FileReader
+      }
+      if (text !== null) applyImported(text);
+    } catch (e) { log("Dossier import failed: " + e); }
+
+    function applyImported(raw) {
+      try {
+        const imported = api.importDossierJson(String(raw));
+        // Replace the in-memory form values and re-render rows.
+        Object.entries(imported.profile || {}).forEach(([k, v]) => {
+          const el = modal.querySelector(`[data-profile="${k}"]`);
+          if (el) el.value = v == null ? "" : String(v);
+        });
+        workRows.innerHTML = "";
+        (imported.work || []).forEach(addWork);
+        upcomingRows.innerHTML = "";
+        (imported.upcoming || []).forEach(addUpcoming);
+        if (!workRows.children.length) addWork();
+        log("Dossier imported. Press Save to persist locally.");
+      } catch (parseErr) { log("Dossier import failed: " + parseErr); }
+    }
+  });
+
+  // Export the work entries as a CSV file (handy for spreadsheet use).
+  modal.querySelector("#dossier-export-csv").addEventListener("click", async () => {
+    try {
+      const value = save();
+      const csv = api.exportDossierCsv(value);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `beeemuu-dossier-${(lastVehicleInfo && lastVehicleInfo.vin) || "vehicle"}-${stamp}.csv`;
+      try {
+        const path = await invoke("export_text", { filename, content: csv });
+        log("Dossier CSV exported: " + path);
+      } catch (_) {
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        log("Dossier CSV downloaded: " + filename);
+      }
+    } catch (e) { log("Dossier CSV export failed: " + e); }
+  });
+  modal.querySelector("#service-history-print").addEventListener("click", () => { try { const value = save(); modal.remove(); api.printHtml(document, api.buildSalesDossierReport(lastVehicleInfo, value)); } catch (e) { log("Dossier save failed: " + e); } });
 }
 
 async function doExportReport() {
@@ -2254,8 +3608,8 @@ function renderVehicleInfo(info) {
 
   let html = "<div class='info-grid'>";
   for (const [k, v] of rows) {
-    if (k === "__section") { html += `</div><div class='info-section'>${v}</div><div class='info-grid'>`; continue; }
-    html += `<div class='info-key'>${k}</div><div class='info-val'>${v}</div>`;
+    if (k === "__section") { html += `</div><div class='info-section'>${escapeHtml(v)}</div><div class='info-grid'>`; continue; }
+    html += `<div class='info-key'>${escapeHtml(k)}</div><div class='info-val'>${escapeHtml(v)}</div>`;
   }
   html += "</div>";
   $("info-body").innerHTML = html;
@@ -2395,13 +3749,13 @@ $("btn-selftest").addEventListener("click", async () => {
       row.className = "selftest-step " + (s.ok ? "ok" : "fail");
       row.innerHTML =
         `<span class="st-icon">${s.ok ? "✓" : "✗"}</span>` +
-        `<span class="st-name">${s.name}</span>` +
-        `<span class="st-detail">${s.detail}</span>` +
+        `<span class="st-name">${escapeHtml(s.name)}</span>` +
+        `<span class="st-detail">${escapeHtml(s.detail)}</span>` +
         `<span class="st-ms">${s.ms} ms</span>`;
       body.appendChild(row);
     }
   } catch (e) {
-    body.innerHTML = `<p class='muted'>Test failed: ${e}</p>`;
+    body.innerHTML = `<p class='muted'>Test failed: ${escapeHtml(String(e))}</p>`;
   }
 });
 
@@ -2410,16 +3764,16 @@ async function loadCommunityReport() {
   try {
     const r = await invoke("community_report");
     const el = $("community-body");
-    const dir = r.dir ? `<code>${r.dir}</code>` : "not found (built-ins only)";
+    const dir = r.dir ? `<code>${escapeHtml(r.dir)}</code>` : "not found (built-ins only)";
     let html =
       `<div class="cd-row"><span>Source folder</span><span>${dir}</span></div>` +
       `<div class="cd-row"><span>Fault texts</span><span>${r.dtc_texts}</span></div>` +
       `<div class="cd-row"><span>Profiles</span><span>${r.profiles}</span></div>` +
       `<div class="cd-row"><span>Freeze schemas</span><span>${r.freeze_schemas}</span></div>`;
-    for (const w of r.warnings) html += `<div class="cd-warn">⚠ ${w}</div>`;
+    for (const w of r.warnings) html += `<div class="cd-warn">⚠ ${escapeHtml(w)}</div>`;
     el.innerHTML = html;
   } catch (e) {
-    $("community-body").innerHTML = `<p class='muted'>${e}</p>`;
+    $("community-body").innerHTML = `<p class='muted'>${escapeHtml(String(e))}</p>`;
   }
 }
 
@@ -2513,6 +3867,15 @@ $("traffic-auto").addEventListener("change", (e) => {
   }
   saveSettings();
 });
+// v0.12.0 Fault Memory: persist the opt-in recording toggle and
+// surface a one-line explainer in the status log the first time it's
+// enabled, so users see what just got created in their home directory.
+$("record-dtc-history").addEventListener("change", (e) => {
+  saveSettings();
+  if (e.target.checked) {
+    log("DTC history recording ON — reads are logged to ~/beeemuu-exports/dtc-history.jsonl. Clear via Settings.");
+  }
+});
 $("btn-traffic-clear").addEventListener("click", async () => {
   await invoke("clear_traffic");
   refreshTraffic();
@@ -2553,14 +3916,25 @@ document.querySelectorAll(".tab").forEach((tab) => {
     if (tab.dataset.view === "logging") buildLogParams();
     if (tab.dataset.view === "diagnostics") { loadCommunityReport(); refreshTraffic(); fillShareProfiles(); }
     if (tab.dataset.view === "snapshots") refreshSnapshots();
-    if (tab.dataset.view === "backend") refreshBackendDashboard();
   });
 });
 
 /* ---------------- init ---------------- */
 (async function init() {
-  loadTheme();
+  // v0.7.0 — the workspace file is the single persistence system. Load
+  // it before anything else and apply the saved theme first, so the UI
+  // settles into the right palette before other work. Caveat: the static
+  // shell still paints in the light :root palette until this async file
+  // read resolves — an inline boot script is impossible under the CSP
+  // (script-src 'self'), so a brief first-paint flash is accepted.
+  workspaceState = (await loadWorkspace()) || {};
+  applyTheme(
+    workspaceState.theme
+      ? workspaceState.theme === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
   loadServiceFunctions();
+  refreshFrmCodingCard();
   await loadProfiles();
   await loadLogProfiles();
   fillExplorerEcus();
@@ -2568,6 +3942,10 @@ document.querySelectorAll(".tab").forEach((tab) => {
   setStatus("Disconnected");
   await loadSettings();
   applyMode($("app-mode").value);
+  restoreActiveTab();
+  // Persist now: a first-boot legacy migration lands on disk immediately,
+  // and every later change re-saves through the debounce.
+  saveSettings();
   setInfoActionsEnabled(false); // nothing read yet
 })();
 
@@ -2592,7 +3970,7 @@ async function refreshSnapshots() {
     const files = await invoke("list_exports");
     renderSnapshots(files);
   } catch (e) {
-    list.innerHTML = `<div class='snapshot-card'><div class='snapshot-meta'>Failed to read exports: ${e}</div></div>`;
+    list.innerHTML = `<div class='snapshot-card'><div class='snapshot-meta'>Failed to read exports: ${escapeHtml(String(e))}</div></div>`;
   }
 }
 

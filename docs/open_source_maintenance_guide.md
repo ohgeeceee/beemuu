@@ -82,8 +82,9 @@ Credit contributor in commit message
 
 ### Release checklist
 - [ ] `CHANGELOG.md` updated
-- [ ] Version bumped in `Cargo.toml` + `package.json`
+- [ ] Version bumped in `Cargo.toml` + `package.json` + `package-lock.json`
 - [ ] `git tag -a vX.Y.Z`
+- [ ] `git push origin vX.Y.Z`
 - [ ] CI produces signed binaries
 - [ ] GitHub Release drafted with notes + assets
 - [ ] Post to forums (see `forum_post.md`)

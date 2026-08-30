@@ -1,0 +1,150 @@
+/* beemuu.com — Live Gauges panel (public site demo, v0.14.0).
+ *
+ * Self-contained dark cockpit palette that complements the
+ * existing landing-page palette in app.css. The 6 gauges render in
+ * a 3-col grid on desktop, 2-col under 860px, 1-col on mobile.
+ */
+
+.live-gauges {
+  margin-top: 18px;
+  background: rgba(16, 27, 45, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+}
+
+.live-gauges-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.live-gauges-head h2 {
+  margin: 0;
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.live-gauges-head .live-gauges-tagline {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.live-gauges-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.live-gauges-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live-gauges-status.live-can-on::before {
+  background: #3ddc84;
+  box-shadow: 0 0 8px rgba(61, 220, 132, 0.6);
+}
+
+.live-gauges-status.live-can-off::before {
+  background: var(--muted);
+}
+
+.live-gauges-status .fps {
+  margin-left: 4px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.live-gauges-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.live-gauges-cell {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  transition: border-color 0.2s ease;
+}
+
+.live-gauges-cell:hover {
+  border-color: var(--accent);
+}
+
+.live-gauges-cell canvas {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  aspect-ratio: 220 / 180;
+}
+
+.live-gauges-peak {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 860px) {
+  .live-gauges-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .live-gauges-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.live-gauges-foot {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.live-gauges-foot code {
+  background: rgba(8, 17, 31, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  color: #bfe6ff;
+}
+
+.live-gauges-foot a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.live-gauges-foot a:hover {
+  text-decoration: underline;
+}

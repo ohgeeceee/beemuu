@@ -8,16 +8,20 @@ from pathlib import Path
 from backend import db, seed, seed_bmw_dim01
 
 
-def _fresh_db() -> Path:
+def _fresh_db() -> tuple[tempfile.TemporaryDirectory, Path]:
+    """Create a temp-dir-backed database. Keeps the TemporaryDirectory
+    alive by returning it (see test_seed.py for the full rationale)."""
     tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     p = Path(tmp.name) / "dim01_seed.db"
     db.init_db(p)
-    return p
+    return tmp, p
 
 
 class TestDim01Seed(unittest.TestCase):
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        # Keep the TemporaryDirectory alive for the whole test (see _fresh_db).
+        self._tmp, self.db_path = _fresh_db()
+        self.addCleanup(self._tmp.cleanup)
 
     def test_seed_bmw_dim01_runs_without_error(self) -> None:
         seed_bmw_dim01.run(self.db_path)
@@ -47,6 +51,16 @@ class TestDim01Seed(unittest.TestCase):
                 "AND (title IS NULL OR title = '' OR source IS NULL OR source = '')"
             ).fetchall()
         self.assertEqual(bad, [], f"rows missing title/source: {bad}")
+
+    def test_bmw_dim01_persists_source_url(self) -> None:
+        seed_bmw_dim01.run(self.db_path)
+        with db.get_conn(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT source_url, confidence FROM dtc WHERE code = ?", ("29CD",)
+            ).fetchone()
+        self.assertEqual(row["confidence"], "community")
+        self.assertIsNotNone(row["source_url"])
+        self.assertIn("bimmerfest", row["source_url"])
 
     def test_every_row_has_provenance_url(self) -> None:
         seed_bmw_dim01.run(self.db_path)

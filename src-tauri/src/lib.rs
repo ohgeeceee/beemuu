@@ -1,11 +1,13 @@
 pub mod analysis;
 pub mod commands;
 pub mod community;
+pub mod keepalive;
 pub mod oracle;
 pub mod story;
 pub mod anonymize;
 pub mod schematics;
 pub mod opinions;
+pub mod testplans;
 pub mod data;
 pub mod protocol;
 pub mod transport;
@@ -53,24 +55,33 @@ pub fn run() {
     let oracle_entries = oracle::load();
     let story_entries = story::load();
     let opinion_entries = opinions::load();
+    let testplan_entries = testplans::load();
     eprintln!(
-        "community data: {} fault texts, {} profiles, {} freeze schemas, {} oracle entries, {} story entries, {} opinion entries{}",
+        "community data: {} fault texts, {} profiles, {} freeze schemas, {} oracle entries, {} story entries, {} opinion entries, {} test plans{}",
         rep.dtc_texts,
         rep.profiles,
         rep.freeze_schemas,
         oracle_entries,
         story_entries,
         opinion_entries,
+        testplan_entries,
         rep.dir.map(|d| format!(" from {d}")).unwrap_or_default()
     );
 
     tauri::Builder::default()
+        // v0.14.1 fix for issue #161 — see Cargo.toml. The dialog plugin
+        // powers `ask()` from `@tauri-apps/plugin-dialog` on the JS side,
+        // replacing the unreliable `window.confirm()` for the
+        // "Clear fault memory" and security-access confirmation gates.
+        .plugin(tauri_plugin_dialog::init())
         .manage(commands::AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::list_ports,
             commands::connect,
             commands::disconnect,
+            commands::discover_enet_targets,
             commands::scan_modules,
+            commands::list_supported_pids,
             commands::read_faults,
             commands::read_freeze_frame,
             commands::get_freeze_schema,
@@ -94,12 +105,14 @@ pub fn run() {
             commands::security_status,
             commands::community_report,
             commands::add_to_profile,
+            commands::remove_profile_pid,
             commands::export_profile,
             commands::import_profiles,
             commands::connection_test,
             commands::get_traffic,
             commands::clear_traffic,
             commands::export_text,
+            commands::read_export_text,
             commands::export_session,
             commands::import_session,
             commands::import_session_file,
@@ -109,6 +122,10 @@ pub fn run() {
             commands::generate_story,
             commands::anonymize_snapshot,
             commands::get_opinions,
+            commands::get_test_plan,
+            commands::record_dtc_read,
+            commands::query_dtc_history,
+            commands::clear_dtc_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

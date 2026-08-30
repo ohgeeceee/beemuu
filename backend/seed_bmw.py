@@ -50,6 +50,7 @@ def _rows() -> list[dict]:
                 "severity": "warn",
                 "source": "seed:bmw",
                 "verified": 1,
+                "confidence": "community",
             }
         )
 
@@ -133,6 +134,7 @@ def _rows() -> list[dict]:
                 "severity": severity,
                 "source": "seed:bmw",
                 "verified": 1,
+                "confidence": "community",
             }
         )
 

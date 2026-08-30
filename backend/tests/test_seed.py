@@ -10,11 +10,19 @@ from typing import Iterable
 from backend import db, seed
 
 
-def _fresh_db() -> Path:
+def _fresh_db() -> tuple[tempfile.TemporaryDirectory, Path]:
+    """Create a temp-dir-backed database.
+
+    The TemporaryDirectory object is returned alongside the path because
+    its finalizer deletes the directory as soon as it is garbage-collected
+    — callers must keep it alive for as long as they use the path
+    (dropping it here let the db file vanish mid-test: flaky on Windows,
+    deterministic "unable to open database file" on Linux).
+    """
     tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     p = Path(tmp.name) / "seed.db"
     db.init_db(p)
-    return p
+    return tmp, p
 
 
 def _count_dtc(db_path: Path) -> int:
@@ -26,7 +34,9 @@ class TestSeedOne(unittest.TestCase):
     """seed_one() inserts a row, sets correct fields, is idempotent on PK."""
 
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        # Keep the TemporaryDirectory alive for the whole test (see _fresh_db).
+        self._tmp, self.db_path = _fresh_db()
+        self.addCleanup(self._tmp.cleanup)
 
     def test_seed_one_inserts_row(self) -> None:
         now = int(time.time())
@@ -124,7 +134,9 @@ class TestValidateCode(unittest.TestCase):
     like '120308' for charging pressure)."""
 
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        # Keep the TemporaryDirectory alive for the whole test (see _fresh_db).
+        self._tmp, self.db_path = _fresh_db()
+        self.addCleanup(self._tmp.cleanup)
 
     def _ok(self, code: str, category: str) -> None:
         seed.seed_one(
@@ -184,7 +196,9 @@ class TestSeedMany(unittest.TestCase):
     """seed_many() iterates an iterable of dicts, all-or-nothing in a transaction."""
 
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        # Keep the TemporaryDirectory alive for the whole test (see _fresh_db).
+        self._tmp, self.db_path = _fresh_db()
+        self.addCleanup(self._tmp.cleanup)
 
     def _sample(self) -> Iterable[dict]:
         return [
@@ -239,7 +253,9 @@ class TestRunBootstrap(unittest.TestCase):
     """run_bootstrap() runs every registered seed source."""
 
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        # Keep the TemporaryDirectory alive for the whole test (see _fresh_db).
+        self._tmp, self.db_path = _fresh_db()
+        self.addCleanup(self._tmp.cleanup)
         self._original_sources = seed.SOURCES.copy()
         self.addCleanup(self._restore_sources)
 

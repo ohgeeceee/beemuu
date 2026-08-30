@@ -7,7 +7,8 @@
 //!
 //! FMT = 0x80 | payload_len (for len <= 0x3F), or 0x80 with an extra length
 //! byte for longer payloads. SRC is the tester address 0xF1. CS is the
-//! 8-bit sum of all preceding bytes.
+//! 8-bit sum of all preceding bytes. Sending raw payload_len as FMT
+//! (e.g. 0x05 for `1A 80`) is rejected; use 0x80 | len (`0x82`).
 //!
 //! D-CAN cars (E9x and later E-series, ~2007+): 115200 baud, 8N1 (BMW-FAST).
 //! K-line cars (pre-2007): 10400 baud, 8N1 (ISO 14230), with fast-init.
@@ -15,6 +16,14 @@
 //!
 //! The cable echoes every transmitted byte (K-line loopback), so we read
 //! back and discard our own frame before reading the response.
+//!
+//! ISO-TP note (issue #88): no FF/CF/FC reassembly lives here on purpose.
+//! The cable's CAN side (ISO 15765-2) is terminated in its own hardware —
+//! the PC only ever sees the complete length-prefixed messages above, on
+//! both D-CAN and K-line. Long responses (VIN, full fault memory) arrive as
+//! single KWP messages; the framing carries up to 252 payload bytes. Raw
+//! CAN-class transports that DO expose 8-byte frames use
+//! `transport::isotp::IsoTpTransport` instead.
 
 use super::{Result, Transport, TransportError};
 use std::io::{Read, Write};
@@ -28,6 +37,34 @@ pub struct KdcanTransport {
     /// K-line only: ECU addresses with an established KWP session.
     /// An ECU drops off this list when it times out (session lost).
     kline_ready: std::collections::HashSet<u8>,
+    /// Module addresses that need the raised `SLOW_RESPONSE_DEADLINE`
+    /// instead of `DEFAULT_RESPONSE_DEADLINE`. Populated from
+    /// `default_slow_modules()` in `open()` / `auto_detect()`; mutating
+    /// it directly is a v0.13.0-era hook for a future UI to add more
+    /// entries as users discover new slow modules.
+    slow_modules: std::collections::HashSet<u8>,
+}
+
+/// Default response deadline for KWP requests on the K+DCAN cable.
+///
+/// 1 second matches the historical hardcoded value (v0.1.0..v0.12.0)
+/// and is well above any healthy BMW ECU's first-response time.
+const DEFAULT_RESPONSE_DEADLINE: Duration = Duration::from_millis(1000);
+
+/// Raised deadline for KWP requests to modules known to be slow on E-series.
+///
+/// Real E-series CIC (0x01) and CAS (0x40) modules regularly take 1.5–3
+/// seconds to answer the first KWP frame after fast-init, because their
+/// boot-up sequence is longer than the DME's. The 1-second historical
+/// default times out on every E-series owner's first fault read; raising
+/// it to 3 seconds matches what every other KWP tool does.
+const SLOW_RESPONSE_DEADLINE: Duration = Duration::from_millis(3000);
+
+/// KWP2000 target addresses that are known to need a longer response deadline
+/// on real E-series cars. Add new entries here as more slow modules are
+/// discovered — but only after a real-car timeout on the default 1 s.
+fn default_slow_modules() -> std::collections::HashSet<u8> {
+    [0x01 /* CIC */, 0x40 /* CAS */].into_iter().collect()
 }
 
 /// Sleep with sub-millisecond accuracy: coarse sleep, then spin. Plain
@@ -44,6 +81,49 @@ fn precise_sleep(d: Duration) {
 }
 
 impl KdcanTransport {
+    /// Response deadline for a given KWP target address.
+    ///
+    /// Slow modules (CIC, CAS, ...) need the raised `SLOW_RESPONSE_DEADLINE`
+    /// so their longer boot-up sequence doesn't trigger a spurious
+    /// `TransportError::Timeout`. Everything else uses `DEFAULT_RESPONSE_DEADLINE`.
+    ///
+    /// Exposed (not just inlined) so a test or future UI can introspect or
+    /// override the deadline on a per-target basis.
+    pub fn deadline_for(&self, target: u8) -> Duration {
+        if self.slow_modules.contains(&target) {
+            SLOW_RESPONSE_DEADLINE
+        } else {
+            DEFAULT_RESPONSE_DEADLINE
+        }
+    }
+
+    /// Add or remove a target address from the slow-modules list. Returns
+    /// `true` if the address is now in the slow list, `false` otherwise.
+    ///
+    /// The intended caller is a future Settings UI that lets users add their
+    /// own discovered slow modules — for now the list is fixed at `open()`
+    /// time from `default_slow_modules()`. KWP2000's address space is
+    /// 0x00..=0xFF, so every address is a valid argument.
+    pub fn set_slow_module(&mut self, target: u8, slow: bool) -> bool {
+        if slow {
+            self.slow_modules.insert(target);
+        } else {
+            self.slow_modules.remove(&target);
+        }
+        self.slow_modules.contains(&target)
+    }
+
+    /// Response deadline resolution, factored out so the lookup can be
+    /// unit-tested without constructing a full `KdcanTransport` (which
+    /// needs a real `SerialPort`).
+    fn resolve_deadline(slow_modules: &std::collections::HashSet<u8>, target: u8) -> Duration {
+        if slow_modules.contains(&target) {
+            SLOW_RESPONSE_DEADLINE
+        } else {
+            DEFAULT_RESPONSE_DEADLINE
+        }
+    }
+
     pub fn open(port_name: &str, dcan: bool) -> Result<Self> {
         let baud = if dcan { 115_200 } else { 10_400 };
         let port = serialport::new(port_name, baud)
@@ -53,7 +133,12 @@ impl KdcanTransport {
             .timeout(Duration::from_millis(100))
             .open()
             .map_err(|e| TransportError::Io(format!("open {port_name}: {e}")))?;
-        Ok(Self { port, dcan, kline_ready: Default::default() })
+        Ok(Self {
+            port,
+            dcan,
+            kline_ready: Default::default(),
+            slow_modules: default_slow_modules(),
+        })
     }
 
     /// Auto-detect D-CAN vs K-line by trying 115200 baud first, then falling
@@ -69,7 +154,8 @@ impl KdcanTransport {
                 let mut echo = vec![0u8; frame.len()];
                 if t.read_exact_timeout(&mut echo, deadline).is_ok() && echo == frame {
                     if let Ok(resp) = t.read_frame(deadline) {
-                        if resp.first() == Some(&0x7E) {
+                        let payload = Self::payload_from_frame(&resp).unwrap_or(resp);
+                        if payload.first() == Some(&0x7E) {
                             return Ok(t);
                         }
                     }
@@ -119,25 +205,74 @@ impl KdcanTransport {
         }
     }
 
+    /// BMW-FAST / ISO 14230 request frame.
+    ///
+    /// FMT is `0x80 | payload_len` when `payload_len <= 0x3F`, matching the
+    /// file header and what INPA / Android K+DCAN apps put on the wire.
+    /// (The previous implementation sent a raw `payload+3` length byte —
+    /// `0x05` for `1A 80` — which real E90 D-CAN modules ignore. The FTDI
+    /// still echoes TX, so traffic showed `Malformed frame: short` after
+    /// the full 1 s / 3 s deadline.)
     fn build_frame(target: u8, payload: &[u8]) -> Vec<u8> {
-        let len = (payload.len() + 3) as u8;
-        let mut frame = vec![len, target, TESTER];
+        let mut frame = if payload.len() <= 0x3F {
+            vec![0x80 | payload.len() as u8, target, TESTER]
+        } else {
+            vec![0x80, payload.len() as u8, target, TESTER]
+        };
         frame.extend_from_slice(payload);
         let sum: u8 = frame.iter().fold(0, |a, &b| a.wrapping_add(b));
         frame.push(sum);
         frame
     }
 
+    /// On-wire size of a frame whose header is already in `buf`.
+    ///
+    /// BMW-FAST: first byte `0x80 | n` → `n + 4` (FMT, TGT, SRC, n bytes, CS).
+    /// Extended: first byte `0x80`, second byte `n` → `n + 5`.
+    /// Legacy Beemuu length-prefix (first byte `< 0x80`): `first + 1`.
+    fn expected_frame_len(buf: &[u8]) -> Option<usize> {
+        let b0 = *buf.first()?;
+        if b0 & 0xC0 == 0x80 {
+            let indicated = (b0 & 0x3F) as usize;
+            if indicated == 0 {
+                let n = *buf.get(1)? as usize;
+                Some(n + 5)
+            } else {
+                Some(indicated + 4)
+            }
+        } else {
+            Some(b0 as usize + 1)
+        }
+    }
+
+    /// Strip FMT/TGT/SRC (and optional extended length) plus the checksum,
+    /// leaving the KWP/UDS service payload.
+    fn payload_from_frame(resp: &[u8]) -> Result<Vec<u8>> {
+        if resp.len() < 4 {
+            return Err(TransportError::BadFrame("short".into()));
+        }
+        let start = if resp[0] == 0x80 && resp.len() >= 5 { 4 } else { 3 };
+        if resp.len() <= start {
+            return Err(TransportError::BadFrame("short".into()));
+        }
+        Ok(resp[start..resp.len() - 1].to_vec())
+    }
+
     fn read_frame(&mut self, deadline: Instant) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; 256];
         let mut pos = 0;
         while Instant::now() < deadline {
-            match self.port.read(&mut buf[pos..pos+1]) {
-                Ok(0) => return Err(TransportError::Io("eof".into())),
-                Ok(n) => {
-                    pos += n;
-                    if pos >= 3 && pos >= buf[0] as usize + 1 { break; }
+            if let Some(need) = Self::expected_frame_len(&buf[..pos]) {
+                if need > buf.len() {
+                    return Err(TransportError::BadFrame(format!("oversize {need}")));
                 }
+                if pos >= need {
+                    return Ok(buf[..need].to_vec());
+                }
+            }
+            match self.port.read(&mut buf[pos..pos + 1]) {
+                Ok(0) => return Err(TransportError::Io("eof".into())),
+                Ok(n) => pos += n,
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => continue,
                 Err(e) => return Err(TransportError::Io(e.to_string())),
             }
@@ -175,13 +310,132 @@ impl Transport for KdcanTransport {
         let frame = Self::build_frame(target, payload);
         self.port.write_all(&frame).map_err(|e| TransportError::Io(e.to_string()))?;
         let _ = self.port.flush();
-        let deadline = Instant::now() + Duration::from_millis(1000);
+        // Per-target deadline: slow modules (CIC, CAS, ...) get the raised
+        // SLOW_RESPONSE_DEADLINE so E-series first-fault-reads don't spuriously
+        // time out. See `deadline_for` and `DEFAULT_RESPONSE_DEADLINE` /
+        // `SLOW_RESPONSE_DEADLINE` at the top of the file.
+        let deadline = Instant::now() + Self::resolve_deadline(&self.slow_modules, target);
         let mut echo = vec![0u8; frame.len()];
         self.read_exact_timeout(&mut echo, deadline)?;
         let resp = self.read_frame(deadline)?;
-        if resp.len() < 3 { return Err(TransportError::BadFrame("short".into())); }
-        Ok(resp[3..resp.len()-1].to_vec())
+        Self::payload_from_frame(&resp)
     }
 
     fn disconnect(&mut self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Default slow-modules list contains CIC (0x01) and CAS (0x40) — the
+    /// two real E-series modules that exhibit the slow-boot behavior.
+    #[test]
+    fn default_slow_modules_contains_cic_and_cas() {
+        let slow = default_slow_modules();
+        assert!(slow.contains(&0x01), "CIC (0x01) should be in the default slow-modules list");
+        assert!(slow.contains(&0x40), "CAS (0x40) should be in the default slow-modules list");
+        // DME (0x12) is fast — must NOT be in the default list, otherwise
+        // every healthy DME read would wait the full 3 seconds.
+        assert!(!slow.contains(&0x12), "DME (0x12) should NOT be in the default slow-modules list");
+    }
+
+    /// Slow modules get the raised deadline; everything else gets the
+    /// historical 1 s default.
+    #[test]
+    fn resolve_deadline_picks_slow_for_known_targets() {
+        let slow = default_slow_modules();
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0x01),
+            SLOW_RESPONSE_DEADLINE,
+            "CIC (0x01) must use the raised 3 s deadline"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0x40),
+            SLOW_RESPONSE_DEADLINE,
+            "CAS (0x40) must use the raised 3 s deadline"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0x12),
+            DEFAULT_RESPONSE_DEADLINE,
+            "DME (0x12) must use the 1 s default deadline"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&slow, 0xFF),
+            DEFAULT_RESPONSE_DEADLINE,
+            "Unknown modules must use the 1 s default deadline"
+        );
+    }
+
+    /// Empty slow-modules set means every address gets the default deadline
+    /// — the safe fallback if a future caller wants to opt out entirely.
+    #[test]
+    fn resolve_deadline_with_empty_set_uses_default_for_all() {
+        let empty = std::collections::HashSet::new();
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&empty, 0x01),
+            DEFAULT_RESPONSE_DEADLINE,
+            "empty slow-modules list must fall back to the default deadline for every target"
+        );
+        assert_eq!(
+            KdcanTransport::resolve_deadline(&empty, 0x40),
+            DEFAULT_RESPONSE_DEADLINE
+        );
+    }
+
+    /// The deadline constants are what we expect: 1 s default, 3 s slow.
+    /// This is the regression test that catches a silent change to the
+    /// slow-module timeout — the bug we're fixing is "default deadline
+    /// too short for E-series CIC/CAS", so the values themselves are the
+    /// contract.
+    #[test]
+    fn deadline_constants_are_what_e_series_needs() {
+        assert_eq!(DEFAULT_RESPONSE_DEADLINE, Duration::from_millis(1000));
+        assert_eq!(SLOW_RESPONSE_DEADLINE, Duration::from_millis(3000));
+        // Slow deadline must be strictly greater than the default — otherwise
+        // the per-target override has no effect.
+        assert!(SLOW_RESPONSE_DEADLINE > DEFAULT_RESPONSE_DEADLINE);
+    }
+
+    #[test]
+    fn build_frame_uses_bmw_fast_fmt_not_raw_length() {
+        let frame = KdcanTransport::build_frame(0x12, &[0x1A, 0x80]);
+        // 1A 80 → payload_len 2 → FMT 0x82. The old code sent 0x05.
+        assert_eq!(frame[0], 0x82, "FMT must be 0x80 | payload_len");
+        assert_eq!(frame[1], 0x12);
+        assert_eq!(frame[2], TESTER);
+        assert_eq!(&frame[3..5], &[0x1A, 0x80]);
+        let cs = frame[..5].iter().fold(0u8, |a, &b| a.wrapping_add(b));
+        assert_eq!(*frame.last().unwrap(), cs);
+        assert_eq!(frame.len(), 6);
+    }
+
+    #[test]
+    fn build_frame_tester_present_is_six_bytes() {
+        let frame = KdcanTransport::build_frame(0x12, &[0x3E, 0x00]);
+        assert_eq!(frame[0], 0x82);
+        assert_eq!(&frame[3..5], &[0x3E, 0x00]);
+    }
+
+    #[test]
+    fn expected_frame_len_bmw_fast_and_legacy() {
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x82]), Some(6));
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x81, 0x12, 0xF1, 0x7E, 0x00]), Some(5));
+        // Extended: 0x80, len=10 → 10 + 5
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x80]), None);
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x80, 10]), Some(15));
+        // Legacy Beemuu length-prefix (first byte < 0x80)
+        assert_eq!(KdcanTransport::expected_frame_len(&[0x05]), Some(6));
+    }
+
+    #[test]
+    fn payload_from_frame_strips_bmw_fast_header() {
+        let frame = KdcanTransport::build_frame(0x12, &[0x1A, 0x80]);
+        // Fake a 5A 80 reply with the same header shape.
+        let mut resp = vec![0x82, 0xF1, 0x12, 0x5A, 0x80];
+        let cs = resp.iter().fold(0u8, |a, &b| a.wrapping_add(b));
+        resp.push(cs);
+        assert_eq!(KdcanTransport::payload_from_frame(&resp).unwrap(), vec![0x5A, 0x80]);
+        assert!(KdcanTransport::payload_from_frame(&frame[..2]).is_err());
+    }
 }

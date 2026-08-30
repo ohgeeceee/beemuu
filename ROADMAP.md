@@ -44,26 +44,36 @@ of that file), and the corresponding DIDs are already uncommented in
 | N54 E-series KWP2000 local ID hunt | 🟡 | Same as above; E92 335i owners ideal |
 | E-series CAN broadcast frames | 🟡 | Validate 0x0AA (RPM), 0x1D0 (coolant), 0x545 (oil temp E46) |
 
-### ⭐ Protocol & Transport
+### ⭐ Protocol & Transport (shipped items moved to historical — see table below)
 
 | Item | Status | Notes |
 |------|--------|-------|
 | ENET/DoIP auto-detection | 🟡 | Detect adapter without manual selection |
-| KWP2000 slow-module timeout fix | 🟢 Ready | CIC and other modules timeout on slow responses |
 | BLE adapter support | 🟡 | Vgate iCar Pro BLE, OBDLink CX, etc. |
 | WiFi adapter support | 🟡 | Vgate iCar Pro WiFi, OBDLink MX+ WiFi |
 | CAN bus listener mode | 🟡 | E-series alternative to KWP2000 local IDs |
-| ISO-TP multi-frame (FF/CF/FC) | 🟢 Ready | Required for long UDS responses (VIN, full DTC list) |
 
-### UI / UX
+### UI / UX (shipped items moved to historical — see table below)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Dark/light theme toggle | 🟢 Ready | Currently dark-only; CSS variables exist |
-| Gauge theming | 🟢 Ready | Per-profile color schemes (e.g., M colors for S55) |
 | Mobile-responsive layout | 🟡 | Tauri supports mobile; needs testing |
-| Save/load workspace layout | 🟢 Ready | Remember which gauges user had open |
-| Export PNG/SVG from charts | 🟢 Ready | Useful for forum posts |
+
+### ✅ Protocol, Transport, UI/UX — historical (shipped)
+
+The items below landed after v0.3.0 cut but were never re-tagged
+on the v0.3.0 historical section. Pinning them here so the
+ROADMAP accurately reflects what shipped, with the PR that
+landed the work:
+
+| Item | Status | Notes |
+|------|--------|-------|
+| KWP2000 slow-module timeout fix | ✅ Done (v0.13.0) | `transport::kdcan::default_slow_modules()` + per-target deadline (1s default, 3s for slow modules). PR #153 (commit `fd9efc2`). |
+| ISO-TP multi-frame (FF/CF/FC) | ✅ Done (v0.14.x) | `src-tauri/src/transport/isotp.rs` (430 LOC, ~25 unit tests). Enforced by CLAUDE.md "Hardware & timing invariants" §ISO-TP multi-frame. |
+| Dark/light theme toggle | ✅ Done (v0.7.0) | `#btn-theme` in `src/index.html:49` + handler in `src/js/main.js:283`. localStorage persistence via `beeemuu_dark` key (migrated to `beeemuu_settings` per the v0.7.0 settings-schema). PR #109 (commit `afefc32`). |
+| Gauge theming | ✅ Done (v0.7.0) | `profileThemes` object in `src/js/main.js:21`; per-profile `[profile.theme]` block in the TOML community profile. PR #109. |
+| Save/load workspace layout | ✅ Done (v0.7.0) | `src/js/workspace.js` (pure helpers for the persisted layout). PR #109. |
+| Export PNG/SVG from charts | ✅ Done (v0.11.0) | `src/js/svg_export.js` (pure-JS SVG renderer; avoids the `canvas2svg` / `chartjs-plugin-svg-export` deps); PNG export via `canvas.toDataURL` upstream. Logging chart + histogram both supported. PR #136 (commit `7f92ccb`). |
 | Real-time data logging to disk | ✅ Done (v0.4.0) | Stream CSV to file instead of in-memory only |
 
 ### 🟡 Research: E-series Data Desert
@@ -105,7 +115,7 @@ instructions, contributors.
 
 ---
 
-## v0.5.0 — "Ground Truth" (Active cycle)
+## v0.5.0 — "Ground Truth" (Shipped 2026-07-15)
 
 **Premise.** v0.4.0 finished the decoder + UI plumbing for tuner-style
 work. What's missing isn't more plumbing — it's **real-car evidence**
@@ -117,20 +127,15 @@ features that real-car owners actually need first.
 See [`docs/v0.5.0_plan.md`](docs/v0.5.0_plan.md) for the full cycle
 plan. Summary below.
 
-### 🟢 Ready — the three-PR spine
+### ✅ Ready — all three shipped
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Real-car u8_enum validation harness | 🟢 Ready | Doc-only. Checklist for an F/G owner with ENET adapter to validate the `[needs verification]` enum DIDs from PR #60. |
-| Real-car fuel-trim / adaptation readout | 🟢 Ready | Adds the fuel-trim DIDs (`0x4116` / `0x4117` / `0x4118` on BMW DME) marked `[needs verification]`. Likely no new decoder needed. |
-| Real-car knock-detection visualisation polish | 🟢 Ready | Pure JS; flag severity-bearing `LiveValue.text` values (Moderate / Severe) with a visual indicator. |
-| README profile-listing fix | ✅ Done | Doc-only; README + ROADMAP + CHANGELOG drift fix. Shipped in PR #59. |
-| Histograms of logged channels | ✅ Done | Pure client-side; 13 unit tests. Shipped in PR #62. |
-| `u8_enum` decoder + enum tables | ✅ Done | Includes per-parameter enum-map TOML parsing, frontend wiring (PRs #64–66), and 9 unit tests. Shipped in PR #60 (+ #64/#65/#66 for the frontend). |
-| CBS reset for EGS / DSC | 🟡 Deferred | Data shape (`ModuleRoutine[]`) shipped in PR #67 so a future contributor can add chassis-validated routine IDs for EGS (0x18) and DSC (0x29). No routine IDs invented without real-car validation — wrong IDs could brick NV memory on those modules. |
-| `$5 AliExpress ENET cable pinout doc` | ✅ Done | Doc-only; `docs/hardware/enet-cable-pinout.md` + README link. Shipped in PR #61. |
+| Real-car u8_enum validation harness | ✅ Done | Doc-only. Checklist for an F/G owner with ENET adapter to validate the `[needs verification]` enum DIDs from PR #60. Shipped in PR #72. |
+| Real-car fuel-trim / adaptation readout | ✅ Done | Adds N55 DIDs (`0x1201` LTFT, `0x1202` idle adaptation). Sourced from the project's own `TECH_SPECS.md`, not forum. Shipped in PR #73. |
+| Real-car knock-detection visualisation polish | ✅ Done | Pure JS; flag severity-bearing `LiveValue.text` values (Moderate / Severe) with amber / red emphasis. Shipped in PR #74. |
 
-### 🟡 Needs research — not in this cycle
+### 🟡 Needs research — not in v0.6.0 cycle
 
 These stay on the v0.5.0 list as 🟡 items; some may move to 🟢 once the
 spine lands and real-car evidence accumulates:
@@ -162,6 +167,257 @@ These are explicitly **not** v0.5.0 or v0.6.0 work:
 
 ---
 
+## v0.6.0 — "Real Hardware" (Shipped 2026-07-16)
+
+**Premise.** v0.5.0 finished the validation harness and added the
+first real-car-evidence-driven tuner DIDs. v0.6.0 turns those
+validated abstractions into actual workflows: comparing logs
+across sessions, surfacing which OBD-II PIDs a real ECU answers,
+and shipping the `[needs verification]` discipline through to
+the older example channels. Cycle name "Real Hardware" because
+the work is no longer about plumbing — it's about using the
+now-validated pipeline on real data.
+
+See [`docs/v0.6.0_plan.md`](docs/v0.6.0_plan.md) for the full cycle
+plan. Summary below.
+
+### ✅ Ready — all three shipped
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Log-merge / comparison modal | ✅ Done | Pure client-side over CSV; per-channel mean / std-dev / max deltas; side-by-side rendering. Shipped in PR #77. |
+| Real-car injector-time validation harness | ✅ Done | Doc-only + retroactive `[needs verification, UDS only]` marker on the pre-existing `inj_time` channel (DID `0x4363`, `u8_div100`). Plan-vs-actual: no new decoder needed — `inj_time` was already shipped since v0.3.0; the marker discipline was the actual work. Shipped in PR #80. |
+| OBD-II mode 01 PID auto-discovery | ✅ Done | New `protocol::scan_obd2_pids()` helper + `list_supported_pids` Tauri command + Vehicle Test tab panel. 5 new unit tests. Plan-vs-actual: `read_obd_pid` was already shipped; this PR is the thin scan-loop wrapper + UI. Shipped in PR #81. |
+
+### 🟡 Needs research — deferred to v0.7.0+
+
+These stay on the v0.6.0 list as 🟡 items; some may move to 🟢
+once the v0.7.0 spine lands and real-car evidence accumulates:
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Custom math channels | 🟡 | `map - baro`, `rail / load` etc.; needs safe expression sandbox. |
+| Knock detection visualisation (more) | 🟡 | Spine PR covers severity indicators; full distribution view is later. |
+| AFR / lambda bank readout polish | 🟡 | Decoder exists (400B); needs the wider lambda + O2 readiness story. |
+| Adaptation / fuel trim readout (full) | 🟡 | Spine PR adds DIDs; per-bank polish is later. |
+| Injector duty cycle | 🟡 | Plan-vs-actual surfaced: no separate DID exists; the `inj_time` channel (DID `0x4363`, ms) is what the codebase ships. A future contributor with F/G-series access can add a duty-cycle DID once a real source surfaces. |
+| Trigger-based logging | 🟡 | Threshold / DTC-crossed autostart. |
+| OBDLink MX+ support | 🟡 | USB + BLE; popular with iOS users. |
+| ENET/DoIP auto-detection | 🟡 | Detect adapter without manual selection. |
+| Real-car validation B58 F/G | 🟡 | Owner with ENET + F/G chassis. **Hardest blocker for next cycles.** |
+| Real-car validation N55 F-series | 🟡 | Same as above. |
+
+### Deferred to v0.7.0+
+
+These are explicitly **not** v0.7.0 work; they stay deferred until
+a dedicated cycle scope opens:
+
+- Cloud sync (opt-in log upload) — needs privacy + ops story first.
+- Raspberry Pi CAN bridge — hardware project of its own.
+- Plugin system for custom decoders — community governance work before code.
+- Bootmod3 / MHD integration — legal risk; not appropriate scope.
+- Multi-language UI — translation coordination problem.
+- Web-based shared-log viewer — needs hosted backend work first.
+
+---
+
+## v0.7.0 — "Unblockers" (Merged 2026-07-16)
+
+**Premise.** Not a new user-facing capability — remove the friction
+that contributors and F/G users hit daily: hardcoded car IPs, the
+stale Ready-to-Claim pile, and the two missing mainstream engine
+profiles.
+
+See [`docs/v0.7.0_plan.md`](docs/v0.7.0_plan.md) for the full cycle
+plan. Summary below.
+
+### ✅ Ready — all three merged
+
+| Item | Status | Notes |
+|------|--------|-------|
+| ENET/DoIP auto-detection | ✅ Done | UDP broadcast discovery on port 13400; **Discover** button; manual IP entry kept as fallback. Merged in PR #108. |
+| Theme toggle + workspace persistence + per-profile gauge themes | ✅ Done | Dark/light via CSS variables; layout persists in `~/beeemuu-exports/workspace.json`; `[profile.theme]` TOML blocks recolour gauges. Merged in PR #109. |
+| N20/N26 + S55 engine profiles | ✅ Done | `community/profiles/n20.toml` (22 params) + `s55.toml` (25 params, BMW M tricolor `[profile.theme]`); conservative sourcing, every UDS entry `[needs verification]`. Merged in PR #110. |
+
+**Release.** The release cut (version bump + notes) is Tier C and
+tracked separately; the cycle's code is all on `main`.
+
+### 🟡 Needs research — carried into v0.8.0+ consideration
+
+Custom math channels, knock-distribution view, full AFR/lambda story,
+full per-bank adaptation readout, trigger-based logging, OBDLink MX+
+(BLE), and real-car validation of the B58/N55/N20/S55 DID sets all
+remain 🟡 — see the v0.7.0 plan's deferred list. Real-car validation
+is still the hardest cross-cycle blocker.
+
+---
+
+## v0.8.0 — "Service Bay" (Merged except PR #2 — pending human merge)
+
+**Premise.** Turn the diagnostic reader into the service workstation:
+service-function breadth with honest verification status, coverage
+breadth (fault texts, ECU scan table, engine profiles), and the
+data-integrity floor under all of it. See
+[`docs/v0.8.0_plan.md`](docs/v0.8.0_plan.md) for the full cycle plan,
+including the ISTA+ gap analysis and the explicit "what we will NOT
+do" list (flashing, FSC/AOS, coding writes, ISTA corpus, immobiliser).
+
+### Slice status
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Data integrity: DTC text rescue + corpus + TOML parse gate | ✅ Merged (#114) | A | Corpus rebuilt to 208 overlay entries; every shipped community TOML now parse-gated in CI. |
+| Service-function breadth + verification status | 🟡 PR #117 open — pending human merge | B | `[UNVERIFIED]` markers + write gating; harness doc `docs/validation/service-functions.md`. Tier B — human merges after review. |
+| Engine profiles: B48, S58, N57 | ✅ Merged (#115) | A | First diesel profile; conservative-sourcing pattern repeated. |
+| ECU scan-table breadth + addressing-model doc | ✅ Merged (#116) | A | Table 12 → 17 with OBDb-grounded F/G addresses; `docs/hardware/addressing-model.md`. |
+
+---
+
+## v0.9.0 — "Guided Fault Finding" (Released)
+
+**Premise.** Close the biggest remaining ISTA+ gap: guided diagnostics.
+Today three flat knowledge bases (3 Opinions files, 2 Oracle JSON files,
+2 Story files) answer "what could this code mean?"; none can walk the
+tech through a branching test plan (check wiring → measure sensor →
+interpret result → branch → conclusion). See
+[`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md) for the full cycle plan,
+including the surface survey, the conservative-sourcing rules, and the
+"what we will NOT do" list (emissions-monitor tampering, VIN/odometer
+fraud, imported ISTA plans, auto-executing writes, unreviewed
+LLM-generated procedures).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Test-plan schema + parse-gate extension | ✅ Done (PR #1, #120) | A | New `community/testplans/*.toml` `[[step]]` branching format; branch-integrity gate; oracle JSON gate (was ungated). |
+| Author grounded first-corpus plans | ✅ Done (PR #2, #121) | A | 11 DTCs grounded in-repo (2A82, 29E0–29E2, 30FF, 29CC, 2E81/2E82, P0171, P0300, P0420); known-missing list shipped. |
+| Plan loader + query command | ✅ Done (PR #3, #122) | B | Read-only `get_test_plan` command; protected paths (`commands.rs`/`lib.rs`) — human-merged. |
+| Guided-diagnosis walkthrough UI | ✅ Done (PR #4, #123) | A | Step-by-step panel in fault detail; live-data measurement deep-links; freeze-frame seeding; pure traversal reducer unit-tested (12 tests). |
+| Validation harness + contribution path | ✅ Done (PR #5, #125) | A | `docs/validation/testplans.md` harness; `community/testplans/README.md` + `CONTRIBUTING.md` label axis; all 11 plans tagged `verified = "needs verification"`. Completes v0.9.0. |
+
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2).
+
+---
+
+## v0.10.0 — "Honest Plans" (Released)
+
+**Premise.** Close the trust gap on the v0.9.0 plans: the data contract
+for "verified" was installed in PR #5 (the marker on every
+`community/testplans/*.toml`), but nothing in the UI surfaced it — a
+tech could walk a plan and have no way to know whether anyone had
+actually driven the steps on a real car. v0.10.0 makes the marker
+visible end-to-end and fixes the one wrong-repo-URL string that had
+been confusing new contributors.
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Plan verification badge in walkthrough header | ✅ Done (PR #127) | A | Reads `meta.verified` per plan; renders **NEEDS VERIFICATION** (amber) / **✓ Verified** (green) in the walkthrough panel header. Rust change additive (`verified: Option<String>` on `PlanMeta` + `TestPlan`); legacy plans with no marker render no badge. |
+| Clickable NEEDS VERIFICATION badge + fix repo URL | ✅ Done (PR #130) | A | Badge now links to `docs/validation/testplans.md` so a tech lands on the contribution path with one click. About modal `ohjoncurrie/beeemuu` → `ohgeeceee/beeemuu`. |
+| Bump version to 0.10.0 (matches released state) | ✅ Done (PR #128) | C-executed | `Cargo.toml` + `package.json` synced to `0.10.0`. |
+| Sync `Cargo.lock` to 0.10.0 | ✅ Done (PR #129) | A | `Cargo.lock` version bump to match. |
+
+---
+
+## v0.11.0 — "Share the Trace" (Started)
+
+**Premise.** An owner finishes a logging session and wants to ask
+someone who knows — a forum thread, a friend, a subreddit. The first
+thing they need is a picture they can paste straight in, and a CSV
+that doesn't read as a wall of hex. v0.9.0 / v0.10.0 closed the
+diagnostic-workflow gaps (guided plans + honest verification). v0.11.0
+closes the **share-the-trace** gap — the cycle an owner actually
+finishes a session with. See
+[`docs/v0.11.0_plan.md`](docs/v0.11.0_plan.md) for the full cycle plan,
+including the trace-surface survey and the explicit "what we will NOT
+do" list (cloud upload, ISTA+ export shapes, PDF reports, multi-lang
+headers, auto-share).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| PNG export of logging + histogram charts | ✅ Done (PR #131, d2d1d07) | A | Chart.js `toBase64Image()` → browser-native anchor download. Buttons enable only once a chart exists. |
+| SVG export of logging + histogram charts | ✅ Done (PR #136, 7f92ccb) | A | Mirrors #131; hand-rolled `src/js/svg_export.js` (no `chartjs-plugin-svg-export` dep). Pure frontend. |
+| CSV-with-units export option | ✅ Done (PR #138, b2ed806) | A | Checkbox on the Save panel → row 2 of CSV is the per-series unit. Loader parses both shapes. |
+| Static HTML walkthrough bundle | ✅ Done (PR #142, fd381a9) | A | "Share walkthrough" → `walkthrough-XXXX.html` (single file, inline CSS + JS). Stateless static render of plan + answers + freeze frame + chart. Pure frontend. |
+| ROADMAP v0.10.0 closure + cycle header for v0.11.0 | ✅ Done (PR #135) | A | v0.10.0 cycle table landed retroactively; v0.11.0 cycle header landed. Docs-only. |
+
+**Cycle closed 2026-07-21.** All 5 v0.11.0 slices shipped. "Share the Trace" — the cycle of getting a session off the device and into someone else's hands — is done.
+
+---
+
+## v0.12.0 — "Fault Memory" (Released)
+
+**Premise.** Closing the DTC panel is closing the diagnosis. Today `lastDtcs` is a per-session cache; once the user quits the app, the DTCs are gone. v0.12.0 persists every DTC read to a local JSONL log and surfaces a **Fault Memory** panel: "this DTC has appeared N times over the past K days on this car". Local-only, opt-in, no cloud, no privacy surprise. See
+[`docs/v0.12.0_plan.md`](docs/v0.12.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (cloud sync, ML prediction, per-entry editing, CSV export).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.12.0 header | ✅ Done (PR #143) | A | `docs/v0.12.0_plan.md` + this ROADMAP entry. Docs-only. |
+| `record_dtc_read` / `query_dtc_history` / `clear_dtc_history` Tauri commands | ✅ Done (PR #144) | **B** | Three additive commands in `commands.rs` only (no `transport/` / `protocol/` changes). Local JSONL appender at `~/beeemuu-exports/dtc-history.jsonl`. 60 s dedup window. Flagged `commands.rs` at the top of the PR body. |
+| `src/js/dtc_history.js` pure module + tests | ✅ Done (PR #145) | A | Wraps the three Tauri commands. In-memory mock store for tests under `node --test`. Dual export (CommonJS + `window.beeemuuDtcHistory`). |
+| Recording wired into `readFaults()` + opt-in toggle in Settings | ✅ Done (PR #146) | A | Hooks the existing `read_faults` invocation; toggles recording on/off; surfaces file path in the panel header; persists the toggle via the v0.7.0 `workspace.json`. |
+| "Recurring DTC" callout in the DTC panel | ✅ Done (PR #147) | A | Headline UI moment of the cycle. When `lastDtcs.length > 0`, queries history for the current VIN and renders a banner under the DTC table. Pure read, frontend only. 14-day lookback; collapses occurrences across modules for the same code. |
+| `docs/validation/dtc-history.md` harness doc | ✅ Done (PR #148) | A | Same shape as `docs/validation/testplans.md` and `docs/validation/service-functions.md`: file location, line format, clear procedure, dedup window, "no VIN" caveat, storage growth, privacy note. |
+| Async conversion follow-up (PR #147 fixup) | ✅ Done | **B** | The slice-2 commands shipped sync. PR #147's CI run caught this against the `tests/async_commands.rs` allowlist guard; follow-up commit converted the three commands to `async fn` + `spawn_blocking`, matching the project's stated direction for new commands touching disk. |
+
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2).
+
+**Cycle closed 2026-07-23.** All 6 v0.12.0 slices shipped across 6 PRs (#143, #144, #145, #146, #147, #148). "Fault Memory" — the cycle of making the app remember your car between sessions — is done. Local JSONL at `~/beeemuu-exports/dtc-history.jsonl`; opt-in toggle on the Fault memory panel; "seen before" callout under the DTC table. Zero new cloud deps, zero new crate deps, zero changes to `transport/` or `protocol/`.
+## v0.13.0 — "Real Reads, Real Long" (Planned)
+
+**Premise.** Two genuine, user-visible wins have been on the ROADMAP since v0.3.0 without shipping:
+
+- **KWP2000 slow-module timeout fix** (🟢 Ready, line 52): the hardcoded 1000ms deadline in `kdcan.rs::request` times out on real E-series CIC/CAS modules. Small, well-scoped, real bug. Every E-series owner's first fault read hits this.
+- **E-series CAN broadcast frame decoder** (🟡, line 45): the bytes are already on the bus from the transport; the renderer just doesn't decode them. Pure frontend. For E46 owners, gives them a working tachometer + coolant gauge that the current app doesn't show.
+
+Plus the `docs/validation/multi-frame.md` doc, which earns its keep by explaining what `isotp.rs` is for (the integration point for future raw-CAN transports), why the production stack doesn't need it (the FTDI cable + ZGW gateway terminate ISO-TP upstream), and how to validate against the simulator's multi-frame personality today.
+
+> **Note (revised 2026-07-23).** The first plan draft (PR #150) claimed that ISO-TP multi-frame was implemented but not wired into the production `connect()` paths, and proposed v0.13.0 slice 2 as the wire-up PR. **That premise was wrong.** The existing `isotp.rs` module doc-comment is explicit: `KdcanTransport` and `EnetTransport` already deliver complete payloads because the gateways terminate ISO-TP upstream. There is no production wire-up to do — the wire-up is the integration point for future raw-CAN transports (SocketCAN, OBDLink STN, future DoIP socket) that don't exist yet. The corrected cycle (this revision) drops the wire-up and rescopes around the two real wins.
+
+See [`docs/v0.13.0_plan.md`](docs/v0.13.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (wire ISO-TP into production, re-implement ISO-TP, touch `enet.rs`, cross-cutting connect() refactors).
+
+### Planned slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Revised cycle plan + ROADMAP v0.13.0 header (this entry) | 🔲 Open | A | Corrects the flawed first draft (PR #150). Docs-only. |
+| KWP2000 slow-module timeout fix | 🔲 Open | A + **B** | Configurable deadline + per-target override table. Touches `src-tauri/src/transport/kdcan.rs::request`. The actual change is small but the protected-path exposure is real. Single Tier B PR. |
+| E-series CAN broadcast frame decoder (0x0AA / 0x1D0 / 0x545) | 🔲 Open | A | Pure frontend — the bytes are already on the bus. Renders as a Live Gauges panel using the existing `src/js/gauges.js` widget. |
+| `docs/validation/multi-frame.md` harness doc | 🔲 Open | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md`: what `isotp.rs` is for, why the production stack doesn't need it, how to verify against the simulator's multi-frame personality today. |
+
+Slices dispatch as PRs when the work completes — no Discussion gate
+(`COMMUNITY_FRAMEWORK.md` Rule 2). Slice 2 is the only Tier B and
+lands first; slices 3 and 4 can land any time after.
+
+---
+
+## Ready to Claim (🟢 — open a PR when you want it)
+
+These items have lived on the ROADMAP for multiple cycles as 🟢-
+Ready and have not been claimed. They're real, well-scoped, and not
+in conflict with the active v0.13.0 cycle (or whatever the next
+cycle lands on). (PNG/SVG export landed in v0.11.0 #131 / #136; CSV
+units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
+#143–#148; the row below covers anything else in this category.)
+
+> **If you're new to the project, start here.** These are the lowest-
+> risk ways to land a first PR.
+
+| Item | Where to start | Notes |
+|------|----------------|-------|
+| KWP2000 slow-module timeout fix | `src-tauri/src/protocol/kwp2000.rs` — **protected path**, flag the PR header | Small backend fix; CIC and slow modules time out today. |
+| Freeze-frame schema coverage | `community/freeze_schemas.toml` (32 lines today) | Pure data; mirror an existing schema block per ECU you can verify. |
+
+---
+
 ## Backlog — Nice to Have
 
 | Item | Why it would be cool | Complexity |
@@ -185,8 +441,486 @@ These are explicitly **not** v0.5.0 or v0.6.0 work:
 
 ---
 
-*Last updated: 2026-07-15. v0.4.0 marked Shipped. v0.5.0 "Ground Truth"
-cycle active; see [`docs/v0.5.0_plan.md`](docs/v0.5.0_plan.md) for
-the cycle plan. v0.5.0 release notes forthcoming at
-[`RELEASE_NOTES_v0.5.0.md`](RELEASE_NOTES_v0.5.0.md).*
-*Last updated: 2026-07-15. v0.4.0 marked shipped; the five Ready items now show ✅ Done. v0.4.0 release notes at [`RELEASE_NOTES_v0.4.0.md`](RELEASE_NOTES_v0.4.0.md).*
+*Last updated: 2026-07-30. v0.14.3 closed — slices 1, 2, 3a, 3b, 4 all merged (#185, #186, #187, #190, plus #188 for the docs-only slice 4). Tier split: 3 Tier A (slice 1 decoders, slice 2 profile entries, slice 4 harness extension) + 2 Tier B (slice 3a backend — `protocol::nrc_from_error`, `LiveSweepResult { values, errors }`, async `remove_profile_pid` Tauri command — in PR #187; slice 3b frontend rewire — `main.js::pollOnce` consumer of the new return shape + `classifyNrc` helper + per-PID dim UI + `remove_profile_pid` button — in PR #190) + 0 Tier C in the slice list. Three new decoders (`u16_fiftieths`, `u32_be`, `u16_half`) in `src-tauri/src/data/live.rs`; three new N62 profile entries (`0x5E` fuel rate L/h, `0x5F` engine runtime s, `0x62` fuel rate g/s) in `community/profiles/n62.toml`; per-PID NRC + remove-from-profile surface on both ends in PR #187 + #190; `docs/validation/n62-real-car.md` extended with Step 2 / Step 3 / Step 4 / Step 5 tables covering all four v0.14.2/v0.14.3 PIDs. The v0.14.3 release cut itself (Cargo.toml + tauri.conf.json version bumps, git tag, release notes publish, installer build) is a separate Tier C step and is the maintainer's call — the slices are all merged but the version-surface bump requires an explicit release-cut PR.*
+---
+
+## v0.14.0 — "Live CAN" (In Progress — Tier A done, Tier B open)
+
+**Premise.** E-series owners can't read their live data today — KWP2000 local IDs are unmapped in open sources (`docs/ROADMAP_ISSUES.md` issue 6, "CAN bus listener mode for E-series"). But BMW ECUs **broadcast** the data anyway on the raw CAN bus at 500 kbit/s. The bytes are free, we just don't listen. v0.14.0 adds a new `Live CAN` transport mode that filters and decodes the 6 known broadcast IDs (`0x0AA` RPM/torque/throttle, `0x1D0` coolant/ambient, `0x545` oil temp, `0x0CE` wheel speeds, `0x130` vehicle speed, `0x316` battery voltage) and surfaces them as a new "Live Gauges" panel using the existing `src/js/gauges.js` widget.
+
+**Hardware scope (v0.14.0):** OBDLink SX on E46. The SX is a USB-CDC ACM serial device, so the existing `serialport = "4"` crate covers it (no new dep). STN1110 protocol commands go over the standard serial handle — the same `SerialPort` trait the K+DCAN transport already uses. The new `transport/can_listener.rs` is additive; K+DCAN KWP diagnostic sessions keep using `kdcan.rs` in parallel. See [`docs/v0.14.0_plan.md`](docs/v0.14.0_plan.md) for the full cycle plan, including the explicit "what we will NOT do" list (touch the K+DCAN transport, touch `protocol/`, add a new crate, run the listener by default).
+
+### Status: Tier A complete (6 of 8 slices shipped), Tier B gated behind real-car testing
+
+The Tier A surface — frontend decoder module, JS-side simulator, panel, harness doc — is fully shipped. The Tier B surface — new `transport/can_listener.rs` + three Tauri commands — is **open** and gated behind OBDLink SX testing on a real E46. The "more live features" extension (per-gauge peak tracking + frame-rate counter) landed in PR #164 as a bonus slice.
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.0 header | ✅ Done (PR #156) | A | `docs/v0.14.0_plan.md` + this ROADMAP entry. Docs-only. |
+| `src/js/can_decoders.js` pure decoder module + tests | ✅ Done (PR #157) | A | 8 decoders + scale constants; dual export (CommonJS + `window.beeemuuCanDecoders`). 32 tests. |
+| `src/js/live_gauges.js` panel (6 gauges) | ✅ Done (PR #162) | A | Reuses existing `src/js/gauges.js` `Gauge` widget. 2×3 grid. Off by default. Mounts synchronously at module load (DOMContentLoaded trap noted inline). |
+| `src-tauri/src/transport/sim.rs` broadcast personality | ✅ Done (PR #158) | A | Pushes the 6 known IDs at the documented rates into an `mpsc::Sender<CanFrame>`. Test source for slices 2-3-5. |
+| `src/js/live_can_source.js` — JS-side simulator mirror + source wiring | ✅ Done (PR #164) | A | Pure JS mirror of `broadcast_frames_at()`; byte-for-byte parity pinned by tests. The frontend has a working demo path even before the Tier B transport ships. |
+| Extended `live_gauges.js` controller — peak tracking + framesPerSecond + per-gauge peak labels | ✅ Done (PR #164) | A | "More live features" beyond the cycle spec. Peak per gauge + frame-rate counter in the panel header. |
+| `docs/validation/can-broadcast.md` harness doc | ✅ Done (PR #164) | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md`. Includes E9x/E6x verification path for 0x545 oil-temp frame. |
+| **Bonus: Live Gauges panel on `beemuu.com`** | ✅ Done (PR #167) | A | Public-site mirror of the desktop panel. Visitors to beemuu.com see the 6 gauges ticking in real time, driven by the same JS-side simulator. Byte parity with desktop module pinned by `frontend/live_gauges.test.js`. |
+
+### Slices still open (Tier B, gated behind real-car testing)
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| `src-tauri/src/transport/can_listener.rs` (new transport) | 🔲 Open | **B** | `ListenerMode::{Simulator, OBDLinkSx { port_name }}` + `Arc<Mutex<HashMap<u16, CanFrame>>>` for latest frames. Touches `transport/`. Flag in PR body. |
+| `src-tauri/src/commands.rs` — `start_can_listen` / `stop_can_listen` / `get_latest_can_frames` | 🔲 Open | **B** | Three async commands, flag `commands.rs` at the top of the PR body, wait for human merge. |
+
+Slices dispatch as PRs when the work completes — no Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2). The Tier B pair (slices 5 + 6) is the gating pair; they ship together because the hardware source in `live_can_source.js` is the *consumer* of those commands and goes from "no frames" to "real frames" with no frontend change.
+
+### What the bonus slice on `beemuu.com` adds
+
+The desktop panel lives behind the install barrier — only people who run the Tauri app see it. The public-site mirror at `frontend/live_gauges.js` (with its own CSS at `frontend/live_gauges.css` and DOM in `frontend/index.html`) puts the same gauges on `beemuu.com`'s landing page. Visitors see live values driven by the JS-side simulator in their browser, with a clear "Demo" label so nobody mistakes it for real-car data. Parity with the desktop simulator is pinned by 5 byte-for-byte tests at `frontend/live_gauges.test.js`. CI is wired to run those tests via `.github/workflows/test.yml` (the glob now includes `frontend/**/*.test.js`).
+
+## v0.14.1 — fix(issue #161) (Shipped 2026-07-27 via PR #169)
+
+**Premise.** Issue [#161](https://github.com/ohgeeceee/beemuu/issues/161) —
+"Clear fault memory not Working in Simulation." Two deliverables:
+
+1. **Tauri 2 `window.confirm()` flakiness** — the click handler at
+   `src/js/main.js:1125` (`btn-clear-faults`) and `src/js/main.js:1353`
+   (security-access confirm) used `window.confirm(...)`, which the
+   Tauri 2 webview auto-dismisses (resolves `false` without showing
+   the dialog) on some builds, short-circuiting the click. Both
+   gates now route through `tauri-plugin-dialog`'s `ask()` via the
+   new `src/js/dialog.js` helper.
+2. **Simulator regenerate-on-identify** — the sim's DTC list is
+   seeded from `default_dtcs` + `default_freeze` captured at
+   construction; on the next KWP `[0x1A, 0x80]` identify (called per
+   ECU by `scan_modules` on "Run vehicle test"), the identify
+   handler restores the seed when the current DTC list is empty.
+   Models a real car re-detecting faults on a fresh ignition cycle.
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| `src/js/dialog.js` helper + `dialog.test.js` (6 tests) | ✅ Done (PR #169) | A | Plugin-preferred → `window.confirm` → `true` fallback. Dual export. |
+| `tauri-plugin-dialog` crate wiring | ✅ Done (PR #169) | B | Tier B by virtue of `Cargo.toml` + `lib.rs` plugin registration. Flagged in PR body. |
+| Sim `default_dtcs`/`default_freeze` + identify refill | ✅ Done (PR #169) | B | Tier B by virtue of `transport/sim.rs` file path. |
+| Per-ECU freeze-schema split | ✅ Done (PR #170) | A | `community/freeze/<hex>.toml` + `community::load_freeze_per_ecu()` helper; shrinks `commands.rs::load_freeze_schemas` body. |
+
+PR #169 merged at `653c1547`. PR #170 (the freeze-schema split that
+was unstaged in the worktree when #169 opened) merged after at
+`ec12aa54`. Combined: 138/138 Rust, 206/206 JS, 166/166 Python.
+
+## v0.14.2 — "Live Data on the Bench" (Shipped 2026-07-29)
+
+**Premise.** The user is going real-car with a K+DCAN cable on a 2007
+E70 X5 4.8L (N62/BTU, MSV80-family DME, D-CAN @ 500 kbps).
+v0.14.0's Tier B was explicitly gated behind an OBDLink SX cable;
+the K+DCAN cable cannot passively listen to raw broadcast frames
+(`src-tauri/src/transport/kdcan.rs` doc-comment lines 1-15 — the
+FTDI firmware terminates ISO-TP upstream). v0.14.1 was an unrelated
+bug fix (issue #161).
+
+**v0.14.2 ships "live data today, on the bench, with the cable you
+have."** Three Tier A slices — no `transport/**` changes, no new
+crate, no new Tauri command. `read_live_data` and `watch_*` already
+work over K+DCAN today; this cycle fills the per-param data, the
+panel UX, and the chassis-specific verification doc. See
+[`docs/v0.14.2_plan.md`](docs/v0.14.2_plan.md) for the full plan
++ explicit "what we will NOT do" list (touch `transport/`, touch
+`protocol/`, add a new crate, modify the v0.14.0 Live Gauges panel,
+cut a release tag).
+
+### Slices planned
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.2 header | ✅ Done (PR #171) | A | `docs/v0.14.2_plan.md` + this ROADMAP entry. Docs-only. |
+| `community/profiles/n62.toml` enrichment — `0x5C` (oil temp) only; `0x5E` / `0x5F` / `0x62` deferred to v0.14.3 (each needs a new decoder first) | ✅ Done (PR #175) | A | Replaces the unverified `local:10` placeholder with the standard OBD-II PID. Removes the `[UNVERIFIED placeholder]` tag and the "oil temp unverified" mark from the profile label. Adds an N62 instrumentation-context header block (valley-pan slow-coolant monitoring, oil-temp cruise band, Valvetronic load/throttle inverse, idle-voltage target). Bench verification on the E70 is the gating step (slice 3 harness doc). The three deferred PIDs ship in v0.14.3 — see PRs #185 (decoders), #186 (profile entries), and slice 4 (PR #188, harness extension). |
+| Live Data panel UX polish — polling-rate selector, per-gauge peak tracking, range bar, snapshot-CSV button, NRC error surface | ✅ Done (PR #177) | A | `src/index.html` + `src/css/app.css` + `src/js/main.js` + `src/js/live_data_panel.js` (new pure-helper module + 15 tests). 221/221 JS tests green. The per-PID dim + "remove from profile" UI lands in v0.14.3 (PR #187) with the new async `remove_profile_pid` Tauri command. |
+| `docs/validation/n62-real-car.md` harness doc | ✅ Done (PR #178) | A | Chassis-specific verification path. Cross-links v0.14.0 `docs/validation/can-broadcast.md` for users who eventually get an OBDLink SX on the same chassis. |
+
+---
+
+## v0.14.3 — "Finish the Bench" (Shipped 2026-07-30)
+
+Completes the v0.14.2 premise: every PID the slice 3 harness doc
+asks the user to verify is in the profile, with the decoders it
+needs, and the per-PID NRC error surface the slice 2 UI deferred
+is in place. 3 Tier A + 2 Tier B slice (slice 3 split into 3a
+backend + 3b frontend, both shipped) + 1 docs-only slice. No
+`transport/**` changes. See
+[`docs/v0.14.3_plan.md`](docs/v0.14.3_plan.md).
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.3 header | ✅ Done (PR #188, slice 4) | A | `docs/v0.14.3_plan.md` + this ROADMAP entry. Docs-only. |
+| `u16_fiftieths` + `u32_be` + `u16_half` decoders | ✅ Done (PR #185) | A | Three new `Decode` variants in `src-tauri/src/data/live.rs`. Decoder spec sections in `docs/DECODE_FUNCTIONS.md` §10–12. |
+| `community/profiles/n62.toml` enrichment — add the three deferred PIDs (`0x5E` fuel rate L/h, `0x5F` engine runtime, `0x62` fuel rate g/s) | ✅ Done (PR #186) | A | Required the slice 1 decoders. Each entry carries the `[needs verification, N62/E70 bench]` marker per the harness doc. |
+| **Slice 3a** — `protocol::nrc_from_error` + `LiveSweepResult { values, errors }` + `remove_profile_pid` async Tauri command + `tokio` `fs` feature | ✅ Done (PR #187) | B | The backend half of the slice 3 surface. New async command at `src-tauri/src/commands.rs:746` (gated behind the `tauri-plugin-dialog` confirmation per `docs/CONTRIBUTING.md`'s write-path discipline). |
+| **Slice 3b** — frontend rewire: `main.js::pollOnce` consumes the new `LiveSweepResult`; `classifyNrc` helper buckets each `LiveError` into unsupported / transient / unknown; per-PID dim + one-click-remove UI | ✅ Done (PR #190) | B | The consumer half of the slice 3 contract. New `classifyNrc` exported from `live_data_panel.js` (5 new tests). New `#live-unsupported-count` badge in the Live Data panel head. New `.gauge-cell.dimmed` + `.pid-remove` CSS. One-click remove gated behind `tauri-plugin-dialog` confirmation per the issue-#161 fix pattern. |
+| `docs/validation/n62-real-car.md` extension + ROADMAP cycle closeout | ✅ Done (PR #188, slice 4) | A | Adds the three new PIDs to the Step 2 / Step 3 / Step 4 / Step 5 tables. Closes the docs-only slice. |
+
+The v0.14.3 release cut itself (Cargo.toml + tauri.conf.json
+version bumps, git tag, release notes publish, installer build)
+is a separate Tier C step — all five cycle slices are merged but
+the version-surface bump requires an explicit release-cut PR.
+
+## v0.14.4 — "Story Coverage" (Shipped 2026-07-31)
+
+The "ship what we promised, harden what we shipped" cycle. v0.14.0
+through v0.14.3 shipped real diagnostic capabilities (Live Gauges,
+N62 harness doc, Live Data UX polish, N62 PID enrichment, per-PID
+NRC re-wire) but never audited or strengthened the supporting
+infrastructure. v0.14.4 closes three real gaps:
+
+1. **Test coverage** — `src-tauri/src/story.rs` (350 LOC) and
+   `src-tauri/src/anonymize.rs` (113 LOC) shipped with **zero
+   unit tests** despite being real, user-facing features (the
+   Generate Story modal at `src/index.html:513`; the Secure
+   Snapshot Share button at `src/js/main.js:1071`).
+2. **CLAUDE.md invariants accuracy** — the "Hardware & timing
+   invariants" section claimed `keepalive`, `ISO-TP multi-frame`,
+   and `read_vin` were `NOT YET IMPLEMENTED` even though all
+   three had shipped months ago.
+3. **ROADMAP doc-rot** — six "🟢 Ready" items in the v0.3.0
+   historical section had actually shipped but were never
+   re-tagged as ✅ Done.
+
+Plus a CI workflow fix (the `ci.yml::test-rust` job was missing
+the Tauri Linux system dependencies that `test.yml::rust` has,
+blocking every PR).
+
+4 Tier A slices, 0 Tier B, 0 Tier C in the slice list. See
+[`docs/v0.14.4_plan.md`](docs/v0.14.4_plan.md).
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.4 header + CHANGELOG entry | ✅ Done (PR #202, slice 0) | A | `docs/v0.14.4_plan.md` + this ROADMAP entry + CHANGELOG `## [0.14.4]` section. Docs-only. |
+| **`src-tauri/src/story.rs` test coverage (32 tests)** | ✅ Done (PR #201, slice 1) | A | Severity bucketing + ordering, `parse_cost_range` (single/tilde/hyphen/en-dash/whitespace/empty/garbage), `format_vehicle`, `build_context`, full `generate()` pipeline integration against the live `community/stories/*.toml`. Test count went from `0 → 32`. |
+| **`src-tauri/src/anonymize.rs` test coverage (20 tests)** | ✅ Done (PR #201, slice 1) | A | `hash_vin` properties (16 hex, stable, distinct, case-sensitive pinned), full `anonymize()` pipeline (VIN never leaks, fingerprint substitution, missing VIN → "unknown", engine_family preserved, mileage stripped, empty modules, live_data always empty), `export_json` (no leak, pretty, serde round-trip). Test count went from `0 → 20`. |
+| CLAUDE.md invariants refresh | ✅ Done (PR #198, slice 2) | A | Four stale "NOT YET IMPLEMENTED" claims replaced with "INVARIANT — enforced" + file:line citations. ENET/DoIP discovery honestly preserved as still-not-implemented. |
+| ROADMAP v0.3.0 historical audit | ✅ Done (PR #200, slice 3) | A | Six shipped items moved from 🟢 Ready to a new "✅ Done — historical (shipped)" table with PR references + code locations. |
+| `ci.yml::test-rust` Tauri Linux sysdeps fix | ✅ Done (PR #199, slice 4) | A | Mirrored the `apt-get install` step from `test.yml::rust` into `ci.yml::test-rust`. The duplicate `Rust Core Tests (src-tauri)` job was blocking every PR. |
+
+### Test count delta
+
+| Surface | Before v0.14.4 | After v0.14.4 |
+|---|---|---|
+| `cargo test --lib --offline` | 149 pass | **201 pass** (52 new) |
+| `cargo test --test async_commands` | 1 pass | 1 pass |
+| `node --test src/js/**/*.test.{js,cjs}` | 226 pass | 226 pass |
+| `pytest backend/tests/` | 166 pass | 166 pass |
+
+The v0.14.4 release cut itself (Cargo.toml + tauri.conf.json
+version bumps 0.14.3 → 0.14.4, git tag, release notes publish,
+installer build, landing-page deploy) is a separate Tier C step
+— all five cycle slices are merged but the version-surface bump
+requires an explicit release-cut PR.
+
+## v0.14.5 — "Open & Committed" (Shipped 2026-08-02)
+
+**Premise.** v0.14.4 closed the test-coverage gap on the
+diagnostic-story + secure-snapshot features and the doc-rot
+findings on CLAUDE.md / ROADMAP / ci.yml, but didn't move
+the public surface. v0.14.5 is the cycle that **opens the
+project further** to the E-series owners the v0.14.2 /
+v0.14.3 cycles explicitly deferred. v0.14.2 / v0.14.3 /
+v0.14.4 worked the N62 / E70 chassis end-to-end (oil temp,
+fuel rate, engine runtime, harness doc, per-PID NRC +
+remove-from-profile UI, test coverage on the user-facing
+story + anonymize paths). v0.14.5 generalises that work
+to the **N52 / N54** E-series family that the existing
+community profiles already cover but that the v0.14.2
+cycle deferred to "the next cycle after N62 wraps up."
+
+The cycle name "Open & Committed" matches the public
+`frontend/roadmap/v0.14.5.html` page published in PR
+#221 and reflects two commitments: **open** the codebase
+to more E-series engines (N52 and N54 get the same OBD-II
+PID enrichment the N62 received in v0.14.2 + v0.14.3),
+and **committed** to the discipline that keeps the public
+surface honest (every new PID carries the `[needs
+verification, N5x/E9x bench]` marker until a real-car
+report lands; every cycle closes with a doc audit; every
+Tier A surface ships under the
+`tests/async_commands.rs` allowlist guard without
+regressions).
+
+See [`docs/v0.14.5_plan.md`](docs/v0.14.5_plan.md) for the
+full cycle plan.
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP v0.14.5 header + CHANGELOG entry | ✅ Done (PR #222) | A | `docs/v0.14.5_plan.md` (new, 287 LOC) + the v0.14.5 cycle block in `ROADMAP.md` + CHANGELOG `## [0.14.5] — 2026-08-02` section. Docs-only. |
+| `community/profiles/n52.toml` + `n54.toml` enrichment — `0x5C` oil-temp swap + three new PIDs (`0x5E` fuel rate L/h, `0x5F` engine runtime, `0x62` fuel rate g/s) | ✅ Done (PR #223) | A | Mirrors v0.14.2 slice 1 (PR #175) + v0.14.3 slice 2 (PR #186). All four OBD-II PIDs are emissions-mandated; all four decoders are already shipped (no Rust change). Each new entry carries the `[needs verification, N5x/E9x bench]` marker. Removes the `[community, oil temp unverified]` mark from the profile `label` field once `0x5C` is in. N52: 10 → 13 params. N54: 12 → 15 params. |
+| `docs/validation/n5x-real-car.md` harness doc — E9x N52 / N54 family | ✅ Done (PR #224) | A | Mirrors `docs/validation/n62-real-car.md` (PR #178 + PR #188). Five-section shape (wire-up, cold readings, running readings, report template, what we do with the report). The N52 BSD oil-condition sensor note is the load-bearing difference from N62. 450 LOC. |
+| Tier C release cut (version bumps + CHANGELOG date + cycle plan refresh) | ✅ Done (PR #225) | C | `package.json` / `Cargo.toml` / `tauri.conf.json` / `Cargo.lock` 0.14.4 → 0.14.5, README release badge `v0.14.4` → `v0.14.5`, CHANGELOG date stamps, `docs/v0.14.5_plan.md` "Update 2026-08-02" blockquote. Merged 2026-08-02T07:37:08Z on `origin/main` @ `5743348`. Tag `v0.14.5` at `9249b934`; draft release promoted to public 2026-08-02T07:53:09Z at <https://github.com/ohgeeceee/beemuu/releases/tag/v0.14.5> with both Windows installers attached. |
+
+### Test count delta
+
+| Surface | Before v0.14.5 | After v0.14.5 |
+|---|---|---|
+| `cargo test --lib --offline` | 201 pass | **201 pass** (no Rust change in this cycle) |
+| `cargo test --test async_commands` | 1 pass | 1 pass |
+| `node --test src/js/**/*.test.{js,cjs}` | 226 pass | **226 pass** (no JS change) |
+| `pytest backend/tests/` | 166 pass | 218 pass* |
+
+\* The pytest count grew from 166 → 218 across multiple
+predecessor PRs (the admin bootstrap CLI tests landed in
+PR #213 as 24 new tests, the DTC seed tests in PR #215 as
+14 new tests, etc.). v0.14.5 itself added zero new Python
+tests.
+
+### Verification (close-of-cycle)
+
+- [x] `node --test src/js/test/*.test.cjs` — **58/58 pass**
+      (212ms, fresh re-run on the v0.14.5 release commit)
+- [x] `node --test src/js/*.test.js` — **192/192 pass**
+      (1.5s, fresh re-run)
+- [x] `cargo test --test async_commands --offline` —
+      **1/1 pass** (3m44s cold, the CLAUDE.md invariant
+      guard)
+- [x] `python -m pytest backend/tests/ -q` —
+      **218/219 pass** (the 1 failure is
+      `test_bootstrap_cli.py::test_script_exists_and_is_executable`
+      which asserts the executable bit on
+      `ops/bootstrap-admin.sh`; on Windows the executable
+      bit is meaningless, so this test always fails on
+      Windows by design. Pre-existing on `origin/main`,
+      not caused by v0.14.5. The CI matrix runs on
+      `ubuntu-latest` where the bit works. Tracked as
+      "Findings flagged (NOT fixed in this cycle)" per
+      the v0.14.3 slice-4 lessons.)
+- [x] All 5 version surfaces on `origin/main` =
+      `0.14.5`: `package.json`, `src-tauri/Cargo.toml`,
+      `src-tauri/tauri.conf.json`, `README.md` release
+      badge, `src-tauri/Cargo.lock` (beeemuu package
+      version)
+- [x] `release.yml` run #30738207436: build step
+      **success** (produced `BeeEmUu_0.14.5_x64-setup.exe`
+      + `BeeEmUu_0.14.5_x64_en-US.msi`); landing-page
+      step **failure** (VPS deploy secrets
+      `BEEMUU_VPS_SSH_KEY` / `BEEMUU_VPS_HOST` not
+      configured in repo secrets; pre-existing, same
+      pattern as the v0.14.4 release run)
+- [x] Tag `v0.14.5` on `origin` at `9249b934`
+
+### What this cycle does NOT ship (carried forward)
+
+These were the v0.14.5 "What this cycle does NOT ship"
+claims; all confirmed shipped in the v0.14.5 close.
+
+- ✅ No `transport/**` code changes — confirmed
+- ✅ No `protocol/**` code changes — confirmed
+- ✅ No `commands.rs` changes — confirmed
+- ✅ No new crates in `src-tauri/Cargo.toml` — confirmed
+- ✅ No frontend changes (no `src/js/**`, no
+  `src/css/**`, no `src/index.html`) — confirmed
+- ✅ No new BMW hex descriptions — confirmed
+- ✅ `git tag v0.14.5` shipped 2026-08-02 (PR #225
+  + the post-merge `git tag v0.14.5 && git push
+  --tags` step that triggered the release.yml
+  workflow)
+
+**Next cycle:** v0.14.6 — "Forward Roadmap Audit" (the
+doc-rotation close-of-cycle pattern, mirroring v0.14.4's
+ROADMAP v0.3.0 historical audit PR #200). Cycle plan in
+[`docs/v0.14.6_plan.md`](docs/v0.14.6_plan.md).
+
+## v0.14.6 — "Forward Roadmap Audit" (Shipped 2026-08-02)
+
+**Premise.** v0.14.6 is the doc-rotation close-of-cycle
+that the v0.14.5 release cut (PR #225) should have caught
+but didn't, mirroring the v0.14.4 "Story Coverage"
+docs-rotation pattern (PRs #198 + #200). It closes 4
+docs-rot findings the v0.14.5 release left on `main`:
+(1) the `ROADMAP.md` v0.14.5 cycle block that was still
+marked "In Progress — slice 0"; (2) the stale cycle
+names in `docs/forward_roadmap_14.4_to_16.9.md`
+("N62 Bench Verification" for v0.14.4 + "Bench Round 2"
+for v0.14.5); (3) the public `frontend/roadmap/v0.14.5.html`
+claiming v0.14.5 was "Planned"; (4) the forward-roadmap
+doc + the public landing-page cycle detail being out of
+sync.
+
+**Tier split:** 1 Tier A + 0 Tier B + 1 Tier C in the
+slice list. Single-slice docs-only cycle.
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP header + forward-roadmap audit + public landing page closeout | ✅ Done (PR #226) | A | `docs/v0.14.6_plan.md` (new, ~270 LOC) + the v0.14.5 cycle block closeout in `ROADMAP.md` + the v0.14.4 + v0.14.5 entries closed out in `docs/forward_roadmap_14.4_to_16.9.md` + the public `frontend/roadmap/v0.14.5.html` (planned → shipped + "What shipped" + install link) + the new `frontend/roadmap/v0.14.6.html` page. 6 files / +1136 / -560. |
+| Tier C release cut (version bumps + CHANGELOG date + cycle plan refresh) | ✅ Done (PR #227) | C | `package.json` / `Cargo.toml` / `tauri.conf.json` / `Cargo.lock` 0.14.5 → 0.14.6, README release badge `v0.14.5` → `v0.14.6`, CHANGELOG date stamp for v0.14.6, `docs/v0.14.6_plan.md` "Update 2026-08-02" blockquote. Merged 2026-08-02T08:07:13Z on `origin/main` @ `83aef4c`. Tag `v0.14.6` at `898fd3c`; draft release promoted to public 2026-08-02T08:16:16Z at <https://github.com/ohgeeceee/beemuu/releases/tag/v0.14.6> with both Windows installers attached. |
+
+### Verification (close-of-cycle)
+
+- [x] `node --test src/js/test/*.test.cjs` — **58/58
+      pass** (406ms, fresh re-run)
+- [x] `node --test src/js/*.test.js` — **192/192
+      pass** (1.5s, fresh re-run)
+- [x] `cargo test --test async_commands --offline` —
+      **1/1 pass** (the CLAUDE.md invariant guard)
+- [x] `python -m pytest backend/tests/ -q` —
+      **218/219 pass** (the 1 failure is
+      `test_bootstrap_cli.py::test_script_exists_and_is_executable`
+      which asserts the executable bit on
+      `ops/bootstrap-admin.sh`; on Windows the
+      executable bit is meaningless, so this test
+      always fails on Windows by design. Pre-existing
+      on `origin/main`, not caused by v0.14.6.)
+- [x] All 5 version surfaces on `origin/main` =
+      `0.14.6` at tag time
+- [x] `release.yml` run for the v0.14.6 tag: build
+      step **success** (produces the v0.14.6 Windows
+      installers); landing-page step **failure** (VPS
+      deploy secrets `BEEMUU_VPS_SSH_KEY` /
+      `BEEMUU_VPS_HOST` not configured in repo secrets;
+      pre-existing, same pattern as the v0.14.4 +
+      v0.14.5 release runs)
+- [x] Tag `v0.14.6` on `origin` at `898fd3c`
+
+### What this cycle does NOT ship (carried forward)
+
+- ✅ No `transport/**` code changes — confirmed
+- ✅ No `protocol/**` code changes — confirmed
+- ✅ No `commands.rs` changes — confirmed
+- ✅ No new crates in `src-tauri/Cargo.toml` —
+  confirmed
+- ✅ No frontend changes (no `src/js/**`, no
+  `src/css/**`, no `src/index.html`) — confirmed
+- ✅ No new BMW hex descriptions — confirmed
+- ✅ `git tag v0.14.6` shipped 2026-08-02 (PR #227
+  + the post-merge `git tag v0.14.6 && git push
+  --tags` step that triggered the release.yml
+  workflow)
+
+**Next cycle:** v0.15.0 — "Live Gauges from the Bench"
+(DID-projection bridge, real data on K+DCAN). The
+forward-roadmap doc has the full scope; cycle plan in
+[`docs/v0.15.0_plan.md`](docs/v0.15.0_plan.md).
+
+## v0.15.0 — "Live Gauges from the Bench" (Shipped 2026-08-05)
+
+**Premise.** v0.14.0 shipped the Live Gauges panel as
+**sim-only** by explicit user decision (the v0.14.2
+cycle-pick conversation, Option B). v0.15.0 connects
+the existing `read_live_data` UDS path to the Live
+Gauges panel so it shows **real data on the K+DCAN
+cable**, without the OBDLink SX acquisition the
+v0.14.0 Tier B was waiting for. The "**DID-projection
+bridge**" the v0.14.2 plan deferred to v0.14.3+ lands
+here.
+
+This is the load-bearing user-facing win of v0.15.0:
+an E90 / E60 / E70 owner with the $15 K+DCAN cable can
+now see the same 6-gauge Live Gauges panel (RPM,
+coolant, oil temp, vehicle speed, battery voltage,
+throttle) that v0.14.0's sim-only panel showed. No
+new hardware required.
+
+See [`docs/v0.15.0_plan.md`](docs/v0.15.0_plan.md) for
+the full cycle plan, including the explicit "what this
+cycle does NOT ship" list (no `transport/**` changes,
+no `protocol/**` changes, no `commands.rs` changes, no
+new crates, no new BMW hex descriptions, no `git tag
+v0.15.0`).
+
+### Slices shipped
+
+| Item | Status | Tier | PR | Notes |
+|------|--------|------|----|-------|
+| Cycle plan + ROADMAP header + CHANGELOG entry | ✓ Shipped | A | #228 | `docs/v0.15.0_plan.md` + this ROADMAP entry + CHANGELOG `## [0.15.0]` section. Docs-only. |
+| `src/js/live_data_bridge.js` — DID-projection bridge (pure mapping logic) | ✓ Shipped | A | #229 | Maps each `[[profile.param]]` to the corresponding `data-live-can-gauge` slot. 192 LOC + 20 unit tests. |
+| `src/js/live_kdcan_source.js` — K+DCAN source adapter (slice 2a) | ✓ Shipped | A | #229 | Wraps the bridge in the source shape `live_gauges.js` expects. 128 LOC + 6 unit tests. |
+| `src/js/live_data_source_wiring.js` — K+DCAN data source wiring module (slice 2b) | ✓ Shipped | A | #234 | `initKdcanDataSource({invoke, log})` factory. 94 LOC. (No internal setInterval — main.js drives the polling.) |
+| `src/js/main.js` + `src/js/live_gauges.js` — caller integration (slice 2c) | ✓ Shipped | A | #235 | main.js polls `read_live_data`, feeds the bridge cache, swaps the Live Gauges source from sim to K+DCAN. Adds `controller.setSource()` + `window.beeemuuLiveGauges.controller` surface + 10 wiring tests + 4 `setSource` tests. |
+| (Planned: `src-tauri/src/commands.rs` — `update_can_listen` async Tauri command) | ❌ Dropped | — | — | Architecture converged on main.js driving `read_live_data` polling directly (the existing async Tauri command from v0.14.2 / PR #175). No new `commands.rs` surface was needed. |
+
+### What this cycle does NOT ship
+
+- ❌ No new transport support (BLE / WiFi / ENET
+  auto-detect). The forward-roadmap doc's `v0.16.0`
+  cycle spine ("Tier B Land Rush — BLE / WiFi / ENET")
+  is the next cycle's work. ENET/DoIP auto-detect is
+  preserved as a 🟡 item per the v0.14.4 / v0.14.5 /
+  v0.14.6 closeout pattern.
+- ❌ No `protocol/**` code changes. The
+  `read_live_data` UDS path is already shipped (it's
+  what the v0.14.0 Tier B uses internally). v0.15.0
+  only adds the bridge + the data-source-flip in the
+  frontend + the new `ListenerMode::KwpDids` variant
+  on top of the existing `watch_tick` loop.
+- ❌ No new crates in `src-tauri/Cargo.toml`. The
+  `tauri-plugin-dialog` crate added in v0.14.1
+  (PR #169) is the only new runtime crate across
+  v0.14.x. v0.15.0 reuses it for the per-PID dim
+  + remove UI confirmation dialog (per the
+  v0.14.3 PR #190 frontend rewire pattern).
+- ❌ No community data changes (the DID-projection
+  bridge works against the existing
+  `community/profiles/*.toml` data shape; no
+  new DIDs, no new decoders, no new profile
+  entries).
+- ❌ No new BMW hex descriptions.
+- ❌ No `git tag v0.15.0` (Tier C release cut,
+  separate step after all 3 slices land).
+
+Slices dispatch as PRs when the work completes — no
+Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2).
+
+## v0.15.1 — "Test-Plan Walks on the Bench" (In Progress — cycle plan)
+
+**Premise.** v0.7.0 / v0.8.0 / v0.9.0 / v0.10.0 shipped the
+walkthrough bundle, the test-plan walk reducer, the verified
+routine marker, and the share-as-HTML export — all on the
+simulator. v0.15.1 ports the test-plan walk to **real-car
+sessions**: walks against the K+DCAN cable, records results
+against the real freeze-frame data, exports to the same
+self-contained HTML.
+
+See [`docs/v0.15.1_plan.md`](docs/v0.15.1_plan.md) for the
+full cycle plan, including the explicit "what this cycle does
+NOT ship" list (no `transport/**` changes, no
+`protocol/**` changes, no `commands.rs` write-surface changes).
+
+### Slices planned
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Cycle plan + ROADMAP header + CHANGELOG entry | 🔲 Open (this PR, slice 0) | A | `docs/v0.15.1_plan.md` + this ROADMAP entry + CHANGELOG `## [0.15.1] — Unreleased` section. Docs-only. |
+| Test-plan walk on real freeze-frames | 🟢 Open (slice 1) | A | Reuses the v0.14.0 freeze-frame schema split (PR #170) so each walk step knows which freeze-frame fields to read from which DME. Frontend-only. |
+| `record_walk_result` async Tauri command | 🟡 Open (slice 2) | **B** | Saves a walk outcome (passed/failed/skipped per step) to `<HOME>/beeemuu/walks/<timestamp>.json`. Mirrors the v0.12.0 DTC history pattern. `async_commands` allowlist guard applies. Touches `src-tauri/src/commands.rs`. |
+| Walk export to HTML includes real freeze-frame snippets | 🟢 Open (slice 3) | A | The v0.11.0 share-as-HTML PR (#142) embeds the freeze-frame in the HTML; this slice ensures the embedded freeze-frame is the **real one** for walks on real cars, not the simulator's. Frontend-only. |
+
+### What this cycle does NOT ship
+
+- ❌ No new transport support (BLE / WiFi / ENET
+  auto-detect). The forward-roadmap doc's `v0.16.0`
+  cycle spine ("Tier B Land Rush — BLE / WiFi / ENET") is
+  the next cycle's work.
+- ❌ No `protocol/**` code changes. The
+  `read_freeze_frame` async command is already shipped
+  (v0.11.0 / PR #142). v0.15.1 only adds the
+  `record_walk_result` write surface + the freeze-frame
+  wiring in the walk reducer.
+- ❌ No community data changes (the v0.15.0
+  DID-projection bridge works against the existing
+  `community/profiles/*.toml` data shape; no new DIDs,
+  no new decoders, no new profile entries).
+- ❌ No new BMW hex descriptions.
+- ❌ No `git tag v0.15.1` (Tier C release cut,
+  separate step after all 3 slices land).
+
+Slices dispatch as PRs when the work completes — no
+Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2) since the
+cycle premise was ratified by the v0.15.0 Discussion thread
+(PR #228 plan doc + community feedback).
+
+---

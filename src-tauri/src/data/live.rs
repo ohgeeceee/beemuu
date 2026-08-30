@@ -40,6 +40,19 @@ pub enum Decode {
     U16Tenths,
     /// u16 BE * 0.01 (BMW DIDs: MAF kg/h, ambient kPa, torque Nm)
     U16Div100,
+    /// u16 BE * 0.02 — SAE J1979 PID 0x5E engine fuel rate (L/h).
+    /// Scale = 1/50; raw 50 = 1.00 L/h; raw 65535 = ~1310 L/h.
+    /// Used for OBD 0x5E (engine_fuel_rate_lh).
+    U16Fiftieths,
+    /// u32 BE raw as f64 — SAE J1979 PID 0x5F engine runtime since
+    /// start (seconds). 4-byte big-endian unsigned; max ~4.29e9 s
+    /// (~136 years — far exceeds any real engine's lifetime).
+    /// Used for OBD 0x5F (engine_runtime).
+    U32Be,
+    /// u16 BE * 0.5 — SAE J1979 PID 0x62 engine fuel rate (g/s).
+    /// Scale = 1/2; raw 2 = 1.00 g/s; raw 65535 = ~32767.5 g/s.
+    /// Used for OBD 0x62 (engine_fuel_rate_gs).
+    U16Half,
     /// i16 BE raw, two's complement (foundation for s16_div4/s16_div100)
     S16,
     /// i16 BE / 4 (DME temp °C, can be negative)
@@ -121,6 +134,14 @@ pub struct Profile {
     pub id: String,
     pub label: String,
     pub params: Vec<LiveParam>,
+    /// Per-profile gauge colour scheme from the optional `[profile.theme]`
+    /// TOML table (key -> CSS colour string, e.g. `arc = "#3ddc84"`).
+    /// Empty for built-in profiles and for community profiles without a
+    /// theme block; the frontend falls back to its default palette per
+    /// key. Values are passed through unvalidated — the UI validates
+    /// colours before applying them (see `src/js/gauges.js` and
+    /// docs/DECODE_FUNCTIONS.md § 9).
+    pub theme: std::collections::HashMap<String, String>,
 }
 
 fn builtin_profiles() -> Vec<Profile> {
@@ -129,6 +150,7 @@ fn builtin_profiles() -> Vec<Profile> {
     let obd2 = Profile {
         id: "obd2".into(),
         label: "Generic OBD-II (any 2007+ car)".into(),
+        theme: Default::default(),
         params: vec![
             LiveParam::new("rpm", "Engine speed", "rpm", 0x12, Obd(0x0C), U16Quarter, 0.0, 8000.0),
             LiveParam::new("coolant", "Coolant temp", "°C", 0x12, Obd(0x05), TempU8, -40.0, 150.0),
@@ -146,6 +168,7 @@ fn builtin_profiles() -> Vec<Profile> {
     let sim = Profile {
         id: "sim".into(),
         label: "Simulator (virtual E90)".into(),
+        theme: Default::default(),
         params: vec![
             LiveParam::new("rpm", "Engine speed", "rpm", 0x12, Did(0x1000), U16, 0.0, 8000.0),
             LiveParam::new("coolant", "Coolant temp", "°C", 0x12, Did(0x1001), TempU8, -40.0, 150.0),
@@ -177,9 +200,11 @@ pub fn add_profile(profile: Profile) {
     }
 }
 
-/// (id, label) pairs for the profile selector.
-pub fn profile_list() -> Vec<(String, String)> {
-    store().read().unwrap().iter().map(|p| (p.id.clone(), p.label.clone())).collect()
+/// (id, label, theme) triples for the profile selector. `theme` is the
+/// profile's `[profile.theme]` colour map (empty when the profile has
+/// no theme block).
+pub fn profile_list() -> Vec<(String, String, std::collections::HashMap<String, String>)> {
+    store().read().unwrap().iter().map(|p| (p.id.clone(), p.label.clone(), p.theme.clone())).collect()
 }
 
 /// Clone one profile's parameters by id.
@@ -200,7 +225,9 @@ pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
         | Decode::U16Milli
         | Decode::U16Times10
         | Decode::U16Tenths
-        | Decode::U16Div100 => {
+        | Decode::U16Div100
+        | Decode::U16Fiftieths
+        | Decode::U16Half => {
             if data.len() >= 2 {
                 let raw = u16::from_be_bytes([data[0], data[1]]) as f64;
                 Some(match decode {
@@ -209,8 +236,17 @@ pub fn decode(decode: Decode, data: &[u8]) -> Option<f64> {
                     Decode::U16Times10 => raw * 10.0,
                     Decode::U16Tenths => raw * 0.1,
                     Decode::U16Div100 => raw * 0.01,
+                    Decode::U16Fiftieths => raw * 0.02,
+                    Decode::U16Half => raw * 0.5,
                     _ => raw,
                 })
+            } else {
+                None
+            }
+        }
+        Decode::U32Be => {
+            if data.len() >= 4 {
+                Some(u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as f64)
             } else {
                 None
             }
@@ -293,6 +329,9 @@ pub fn decode_from_str(s: &str) -> Option<Decode> {
         "u16_times10" => Decode::U16Times10,
         "u16_tenths" => Decode::U16Tenths,
         "u16_div100" => Decode::U16Div100,
+        "u16_fiftieths" => Decode::U16Fiftieths,
+        "u32_be" => Decode::U32Be,
+        "u16_half" => Decode::U16Half,
         "s16" => Decode::S16,
         "s16_div4" => Decode::S16Div4,
         "s16_div100" => Decode::S16Div100,
@@ -335,6 +374,9 @@ fn decode_to_str(d: Decode) -> &'static str {
         Decode::U16Times10 => "u16_times10",
         Decode::U16Tenths => "u16_tenths",
         Decode::U16Div100 => "u16_div100",
+        Decode::U16Fiftieths => "u16_fiftieths",
+        Decode::U32Be => "u32_be",
+        Decode::U16Half => "u16_half",
         Decode::S16 => "s16",
         Decode::S16Div4 => "s16_div4",
         Decode::S16Div100 => "s16_div100",
@@ -349,9 +391,44 @@ pub fn add_param_to_profile(profile_id: &str, param: LiveParam) -> Option<()> {
     Some(())
 }
 
+/// Remove the param with the given `param_id` from the named profile.
+///
+/// Returns `true` when a param was removed, `false` when either the
+/// profile or the param id was unknown (no mutation in that case).
+/// Idempotent: calling with an unknown `param_id` is a no-op.
+///
+/// v0.14.3 slice 3a — gates the frontend's "remove this unsupported
+/// PID" affordance behind `commands::remove_profile_pid`, which
+/// also writes the updated profile back to disk. The in-memory
+/// removal here is what makes subsequent polling sweeps skip the
+/// PID before the TOML reload.
+pub fn remove_param_from_profile(profile_id: &str, param_id: &str) -> bool {
+    let mut s = match store().write() {
+        Ok(g) => g,
+        Err(_) => return false,
+    };
+    let Some(profile) = s.iter_mut().find(|p| p.id == profile_id) else {
+        return false;
+    };
+    let before = profile.params.len();
+    profile.params.retain(|p| p.id != param_id);
+    profile.params.len() != before
+}
+
 pub fn profile_to_toml(id: &str) -> Option<String> {
     let p = store().read().ok()?.iter().find(|p| p.id == id)?.clone();
-    let mut out = format!("[[profile]]\nid = {:?}\nlabel = {:?}\n\n", p.id, p.label);
+    let mut out = format!("[[profile]]\nid = {:?}\nlabel = {:?}\n", p.id, p.label);
+    // Round-trip the [profile.theme] block so a shared profile keeps its
+    // gauge colour scheme (keys sorted for deterministic output).
+    if !p.theme.is_empty() {
+        out.push_str("\n[profile.theme]\n");
+        let mut keys: Vec<&String> = p.theme.keys().collect();
+        keys.sort();
+        for k in keys {
+            out.push_str(&format!("{k} = {:?}\n", p.theme[k]));
+        }
+    }
+    out.push('\n');
     for param in p.params {
         out.push_str("[[profile.param]]\n");
         out.push_str(&format!("id = {:?}\n", param.id));
@@ -448,6 +525,59 @@ mod tests {
             assert!(approx(decode(Decode::U16Div100, &[0x00, 0x00]).unwrap(), 0.0));
         }
 
+    // ---- v0.14.3 new decoders (u16_fiftieths / u32_be / u16_half) ----
+    //
+    // OBD-II SAE J1979 fuel-rate + runtime PIDs the v0.14.2 N62 slice 1
+    // PR (#175) deferred pending new decoders. Plan: docs/v0.14.3_plan.md.
+
+    #[test]
+    fn u16_fiftieths_engine_fuel_rate_lh() {
+        // OBD 0x5E — SAE scale × 0.02 (i.e. 1/50).
+        // raw 50 -> 1.00 L/h (light idle load)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x00, 0x32]).unwrap(), 1.00));
+        // raw 250 -> 5.00 L/h (typical part-throttle cruise)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x00, 0xFA]).unwrap(), 5.00));
+        // raw 5000 -> 100.00 L/h (heavy load, scale top end for a V8)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x13, 0x88]).unwrap(), 100.00));
+        // raw 0xFFFF -> 1310.70 L/h (saturated / fault sentinel)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0xFF, 0xFF]).unwrap(), 1310.70));
+        // 0 -> 0 (engine off / pump not running)
+        assert!(approx(decode(Decode::U16Fiftieths, &[0x00, 0x00]).unwrap(), 0.0));
+    }
+
+    #[test]
+    fn u16_half_engine_fuel_rate_gs() {
+        // OBD 0x62 — SAE scale × 0.5 (i.e. 1/2).
+        // raw 2 -> 1.00 g/s (idle)
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0x02]).unwrap(), 1.00));
+        // raw 20 -> 10.00 g/s (cruise)
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0x14]).unwrap(), 10.00));
+        // raw 200 -> 100.00 g/s (wide-open throttle, V8-class)
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0xC8]).unwrap(), 100.00));
+        // raw 0xFFFF -> 32767.50 g/s (saturated / fault sentinel)
+        assert!(approx(decode(Decode::U16Half, &[0xFF, 0xFF]).unwrap(), 32767.50));
+        // 0 -> 0
+        assert!(approx(decode(Decode::U16Half, &[0x00, 0x00]).unwrap(), 0.0));
+    }
+
+    #[test]
+    fn u32_be_engine_runtime() {
+        // OBD 0x5F — 4-byte BE seconds-since-start. unsigned, so no sign.
+        // 0 -> 0 (cold start)
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x00, 0x00, 0x00]).unwrap(), 0.0));
+        // 60 -> 60 s (1 min after start)
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x00, 0x00, 0x3C]).unwrap(), 60.0));
+        // 3600 -> 1 h
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x00, 0x0E, 0x10]).unwrap(), 3600.0));
+        // 86400 -> 1 day
+        assert!(approx(decode(Decode::U32Be, &[0x00, 0x01, 0x51, 0x80]).unwrap(), 86400.0));
+        // 0xFFFFFFFF -> ~4.29e9 s (~136 years — overflow sentinel for
+        // "PID supported but counter saturated"; the frontend caps
+        // the gauge at the engine's actual runtime).
+        let max = u32::MAX as f64;
+        assert!(approx(decode(Decode::U32Be, &[0xFF, 0xFF, 0xFF, 0xFF]).unwrap(), max));
+    }
+
     #[test]
     fn s16_basic_negative() {
         // Two's complement: 0x8000 = -32768 (i16 min)
@@ -522,9 +652,31 @@ mod tests {
         assert_eq!(decode(Decode::U16Times10, &[0x01]), None);
         assert_eq!(decode(Decode::U16Tenths, &[0x01]), None);
         assert_eq!(decode(Decode::U16Div100, &[]), None);
+        // v0.14.3: u16_fiftieths and u16_half are part of the u16
+        // family and follow the same 2-byte-minimum contract.
+        assert_eq!(decode(Decode::U16Fiftieths, &[0x01]), None);
+        assert_eq!(decode(Decode::U16Fiftieths, &[]), None);
+        assert_eq!(decode(Decode::U16Half, &[0x01]), None);
+        assert_eq!(decode(Decode::U16Half, &[]), None);
         assert_eq!(decode(Decode::S16, &[0x01]), None);
         assert_eq!(decode(Decode::S16Div4, &[0x01]), None);
         assert_eq!(decode(Decode::S16Div100, &[]), None);
+    }
+
+    #[test]
+    fn u32_be_short_buffer() {
+        // v0.14.3: u32_be needs 4 bytes — any shorter buffer returns None
+        // (matching the u16 family's 2-byte contract; u8 family's 1-byte).
+        assert_eq!(decode(Decode::U32Be, &[]), None);
+        assert_eq!(decode(Decode::U32Be, &[0x00]), None);
+        assert_eq!(decode(Decode::U32Be, &[0x00, 0x01, 0x02]), None);
+        // Exactly 4 bytes is the minimum valid input.
+        assert!(decode(Decode::U32Be, &[0x00, 0x00, 0x00, 0x00]).is_some());
+        // Trailing bytes past 4 are ignored (the decoder only reads the
+        // first 4). This matches the u16 family's behaviour with extra
+        // bytes — the wire layer trims responses, but defensive leniency
+        // is cheap.
+        assert!(decode(Decode::U32Be, &[0xFF, 0xFF, 0xFF, 0xFF, 0xAA]).is_some());
     }
 
     #[test]
@@ -545,7 +697,8 @@ mod tests {
         let names = [
             "temp_u8", "u16", "u8", "u8_tenths", "u8_div100", "u8_div4",
             "u16_quarter", "percent_a", "u16_milli", "u16_times10",
-            "u16_tenths", "u16_div100", "s16", "s16_div4", "s16_div100",
+            "u16_tenths", "u16_div100", "u16_fiftieths", "u32_be",
+            "u16_half", "s16", "s16_div4", "s16_div100",
         ];
         for name in names {
             let d = decode_from_str(name)
@@ -560,6 +713,103 @@ mod tests {
         assert_eq!(decode_from_str("not_a_real_decoder"), None);
         assert_eq!(decode_from_str(""), None);
         assert_eq!(decode_from_str("U16_TENTHS"), None); // case-sensitive
+    }
+
+    // ---- v0.14.3: remove_param_from_profile ----
+    //
+    // These tests touch the process-global profile store (see
+    // `store()` above). cargo test runs tests in parallel threads
+    // by default, and Rust's `#[test]` attribute gives no
+    // suite-level isolation, so without help these tests share
+    // mutable state with anything else that uses the store. The
+    // `with_fresh_store()` helper below serialises the three tests
+    // via a dedicated `TEST_LOCK` mutex (NOT the store's RwLock —
+    // holding that for the duration of a test body would block
+    // any reader-only call like `profile_params`, deadlocking the
+    // test). The guard resets the store to `builtin_profiles()` at
+    // entry and restores it at drop. Each test sees an unmodified
+    // 11-param `obd2` profile regardless of execution order or
+    // thread interleaving. The TEST_LOCK effectively serialises
+    // these three tests with respect to each other — the right
+    // cost for shared mutable state.
+
+    /// Mutex that serialises the three `remove_param_from_profile`
+    /// tests against each other. Not the store's RwLock (which
+    /// would deadlock with the tests' read+write interleaving);
+    /// just a suite-level ordering lock.
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// RAII guard: holds `TEST_LOCK` + a snapshot of the builtin
+    /// profiles. Restores `builtin_profiles()` on drop while
+    /// holding the lock, so a parallel test can't observe a
+    /// half-restored store.
+    struct FreshStoreGuard {
+        _guard: std::sync::MutexGuard<'static, ()>,
+    }
+
+    fn with_fresh_store() -> FreshStoreGuard {
+        let guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        // Acquire the store write lock briefly to reset state.
+        // Holding TEST_LOCK for the test body would block other
+        // tests that just want to read the store (e.g. any future
+        // read-only test of profile_params), so we acquire +
+        // release the store write lock here and re-acquire only
+        // in Drop.
+        {
+            let mut lock = store().write().unwrap();
+            *lock = builtin_profiles();
+        }
+        FreshStoreGuard { _guard: guard }
+    }
+
+    impl Drop for FreshStoreGuard {
+        fn drop(&mut self) {
+            // Holding TEST_LOCK (via the guard) ensures a parallel
+            // test that might be about to call `with_fresh_store`
+            // can't start until we've restored. The store write
+            // lock is a brief acquire-and-release; if it's poisoned
+            // we don't propagate — the next test resets anyway.
+            if let Ok(mut lock) = store().write() {
+                *lock = builtin_profiles();
+            }
+        }
+    }
+
+    #[test]
+    fn remove_param_from_profile_removes_matching_param() {
+        let _fresh = with_fresh_store();
+        // Built-in `obd2` profile has 11 params (rpm, coolant, iat, …).
+        // Removing `coolant` should drop it from the in-memory profile
+        // and leave the others untouched.
+        let before = profile_params("obd2").unwrap();
+        let before_count = before.len();
+        assert!(before.iter().any(|p| p.id == "coolant"));
+        assert!(remove_param_from_profile("obd2", "coolant"));
+        let after = profile_params("obd2").unwrap();
+        assert_eq!(after.len(), before_count - 1);
+        assert!(!after.iter().any(|p| p.id == "coolant"));
+    }
+
+    #[test]
+    fn remove_param_from_profile_is_idempotent() {
+        let _fresh = with_fresh_store();
+        // First call removes; second call on the same param id is a
+        // no-op and returns false (nothing was removed). The profile
+        // is still consistent — no extra params introduced.
+        assert!(remove_param_from_profile("obd2", "iat"));
+        let after_first = profile_params("obd2").unwrap().len();
+        assert!(!remove_param_from_profile("obd2", "iat"));
+        let after_second = profile_params("obd2").unwrap().len();
+        assert_eq!(after_first, after_second);
+    }
+
+    #[test]
+    fn remove_param_from_profile_unknown_id_returns_false() {
+        let _fresh = with_fresh_store();
+        // Unknown profile id: no mutation, returns false.
+        let before = profile_params("obd2").unwrap().len();
+        assert!(!remove_param_from_profile("does_not_exist", "coolant"));
+        assert_eq!(profile_params("obd2").unwrap().len(), before);
     }
 
     // ---- u8_enum decoder (v0.4.0) ----

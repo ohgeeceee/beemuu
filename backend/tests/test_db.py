@@ -42,7 +42,6 @@ class TestApplySchema(unittest.TestCase):
             "dtc",
             "dtc_submission",
             "diag_session",
-            "hunt_challenge",
             "leaderboard_entry",
             "audit_log",
         }

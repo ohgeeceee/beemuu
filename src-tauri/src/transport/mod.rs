@@ -6,6 +6,7 @@
 
 pub mod kdcan;
 pub mod enet;
+pub mod isotp;
 pub mod record;
 pub mod sim;
 
@@ -52,10 +53,32 @@ pub enum TransportConfig {
     Kdcan { port: String, dcan: bool },
     /// K+DCAN with auto-detect: tries D-CAN first, then K-line.
     KdcanAuto { port: String },
-    /// ENET cable. `addr` e.g. "169.254.16.11:6801" (HSFZ port).
-    Enet { addr: String },
+    /// ENET cable. `addr` e.g. "169.254.16.11:6801" (HSFZ port). When
+    /// `auto_discover` is set, DoIP discovery (UDP 13400) runs first and
+    /// the discovered car's IP is used; `addr` is the manual fallback.
+    Enet { addr: String, #[serde(default)] auto_discover: bool },
     /// Built-in simulated E90 — no hardware required.
     Sim {},
+}
+
+/// Lets the app's shared `Arc<Mutex<Option<Box<dyn Transport>>>>` slot be
+/// used directly as a `Transport` — needed so the Tester Present keep-alive
+/// worker can hold the same lock as every command. `None` (not connected)
+/// answers `NotConnected`, which tells the worker to stop itself.
+impl Transport for Option<Box<dyn Transport>> {
+    fn name(&self) -> &'static str {
+        self.as_ref().map(|t| t.name()).unwrap_or("none")
+    }
+    fn request(&mut self, target: u8, payload: &[u8]) -> Result<Vec<u8>> {
+        self.as_mut()
+            .ok_or(TransportError::NotConnected)?
+            .request(target, payload)
+    }
+    fn disconnect(&mut self) {
+        if let Some(t) = self.as_mut() {
+            t.disconnect();
+        }
+    }
 }
 
 pub fn open(config: &TransportConfig) -> Result<Box<dyn Transport>> {
@@ -66,7 +89,9 @@ pub fn open(config: &TransportConfig) -> Result<Box<dyn Transport>> {
         TransportConfig::KdcanAuto { port } => {
             Ok(Box::new(kdcan::KdcanTransport::auto_detect(port)?))
         }
-        TransportConfig::Enet { addr } => Ok(Box::new(enet::EnetTransport::open(addr)?)),
+        TransportConfig::Enet { addr, auto_discover } => Ok(Box::new(
+            enet::EnetTransport::open(&enet::resolve_addr(addr, *auto_discover)?)?,
+        )),
         TransportConfig::Sim {} => Ok(Box::new(sim::SimTransport::new())),
     }
 }

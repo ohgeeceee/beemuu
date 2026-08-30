@@ -10,11 +10,20 @@ from pathlib import Path
 from backend import auth, db
 
 
-def _fresh_db() -> Path:
+def _fresh_db() -> tuple[tempfile.TemporaryDirectory, Path]:
+    """Create a temp-dir-backed database.
+
+    The TemporaryDirectory object is returned alongside the path because
+    its finalizer deletes the directory as soon as it is garbage-collected
+    — callers must keep it alive for as long as they use the path
+    (previously it was dropped here, so the db file could vanish mid-test:
+    flaky on Windows, deterministic "unable to open database file" on
+    Linux).
+    """
     tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     p = Path(tmp.name) / "auth.db"
     db.init_db(p)
-    return p
+    return tmp, p
 
 
 class TestPasswordHashing(unittest.TestCase):
@@ -50,7 +59,9 @@ class TestCookieSessions(unittest.TestCase):
     """Session create / lookup / revoke / expiry."""
 
     def setUp(self) -> None:
-        self.db_path = _fresh_db()
+        # Keep the TemporaryDirectory alive for the whole test (see _fresh_db).
+        self._tmp, self.db_path = _fresh_db()
+        self.addCleanup(self._tmp.cleanup)
         # Seed one admin user
         with db.get_conn(self.db_path) as conn:
             conn.execute(

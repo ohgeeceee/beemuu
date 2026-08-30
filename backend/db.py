@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS dtc (
     description TEXT,
     likely_causes TEXT,
     source TEXT NOT NULL,
+    source_url TEXT,
     verified INTEGER NOT NULL DEFAULT 0,
+    confidence TEXT NOT NULL DEFAULT 'unverified',
     enabled INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
@@ -161,6 +163,11 @@ def init_db(path: Path | None = None) -> Path:
     resolved.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(resolved) as conn:
         conn.executescript(_SCHEMA)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(dtc)")}
+        if "confidence" not in columns:
+            conn.execute("ALTER TABLE dtc ADD COLUMN confidence TEXT NOT NULL DEFAULT 'unverified'")
+        if "source_url" not in columns:
+            conn.execute("ALTER TABLE dtc ADD COLUMN source_url TEXT")
         conn.commit()
     return resolved
 

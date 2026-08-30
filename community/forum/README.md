@@ -2,13 +2,13 @@
 
 Community threads live as plain markdown files in this directory.
 Each thread is one file. You file a thread by opening a pull
-request — same workflow as `community/profiles/*.toml`,
-`community/dtc_texts.toml`, and `community/hunt/leaderboard.json`.
+request — same workflow as `community/profiles/*.toml` and
+`community/dtc_texts.toml`.
 
 > **Why PRs, not a web form?** The project is offline-first and
 > ships via git. Every other community contribution — DTC texts,
-> engine profiles, freeze-frame schemas, oracle patterns, hunt
-> scores — works this way. The forum is the same pattern applied to
+> engine profiles, freeze-frame schemas, oracle patterns — works
+> this way. The forum is the same pattern applied to
 > prose. No new infrastructure, no auth wall, no DB. GitHub
 > credentials are the credentials.
 
@@ -79,8 +79,7 @@ model.
 
 ## Anti-features (deliberate)
 
-- **No upvotes / karma / badges.** The Parameter Hunt game covers
-  the gamification use case; forum posts are for help and sharing,
+- **No upvotes / karma / badges.** Forum posts are for help and sharing,
   not status.
 - **No private messages.** If it's worth saying, say it on a
   thread.

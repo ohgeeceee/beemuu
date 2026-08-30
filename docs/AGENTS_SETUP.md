@@ -69,7 +69,7 @@ doc-only, it auto-merges).
   fallback). Both the implementer and reviewer agents are told to obey and enforce
   them.
 - Auto-merge is an allowlist: only `*.md`, `*.txt`, `docs/**`, `LICENSE`, and
-  images. Any change under `src-tauri/`, `bmw_diag/`, or `src/` is excluded by
+  images. Any change under `src-tauri/` or `src/` is excluded by
   construction.
 
 ## Tuning

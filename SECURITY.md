@@ -4,9 +4,9 @@
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| v0.2.x | ✅ Yes | Current release |
-| v0.1.x | ⚠️ Best-effort | Previous release; no longer actively tested |
-| < v0.1.0 | ❌ No | Pre-release / experimental |
+| v0.6.x | ✅ Yes | Current release |
+| v0.5.x | ⚠️ Best-effort | Previous release; no longer actively tested |
+| < v0.5.0 | ❌ No | Older releases |
 
 Security updates are backported to the current release only. If you're on an
 older version, upgrade to the latest release.
@@ -36,9 +36,11 @@ Out of scope:
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, email `security@yourdomain.com` (or DM the maintainer if you have
-a private channel). If you don't get a response within 48 hours, ping the
-public issue tracker with a vague reference and we'll open a private thread.
+Instead, use GitHub's private vulnerability reporting:
+<https://github.com/ohgeeceee/beemuu/security/advisories/new> (or DM the
+maintainer if you have a private channel). If you don't get a response within
+48 hours, ping the public issue tracker with a vague reference and we'll open
+a private thread.
 
 ### What to include
 
@@ -77,9 +79,42 @@ try to accommodate.
 
 ### Communication with the car
 - All OBD/UDS/KWP2000 traffic is local (USB/ENET cable, no internet)
-- No remote diagnostic server or API calls
+- DTC wiring schematics are fetched on demand via read-only HTTPS GETs to
+  `https://api.beemuu.com/api/dtc/<code>/schematics` (5 s timeout; only the
+  DTC code is sent — no VIN or other vehicle data). No other remote
+  diagnostic server or API calls.
 - SecurityAccess (0x27) seed/key algorithms are pluggable but don't ship
   proprietary BMW keys
+
+### Desktop webview trust model
+
+- **Content Security Policy** (`src-tauri/tauri.conf.json`):
+  `default-src 'self'`; scripts only from the app bundle and
+  `https://cdnjs.cloudflare.com` (Chart.js — the single external script
+  origin); `connect-src 'self' ipc: http://ipc.localhost` (Tauri IPC only —
+  the webview makes **no** network requests of its own; the schematics
+  fetch above happens in Rust); `img-src 'self' data:`; `object-src
+  'none'`; `base-uri 'none'`; `form-action 'none'`. The one exception is
+  `style-src 'unsafe-inline'`, scoped to style only: three renderers set
+  numeric/computed values through `style=""` attributes (watch-byte bars,
+  log-channel swatches). There is **no** `unsafe-inline` for script.
+- **Command exposure**: the webview can invoke every app command via Tauri
+  IPC (`window.__TAURI__.core.invoke`, `withGlobalTauri: true`). Tauri v2
+  capabilities gate plugin/core commands and remote origins, but cannot
+  distinguish app code from injected code inside the same local window —
+  so the injection boundary is output encoding, not the IPC handle:
+  - Community-controlled strings (DTC texts, profiles, Oracle / Story /
+    Opinions content, load warnings), vehicle-derived strings (VIN, module
+    names, fault texts, freeze frames), hosted-API fields, and Rust error
+    strings are HTML-escaped at every `innerHTML` sink in `src/js/main.js`.
+  - No inline event handlers (`onclick=`) are generated anywhere; dynamic
+    UI is wired with `addEventListener`, which is what keeps `script-src`
+    free of `unsafe-inline`.
+- **Mutex poisoning**: commands share state behind `std::sync::Mutex`.
+  Every lock acquisition in `commands.rs` propagates a poisoned lock as a
+  command error (`state lock poisoned: ...`) instead of panicking, so one
+  panicking command cannot cascade into all others. The Tester Present
+  keep-alive worker already exits cleanly on poison.
 
 ### Known limitations (not vulnerabilities, but worth understanding)
 

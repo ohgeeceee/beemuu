@@ -60,6 +60,14 @@ struct ProfilesFile {
 struct ProfileToml {
     id: String,
     label: String,
+    /// Optional `[profile.theme]` table: per-profile gauge colour scheme
+    /// (key -> CSS colour string). `#[serde(default)]` keeps older TOML
+    /// files (without this table) parsing cleanly. Keys the frontend
+    /// doesn't recognise are ignored there; colour strings are validated
+    /// in the UI layer (`CSS.supports`), not here — this is a pure
+    /// pass-through. See docs/DECODE_FUNCTIONS.md § 9.
+    #[serde(default)]
+    theme: std::collections::HashMap<String, String>,
     #[serde(default)]
     param: Vec<ParamToml>,
 }
@@ -250,7 +258,7 @@ fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
             enum_map,
         });
     }
-    Ok(live::Profile { id: p.id, label: p.label, params })
+    Ok(live::Profile { id: p.id, label: p.label, params, theme: p.theme })
 }
 
 fn build_schema(s: SchemaToml) -> Result<(u8, freeze::FreezeSchema), String> {
@@ -268,6 +276,94 @@ fn build_schema(s: SchemaToml) -> Result<(u8, freeze::FreezeSchema), String> {
         ));
     }
     Ok((s.address, freeze::FreezeSchema { fields }))
+}
+
+// ---- Per-ECU freeze-frame schemas (community/freeze/<hex>.toml) -----------
+//
+// One file per ECU address. The filename stem is the address as hex
+// (`12.toml` is the DME). Saved by `save_freeze_schema` (below) and
+// loaded by both `tauri::command::load_freeze_schemas` (the
+// schema-builder "Reload" button) and `community::load()` on startup
+// so the freeze-frame panel auto-populates without manual reload.
+//
+// The legacy `community/freeze_schemas.toml` (single file holding all
+// ECUs as `[[schema]]` blocks with explicit `address =` lines) is no
+// longer read by this path — see `load_schemas` for the legacy loader
+// which is kept for backward compatibility.
+
+fn build_freeze_per_ecu(address: u8, f: FreezeFile) -> Result<freeze::FreezeSchema, String> {
+    let mut fields = Vec::with_capacity(f.field.len());
+    for fl in f.field {
+        let Some(width) = width_from_str(&fl.width) else {
+            return Err(format!("0x{address:02X}: bad width '{}'", fl.width));
+        };
+        // FreezeField holds &'static str; leak the owned strings (bounded by
+        // the tiny number of community fields, one-time at startup/import).
+        let label: &'static str = Box::leak(fl.label.into_boxed_str());
+        let unit: &'static str = Box::leak(fl.unit.into_boxed_str());
+        fields.push(freeze::FreezeField::new(
+            label, unit, fl.offset, width, fl.scale, fl.bias, fl.decimals,
+        ));
+    }
+    Ok(freeze::FreezeSchema { fields })
+}
+
+/// Load every `community/freeze/<hex>.toml` and register by filename.
+/// Returns the number of schemas successfully registered. Warnings
+/// (bad filename, parse error, bad width) are appended to `warnings`.
+///
+/// Called from two places:
+///   1. `community::load()` — on startup, so the freeze-frame panel
+///      auto-populates without manual reload.
+///   2. `tauri::command::load_freeze_schemas` — when the user clicks
+///      "Reload" in the schema-builder panel after editing a file
+///      externally.
+///
+/// The loader's registry() is a HashMap; if the same address is
+/// registered twice, the later call wins.
+pub fn load_freeze_per_ecu(dir: &Path, warnings: &mut Vec<String>) -> u32 {
+    let freeze_dir = dir.join("freeze");
+    if !freeze_dir.is_dir() {
+        return 0;
+    }
+    let Ok(rd) = std::fs::read_dir(&freeze_dir) else { return 0 };
+    let mut entries: Vec<_> = rd.flatten().map(|e| e.path()).collect();
+    entries.sort();
+    let mut count = 0u32;
+    for path in entries {
+        if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("toml")) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let stem = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s,
+            None => continue,
+        };
+        let address = match u8::from_str_radix(stem, 16) {
+            Ok(a) => a,
+            Err(_) => {
+                warnings.push(format!("Bad freeze filename: {}", path.display()));
+                continue;
+            }
+        };
+        let parsed: FreezeFile = match toml::from_str(&text) {
+            Ok(f) => f,
+            Err(e) => {
+                warnings.push(format!("{}: {e}", path.display()));
+                continue;
+            }
+        };
+        match build_freeze_per_ecu(address, parsed) {
+            Ok(schema) => {
+                freeze::registry().register_for(address, schema);
+                count += 1;
+            }
+            Err(w) => warnings.push(w),
+        }
+    }
+    count
 }
 
 // ---- Loaders ---------------------------------------------------------------
@@ -341,6 +437,13 @@ pub fn load() -> LoadReport {
     load_dtcs(&dir, &mut report);
     load_profiles(&dir, &mut report);
     load_schemas(&dir, &mut report);
+    // Per-ECU freeze-frame schemas (community/freeze/<hex>.toml). The
+    // legacy load_schemas() above reads the single freeze_schemas.toml
+    // file; this reads the per-ECU split. Both can coexist — both
+    // register via freeze::registry(), which is a last-write-wins
+    // HashMap, so the per-ECU loader intentionally runs second to
+    // override any address it also got from the legacy file.
+    report.freeze_schemas += load_freeze_per_ecu(&dir, &mut report.warnings) as usize;
     let _ = REPORT.set(report.clone());
     report
 }
@@ -467,5 +570,504 @@ label = "Legacy profile"
         assert_eq!(parsed.get(&1).map(String::as_str), Some("1"));
         assert!(!parsed.values().any(|v| v == "Overflow" || v == "Negative"
             || v == "Fruit" || v == "Pi"));
+    }
+
+    /// A `[profile.theme]` table must parse and surface on
+    /// `ProfileToml.theme` as a raw string->string map, and params
+    /// declared after the theme table must still land on the same
+    /// profile. Key/colour validation happens in the UI; the loader is
+    /// a pass-through (v0.7.0, docs/DECODE_FUNCTIONS.md § 9).
+    #[test]
+    fn theme_parses_from_toml() {
+        // NOTE: r##"..."## delimiters — the TOML contains `"#` (hex
+        // colours), which would terminate an r#"..."# raw string early.
+        let toml = r##"
+[[profile]]
+id = "themed"
+label = "Themed profile"
+
+[profile.theme]
+arc = "#3ddc84"
+needle = "orange"
+
+  [[profile.param]]
+  id = "rpm"
+  label = "Engine speed"
+  unit = "rpm"
+  target = 0x12
+  query = "obd:0C"
+  decode = "u16_quarter"
+  min = 0.0
+  max = 8000.0
+"##;
+        let parsed: ProfilesFile = toml::from_str(toml).expect("TOML should parse");
+        let profile = &parsed.profile[0];
+        assert_eq!(profile.theme.get("arc").map(String::as_str), Some("#3ddc84"));
+        assert_eq!(profile.theme.get("needle").map(String::as_str), Some("orange"));
+        assert_eq!(profile.param.len(), 1, "params after [profile.theme] must still parse");
+        assert_eq!(profile.param[0].id, "rpm");
+    }
+
+    /// Older TOML files without a `[profile.theme]` table must still
+    /// parse, with an empty theme map — same `#[serde(default)]`
+    /// contract as the `enum` key.
+    #[test]
+    fn legacy_toml_without_theme_still_parses() {
+        let toml = r#"
+[[profile]]
+id = "legacy"
+label = "Legacy profile"
+"#;
+        let parsed: ProfilesFile = toml::from_str(toml).expect("legacy TOML should parse");
+        assert!(parsed.profile[0].theme.is_empty(), "legacy profiles must default to empty theme");
+    }
+
+    /// Repo root's `community/` directory (one level up from
+    /// `src-tauri`, independent of the test runner's cwd).
+    fn shipped_community_dir() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("src-tauri must have a parent directory")
+            .join("community")
+    }
+
+    /// GATE (v0.8.0 PR #1): every shipped community TOML must parse.
+    ///
+    /// Rationale: `scripts/lint-toml.js` (CI build job) checks
+    /// whitespace only, so `community/dtc_texts.toml` shipped
+    /// truncated mid-string — the loader logged the error and
+    /// silently loaded zero overlay entries. A data-file syntax
+    /// break must fail `cargo test`, which CI already runs
+    /// (`.github/workflows/test.yml`).
+    ///
+    /// This is a syntax gate (`toml::Value`), not a schema gate:
+    /// it catches truncation and malformed files without needing
+    /// per-category structs. Category shapes are covered by the
+    /// loader and by `shipped_dtc_texts_parse_and_nonempty` below.
+    #[test]
+    fn shipped_community_tomls_parse() {
+        let root = shipped_community_dir();
+        assert!(root.is_dir(), "community dir missing at {root:?}");
+        let mut stack = vec![root];
+        let mut count = 0usize;
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir)
+                .unwrap_or_else(|e| panic!("read_dir {dir:?}: {e}"))
+            {
+                let path = entry.expect("dir entry").path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                    let content = std::fs::read_to_string(&path)
+                        .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+                    content
+                        .parse::<toml::Value>()
+                        .unwrap_or_else(|e| panic!(
+                            "shipped community TOML must parse: {path:?}: {e}"
+                        ));
+                    count += 1;
+                }
+            }
+        }
+        assert!(
+            count >= 10,
+            "gate should cover >= 10 shipped community TOMLs, saw {count}"
+        );
+    }
+
+    /// The shipped `community/dtc_texts.toml` must parse into the
+    /// loader's `DtcFile` shape, contain entries (a rescue rebuild
+    /// that produced an empty table would still pass the syntax
+    /// gate), and use the BMW-style 4/6-hex uppercase codes the
+    /// read paths produce (see `protocol::Dtc.code`).
+    #[test]
+    fn shipped_dtc_texts_parse_and_nonempty() {
+        let path = shipped_community_dir().join("dtc_texts.toml");
+        let content = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+        let parsed: DtcFile = toml::from_str(&content)
+            .unwrap_or_else(|e| panic!("dtc_texts.toml must fit DtcFile: {e}"));
+        assert!(
+            parsed.dtc.len() >= 100,
+            "rescued corpus should carry >= 100 entries, saw {}",
+            parsed.dtc.len()
+        );
+        for (code, text) in &parsed.dtc {
+            assert!(
+                (4..=6).contains(&code.len())
+                    && code.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase()),
+                "code {code:?} must be 4-6 uppercase hex"
+            );
+            assert!(!text.trim().is_empty(), "empty text for {code}");
+        }
+    }
+
+    // ---- v0.9.0 PR #1: test-plan schema gate ------------------------------
+    //
+    // The guided-fault-finding cycle adds a parallel `community/testplans/`
+    // tree of branching `[[step]]` plans (schema: `docs/testplans.md`). The
+    // recursive syntax gate `shipped_community_tomls_parse` above already
+    // covers those files for TOML validity the day they land. The tests
+    // below add the *shape* gate the schema doc promises:
+    // `shipped_testplans_branch_integrity` (branch targets resolve, a
+    // conclusion is reachable, every step is sourced, dtc matches filename,
+    // no traversal cycles) and `shipped_oracle_json_parses` (survey finding
+    // #3: the Oracle JSON was ungated — a broken file failed only as a
+    // startup `eprintln`, invisible to CI).
+
+    /// Deserialize shapes mirroring `docs/testplans.md`. Test-only: the
+    /// production loader lands in PR #3 (`testplans.rs`). Kept permissive
+    /// (`#[serde(default)]`) so the *gate* — not serde — reports the
+    /// schema violations with actionable messages.
+    #[derive(Deserialize)]
+    struct TestPlanFile {
+        #[serde(default)]
+        dtc: String,
+        #[serde(default)]
+        meta: TestPlanMeta,
+        #[serde(default)]
+        step: Vec<TestPlanStep>,
+    }
+
+    #[derive(Deserialize, Default)]
+    struct TestPlanMeta {
+        #[serde(default)]
+        #[allow(dead_code)]
+        title: String,
+        #[serde(default)]
+        #[allow(dead_code)]
+        engine_family: String,
+        /// Presence marks a placeholder (known-missing) plan: allowed to
+        /// carry zero steps and skipped by the branch-integrity walk.
+        #[serde(default)]
+        suppressed: Option<toml::Value>,
+    }
+
+    #[derive(Deserialize)]
+    struct TestPlanStep {
+        #[serde(default)]
+        id: String,
+        #[serde(default)]
+        #[allow(dead_code)]
+        instruction: String,
+        #[serde(default)]
+        on_pass: Option<String>,
+        #[serde(default)]
+        on_fail: Option<String>,
+        #[serde(default)]
+        next: Option<String>,
+        #[serde(default)]
+        conclusion: Option<String>,
+        #[serde(default)]
+        source: String,
+    }
+
+    /// Every `*.toml` under `community/testplans/` (recursively), with
+    /// its file stem, skipping the author-facing `README.md` (not TOML).
+    fn shipped_testplan_files() -> Vec<(PathBuf, String)> {
+        let dir = shipped_community_dir().join("testplans");
+        let mut out = Vec::new();
+        if !dir.is_dir() {
+            return out;
+        }
+        for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("read_dir {dir:?}: {e}")) {
+            let path = entry.expect("dir entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+                continue;
+            }
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string();
+            out.push((path, stem));
+        }
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
+    /// GATE (v0.9.0 PR #1): every shipped test plan is structurally sound.
+    ///
+    /// Enforces the five branch-integrity rules from `docs/testplans.md`:
+    ///   1. Every `on_pass`/`on_fail`/`next` target resolves to a step id
+    ///      in the same file.
+    ///   2. At least one `conclusion` node is reachable from `s1`.
+    ///   3. Every step names a non-empty `source`.
+    ///   4. The top-level `dtc` equals the filename stem (uppercased).
+    ///   5. The reachable graph is acyclic (BFS bounded by step count so a
+    ///      cycle can't hang the UI traversal).
+    ///
+    /// A `[meta.suppressed]` plan (known-missing placeholder) is allowed to
+    /// carry zero steps and is skipped by the walk.
+    #[test]
+    fn shipped_testplans_branch_integrity() {
+        for (path, stem) in shipped_testplan_files() {
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+            let plan: TestPlanFile = toml::from_str(&text)
+                .unwrap_or_else(|e| panic!("testplan {path:?} must fit schema: {e}"));
+
+            // Rule 4: dtc matches filename stem (both uppercased).
+            assert!(
+                !plan.dtc.trim().is_empty(),
+                "{path:?}: missing top-level `dtc`"
+            );
+            assert_eq!(
+                plan.dtc.to_uppercase(),
+                stem.to_uppercase(),
+                "{path:?}: dtc {:?} must equal filename stem {:?}",
+                plan.dtc,
+                stem
+            );
+
+            // Suppressed placeholders may be bodyless; skip the graph walk.
+            if plan.meta.suppressed.is_some() {
+                continue;
+            }
+
+            assert!(
+                !plan.step.is_empty(),
+                "{path:?}: non-suppressed plan has no [[step]] tables"
+            );
+
+            // Index steps by id; ids must be unique and non-empty.
+            let mut by_id: std::collections::HashMap<&str, &TestPlanStep> =
+                std::collections::HashMap::new();
+            for s in &plan.step {
+                assert!(!s.id.trim().is_empty(), "{path:?}: a step has an empty id");
+                assert!(
+                    by_id.insert(s.id.as_str(), s).is_none(),
+                    "{path:?}: duplicate step id {:?}",
+                    s.id
+                );
+                // Rule 3: every step is sourced.
+                assert!(
+                    !s.source.trim().is_empty(),
+                    "{path:?}: step {:?} has an empty `source` (honesty rule)",
+                    s.id
+                );
+            }
+
+            // Rule 1: every branch target resolves.
+            for s in &plan.step {
+                for (edge, target) in [
+                    ("on_pass", &s.on_pass),
+                    ("on_fail", &s.on_fail),
+                    ("next", &s.next),
+                ] {
+                    if let Some(t) = target {
+                        assert!(
+                            by_id.contains_key(t.as_str()),
+                            "{path:?}: step {:?} `{edge}` -> {:?} does not resolve",
+                            s.id,
+                            t
+                        );
+                    }
+                }
+            }
+
+            // Plans must have an entry step `s1` (schema convention: BFS root).
+            assert!(
+                by_id.contains_key("s1"),
+                "{path:?}: plan must define an entry step with id \"s1\""
+            );
+
+            // Rules 2 + 5: BFS from s1 finds a conclusion, bounded so a cycle
+            // can't loop forever (a step is never enqueued more than once).
+            let mut visited: std::collections::HashSet<&str> =
+                std::collections::HashSet::new();
+            let mut queue: std::collections::VecDeque<&str> =
+                std::collections::VecDeque::new();
+            queue.push_back("s1");
+            visited.insert("s1");
+            let mut reachable_conclusion = false;
+            while let Some(id) = queue.pop_front() {
+                let step = by_id[id];
+                if step.conclusion.as_deref().map(str::trim).is_some_and(|c| !c.is_empty()) {
+                    reachable_conclusion = true;
+                }
+                for target in [&step.on_pass, &step.on_fail, &step.next].into_iter().flatten() {
+                    if visited.insert(target.as_str()) {
+                        queue.push_back(target.as_str());
+                    }
+                }
+                // Bound: visited set can never exceed the step count, so the
+                // loop terminates even on a self-referential graph.
+                assert!(
+                    visited.len() <= plan.step.len(),
+                    "{path:?}: traversal exceeded step count (cycle guard tripped)"
+                );
+            }
+            assert!(
+                reachable_conclusion,
+                "{path:?}: no conclusion node reachable from s1 (rule 2)"
+            );
+        }
+    }
+
+    /// GATE (v0.9.0 PR #1, survey finding #3): every shipped Oracle JSON
+    /// file must parse. Before this, a broken `community/oracle/*.json`
+    /// failed only as a startup `eprintln!` in `oracle.rs` — CI saw
+    /// nothing. This is the JSON analogue of `shipped_community_tomls_parse`.
+    #[test]
+    fn shipped_oracle_json_parses() {
+        let dir = shipped_community_dir().join("oracle");
+        assert!(dir.is_dir(), "oracle dir missing at {dir:?}");
+        let mut count = 0usize;
+        for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("read_dir {dir:?}: {e}")) {
+            let path = entry.expect("dir entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let content = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+            serde_json::from_str::<serde_json::Value>(&content)
+                .unwrap_or_else(|e| panic!("shipped Oracle JSON must parse: {path:?}: {e}"));
+            count += 1;
+        }
+        assert!(count >= 2, "oracle gate should cover >= 2 JSON files, saw {count}");
+    }
+}
+
+#[cfg(test)]
+mod per_ecu_freeze_loader_tests {
+    use super::*;
+    use crate::data::freeze;
+    use std::cell::RefCell;
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// Process-wide scratch dir for the tests in this module.
+    /// Using a single shared `tempdir`-style directory keeps the
+    /// tests stdlib-only (the `tempfile` crate isn't a dependency).
+    thread_local! {
+        static SCRATCH: RefCell<Option<PathBuf>> = RefCell::new(None);
+    }
+
+    /// Helper: write the given filenames + contents under
+    /// `<scratch>/community/freeze/`, point `find_dir` at
+    /// `<scratch>/community`, then call `load_freeze_per_ecu`. Returns
+    /// the loaded count + any warnings for assertions.
+    fn load_fixture(files: &[(&str, &str)]) -> (u32, Vec<String>, PathBuf) {
+        let scratch = SCRATCH.with(|s| {
+            if let Some(p) = s.borrow().clone() {
+                return p;
+            }
+            // Build a unique scratch dir without the `tempfile` crate.
+            // On Windows the PID + nanoseconds is unique enough for
+            // sequential test runs; we never run these in parallel.
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0);
+            let pid = std::process::id();
+            let base = std::env::temp_dir().join(format!("beemuu-freeze-{pid}-{nanos}"));
+            fs::create_dir_all(&base).expect("mkdir scratch");
+            *s.borrow_mut() = Some(base.clone());
+            base
+        });
+        let community = scratch.join("community");
+        let freeze_dir = community.join("freeze");
+        fs::create_dir_all(&freeze_dir).expect("mkdir freeze");
+        for (name, content) in files {
+            fs::write(freeze_dir.join(name), content).expect("write fixture");
+        }
+        let mut warnings = Vec::new();
+        let count = load_freeze_per_ecu(&community, &mut warnings);
+        (count, warnings, scratch)
+    }
+
+    #[test]
+    fn loads_dme_schema_with_correct_offset_and_scale() {
+        let (count, warnings, _scratch) = load_fixture(&[(
+            "12.toml",
+            r#"
+[[field]]
+label = "Engine speed"
+unit = "rpm"
+offset = 0
+width = "u16"
+scale = 1.0
+bias = 0.0
+decimals = 0
+
+[[field]]
+label = "Coolant temp"
+unit = "°C"
+offset = 2
+width = "u8"
+scale = 1.0
+bias = -40.0
+decimals = 0
+"#,
+        )]);
+        assert_eq!(count, 1, "should register exactly one schema");
+        assert!(warnings.is_empty(), "no warnings expected: {warnings:?}");
+        // Verify the registered schema decodes the simulator's DME
+        // fixture (see src-tauri/src/transport/sim.rs::dme_freeze).
+        let schema = freeze::registry().get_schema(0x12).expect("0x12 registered");
+        // dme_freeze = [0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40]
+        let items = schema.decode(&[0x02, 0xEE, 0x7A, 0x00, 0x14, 0x8B, 0x01, 0xE2, 0x40]);
+        let labels: Vec<_> = items.iter().map(|i| (i.label.as_str(), i.value.as_str())).collect();
+        // The schema also appends a "Raw" entry with the byte
+        // hex dump; assert the named fields by substring so the
+        // "Raw" entry doesn't interfere.
+        assert!(
+            labels.iter().any(|(l, v)| *l == "Engine speed" && v.contains("750")),
+            "rpm = 0x02EE = 750; got {labels:?}"
+        );
+        assert!(
+            labels.iter().any(|(l, v)| *l == "Coolant temp" && v.contains("82")),
+            "coolant = 0x7A - 40 = 82; got {labels:?}"
+        );
+    }
+
+    #[test]
+    fn loads_dsc_and_frm_schemas_in_one_pass() {
+        let (count, warnings, _scratch) = load_fixture(&[
+            ("12.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("29.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("72.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+        ]);
+        assert_eq!(count, 3);
+        assert!(warnings.is_empty());
+        for addr in [0x12u8, 0x29, 0x72] {
+            assert!(freeze::registry().get_schema(addr).is_some(), "0x{addr:02X} registered");
+        }
+    }
+
+    #[test]
+    fn bad_filename_emits_warning_and_does_not_crash() {
+        let (count, warnings, _scratch) = load_fixture(&[
+            ("12.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("not-hex.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("99.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+        ]);
+        assert_eq!(count, 2, "the 12.toml and 99.toml register; not-hex.toml is skipped");
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("Bad freeze filename"));
+    }
+
+    #[test]
+    fn bad_width_emits_warning_and_does_not_register_that_field() {
+        // Single field with a width that doesn't parse. The schema as
+        // a whole is rejected so the address doesn't get registered
+        // with a half-broken field list.
+        let (count, warnings, _scratch) = load_fixture(&[(
+            "12.toml",
+            "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"banana\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n",
+        )]);
+        assert_eq!(count, 0);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("bad width"));
+    }
+
+    #[test]
+    fn empty_dir_returns_zero_count() {
+        let (count, warnings, _scratch) = load_fixture(&[]);
+        assert_eq!(count, 0);
+        assert!(warnings.is_empty());
     }
 }

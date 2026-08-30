@@ -215,7 +215,7 @@ label = "N55 3.0 turbo I6 (MSD81/MEVD17.2) [community, oil temp unverified]"
 
   [[profile.param]]
   id = "inj_time"
-  label = "Injection time (per cylinder)"
+  label = "Injection time (per cylinder) [needs verification, UDS only]"
   unit = "ms"
   target = 0x12
   query = "did:4363"
@@ -316,3 +316,22 @@ label = "N55 3.0 turbo I6 (MSD81/MEVD17.2) [community, oil temp unverified]"
   decode = "s16_div100"
   min = -25.0
   max = 25.0
+
+  # ---- v0.6.0 injector duty cycle (N55 F/G-series only) ----
+  # DID 0x4401 is a placeholder per docs/v0.6.0_plan.md PR #2. Real
+  # BMW DME injector duty is not in open OBDb tables; scale is
+  # u16 * 0.02 = percent (0-100% → raw 0-5000 = 0x1388). Marked
+  # [needs verification] until an F-series N55 owner validates on
+  # real hardware. Uses existing `u16_fiftieths` decoder (raw*0.02).
+  # KWP2000 (E-series) will NOT respond — UDS only, same caveat as
+  # v0.4.0/v0.5.0 DIDs above.
+
+  [[profile.param]]
+  id = "inj_duty"
+  label = "Injector duty cycle (DME) [needs verification, UDS only]"
+  unit = "%"
+  target = 0x12
+  query = "did:4401"
+  decode = "u16_fiftieths"
+  min = 0.0
+  max = 100.0

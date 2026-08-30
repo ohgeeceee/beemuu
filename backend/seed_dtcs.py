@@ -259,6 +259,12 @@ _ROWS: list[tuple[str, str, str]] = [
     ("U2105", "CAN communication bus fault — receive error from ECM", "warn"),
     ("U2106", "CAN communication bus fault — receive error from TCM", "warn"),
     ("U2510", "CAN communication bus fault — receive error from ABS/TCM", "warn"),
+    # Additional high-frequency codes (P0xxx / P2xxx) for EVAP, O2,
+    # and DPF coverage that any DIYer will hit on a modern BMW. Titles
+    # are short factual statements of the SAE J2012 meaning.
+    ("P0156", "O2 sensor circuit (Bank 2, Sensor 2)", "warn"),
+    ("P2463", "Diesel particulate filter restriction — soot accumulation", "warn"),
+    ("P04DB", "Diesel particulate filter — system malfunction", "warn"),
 ]
 
 
@@ -272,7 +278,8 @@ def _to_dict_rows() -> list[dict]:
             "likely_causes": None,
             "severity": severity,
             "source": "seed:generic",
-            "verified": 1,  # SAE J2012 is a published standard; descriptions are technical facts
+            "verified": 1,
+            "confidence": "verified",  # SAE J2012 is a published standard; descriptions are technical facts
         }
         for code, title, severity in _ROWS
     ]

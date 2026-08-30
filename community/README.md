@@ -56,6 +56,11 @@ label = "E70 X5 4.8i (N62B48)"
   max = 160.0
 ```
 
+An optional `[profile.theme]` table recolours the live-data gauges for that
+profile (key -> CSS colour string, per-key fallback to the default cockpit
+palette) — see `docs/DECODE_FUNCTIONS.md` § 9 and the reference block in
+`profiles/b58.toml`.
+
 ## `freeze_schemas.toml` — freeze-frame byte layouts
 
 Map byte offsets in a fault's environmental snapshot to values. `width` is

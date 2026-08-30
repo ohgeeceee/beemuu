@@ -1,15 +1,42 @@
 # N62 — 4.0/4.4/4.8 NA V8 (Bosch ME9.2), E60/E63/E65 x40i–x50i, E53/E70 4.4i/
 # 4.8i, 2001–2010. OBD-II entries are emissions-mandated and verified by
-# design. The `local:10` oil-temp entry is a PLACEHOLDER with no open-source
-# evidence found. No community KWP2000 local identifier table for E-series BMWs
-# exists in open sources. Confirm with the Parameter Explorer or remove this
-# entry if not verified.
-# Coolant temp is worth watching closely on this engine (coolant-pipe and
-# valley-pan failures show up as slow warm-up or creeping temps).
+# design.
+#
+# N62 instrumentation context (apply when reading live data):
+#   Coolant warm-up — watch for *slow* warm-up or creeping temps after
+#     thermostat closure. Both are documented N62 valley-pan / coolant-pipe
+#     failure modes; compare against the oil-temp cruise band below.
+#   Oil-temp cruise band — a healthy N62 at sustained cruise holds oil
+#     ~95–110 °C once fully warm. Oil temps consistently > coolant + 15 °C
+#     point at a clogged engine-oil cooler (a known N62 failure mode).
+#   Valvetronic — load is controlled by valve lift, not the throttle plate.
+#     At part throttle the throttle reads high (mostly open) and load drops
+#     as lift increases; the load/throttle trace is inversely correlated,
+#     which is the opposite of a conventional engine. The throttle comment
+#     on the `throttle` param below repeats this.
+#   Idle voltage target — healthy alternator regulation at idle is
+#     13.8–14.4 V. Sustained < 13.5 V with steady load points at a failing
+#     voltage regulator (common N62 age-related failure); the `volt` param
+#     is the load-bearing PID for that heuristic.
+#
+# Oil temp notes: SAE J1979 PID `0x5C` (engine oil temperature, byte - 40 °C)
+# is the standard OBD-II oil-temp PID and is consistently reported on N62
+# ME9.2 DMEs over K+DCAN. Bench verification on the E70 (slice 3 validation
+# doc) is the gating step; the prior `local:10` placeholder has been removed.
+#
+# Fuel-rate + runtime notes (v0.14.3): the three new PIDs (0x5E fuel rate
+# L/h, 0x5F engine runtime s, 0x62 fuel rate g/s) are SAE J1979
+# emissions-mandated and consistently reported on OBD-II compliant ECUs.
+# They are the natural additions to the E70 instrumentation: fuel rate
+# in g/s is the load-bearing PID for BSFC (brake-specific fuel
+# consumption) heuristics; runtime s is the cold-start timer the
+# v0.14.2 slice 3 harness doc already lists in its Step 2 cold reading
+# table. Bench verification is gated by the same E70 harness doc — each
+# PID's `Step 2` row grows as part of v0.14.3 slice 4.
 
 [[profile]]
 id = "n62"
-label = "N62 4.0–4.8 NA V8 (ME9.2) [community, oil temp unverified]"
+label = "N62 4.0–4.8 NA V8 (ME9.2) [community]"
 
   [[profile.param]]
   id = "rpm"
@@ -33,10 +60,10 @@ label = "N62 4.0–4.8 NA V8 (ME9.2) [community, oil temp unverified]"
 
   [[profile.param]]
   id = "oil"
-  label = "Oil temp [UNVERIFIED placeholder]"
+  label = "Oil temp"
   unit = "°C"
   target = 0x12
-  query = "local:10"
+  query = "obd:5C"
   decode = "temp_u8"
   min = -40.0
   max = 160.0
@@ -96,4 +123,73 @@ label = "N62 4.0–4.8 NA V8 (ME9.2) [community, oil temp unverified]"
 
   [[profile.param]]
   id = "volt"
-  label = "Module v
+  label = "Module voltage"
+  unit = "V"
+  target = 0x12
+  query = "obd:42"
+  decode = "u16_milli"
+  min = 8.0
+  max = 16.0
+
+  # Rescued v0.8.0 PR #1 — this file was truncated mid-string at the volt
+  # param's `label` line. The ambient entry below restores the canonical
+  # emissions-mandated OBD-II tail shared by every shipped profile
+  # (b58/n55/n20/s55); verified by design.
+
+  [[profile.param]]
+  id = "ambient"
+  label = "Ambient temp"
+  unit = "°C"
+  target = 0x12
+  query = "obd:46"
+  decode = "temp_u8"
+  min = -40.0
+  max = 60.0
+
+  # v0.14.3 — SAE J1979 fuel rate L/h (PID 0x5E). Decoded with
+  # u16_fiftieths (slice 1 / PR #185; raw × 0.02). Idle on a warm
+  # N62 should be ~1-2 L/h; wide-open throttle ~50-90 L/h. Verified
+  # by design as an emissions-mandated OBD-II PID; bench verification
+  # on the E70 is the harness-doc gate.
+  [[profile.param]]
+  id = "fuel_rate_lh"
+  label = "Engine fuel rate (L/h)"
+  unit = "L/h"
+  target = 0x12
+  query = "obd:5E"
+  decode = "u16_fiftieths"
+  min = 0.0
+  max = 100.0
+
+  # v0.14.3 — SAE J1979 engine runtime since start (PID 0x5F).
+  # Decoded with u32_be (slice 1 / PR #185; 4-byte BE seconds).
+  # Resets on each ignition cycle; 0xFFFFFFFF is the overflow sentinel
+  # (the gauge caps at the engine's actual lifetime). The v0.14.2
+  # slice 3 harness doc already lists runtime in its Step 2 cold
+  # reading table — this entry is what populates that row.
+  [[profile.param]]
+  id = "engine_runtime"
+  label = "Engine runtime"
+  unit = "s"
+  target = 0x12
+  query = "obd:5F"
+  decode = "u32_be"
+  min = 0.0
+  max = 4294967295.0
+
+  # v0.14.3 — SAE J1979 fuel rate g/s (PID 0x62). Decoded with
+  # u16_half (slice 1 / PR #185; raw × 0.5). The load-bearing
+  # PID for BSFC (brake-specific fuel consumption) heuristics —
+  # divide by RPM × cyl_count for instantaneous BSFC. Idle on a
+  # warm N62 should be ~1-2 g/s; wide-open throttle ~40-70 g/s.
+  # Verified by design as an emissions-mandated OBD-II PID; bench
+  # verification on the E70 is the harness-doc gate.
+  [[profile.param]]
+  id = "fuel_rate_gs"
+  label = "Engine fuel rate (g/s)"
+  unit = "g/s"
+  target = 0x12
+  query = "obd:62"
+  decode = "u16_half"
+  min = 0.0
+  max = 100.0

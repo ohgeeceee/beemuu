@@ -240,10 +240,12 @@ def _rows() -> list[dict]:
             "category": "bmw-specific",
             "title": title,
             "description": f"Source: {url}",
+            "source_url": url,
             "likely_causes": None,
             "severity": severity,
             "source": "seed:bmw-dim01",
             "verified": 1,
+            "confidence": "community",
         }
         for code, section, title, severity, url in _ROWS
     ]

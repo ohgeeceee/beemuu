@@ -36,7 +36,9 @@
         </select>
       </span>
       <span id="conn-enet-opts" class="conn-opts hidden">
-        <input type="text" id="conn-addr" value="169.254.16.11:6801" size="18" />
+        <input type="text" id="conn-addr" placeholder="169.254.x.x:6801 — or Discover" size="24" />
+        <button id="btn-enet-discover" class="btn btn-small" type="button" title="DoIP broadcast discovery (UDP 13400)">Discover</button>
+        <select id="enet-discovered" class="hidden" title="Discovered vehicles — pick one to fill the address"></select>
       </span>
       <button id="btn-connect" class="btn btn-primary">Connect</button>
       <select id="app-mode" class="app-mode" title="Show more or fewer features">
@@ -81,6 +83,9 @@
               <button id="btn-read-faults" class="btn btn-small" disabled>Read</button>
               <button id="btn-export-faults" class="btn btn-small" disabled>Export CSV</button>
               <button id="btn-clear-faults" class="btn btn-small btn-danger" disabled>Clear fault memory</button>
+              <label class="chk" title="Record every DTC read to ~/beeemuu-exports/dtc-history.jsonl so the recurring-DTC callout (slice 5) can show history.">
+                <input type="checkbox" id="record-dtc-history" /> Record history
+              </label>
             </span>
           </div>
           <div id="ecu-ident" class="ecu-ident hidden"></div>
@@ -92,6 +97,10 @@
               <tr><td colspan="3" class="muted">Select a control unit.</td></tr>
             </tbody>
           </table>
+          <div id="fault-history-callout" class="fault-history-callout hidden">
+            <div class="fault-history-callout-head">⚠ Seen before</div>
+            <ul id="fault-history-callout-list" class="fault-history-callout-list"></ul>
+          </div>
           <div id="freeze-panel" class="freeze-panel hidden">
             <div class="freeze-head">Freeze frame <span id="freeze-code"></span></div>
             <div id="freeze-body" class="freeze-body"></div>
@@ -106,6 +115,21 @@
             <div class="opinion-head">👥 Second Opinion</div>
             <div id="opinion-body" class="opinion-body">
               <span class="muted">Click a DTC row to see dealer, indie, and DIY perspectives.</span>
+            </div>
+          </div>
+          <div id="walkthrough-panel" class="walkthrough-panel hidden">
+            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span><span id="walkthrough-verified" class="walkthrough-verified hidden"></span><button id="btn-walk-share" class="btn btn-small walkthrough-share-btn" disabled title="Export the current walkthrough as a self-contained HTML file">Share walkthrough</button></div>
+            <div id="walkthrough-body" class="walkthrough-body">
+              <span class="muted">Click a DTC row to start a guided test plan, where one exists.</span>
+            </div>
+          </div>
+          <div id="obd-pid-panel" class="obd-pid-panel hidden">
+            <div class="obd-pid-head">
+              <span>OBD-II mode 01 PIDs supported</span>
+              <button id="btn-obd-pid-scan" class="btn btn-small">Scan OBD-II PIDs</button>
+            </div>
+            <div id="obd-pid-body" class="obd-pid-body">
+              <span class="muted">Select a present control unit and click "Scan OBD-II PIDs" to list which standard OBD-II PIDs it actually answers. Useful diagnostic before opening Parameter Explorer.</span>
             </div>
           </div>
           <div id="schematics-panel" class="schematics-panel hidden">
@@ -124,10 +148,49 @@
         <div class="panel-head">
           <span>Live values —
             <select id="live-profile"></select>
+            <span id="live-unsupported-count" class="live-unsupported-count" hidden></span>
           </span>
-          <label class="chk"><input type="checkbox" id="live-poll" /> Poll continuously</label>
+          <label class="chk"><input type="checkbox" id="live-poll" /> Poll</label>
+          <label class="chk" title="Polling interval. 100 ms = busy; 1000 ms = gentle on the bus.">
+            <span class="muted">every</span>
+            <select id="live-poll-rate" class="poll-rate-select">
+              <option value="100">100 ms</option>
+              <option value="250" selected>250 ms</option>
+              <option value="500">500 ms</option>
+              <option value="1000">1 s</option>
+            </select>
+          </label>
+          <button id="btn-live-snapshot" class="btn btn-small" type="button" disabled>Save snapshot</button>
         </div>
         <div id="gauge-grid" class="gauge-grid"></div>
+        <div id="live-peaks" class="live-peaks" hidden>
+          <div class="live-peaks-head">Current peaks</div>
+          <table class="live-peaks-table">
+            <thead><tr><th>Param</th><th>Peak</th></tr></thead>
+            <tbody id="live-peaks-body"></tbody>
+          </table>
+          <button id="btn-live-peaks-reset" class="btn btn-small" type="button">Reset peaks</button>
+        </div>
+      </div>
+      <div id="live-can-panel" class="panel live-can-panel">
+        <div class="panel-head">
+          <span>Live Gauges <span id="live-can-status" class="live-can-status live-can-off">Off</span></span>
+          <button id="btn-live-can-toggle" class="btn btn-small" type="button" aria-pressed="false">Start CAN listener</button>
+        </div>
+        <div class="live-can-gauge-grid">
+          <div class="gauge-cell"><canvas data-live-can-gauge="rpm"></canvas><div class="gauge-label">RPM</div><div class="gauge-peak" data-live-can-peak="rpm">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="coolant"></canvas><div class="gauge-label">Coolant</div><div class="gauge-peak" data-live-can-peak="coolant">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="oilTemp"></canvas><div class="gauge-label">Oil temp</div><div class="gauge-peak" data-live-can-peak="oilTemp">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="vehicleSpeed"></canvas><div class="gauge-label">Vehicle speed</div><div class="gauge-peak" data-live-can-peak="vehicleSpeed">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="batteryVoltage"></canvas><div class="gauge-label">Battery voltage</div><div class="gauge-peak" data-live-can-peak="batteryVoltage">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="throttle"></canvas><div class="gauge-label">Throttle</div><div class="gauge-peak" data-live-can-peak="throttle">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="rpm"></canvas><div class="gauge-label">RPM</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="coolant"></canvas><div class="gauge-label">Coolant</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="oilTemp"></canvas><div class="gauge-label">Oil temp</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="vehicleSpeed"></canvas><div class="gauge-label">Vehicle speed</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="batteryVoltage"></canvas><div class="gauge-label">Battery voltage</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="throttle"></canvas><div class="gauge-label">Throttle</div></div>
+        </div>
       </div>
     </section>
 
@@ -141,6 +204,12 @@
           <span>
             <button id="btn-log-start" class="btn btn-small btn-primary">Start recording</button>
             <button id="btn-log-export" class="btn btn-small" disabled>Export CSV</button>
+            <label class="log-export-units-label" title="Add a second header row with units (rpm, °C, ...) so the CSV is readable in Excel">
+              <input type="checkbox" id="log-export-units" />
+              Include units row
+            </label>
+            <button id="btn-log-export-png" class="btn btn-small" disabled>Export PNG</button>
+            <button id="btn-log-export-svg" class="btn btn-small" disabled>Export SVG</button>
             <button id="btn-log-histogram" class="btn btn-small" disabled>Histogram</button>
             <button id="btn-log-diff" class="btn btn-small" disabled>Compare logs</button>
             <button id="btn-log-clear" class="btn btn-small" disabled>Clear</button>
@@ -159,6 +228,17 @@
           <span>Saved session found (<span id="log-restore-time"></span>)</span>
           <button id="btn-log-restore" class="btn btn-small">Restore</button>
           <button id="btn-log-restore-dismiss" class="btn btn-small">Dismiss</button>
+        </div>
+        <div id="trigger-panel" class="panel" style="padding:8px 10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border);">
+          <span class="muted" style="font-weight:600">Trigger:</span>
+          <select id="trigger-channel" title="Channel to watch"></select>
+          <select id="trigger-op"><option value=">">></option><option value=">=">≥</option><option value="<"><</option><option value="<=">≤</option><option value="==">==</option></select>
+          <input id="trigger-threshold" type="number" placeholder="threshold" style="width:90px" />
+          <label><input type="checkbox" id="trigger-enabled" /> Auto-start on threshold</label>
+          <span class="muted">|</span>
+          <input id="trigger-dtc" type="text" placeholder="DTC e.g. 2A82 or * for any" style="width:130px" />
+          <label><input type="checkbox" id="trigger-dtc-enabled" /> Auto-start on DTC</label>
+          <span id="trigger-status" class="muted" style="margin-left:auto"></span>
         </div>
         <div class="log-body">
           <div class="log-params" id="log-params"></div>
@@ -201,6 +281,8 @@
             <span id="info-share-menu" class="share-menu hidden">
               <button class="share-item" data-action="read">Read vehicle</button>
               <button class="share-item" data-action="report">Export report</button>
+              <button class="share-item" data-action="print-health">Print vehicle health report</button>
+              <button class="share-item" data-action="print-history">Service history / print</button>
               <button class="share-item" data-action="snapshot">Export snapshot</button>
               <button class="share-item" data-action="secure">🔒 Secure share</button>
               <button class="share-item" data-action="story">Generate story</button>
@@ -421,8 +503,40 @@
         </p>
       </div>
       <div class="panel">
+        <div class="panel-head"><span>FRM coding dump (E90)</span></div>
+        <div class="service-list">
+          <div class="service-item" id="frm-coding-card">
+            <div class="service-info">
+              <div class="service-label">FRM coding dump (E90)</div>
+              <div class="service-desc">
+                Read-only identify + local-ID/DID probe of FRM (0x72).
+                Mirror-fold state: <strong id="frm-coding-state">Unknown</strong>
+                — no bit map is shipped.
+              </div>
+              <div class="service-desc" id="frm-coding-ident">Not connected</div>
+            </div>
+            <span class="coding-read-tag" title="No ECU write — see docs/validation/coding-mirror-fold.md">READ ONLY</span>
+            <button id="btn-frm-coding-export" class="btn" type="button">Export backup</button>
+          </div>
+        </div>
+        <p class="session-hint muted" style="padding: 0 14px 10px;">
+          Research dump for a later coding map. This does
+          <strong>not</strong> turn automatic mirror folding on or off.
+          To change the setting on the car, use NCS Expert + NCS Dummy.
+          Harness: <code>docs/validation/coding-mirror-fold.md</code>.
+          A full probe can take several minutes on a real FRM (each
+          unanswered ID waits for a timeout).
+        </p>
+      </div>
+      <div class="panel">
         <div class="panel-head"><span>Service functions</span></div>
         <div id="service-list" class="service-list"></div>
+        <p class="session-hint muted" style="padding: 0 14px 10px;">
+          Entries tagged <strong>UNVERIFIED</strong> use routine IDs that
+          have not been validated on a real chassis (simulator-grade).
+          Running one shows an extra confirmation. Validation harness:
+          <code>docs/validation/service-functions.md</code>.
+        </p>
       </div>
     </section>
 
@@ -473,7 +587,7 @@
         can actuate hardware. Use with the vehicle stationary and secured, never
         while driving, and entirely at your own risk.</p>
         <p class="muted">Source, license, and contribution guide:
-        github.com/ohjoncurrie/beeemuu</p>
+        github.com/ohgeeceee/beeemuu</p>
       </div>
       <div class="modal-actions">
         <button id="modal-accept" class="btn btn-primary">I understand</button>
@@ -511,6 +625,8 @@
         <div id="histogram-dropped" class="muted"></div>
       </div>
       <div class="modal-actions">
+        <button id="histogram-export" class="btn" disabled>Export PNG</button>
+        <button id="histogram-export-svg" class="btn" disabled>Export SVG</button>
         <button id="histogram-close" class="btn btn-primary">Close</button>
       </div>
     </div>
@@ -565,9 +681,28 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="js/histogram.js"></script>
+  <script src="js/svg_export.js"></script>
+  <script src="js/csv_log_export.js"></script>
+  <script src="js/walkthrough_bundle.js"></script>
+  <script src="js/dtc_history.js"></script>
+  <script src="js/recurring_dtc.js"></script>
+  <script src="js/trigger.js"></script>
   <script src="js/log_diff.js"></script>
+  <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>
+  <script src="js/workspace.js"></script>
   <script src="js/gauges.js"></script>
+  <script src="js/can_decoders.js"></script>
+  <script src="js/live_data_bridge.js"></script>
+  <script src="js/live_kdcan_source.js"></script>
+  <script src="js/live_data_source_wiring.js"></script>
+  <script src="js/live_can_source.js"></script>
+  <script src="js/live_gauges.js"></script>
+  <script src="js/dialog.js"></script>
+  <script src="js/frm_coding_dump.js"></script>
+  <script src="js/print_reports.js"></script>
+  <script src="js/dtc_confidence.js"></script>
+  <script src="js/dtc_source_lookup.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

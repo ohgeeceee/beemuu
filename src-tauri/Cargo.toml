@@ -15,6 +15,14 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# v0.14.1 fix for issue #161 (Clear fault memory not working in simulation):
+# `window.confirm()` is unreliable in the Tauri 2 webview — it sometimes
+# auto-resolves `false` (silently dismissing the dialog) which short-circuits
+# the click handler before the `invoke("clear_faults", ...)` runs. The dialog
+# plugin's `ask()` always shows a real OS dialog and returns the user's
+# actual choice. Adding this crate also brings a second use-site into scope
+# (the security-access confirm); both gates use it now.
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serialport = "4"
@@ -22,3 +30,15 @@ toml = "0.8.23"
 # Used by `hosted::fetch` to pull build health from the VPS over HTTPS.
 # rustls-tls avoids the OpenSSL native dep; json enables direct deserialization.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+# Timer driver for the Tester Present keep-alive worker. Tokio is already in
+# the tree via Tauri (no new crate enters the graph); this only unifies in
+# the `time` feature so `tokio::time::sleep` is available on
+# `tauri::async_runtime`.
+#
+# v0.14.3 slice 3a — added the `fs` feature so `remove_profile_pid`
+# can write the updated TOML to disk via `tokio::fs::write` without
+# spawning an extra thread. The disk write is on a profile file the
+# user just confirmed they want to remove a PID from — well-bounded
+# (single file, ~1 KB), so the `spawn_blocking` / `tokio::task::spawn_blocking`
+# ceremony the rest of the commands use isn't needed.
+tokio = { version = "1", features = ["time", "fs"] }

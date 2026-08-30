@@ -76,10 +76,13 @@ def seed_one(
     source: str,
     verified: int,
     now: int,
+    confidence: str = "unverified",
 ) -> None:
     """Insert or update a single DTC row. Idempotent on `code` (PK)."""
     _validate_code(code, category)
     _validate_category(category)
+    if confidence not in {"verified", "community", "unverified"}:
+        raise ValueError("confidence must be verified, community, or unverified")
     with db.get_conn(db_path) as conn:
         existing = conn.execute(
             "SELECT created_at FROM dtc WHERE code = ?", (code,)
@@ -88,9 +91,9 @@ def seed_one(
             conn.execute(
                 """
                 INSERT INTO dtc (code, category, severity, title, description,
-                                 likely_causes, source, verified, enabled,
+                                 likely_causes, source, verified, confidence, enabled,
                                  created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                 """,
                 (
                     code,
@@ -101,6 +104,7 @@ def seed_one(
                     likely_causes,
                     source,
                     verified,
+                    confidence,
                     now,
                     now,
                 ),
@@ -111,7 +115,7 @@ def seed_one(
                 """
                 UPDATE dtc SET
                     category = ?, severity = ?, title = ?, description = ?,
-                    likely_causes = ?, source = ?, verified = ?, updated_at = ?
+                    likely_causes = ?, source = ?, verified = ?, confidence = ?, updated_at = ?
                 WHERE code = ?
                 """,
                 (
@@ -122,6 +126,7 @@ def seed_one(
                     likely_causes,
                     source,
                     verified,
+                    confidence,
                     now,
                     code,
                 ),
@@ -157,6 +162,9 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
     code = row["code"]
     category = row["category"]
     _validate_code(code, category)
+    confidence = row.get("confidence", "unverified")
+    if confidence not in {"verified", "community", "unverified"}:
+        raise ValueError("confidence must be verified, community, or unverified")
     _validate_category(category)
     existing = conn.execute(
         "SELECT created_at FROM dtc WHERE code = ?", (code,)
@@ -165,9 +173,9 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
         conn.execute(
             """
             INSERT INTO dtc (code, category, severity, title, description,
-                             likely_causes, source, verified, enabled,
+                             likely_causes, source, source_url, verified, confidence, enabled,
                              created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
             """,
             (
                 code,
@@ -177,7 +185,9 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
                 row.get("description"),
                 row.get("likely_causes"),
                 row["source"],
+                row.get("source_url"),
                 row["verified"],
+                row.get("confidence", "unverified"),
                 now,
                 now,
             ),
@@ -187,7 +197,8 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
             """
             UPDATE dtc SET
                 category = ?, severity = ?, title = ?, description = ?,
-                likely_causes = ?, source = ?, verified = ?, updated_at = ?
+                likely_causes = ?, source = ?, source_url = ?, verified = ?,
+                confidence = ?, updated_at = ?
             WHERE code = ?
             """,
             (
@@ -197,7 +208,9 @@ def _seed_one_with_conn(conn, row: dict, now: int) -> None:
                 row.get("description"),
                 row.get("likely_causes"),
                 row["source"],
+                row.get("source_url"),
                 row["verified"],
+                row.get("confidence", "unverified"),
                 now,
                 code,
             ),
