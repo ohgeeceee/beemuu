@@ -1,0 +1,28 @@
+# Test plugin profile
+# This profile demonstrates the enhanced plugin system for custom decoders
+
+[[profile]]
+id =  test_plugin
+label = Test Plugin Profile [community]
+
+[[profile.param]]
+id = test_gear
+label = Test Gear Position
+unit = 
+target = 0x18
+query = did:DA0A
+decode = u8_enum
+enum = { 0 = P/N, 1 = 1, 2 = 2, 3 = 3, 4 = 4, 5 = 5, 6 = 6, 15 = Error }
+min = 0.0
+max = 15.0
+
+[[profile.param]]
+id = test_engine_state
+label = Test Engine State
+unit = 
+target = 0x12
+query = did:4004
+decode = u8_enum
+enum = { 0 = Off, 1 = Cranking, 2 = Running, 3 = Idle, 4 = Overrun, 5 = Shutdown }
+min = 0.0
+max = 5.0

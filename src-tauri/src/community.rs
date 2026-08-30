@@ -133,6 +133,41 @@ fn width_from_str(s: &str) -> Option<freeze::Width> {
     freeze::width_from_str(s)
 }
 
+// ---- Decoder enum map builders -------------------------------------------
+
+/// Build an enum map for `u8_enum` decoder from TOML string keys.
+/// Future decoder types (e.g. `u16_enum`, `s16_enum`) can follow this
+/// pattern: deserialize into `HashMap<String, String>` first, then
+/// convert keys to `u8`, silently dropping keys that don't parse as bytes.
+fn build_u8_enum_map(raw: &std::collections::HashMap<String, String>) -> std::collections::HashMap<u8, String> {
+    parse_enum_map(raw)
+}
+
+/// Build an enum map for `u16_enum` decoder (hypothetical future type)
+/// from TOML string keys. Keys parse as u16 and are stored as-is;
+/// the runtime would need to look up by the raw 16-bit value.
+fn build_u16_enum_map(raw: &std::collections::HashMap<String, String>) -> std::collections::HashMap<u16, String> {
+    let mut out = std::collections::HashMap::with_capacity(raw.len());
+    for (k, v) in raw {
+        if let Ok(val) = k.parse::<u16>() {
+            out.insert(val, v.clone());
+        }
+    }
+    out
+}
+
+/// Build an enum map for `s16_enum` decoder (hypothetical future type)
+/// from TOML string keys. Keys parse as i16 (signed) and are stored as-is.
+fn build_s16_enum_map(raw: &std::collections::HashMap<String, String>) -> std::collections::HashMap<i16, String> {
+    let mut out = std::collections::HashMap::with_capacity(raw.len());
+    for (k, v) in raw {
+        if let Ok(val) = k.parse::<i16>() {
+            out.insert(val, v.clone());
+        }
+    }
+    out
+}
+
 // ---- File discovery --------------------------------------------------------
 
 /// All TOML files for one category: the single top-level file (if present)
@@ -164,7 +199,7 @@ fn category_files(dir: &Path, single: &str, subdir: &str) -> Vec<PathBuf> {
 
 /// Convert the TOML `enum = { ... }` map (string keys, as the `toml`
 /// crate forces on us) into the runtime `HashMap<u8, String>` that
-/// `decode_enum_string` expects. Keys that don't parse as a byte
+/// decoder functions expect. Keys that don't parse as a byte
 /// (e.g. `"256"`, `"-1"`, `"banana"`) are dropped — they could only
 /// have come from a typo in a community profile and silent dropping
 /// matches the project's "best-effort, never fatal" stance on TOML
@@ -178,6 +213,16 @@ fn parse_enum_map(raw: &std::collections::HashMap<String, String>) -> std::colle
         }
     }
     out
+}
+
+/// Convert the TOML `enum = { ... }` map for any decoder type that uses
+/// a per-parameter lookup table. Currently supports `u8_enum` and can be
+/// extended for `u16_enum`, `s16_enum`, etc. by adding new match arms
+/// below or by creating a parallel `parse_enum_map_<decode>` function.
+fn parse_enum_map_for_decode(decode: &str, raw: &std::collections::HashMap<String, String>) -> std::collections::HashMap<u8, String> {
+    // Currently only u8_enum is supported; future decoder types can
+    // be added here following the same String->u8 parsing pattern.
+    parse_enum_map(raw)
 }
 
 /// Convert a parsed profile into a runtime profile, or an error naming the bad field.
@@ -195,7 +240,12 @@ fn build_profile(p: ProfileToml) -> Result<live::Profile, String> {
         // Enum maps live per-parameter, not per-profile. Convert the
         // raw `HashMap<String, String>` from TOML into the
         // `HashMap<u8, String>` that the runtime uses.
-        let enum_map = parse_enum_map(&pr.enum_);
+        // Currently only `u8_enum` decoder uses an enum map; future
+        // decoder types can extend this match arm.
+        let enum_map = match pr.decode.as_str() {
+            "u8_enum" => build_u8_enum_map(&pr.enum_),
+            _ => std::collections::HashMap::new(),
+        };
         params.push(live::LiveParam {
             id: pr.id.clone(),
             label: pr.label.clone(),
