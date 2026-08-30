@@ -349,6 +349,14 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.7] - 2026-08-30
+
+### Added - External log import (Bootmod3/MHD read-only)
+
+- **External log adapter** (`src/js/log_import_bootmod3.js` + `src/js/test/log_import_bootmod3.test.cjs`, 3 tests): `COLUMN_MAP` `RPM→rpm` etc., `parseCsv`/`toSeries`/`parseBootmod3Csv` (4 Hz `x` time), unknown columns kept as raw channels. `docs/proposals/bootmod3-mhd-scope.md` §3 scope.
+- **Logging tab import** (`src/index.html` `#btn-log-import-external` + `src/js/main.js` handler): file picker `log-import-external-file`, `beeemuuLogImport.parseBootmod3Csv` → inject into `logSeries` for histogram/diff/math reuse.
+- Version surface `0.15.6` -> `0.15.7`.
+
 ## [0.15.6] - 2026-08-30
 
 ### Added - Workspace wiring (theme + gauge layout persist)
