@@ -3008,6 +3008,46 @@ logTick = async function(){
   } catch(e){ log("Logging: "+e); stopLogging(); }
 };
 
+/* ---------------- workspace load/save (v0.15.5 wiring) ---------------- */
+(function(){
+  if (!window.beeemuuWorkspace) return;
+  function saveWorkspaceGauges(){
+    try{
+      const list = Array.from(gauges.entries()).map(([id,g])=>{
+        // g has min/max/unit; profile is current live-profile
+        return { profile_id: $("live-profile")?.value || "unknown", param_id: id, min: g.min ?? 0, max: g.max ?? 100 };
+      });
+      const theme = document.body.getAttribute("data-theme") || "dark";
+      window.beeemuuWorkspace.save(list, theme);
+    }catch{}
+  }
+  function loadWorkspaceGauges(){
+    try{
+      const ws = window.beeemuuWorkspace.load();
+      if (ws.theme) document.body.setAttribute("data-theme", ws.theme);
+      // defer gauge restore until profiles populated
+      setTimeout(()=>{
+        for(const e of ws.gauges){
+          if(e.profile_id !== $("live-profile")?.value) continue;
+          // create stub LiveValue to ensure gauge exists
+          const v={ id:e.param_id, label:e.param_id, unit:"", value:0, min:e.min, max:e.max, text:null };
+          try{ ensureGauge(v); }catch{}
+        }
+      }, 800);
+    }catch{}
+  }
+  // monkey-patch ensureGauge to auto-save
+  if (typeof ensureGauge === "function") {
+    const _origEnsureGauge2 = ensureGauge;
+    // eslint-disable-next-line no-global-assign
+    ensureGauge = function(v){ const g=_origEnsureGauge2(v); try{ saveWorkspaceGauges(); }catch{} return g; };
+  }
+  window.addEventListener("beforeunload", saveWorkspaceGauges);
+  document.addEventListener("DOMContentLoaded", loadWorkspaceGauges);
+  // also save on theme toggle if exists
+  const btnTheme=$("btn-theme"); if(btnTheme) btnTheme.addEventListener("click", ()=>setTimeout(saveWorkspaceGauges, 300));
+})();
+
 /* ---------------- log-diff modal (v0.6.0 PR #1) ---------------------
  *
  * Compares two saved log sessions (from localStorage) channel by

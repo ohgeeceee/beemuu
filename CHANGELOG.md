@@ -349,6 +349,12 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.6] - 2026-08-30
+
+### Added - Workspace wiring (theme + gauge layout persist)
+
+- **Workspace wiring** (`src/js/main.js`): `saveWorkspaceGauges`/`loadWorkspaceGauges` via `beeemuuWorkspace`, `ensureGauge` monkey-patch auto-save, `beforeunload` save, `DOMContentLoaded` restore (profile-filtered), theme `data-theme` persist. Completes `v0.7.0` PR #2 pile.
+
 ## [0.15.5] - 2026-08-30
 
 ### Added - Workspace save/load helpers
