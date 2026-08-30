@@ -349,6 +349,13 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.8] - 2026-08-30
+
+### Added - CAN broadcast validation harness
+
+- **Validation run** (`docs/validation/can-broadcast-run.md` + `community/fixtures/can-broadcast-sample.csv` + `src/js/test/can_broadcast_validation.test.cjs`, 2 tests): one-command `node src/js/test/can_broadcast_validation.test.cjs` / `npm run test:js` harness for `src/js/can_decoders.js` scales (0x0AA, 0x1D0, etc.), anonymized 3s fixture, real-car capture instructions (`candump`).
+- Version surface `0.15.7` -> `0.15.8`.
+
 ## [0.15.7] - 2026-08-30
 
 ### Added - External log import (Bootmod3/MHD read-only)
