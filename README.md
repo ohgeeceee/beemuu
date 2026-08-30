@@ -13,7 +13,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v0.4.0](https://img.shields.io/badge/release-v0.4.0-success.svg)](RELEASE_NOTES_v0.4.0.md)
+[![v0.5.1](https://img.shields.io/badge/release-v0.5.1-success.svg)](RELEASE_NOTES_v0.5.1.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core with a Python diagnostic backend in `bmw_diag/` — for talking to
@@ -125,23 +125,26 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The active release cycle is **v0.4.0 — "Tuner Friendly"** (target date
-not yet set). Items currently 🟢 Ready and queued for this cycle:
+The active release cycle is **v0.5.1 — "Ground Truth + Plugins"** (released
+2026-08-30). Items shipped in this cycle:
 
-- **Histograms of logged channels** — distribution of values over a
+- **Plugin system for custom decoders** ✅ — community contributors can add
+  per-parameter enum maps via TOML (`community/profiles/*.toml`) without touching
+  Rust. Extensible parser (`build_u8_enum_map` + stubs for `u16/s16_enum`) in
+  [`src-tauri/src/community.rs`](src-tauri/src/community.rs). See
+  [`RELEASE_NOTES_v0.5.1.md`](RELEASE_NOTES_v0.5.1.md).
+- **Histograms of logged channels** ✅ — distribution of values over a
   CSV log (knock retard, boost error, etc.). Client-side; no protocol
-  change.
-- **`u8_enum` decoder + enum tables** — the one decoder from the v0.3.0
-  list that did *not* ship (gear position, engine state, knock state
-  as named strings, not numbers). Spec in
-  [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8.
+  change. Shipped in v0.4.0.
+- **`u8_enum` decoder + enum tables** ✅ — gear position, engine state, knock
+  state as named strings, not numbers. Spec in
+  [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8. Shipped in v0.4.0.
 - **CBS reset for EGS / DSC** — extend the existing CBS reset to other
-  modules. (`src-tauri/src/data/service_functions.rs`.)
-- **$5 AliExpress ENET cable pinout doc** ✅ — shipped in PR #61.
+  modules. (`src-tauri/src/data/service_functions.rs`.) Deferred pending
+  real-car validation.
+- **$5 AliExpress ENET cable pinout doc** ✅ — shipped in v0.4.0.
   See [`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md)
   for the OBD-II → RJ45 wiring + 100 Ω termination.
-- **README/roadmap drift cleanup** *(this PR)* — fix the "What's coming"
-  bullets below so they stop contradicting the shipped state.
 
 Larger items (log merge, custom math channels, knock visualisation,
 real-car B58/N55 F-series validation, OBDLink MX+ support) are 🟡 and
@@ -177,6 +180,14 @@ For context — these are already in the binary and are *not* "coming":
   solder than pay $60 for the official cable.
   ([`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md))
 
+### v0.5.1 "Ground Truth + Plugins" — new in this release
+
+- **Plugin system for custom decoders** ✅ — extensible enum-map parser in
+  [`src-tauri/src/community.rs`](src-tauri/src/community.rs) (`build_u8_enum_map`
+  + stubs for `u16_enum`/`s16_enum`). Community TOML profiles now formally
+  support per-parameter `enum = { ... }` maps without Rust changes.
+  ([`RELEASE_NOTES_v0.5.1.md`](RELEASE_NOTES_v0.5.1.md))
+
 ### Ideas being explored (not on the roadmap yet)
 
 These are not promised and not scheduled. They are mentioned in
@@ -190,10 +201,9 @@ the "no feature without a Discussion" rule.
 - **Tuning Fingerprint Detector** — compare live-data distributions
   against a stock baseline (useful when buying used).
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.3.0**
-(2026-07-11), "Community Intelligence" — Community Oracle, DTC
-Opinions, Diagnostic Story, and the VPS-hosted backend. See
-[`RELEASE_NOTES_v0.3.0.md`](RELEASE_NOTES_v0.3.0.md).
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.5.1**
+(2026-08-30), "Ground Truth + Plugins" — Plugin system for custom decoders
+via TOML. See [`RELEASE_NOTES_v0.5.1.md`](RELEASE_NOTES_v0.5.1.md).
 
 ---
 

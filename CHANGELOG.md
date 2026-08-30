@@ -8,7 +8,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced plugin system for custom decode functions via TOML profiles
+  (`src-tauri/src/community.rs`): community contributors can now add
+  per-parameter enum maps (e.g. `u8_enum`) without touching Rust code.
+  New parser functions `build_u8_enum_map`, `build_u16_enum_map`, and
+  `build_s16_enum_map` support future decoder type extensions. Six new
+  unit tests cover enum map parsing, invalid key dropping, and legacy TOML
+  backward compatibility.
 - Unknown U8Enum bytes now render as `0xNN ?` in the gauge instead of
+  silently disappearing. `live::decode_enum_string_or_unknown` is the
+  wider-stance sibling of `decode_enum_string` — `commands::read_live_data`
+  uses it so every sample produces a `LiveValue`. Five new unit tests.
+  See PR #66.
+- `npm run test:js` runs the new `node --test` harness covering
+  `src/js/live_format.js` (the pure helpers shared between
+  `Gauge.set` and `buildLogCsv`). Eight tests lock down CSV cell
+  formatting (enum labels as quoted JSON strings, numeric `toFixed(2)`,
+  missing-point handling) and gauge numeric-clamp semantics. Add
+  a new helper in `live_format.js`? Add a test alongside it.
+  See PR #65.
+- Frontend wiring for `LiveValue.text` enum labels (backend in PR #60).
+  `Gauge.set(value, label?)` enters text mode when a label is present:
+  dial, ticks, and needle are hidden and the label is drawn centred with
+  the unit underneath. `pollOnce` and `logTick` pass `v.text` through,
+  and `buildLogCsv` emits the label in a quoted CSV cell so a gear-change
+  log exports `0.00,"P/N",0.00,"1",...` rather than `0.00,0,0.00,1,...`.
+  Numeric gauges and the chart are unchanged for non-enum params.
+- Schematics deploy: `ops/beemuu.com.conf` now serves `/static/schematics/`
+  from disk (CC0 wiring-diagram SVGs), and `docs/deploy-schematics.md`
+  carries the end-to-end rollout runbook. See PR #51.
+- v0.4.0 roadmap scope published in `ROADMAP.md` ("Tuner Friendly"
+  cycle) with explicit Ready / Needs-research / Deferred split.
+- `docs/v0.4.0_first_pr.md` �?" spec for the v0.4.0 first PR (README
+  drift cleanup).
+- `u8_enum` decoder + per-parameter enum-map pipeline
+  (`src-tauri/src/data/live.rs`, `src-tauri/src/community.rs`,
+  `src-tauri/src/commands.rs`). Resolves raw bytes against a
+  `HashMap<u8, String>` loaded from TOML and emits the label as
+  `LiveValue.text`. Six new unit tests + three TOML-loader tests.
+- Example enum DIDs in `community/profiles/b58.toml` and
+  `community/profiles/n55.toml`: `gear` (DA0A), `engine_state` (4004),
+  `knock_detect` (401F). Marked `[needs verification]` pending real-car
+  validation.
+- `docs/hardware/enet-cable-pinout.md` �?" DIY OBD-II �+' RJ45 wiring
+  for the $5 AliExpress BMW ENET cable (F/G-series). Covers the
+  pinout (3, 11, 12, 13 �+" 1, 2, 3, 6), the 100 Ic termination
+  resistor, verification steps, and the Rx/Tx-crossed failure mode
+  that bites the unwary.
+- `docs/hardware/README.md` �?" index page for the new hardware-docs
+  directory.
+- Histogram viewer for the Logging tab (`src/js/histogram.js` + 13 unit
+  tests + modal UI). Operates over the existing `LogSession` data; reuses
+  Chart.js bar mode (no new deps). Channels whose `LiveValue.text` is set
+  (u8_enum from PR #60) are filtered out �?" no numeric distribution to
+  plot.
+- `ServiceFunction` extended to carry `routines: &[ModuleRoutine]` instead
+  of a single `(target, routine)` pair (`src-tauri/src/data/service_functions.rs`,
+  8 new unit tests). The existing six entries stay byte-identical in shape;
+  the new `ModuleRoutine[]` field is the path forward for adding
+  chassis-validated EGS / DSC CBS resets without inventing routine IDs.
+  The Rust `run_service_function` command takes a `module_index: Option<usize>`
+  (defaults to 0 for back-compat); the UI now renders one row per (service A- module)
+  and sends the index on invocation.
+
+### Changed
   silently disappearing. `live::decode_enum_string_or_unknown` is the
   wider-stance sibling of `decode_enum_string` — `commands::read_live_data`
   uses it so every sample produces a `LiveValue`. Five new unit tests.
