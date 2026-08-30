@@ -214,7 +214,9 @@
             <button id="btn-log-diff" class="btn btn-small" disabled>Compare logs</button>
             <button id="btn-log-clear" class="btn btn-small" disabled>Clear</button>
             <input type="file" id="log-load-file" accept=".csv,text/csv" class="hidden" />
+            <input type="file" id="log-import-external-file" accept=".csv,text/csv" class="hidden" />
             <button id="btn-log-load" class="btn btn-small">Load session</button>
+            <button id="btn-log-import-external" class="btn btn-small" title="Import Bootmod3/MHD CSV (read-only, reuses histogram/diff)">Import external log</button>
             <button id="btn-log-replay" class="btn btn-small hidden">Replay</button>
             <select id="log-replay-speed" class="hidden">
               <option value="1">1×</option>
@@ -300,6 +302,7 @@
         <div id="info-body" class="info-body">
           <p class="muted">Connect and click "Read vehicle" to read VIN, decode it, and read mileage.</p>
         </div>
+        <div id="vehicle-info-options" class="muted" style="padding:8px 10px; font-size:12px"></div>
       </div>
     </section>
 
@@ -696,10 +699,12 @@
   <script src="js/recurring_dtc.js"></script>
   <script src="js/trigger.js"></script>
   <script src="js/math_channels.js"></script>
+  <script src="js/log_import_bootmod3.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>
   <script src="js/workspace.js"></script>
+  <script src="js/vehicle_db.js"></script>
   <script src="js/gauges.js"></script>
   <script src="js/can_decoders.js"></script>
   <script src="js/live_data_bridge.js"></script>

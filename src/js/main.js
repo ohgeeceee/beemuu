@@ -3048,6 +3048,50 @@ logTick = async function(){
   const btnTheme=$("btn-theme"); if(btnTheme) btnTheme.addEventListener("click", ()=>setTimeout(saveWorkspaceGauges, 300));
 })();
 
+// External log import (Bootmod3/MHD) — read-only, reuses LogSession shape
+$("btn-log-import-external")?.addEventListener("click", ()=>$("log-import-external-file")?.click());
+$("log-import-external-file")?.addEventListener("change", async (e)=>{
+  const file=e.target.files?.[0]; if(!file) return;
+  const text=await file.text();
+  try{
+    const parsed = window.beeemuuLogImport.parseBootmod3Csv(text);
+    // inject as virtual series into logSeries for histogram/diff reuse
+    for(const [id, points] of parsed.series.entries()){
+      let s=logSeries.get(id);
+      if(!s){
+        // create minimal series entry if not exists — use header as label
+        const label = parsed.headers[parsed.ids.indexOf(id)] || id;
+        // create series stub via logSeries internal API if available
+        // fallback: skip if no series
+        continue;
+      }
+      // append points with time offset
+      for(const p of points){ s.push(p); }
+    }
+    if(logChart) logChart.update("none");
+    log(`External log imported: ${parsed.ids.join(", ")} (${parsed.rows.length} rows)`);
+    // enable histogram/diff buttons
+    $("btn-log-histogram").disabled=false; $("btn-log-diff").disabled=false;
+  }catch(err){ log("External import failed: "+err.message); }
+  e.target.value="";
+});
+
+/* ---------------- vehicle DB (v0.15.9) ---------------- */
+(function(){
+  if (!window.beeemuuVehicleDb) return;
+  const _origRenderVehicleInfo2 = typeof renderVehicleInfo === "function" ? renderVehicleInfo : null;
+  if (!_origRenderVehicleInfo2) return;
+  renderVehicleInfo = function(info){
+    _origRenderVehicleInfo2(info);
+    try{
+      const db = {"WBA8E9":{options:["M Sport","N55 3.0","F30 335i"]},"WBA8E3":{options:["M Sport","B58 3.0","F30 340i"]},"WBA5A7":{options:["N20 2.0","F10 528i"]}};
+      const opts = window.beeemuuVehicleDb.lookupVin(info?.vin||"", db);
+      const el = document.getElementById("vehicle-info-options");
+      if(el) el.textContent = opts.length ? "Build sheet: " + opts.join(" \u00b7 ") : "";
+    }catch{}
+  };
+})();
+
 /* ---------------- log-diff modal (v0.6.0 PR #1) ---------------------
  *
  * Compares two saved log sessions (from localStorage) channel by

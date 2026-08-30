@@ -1,0 +1,17 @@
+# Vehicle database — VIN prefix -> build sheet enrichment
+# VIN decode via src-tauri/src/data/vin.rs gives WMI + model year;
+# this file adds community-contributed option deltas per VIN pattern.
+# Keys are VIN prefixes (first 7-11 chars), values are option strings.
+# Example: "WBA8E9" -> M Sport, N55, EGS
+
+["WBA8E9"]
+options = ["M Sport", "N55 3.0", "F30 335i", "2014"]
+source = "community"
+
+["WBA8E3"]
+options = ["M Sport", "B58 3.0", "F30 340i", "2017"]
+source = "community"
+
+["WBA5A7"]
+options = ["N20 2.0", "F10 528i", "2012"]
+source = "community"

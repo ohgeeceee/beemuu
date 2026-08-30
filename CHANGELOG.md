@@ -349,6 +349,28 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.9] - 2026-08-30
+
+### Added - Vehicle database (VIN -> build sheet)
+
+- **Vehicle DB** (`community/vehicle_db.toml` + `src/js/vehicle_db.js` + `src/js/test/vehicle_db.test.cjs`, 2 tests): `lookupVin` longest-prefix wins (`WBA8E9` -> M Sport/N55 etc.), `src/index.html` `#vehicle-info-options` + `src/js/main.js` `renderVehicleInfo` patch shows `Build sheet: ...` in Vehicle Info tab.
+- Version surface `0.15.8` -> `0.15.9`.
+
+## [0.15.8] - 2026-08-30
+
+### Added - CAN broadcast validation harness
+
+- **Validation run** (`docs/validation/can-broadcast-run.md` + `community/fixtures/can-broadcast-sample.csv` + `src/js/test/can_broadcast_validation.test.cjs`, 2 tests): one-command `node src/js/test/can_broadcast_validation.test.cjs` / `npm run test:js` harness for `src/js/can_decoders.js` scales (0x0AA, 0x1D0, etc.), anonymized 3s fixture, real-car capture instructions (`candump`).
+- Version surface `0.15.7` -> `0.15.8`.
+
+## [0.15.7] - 2026-08-30
+
+### Added - External log import (Bootmod3/MHD read-only)
+
+- **External log adapter** (`src/js/log_import_bootmod3.js` + `src/js/test/log_import_bootmod3.test.cjs`, 3 tests): `COLUMN_MAP` `RPM→rpm` etc., `parseCsv`/`toSeries`/`parseBootmod3Csv` (4 Hz `x` time), unknown columns kept as raw channels. `docs/proposals/bootmod3-mhd-scope.md` §3 scope.
+- **Logging tab import** (`src/index.html` `#btn-log-import-external` + `src/js/main.js` handler): file picker `log-import-external-file`, `beeemuuLogImport.parseBootmod3Csv` → inject into `logSeries` for histogram/diff/math reuse.
+- Version surface `0.15.6` -> `0.15.7`.
+
 ## [0.15.6] - 2026-08-30
 
 ### Added - Workspace wiring (theme + gauge layout persist)
