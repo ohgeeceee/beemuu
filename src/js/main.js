@@ -2493,6 +2493,24 @@ function startLogging() {
   rebuildChart();
 }
 
+// Share log — POST CSV to /api/logs, show viewer URL (v0.16.0 PR #1)
+$("btn-log-share")?.addEventListener("click", async ()=>{
+  if (logSeries.totalDuration===0){ log("No log to share"); return; }
+  const csv = buildLogCsv(); // existing CSV builder
+  $("btn-log-share").disabled=true; $("btn-log-share").textContent="Sharing…";
+  try{
+    const { id, url } = await window.beeemuuLogShare.shareLog(csv, "");
+    const full = location.origin + url;
+    log("Shared log: " + full);
+    // copy to clipboard if available
+    try{ await navigator.clipboard.writeText(full); log("Link copied to clipboard"); }catch{}
+    $("btn-log-share").textContent="Shared!";
+    setTimeout(()=>{ $("btn-log-share").textContent="Share log"; $("btn-log-share").disabled=false; }, 2000);
+    // open viewer in new tab
+    window.open(full, "_blank");
+  }catch(e){ log("Share failed: "+e.message); $("btn-log-share").textContent="Share log"; $("btn-log-share").disabled=false; }
+});
+
 function stopLogging() {
   clearInterval(logTimer);
   logTimer = null;

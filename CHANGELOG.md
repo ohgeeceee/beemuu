@@ -349,6 +349,12 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.16.0] - Unreleased
+
+### Added - v0.16.0 "Share the Trace" plan
+
+- **Cycle plan** `docs/v0.16.0_plan.md` — 3-PR spine: web-based shared-log viewer (`backend` + `frontend/log-viewer.html`), automatic service manual lookup (per-DTC newtis URL), multi-language UI starter (DE/EN). See plan doc for file list and acceptance.
+
 ## [0.15.9] - 2026-08-30
 
 ### Added - Vehicle database (VIN -> build sheet)
