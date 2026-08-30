@@ -59,7 +59,7 @@ cycle-plan time. The badge legend:
   detail (the actual PRs + commits) lives in `ROADMAP.md`'s
   cycle block.
 
-## v0.14.6 — "Forward Roadmap Audit" (Aug 2026, **in flight**)
+## v0.14.6 — "Forward Roadmap Audit" (Aug 2026, Shipped 2026-08-02) ✓
 
 **Premise:** the v0.14.5 release cut (PR #225) closed the
 "Open & Committed" cycle end-to-end but left 4 docs-rot
@@ -181,60 +181,46 @@ when a real-car report lands via
 the v0.14.2 + v0.14.3 N62 cycle. The harness doc
 (PR #224) is the report-back loop.
 
-## v0.15.0 — "Live Gauges from the Bench" (active cycle)
+## v0.15.0 — "Live Gauges from the Bench" (Shipped 2026-08-05) ✓
 
 **Premise:** v0.14.0 shipped the Live Gauges panel
 as **sim-only** by explicit user decision (the
 v0.14.2 cycle-pick conversation, Option B). v0.15.0
-connects the existing `read_live_data` UDS path to
+connected the existing `read_live_data` UDS path to
 the Live Gauges panel so it shows **real data on the
 K+DCAN cable**, without the OBDLink SX acquisition
 the v0.14.0 Tier B was waiting for. The
 "**DID-projection bridge**" the v0.14.2 plan deferred
 to v0.14.3+ lands here.
 
-**Tier split:** 2 Tier A + 1 Tier B.
+**Tier split:** 5 Tier A + 0 Tier B + 1 Tier C in the
+slice list (cycle plan + ROADMAP header + CHANGELOG
+entry; DID-projection bridge + K+DCAN source adapter;
+K+DCAN data source wiring module; main.js caller
+integration + Live Gauges `setSource`; docs-amend
+reflecting the actual 4-slice shape; release cut).
+Tag `v0.15.0` pushed at `39f78eb`; draft release
+promoted to public at
+<https://github.com/ohgeeceee/beemuu/releases/tag/v0.15.0>
+with both Windows installer assets attached
+(`BeeEmUu_0.15.0_x64-setup.exe` +
+`BeeEmUu_0.15.0_x64_en-US.msi`).
 
-### Candidate slices
+> **Note (revised 2026-08-05):** the cycle shipped as
+> 5 Tier A slices (PRs #228, #229, #234, #235, #237)
+> instead of the original plan's "1 + 2 + 3" shape. The
+> planned Tier B slice 3 (`update_can_listen` async Tauri
+> command) was dropped: the frontend converged on
+> main.js driving `read_live_data` polling directly
+> (the existing async Tauri command added in v0.14.2 /
+> PR #175). v0.15.0 ships as frontend-only — exactly what
+> the plan's "what this cycle does NOT ship" list
+> promised (no `transport/**`, no `protocol/**`, no
+> `commands.rs` changes, no new crates). Per-cycle
+> detail is in `docs/v0.15.0_plan.md` + the v0.15.0
+> cycle block in `ROADMAP.md`.
 
-1. 🟢 **DID-projection bridge** (Tier A, frontend).
-   Maps each `[[profile.param]]` to the corresponding
-   `data-live-can-gauge` slot. Pure mapping logic in
-   a new `src/js/live_data_bridge.js` module + tests.
-   Reuses the v0.14.0 `can_decoders.js` for
-   byte-level decoding when the live-data value
-   comes through the broadcast path.
-2. 🟢 **Live Gauges panel data source flip** (Tier A,
-   frontend). When `connected && profile selected`,
-   the panel reads from the bridge instead of the
-   simulator mirror. The sim-only fallback stays
-   for non-connected sessions.
-3. 🟡 **`update_can_listen` async command** (Tier B,
-   Rust). New Tauri command that starts / stops the
-   existing `watch_tick` loop with a
-   `ListenerMode::KwpDids { profile, interval_ms }`
-   variant. Different from the v0.14.0 Tier B
-   `ListenerMode::Simulator / OBDLinkSx` because
-   it reads through the diagnostic protocol, not
-   the raw CAN bus.
-
-**Open dependencies:** the DID-projection bridge is
-pure mapping, but the Rust command needs the existing
-`read_live_data` async refactor (already on main per
-the revision note above). The Tier B slice can ship
-as soon as the DID-projection bridge is in.
-
-> **Note (revised 2026-07-29; 2026-08-02):** the
-> original v0.15.0 plan said this slice "should be
-> paired with a broader async refactor." That refactor
-> is already on main — the v0.6.0 release blocker was
-> paid down across v0.6.0 → v0.14.0 without a single
-> dedicated cycle, and `tests/async_commands.rs` is
-> the guard that prevents drift. v0.15.0 can land
-> as a 2-Tier-A + 1-Tier-B cycle without the async
-> dependency.
-
-## v0.15.1 — "Test-Plan Walks on the Bench" (Nov 2026)
+## v0.15.1 — "Test-Plan Walks on the Bench" (Aug 2026, **active cycle**)
 
 **Premise:** v0.7.0 / v0.8.0 / v0.9.0 / v0.10.0 shipped
 the walkthrough bundle, the test-plan walk reducer,

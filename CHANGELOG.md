@@ -5,6 +5,34 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — Tier B (K+DCAN transport)
+
+- **BMW-FAST FMT on K+DCAN** (Tier B): `build_frame` was sending a raw
+  length byte (`0x05` for `1A 80`) instead of BMW-FAST
+  `FMT = 0x80 | payload_len` (`0x82`). Real E90 D-CAN modules ignored
+  those frames; the FTDI still echoed TX, so Traffic showed
+  `Malformed frame: short` after the full 1 s / 3 s deadline. The
+  same adapter worked in an Android K+DCAN app. Read-path length
+  decode now accepts BMW-FAST, extended, and the legacy Beemuu
+  prefix. Unit tests pin the on-wire shape. Verified 2026-08-28 on a
+  2006 E90 330i (DME answered in ~15 ms; vehicle test found 9
+  control units).
+### Planned — Tier A (read-only research, not a v0.15.1 slice)
+
+- **E90 FRM coding dump** (Tier A): a read-only card on the Service
+  Functions tab that identifies FRM (`0x72`, KWP `1A 80`) and
+  exports a local-ID + DID probe to `~/beeemuu-exports/`. Mirror-fold
+  state is always **Unknown** — no bit map and no ECU write
+  (`write_did` / `0x3B` / `set_coding_parameter` are not added).
+  Reuses existing `scan_modules`, `probe_range`, `read_vehicle_info`,
+  and `export_text`. Harness:
+  [`docs/validation/coding-mirror-fold.md`](docs/validation/coding-mirror-fold.md).
+  To change automatic mirror folding on the car, use NCS Expert.
+  Community overlay texts for FRM `9CC1` / `9CCD` / `9CCE` /
+  `9CD0` (observed on that E90; `9CCC` and `E58B` stay unknown).
+
 ## [0.14.0] — 2026-07-25
 
 ### Added — Tier A surface (live features on the desktop + beemuu.com)
@@ -410,6 +438,21 @@ new hardware required.
   slice 3 (`update_can_listen`) was dropped because the
   architecture converged on the existing `read_live_data`
   async Tauri command.
+## [0.15.1] — Unreleased
+
+> **Cycle status:** slice 0 in flight (this PR — cycle plan +
+> ROADMAP header + this CHANGELOG section). Slices 1 (test-
+> plan walk on real freeze-frames, Tier A), 2
+> (`record_walk_result` async Tauri command, Tier B), and 3
+> (walk export to HTML with real freeze-frame snippets,
+> Tier A) are open. The v0.15.1 release cut (version
+> bump in `Cargo.toml` + `tauri.conf.json`, git tag,
+> release notes publish, installer build) is a separate
+> Tier C step. Until that PR lands, this entry stays
+> `## [0.15.1] — Unreleased` per Keep-a-Changelog
+> convention.
+
+### Planned — Tier A surface (feature cycle)
 - **Cycle plan + ROADMAP v0.15.0 header** (this
   PR, slice 0, Tier A, docs only):
   `docs/v0.15.0_plan.md` (new, ~270 LOC) + the

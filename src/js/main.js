@@ -396,6 +396,7 @@ $("btn-connect").addEventListener("click", async () => {
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
     renderTree();
+    refreshFrmCodingCard();
     return;
   }
   if (sessionReplay) {
@@ -412,6 +413,7 @@ $("btn-connect").addEventListener("click", async () => {
     $("btn-connect").classList.add("btn-primary");
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
+    refreshFrmCodingCard();
     return;
   }
   try {
@@ -439,6 +441,7 @@ $("btn-connect").addEventListener("click", async () => {
       }
     }
     saveSettings();
+    refreshFrmCodingCard();
   } catch (e) {
     setStatus("Disconnected");
     log("Connect failed: " + e);
@@ -459,6 +462,7 @@ $("btn-scan").addEventListener("click", async () => {
     fillSecurityEcus();
     const found = modules.filter((m) => m.present).length;
     setStatus(`Vehicle test complete — ${found} control units found`);
+    refreshFrmCodingCard();
   } catch (e) {
     log("Scan failed: " + e);
     setStatus("Connected");
@@ -1643,6 +1647,168 @@ $("btn-live-peaks-reset").addEventListener("click", () => {
   for (const g of gauges.values()) g.tick();
   requestAnimationFrame(animate);
 })();
+
+/* ---------------- FRM coding dump (read-only) ---------------- */
+// Fallback copy of frm_coding_dump.js. Classic <script> tags share one
+// `const` scope; an earlier `const api` used to abort that file on load.
+function createFrmCodingDumpFallback() {
+  const FRM_ADDRESS = 0x72;
+  const FRM_NAME = "FRM";
+  const MIRROR_FOLD_STATE = "Unknown";
+  const LOCAL_PROBE = { mode: "local", start: 0, end: 0xff };
+  const DID_PROBE = { mode: "did", start: 0, end: 0xff };
+  const hexId = (mode, id) =>
+    "0x" + Number(id).toString(16).toUpperCase().padStart(mode === "did" ? 4 : 2, "0");
+  const sanitizeVin = (vin) => {
+    if (typeof vin !== "string") return "unknown";
+    const cleaned = vin.trim().replace(/[^A-Za-z0-9]/g, "");
+    return cleaned.length ? cleaned : "unknown";
+  };
+  const exportStamp = (now) => {
+    const d = now instanceof Date ? now : new Date();
+    return d.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  };
+  const formatProbeSection = (mode, results) => {
+    const rows = Array.isArray(results) ? results : [];
+    const label = mode === "did" ? "did (UDS 22)" : "local (KWP 21)";
+    const lines = [`# ${label} — ${rows.length} answered`];
+    for (const r of rows) {
+      const hex = r && r.hex != null ? String(r.hex) : "";
+      lines.push(`${hexId(mode, r.id)}  ${hex}`.trimEnd());
+    }
+    return lines.join("\n");
+  };
+  return {
+    FRM_ADDRESS,
+    FRM_NAME,
+    MIRROR_FOLD_STATE,
+    LOCAL_PROBE,
+    DID_PROBE,
+    findFrm: (list) =>
+      Array.isArray(list) ? list.find((m) => m && m.address === FRM_ADDRESS) || null : null,
+    identLabel: (frm, opts) => {
+      if (!(opts && opts.connected)) return "Not connected";
+      if (frm && frm.present && frm.ident) return String(frm.ident);
+      if (frm && frm.present) return "FRM present (no ident string)";
+      return "FRM not scanned — Export will identify 0x72";
+    },
+    sanitizeVin,
+    exportStamp,
+    dumpFilename: (opts) =>
+      `beeemuu-frm-coding-${sanitizeVin(opts && opts.vin)}-${exportStamp(opts && opts.now)}.txt`,
+    formatIdentId: hexId,
+    formatProbeSection,
+    buildDumpText: (opts) => {
+      const o = opts || {};
+      return [
+        [
+          "# BeeEmUu FRM coding dump (read-only)",
+          "# Research capture only. Does not decode Spiegel_Komfort_einklapp.",
+          `# Mirror-fold state: ${MIRROR_FOLD_STATE}`,
+          "# See docs/validation/coding-mirror-fold.md",
+          "#",
+          `# exported_at: ${o.exportedAt || ""}`,
+          `# vin: ${o.vin || "unavailable"}`,
+          `# target: 0x${FRM_ADDRESS.toString(16).toUpperCase()} ${FRM_NAME}`,
+          `# ident: ${o.ident || "(none)"}`,
+          "#",
+        ].join("\n"),
+        formatProbeSection("local", o.localResults),
+        "#",
+        formatProbeSection("did", o.didResults),
+        "",
+      ].join("\n");
+    },
+  };
+}
+
+function frmCodingApi() {
+  if (window.beeemuuFrmCodingDump) return window.beeemuuFrmCodingDump;
+  window.beeemuuFrmCodingDump = createFrmCodingDumpFallback();
+  return window.beeemuuFrmCodingDump;
+}
+
+async function refreshFrmCodingCard() {
+  const api = frmCodingApi();
+  const identEl = $("frm-coding-ident");
+  const stateEl = $("frm-coding-state");
+  if (!identEl || !api) return;
+  if (stateEl) stateEl.textContent = api.MIRROR_FOLD_STATE;
+  identEl.textContent = api.identLabel(api.findFrm(modules), { connected });
+}
+
+async function exportFrmCodingDump() {
+  const api = frmCodingApi();
+  if (!api) { log("FRM dump helper not loaded."); return; }
+  if (!connected) { log("Connect first."); return; }
+  const btn = $("btn-frm-coding-export");
+  if (btn) btn.disabled = true;
+  try {
+    let frm = api.findFrm(modules);
+    if (!frm || !frm.present || !frm.ident) {
+      log("Identifying FRM (0x72) via vehicle test…");
+      setStatus("FRM identify…");
+      modules = await invoke("scan_modules");
+      fillExplorerEcus();
+      fillSecurityEcus();
+      renderTree();
+      refreshFrmCodingCard();
+      frm = api.findFrm(modules);
+    }
+    if (!frm || !frm.present) {
+      log("FRM (0x72) did not answer identify (1A 80).");
+      setStatus("Connected");
+      return;
+    }
+    log("Probing FRM local IDs (0x00–0xFF)…");
+    setStatus("FRM local-ID probe…");
+    const localResults = await invoke("probe_range", {
+      address: api.FRM_ADDRESS,
+      mode: api.LOCAL_PROBE.mode,
+      start: api.LOCAL_PROBE.start,
+      end: api.LOCAL_PROBE.end,
+    });
+    log("Probing FRM DIDs (0x0000–0x00FF)…");
+    setStatus("FRM DID probe…");
+    const didResults = await invoke("probe_range", {
+      address: api.FRM_ADDRESS,
+      mode: api.DID_PROBE.mode,
+      start: api.DID_PROBE.start,
+      end: api.DID_PROBE.end,
+    });
+    let vin = lastVehicleInfo && lastVehicleInfo.vin;
+    if (!vin) {
+      try {
+        const info = await invoke("read_vehicle_info");
+        lastVehicleInfo = info;
+        vin = info.vin;
+      } catch (_) { /* filename falls back to unknown */ }
+    }
+    const now = new Date();
+    const content = api.buildDumpText({
+      ident: frm.ident,
+      vin: vin || null,
+      localResults,
+      didResults,
+      exportedAt: now.toISOString(),
+    });
+    const filename = api.dumpFilename({ vin, now });
+    const path = await invoke("export_text", { filename, content });
+    log("FRM coding dump saved: " + path);
+    setStatus("Connected");
+    refreshFrmCodingCard();
+  } catch (e) {
+    log("FRM coding dump failed: " + e);
+    setStatus("Connected");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+const frmExportBtn = $("btn-frm-coding-export");
+if (frmExportBtn) {
+  frmExportBtn.addEventListener("click", exportFrmCodingDump);
+}
 
 /* ---------------- service functions ---------------- */
 async function loadServiceFunctions() {
@@ -3768,6 +3934,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
       : window.matchMedia("(prefers-color-scheme: dark)").matches
   );
   loadServiceFunctions();
+  refreshFrmCodingCard();
   await loadProfiles();
   await loadLogProfiles();
   fillExplorerEcus();

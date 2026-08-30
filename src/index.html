@@ -503,6 +503,32 @@
         </p>
       </div>
       <div class="panel">
+        <div class="panel-head"><span>FRM coding dump (E90)</span></div>
+        <div class="service-list">
+          <div class="service-item" id="frm-coding-card">
+            <div class="service-info">
+              <div class="service-label">FRM coding dump (E90)</div>
+              <div class="service-desc">
+                Read-only identify + local-ID/DID probe of FRM (0x72).
+                Mirror-fold state: <strong id="frm-coding-state">Unknown</strong>
+                — no bit map is shipped.
+              </div>
+              <div class="service-desc" id="frm-coding-ident">Not connected</div>
+            </div>
+            <span class="coding-read-tag" title="No ECU write — see docs/validation/coding-mirror-fold.md">READ ONLY</span>
+            <button id="btn-frm-coding-export" class="btn" type="button">Export backup</button>
+          </div>
+        </div>
+        <p class="session-hint muted" style="padding: 0 14px 10px;">
+          Research dump for a later coding map. This does
+          <strong>not</strong> turn automatic mirror folding on or off.
+          To change the setting on the car, use NCS Expert + NCS Dummy.
+          Harness: <code>docs/validation/coding-mirror-fold.md</code>.
+          A full probe can take several minutes on a real FRM (each
+          unanswered ID waits for a timeout).
+        </p>
+      </div>
+      <div class="panel">
         <div class="panel-head"><span>Service functions</span></div>
         <div id="service-list" class="service-list"></div>
         <p class="session-hint muted" style="padding: 0 14px 10px;">
@@ -673,6 +699,7 @@
   <script src="js/live_can_source.js"></script>
   <script src="js/live_gauges.js"></script>
   <script src="js/dialog.js"></script>
+  <script src="js/frm_coding_dump.js"></script>
   <script src="js/print_reports.js"></script>
   <script src="js/dtc_confidence.js"></script>
   <script src="js/dtc_source_lookup.js"></script>
