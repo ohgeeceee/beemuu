@@ -321,6 +321,13 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.3] - 2026-08-30
+
+### Added - Trigger-based logging UI wiring
+
+- **Logging tab trigger panel** (`src/index.html` `#trigger-panel` + `src/js/main.js` trigger poll): threshold (`channel + op + value`) and DTC (`code or *`) toggles, `localStorage` persist, 1s poll via `read_live_data` + `read_faults`, auto `startLogging()` on `shouldAutoStart`. Script tag `js/trigger.js` loaded before `main.js`.
+- Version surface `0.15.2` -> `0.15.3`.
+
 ## [0.15.2] - 2026-08-30
 
 ### Added - Trigger-based logging engine (deferred from v0.6.0/v0.7.0)
