@@ -1,6 +1,6 @@
 {
   "name": "beeemuu",
-  "version": "0.15.8",
+  "version": "0.15.9",
   "description": "Independent OBD2 diagnostic dashboard for BMW vehicles - K+DCAN and ENET",
   "license": "GPL-3.0-or-later",
   "private": true,

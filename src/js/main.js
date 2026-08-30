@@ -3076,6 +3076,22 @@ $("log-import-external-file")?.addEventListener("change", async (e)=>{
   e.target.value="";
 });
 
+/* ---------------- vehicle DB (v0.15.9) ---------------- */
+(function(){
+  if (!window.beeemuuVehicleDb) return;
+  const _origRenderVehicleInfo2 = typeof renderVehicleInfo === "function" ? renderVehicleInfo : null;
+  if (!_origRenderVehicleInfo2) return;
+  renderVehicleInfo = function(info){
+    _origRenderVehicleInfo2(info);
+    try{
+      const db = {"WBA8E9":{options:["M Sport","N55 3.0","F30 335i"]},"WBA8E3":{options:["M Sport","B58 3.0","F30 340i"]},"WBA5A7":{options:["N20 2.0","F10 528i"]}};
+      const opts = window.beeemuuVehicleDb.lookupVin(info?.vin||"", db);
+      const el = document.getElementById("vehicle-info-options");
+      if(el) el.textContent = opts.length ? "Build sheet: " + opts.join(" \u00b7 ") : "";
+    }catch{}
+  };
+})();
+
 /* ---------------- log-diff modal (v0.6.0 PR #1) ---------------------
  *
  * Compares two saved log sessions (from localStorage) channel by

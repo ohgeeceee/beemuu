@@ -349,6 +349,13 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
+## [0.15.9] - 2026-08-30
+
+### Added - Vehicle database (VIN -> build sheet)
+
+- **Vehicle DB** (`community/vehicle_db.toml` + `src/js/vehicle_db.js` + `src/js/test/vehicle_db.test.cjs`, 2 tests): `lookupVin` longest-prefix wins (`WBA8E9` -> M Sport/N55 etc.), `src/index.html` `#vehicle-info-options` + `src/js/main.js` `renderVehicleInfo` patch shows `Build sheet: ...` in Vehicle Info tab.
+- Version surface `0.15.8` -> `0.15.9`.
+
 ## [0.15.8] - 2026-08-30
 
 ### Added - CAN broadcast validation harness
