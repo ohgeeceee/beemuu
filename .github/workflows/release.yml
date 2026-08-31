@@ -79,6 +79,7 @@ jobs:
           BEEMUU_VPS_SSH_KEY: ${{ secrets.BEEMUU_VPS_SSH_KEY }}
           BEEMUU_VPS_HOST: ${{ secrets.BEEMUU_VPS_HOST }}
           BEEMUU_VPS_USER: ${{ vars.BEEMUU_VPS_USER || 'deploy' }}
+        shell: bash
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"          # e.g. v0.13.0
