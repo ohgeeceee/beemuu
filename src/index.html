@@ -27,6 +27,10 @@
         <option value="enet">ENET cable</option>
       </select>
       <button id="btn-conn-adv" class="btn btn-small" type="button" aria-expanded="false" title="Show cable/port options">⚙ Connection</button>
+      <select id="lang-select" class="app-mode" title="Language / Sprache">
+        <option value="en">English</option>
+        <option value="de">Deutsch</option>
+      </select>
       <span id="conn-kdcan-opts" class="conn-opts hidden">
         <select id="conn-port"></select>
         <select id="conn-dcan">
@@ -137,6 +141,10 @@
             <div id="schematics-body" class="schematics-body">
               <span class="muted">Click a DTC row to see matching wiring diagrams (CC0).</span>
             </div>
+          </div>
+          <div id="service-manual-panel" class="schematics-panel hidden">
+            <div class="schematics-head">Service manual</div>
+            <div id="service-manual-body" class="schematics-body"><span class="muted">Click a DTC row to see manual link.</span></div>
           </div>
         </div>
       </div>
@@ -702,6 +710,7 @@
   <script src="js/math_channels.js"></script>
   <script src="js/log_import_bootmod3.js"></script>
   <script src="js/log_share.js"></script>
+  <script src="js/service_manual.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
   <script src="js/live_format.js"></script>

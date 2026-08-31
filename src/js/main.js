@@ -4076,6 +4076,26 @@ document.querySelectorAll(".tab").forEach((tab) => {
   });
 });
 
+/************* i18n *************/
+(async function i18nInit() {
+  const lang = localStorage.getItem("beeemuu-lang") || "en";
+  $("lang-select").value = lang;
+  i18nSetLang(lang);
+  $("lang-select").addEventListener("change", e=>{ localStorage.setItem("beeemuu-lang",e.target.value); i18nSetLang(e.target.value); });
+})();
+
+function i18nSetLang(lang){const l=beeemuuI18n[lang];if(!l)return;
+  document.title = l.title||"BeeEmUu Diagnostics";
+  // header
+  const _kdcan_el = $("conn-kdcan-opts").previousElementSibling; if(_kdcan_el){_kdcan_el.textContent = l.conn_kdcan||"K+DCAN";}
+  const _enet_el = $("conn-enet-opts").previousElementSibling; if(_enet_el){_enet_el.textContent = l.conn_enet||"ENET";}
+  // logging
+  const header = $("view-logging").previousElementSibling;
+  if(header)header.textContent = l.logging||"Data logging";
+}
+
+/************* end i18n *************/
+
 /* ---------------- init ---------------- */
 (async function init() {
   // v0.7.0 — the workspace file is the single persistence system. Load
@@ -4200,3 +4220,20 @@ $("snapshot-load-file").addEventListener("change", async (e) => {
   };
   reader.readAsText(file);
 });
+
+/************* i18n DE/EN *************/
+window.beeemuuI18n = {
+  en: {
+    title: 'BeeEmUu Diagnostics',
+    conn_kdcan: 'K+DCAN',
+    conn_enet: 'ENET',
+    logging: 'Data logging',
+  },
+  de: {
+    title: 'BeeEmUu Diagnostik',
+    conn_kdcan: 'K+DCAN',
+    conn_enet: 'ENET',
+    logging: 'Messprotokoll',
+  },
+};
+/************* end i18n *************/
