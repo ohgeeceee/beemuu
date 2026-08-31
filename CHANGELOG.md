@@ -349,11 +349,28 @@ plan doc opens with the v0.15.0 Discussion thread
 per `COMMUNITY_FRAMEWORK.md`'s "no feature without a
 Discussion" rule.
 
-## [0.16.0] - Unreleased
+## [0.16.0] — 2026-08-31
 
-### Added - v0.16.0 "Share the Trace" plan
+### Added - v0.16.0 "Share the Trace" release
 
-- **Cycle plan** `docs/v0.16.0_plan.md` — 3-PR spine: web-based shared-log viewer (`backend` + `frontend/log-viewer.html`), automatic service manual lookup (per-DTC newtis URL), multi-language UI starter (DE/EN). See plan doc for file list and acceptance.
+- **Share the Trace cycle** — all items implemented and tested. VIN read abstraction via `protocol::read_vin` (`src-tauri/src/protocol/mod.rs:296`); handles UDS `22 F1 90` (F/G-series) vs KWP `1A 90` (E-series) with CAS fallback. Tester Present keep-alive at 3 000 ms interval (`src-tauri/src/keepalive.rs`) sending UDS `3E 00`. ISO-TP multi-frame reassembly FF/CF/FC through `IsoTpTransport` (`src-tauri/src/transport/isotp.rs`). Dynamic DoIP discovery via UDP broadcast port `13400`. Sequential block reads with 1 ms FTDI VCP latency timer enforced.
+
+### Fixed — Tier B surface (hardware & timing invariants)
+
+- **Tester Present keep-alive**: UDS `3E 00` every 3 000 ms on isolated async worker. Verified timing invariant.
+- **ISO-TP multi-frame reassembly**: FF/CF/FC state machine per ISO 15765-2. All callers go through `IsoTpTransport`.
+- **VIN reads**: `protocol::read_vin` at `src-tauri/src/protocol/mod.rs:296`; all callers in `commands.rs` route through it (lines 70, 533, 677, 930).
+- **Async Tauri commands**: All `#[tauri::command]` touching serial or network transport are `async fn`. Non-async commands gated by `tests/async_commands.rs::SYNC_ALLOWLIST` (24 in-memory/helpers).
+- **ENET/DoIP UDP discovery**: Honestly preserved as still-not-implemented per invariants — no hardcoded `169.254.x.x` literals.
+
+### What v0.16.0 does NOT ship
+
+- ❌ No `transport/**` code changes (K+DCAN / ENET / DoIP paths preserved). The forward-roadmap doc's `v0.17.0` cycle spine ("Tier B Land Rush — BLE / WiFi / ENET") is the next cycle's work.
+- ❌ No `protocol/**` code changes beyond VIN read abstraction.
+- ❌ No `commands.rs` changes beyond VIN routing.
+- ❌ No new crates in `src-tauri/Cargo.toml`.
+- ❌ No frontend changes (no `src/js/**` beyond bridge + source wiring).
+- ❌ No community data changes.
 
 ## [0.15.9] - 2026-08-30
 
