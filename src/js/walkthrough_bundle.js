@@ -292,9 +292,24 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+/**
+ * Build a JSON snapshot of the walkthrough data (for v0.17.2 export).
+ * Machine-readable, no HTML.
+ */
+function buildSnapshotJson(input) {
+  if (!input || !input.plan) return "";
+  return JSON.stringify({
+    plan: input.plan,
+    walkAnswers: Array.isArray(input.walkAnswers) ? input.walkAnswers : [],
+    freezeFrame: Array.isArray(input.freezeFrame) ? input.freezeFrame : [],
+    logSnippet: Array.isArray(input.logSnippet) ? input.logSnippet : [],
+    meta: input.meta || {},
+  }, null, 2);
+}
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { buildBundleHtml, computeWalkState, snippetFromLogSeries };
+  module.exports = { buildBundleHtml, computeWalkState, snippetFromLogSeries, buildSnapshotJson };
 }
 if (typeof window !== "undefined") {
-  window.beeemuuWalkthroughBundle = { buildBundleHtml, computeWalkState, snippetFromLogSeries };
+  window.beeemuuWalkthroughBundle = { buildBundleHtml, computeWalkState, snippetFromLogSeries, buildSnapshotJson };
 }

@@ -2,7 +2,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { buildBundleHtml, computeWalkState, snippetFromLogSeries } = require("../../src/js/walkthrough_bundle.js");
+const { buildBundleHtml, computeWalkState, snippetFromLogSeries, buildSnapshotJson } = require("../../src/js/walkthrough_bundle.js");
 
 // Minimal 2A82-style test plan fixture.
 const plan2A82 = {
@@ -243,4 +243,19 @@ test("computeWalkState: matches the in-app reducer semantics", () => {
   // Empty input -> null current.
   r = computeWalkState({ steps: [] }, []);
   assert.equal(r.current, null);
+});
+
+test("buildSnapshotJson: returns empty string for invalid input", () => {
+  assert.equal(buildSnapshotJson(null), "");
+  assert.equal(buildSnapshotJson({}), "");
+  assert.equal(buildSnapshotJson({ plan: null }), "");
+});
+
+test("buildSnapshotJson: produces valid JSON with expected fields", () => {
+  const json = buildSnapshotJson(baseInput({ walkAnswers: ["pass"], freezeFrame: [{label:"RPM", value:"750"}] }));
+  const data = JSON.parse(json);
+  assert.equal(data.plan.dtc, "2A82");
+  assert.deepEqual(data.walkAnswers, ["pass"]);
+  assert.equal(data.freezeFrame.length, 1);
+  assert.ok(data.meta.vehicleLabel);
 });
