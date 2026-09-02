@@ -15,10 +15,12 @@
 //   0x316 — Battery voltage, charging (DME/IHKR)
 //   0x3B4 — Gear (EGS) — v0.17.0
 //   0x0D0 — Engine torque (DME) — v0.17.0
+//   0x1B4 — Steering angle / yaw (DSC) — v0.17.0
+//   0x0C0 — Brake pressure — v0.17.0
 //
 // v0.17.0 expansion: additional common E9x/E6x broadcast IDs
-// (best-effort layouts from community CAN logs; need real-car
-// verification per the harness).
+// (best-effort layouts from community CAN logs / TECH_SPECS.md;
+// need real-car verification per the harness).
 //
 // All raw frames are 8 bytes (`Uint8Array` or array of numbers).
 // Every decoder takes an 8-byte frame and returns a typed value
@@ -62,6 +64,8 @@ const CAN_ID_BATTERY = 0x316;
 // v0.17.0 E-series additions (best-effort)
 const CAN_ID_GEAR = 0x3B4;          // EGS: current gear
 const CAN_ID_ENGINE_TORQUE = 0x0D0; // DME: engine torque (Nm)
+const CAN_ID_STEERING_YAW = 0x1B4;  // DSC: steering angle, yaw rate
+const CAN_ID_BRAKE_PRESSURE = 0x0C0; // brake pressure
 
 // Scale / offset constants. All per-byte derivations of decoded
 // values live here, named, so the real-car verification in v0.14.1
@@ -112,6 +116,13 @@ const BATTERY_BYTE = 0;
 const GEAR_BYTE = 1;                 // common location in EGS 0x3B4
 const TORQUE_SCALE = 0.5;            // Nm per LSB (typical BMW)
 const TORQUE_BYTE = 0;               // start of u16 for torque
+
+// 0x1B4 (DSC) — steering angle (degrees), yaw rate (from TECH_SPECS.md)
+const STEERING_SCALE = 0.1;  // deg per LSB (best-effort)
+const YAW_SCALE = 0.1;       // deg/s per LSB
+// 0x0C0 — brake pressure
+const BRAKE_SCALE = 0.1;     // bar or MPa, best-effort
+const BRAKE_BYTE = 0;
 
 // ---------- frame length validation ----------
 
@@ -270,6 +281,24 @@ function decodeEngineTorque(frame) {
   return u16beAt(frame, TORQUE_BYTE) * TORQUE_SCALE;
 }
 
+/**
+ * Steering angle (deg) from 0x1B4 DSC broadcast. Best-effort per TECH_SPECS.
+ */
+function decodeSteeringAngle(frame) {
+  if (!isFrame(frame)) return null;
+  let raw = u16beAt(frame, 0);
+  if (raw > 0x7FFF) raw -= 0x10000; // two's complement signed
+  return raw * STEERING_SCALE;
+}
+
+/**
+ * Brake pressure from 0x0C0. Best-effort.
+ */
+function decodeBrakePressure(frame) {
+  if (!isFrame(frame)) return null;
+  return u16beAt(frame, BRAKE_BYTE) * BRAKE_SCALE;
+}
+
 // ---------- dispatch by CAN ID ----------
 
 /**
@@ -294,6 +323,8 @@ const DECODERS = {
   // v0.17.0
   [CAN_ID_GEAR]: { name: "gear", decode: decodeGear },
   [CAN_ID_ENGINE_TORQUE]: { name: "engine_torque", decode: decodeEngineTorque },
+  [CAN_ID_STEERING_YAW]: { name: "steering_yaw", decode: decodeSteeringAngle },
+  [CAN_ID_BRAKE_PRESSURE]: { name: "brake_pressure", decode: decodeBrakePressure },
 };
 
 /**
@@ -326,6 +357,8 @@ const api = {
   // v0.17.0 additions
   CAN_ID_GEAR,
   CAN_ID_ENGINE_TORQUE,
+  CAN_ID_STEERING_YAW,
+  CAN_ID_BRAKE_PRESSURE,
   // Scale / offset constants — exported for v0.14.1 real-car
   // verification and for the harness doc (slice 8) to print
   // them in the user-facing report.
@@ -336,6 +369,9 @@ const api = {
   VEHICLE_SPEED_SCALE,
   BATTERY_SCALE,
   BATTERY_OFFSET_V,
+  STEERING_SCALE,
+  YAW_SCALE,
+  BRAKE_SCALE,
   // Per-ID decoders.
   decodeRpm,
   decodeThrottle,
@@ -348,6 +384,8 @@ const api = {
   // v0.17.0
   decodeGear,
   decodeEngineTorque,
+  decodeSteeringAngle,
+  decodeBrakePressure,
   // Dispatch.
   DECODERS,
   decodeFor,

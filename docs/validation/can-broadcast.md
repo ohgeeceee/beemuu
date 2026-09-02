@@ -62,6 +62,8 @@ the v0.14.0 decoder knows about:
 | 0x316 | Battery voltage | DME / IHKR | 1000 ms |
 | 0x3B4 | Gear (EGS) | EGS | (v0.17.0 addition, best-effort) |
 | 0x0D0 | Engine torque | DME | (v0.17.0 addition, best-effort) |
+| 0x1B4 | Steering angle, Yaw rate | DSC | (v0.17.0 addition, best-effort) |
+| 0x0C0 | Brake pressure | DSC | (v0.17.0 addition, best-effort) |
 
 ¹ 0x545 oil temp is **E46 confirmed; E9x needs verification** per
 `docs/ROADMAP_ISSUES.md`. If you have an E9x, this is the most
