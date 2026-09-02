@@ -123,14 +123,20 @@
     </dl>`;
   }
 
+  function freezeSnippet(dtc) {
+    const frames = Array.isArray(dtc?.freeze_frame) ? dtc.freeze_frame : [];
+    if (!frames.length) return "—";
+    return frames.map((f) => `${safeText(f.label)} ${safeText(f.value)}`).join(" · ");
+  }
+
   function buildHealthReport(info, modules, generatedAt = new Date()) {
     const present = (modules || []).filter((m) => m.present);
     const faults = present.flatMap((m) => (m.dtcs || []).map((d) => ({ ...d, module: m.name })));
-    const faultRows = faults.length ? faults.map((d) => `<tr><td>${escapeHtml(d.module)}</td><td>${escapeHtml(d.code)}</td><td>${escapeHtml(d.text)}</td><td>${escapeHtml(d.status_text)}</td></tr>`).join("") : `<tr><td colspan="4">No stored faults were included in this report.</td></tr>`;
+    const faultRows = faults.length ? faults.map((d) => `<tr><td>${escapeHtml(d.module)}</td><td>${escapeHtml(d.code)}</td><td>${escapeHtml(d.text)}</td><td>${escapeHtml(d.status_text)}</td><td>${escapeHtml(freezeSnippet(d))}</td></tr>`).join("") : `<tr><td colspan="5">No stored faults were included in this report.</td></tr>`;
     return `<article class="print-report"><header><h1>Beemuu Vehicle Health Report</h1><p>Generated ${escapeHtml(generatedAt.toLocaleString())}</p></header>
       ${vehicleBlock(info)}
       <h2>Diagnostic summary</h2><p>${present.length} control unit${present.length === 1 ? "" : "s"} identified · ${faults.length} stored fault${faults.length === 1 ? "" : "s"}</p>
-      <table><thead><tr><th>Module</th><th>Code</th><th>Finding</th><th>Status</th></tr></thead><tbody>${faultRows}</tbody></table>
+      <table><thead><tr><th>Module</th><th>Code</th><th>Finding</th><th>Status</th><th>Freeze frame</th></tr></thead><tbody>${faultRows}</tbody></table>
       <h2>Recommended work</h2><ul>${faults.length ? faults.map((d) => `<li><strong>${escapeHtml(d.code)}:</strong> Diagnose ${escapeHtml(d.text, "the reported condition")} before replacing parts. Confirm with BMW service information and vehicle-specific testing.</li>`).join("") : "<li>No fault-led work is indicated by the data included in this report.</li>"}</ul>
       <p class="disclaimer">Diagnostic aid only. A fault code does not by itself prove that a component needs replacement.</p></article>`;
   }
@@ -252,7 +258,7 @@
 
   return {
     STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, summarizeDossier,
-    normalizeAttachments, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport,
+    normalizeAttachments, freezeSnippet, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport,
     exportDossierJson, importDossierJson, exportDossierCsv, printHtml,
   };
 });

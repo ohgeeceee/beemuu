@@ -13,6 +13,12 @@
 //   0x0CE — Wheel speeds (DSC)
 //   0x130 — Vehicle speed, gear (EGS/DME)
 //   0x316 — Battery voltage, charging (DME/IHKR)
+//   0x3B4 — Gear (EGS) — v0.17.0
+//   0x0D0 — Engine torque (DME) — v0.17.0
+//
+// v0.17.0 expansion: additional common E9x/E6x broadcast IDs
+// (best-effort layouts from community CAN logs; need real-car
+// verification per the harness).
 //
 // All raw frames are 8 bytes (`Uint8Array` or array of numbers).
 // Every decoder takes an 8-byte frame and returns a typed value
@@ -52,6 +58,10 @@ const CAN_ID_OIL_TEMP = 0x545;
 const CAN_ID_WHEEL_SPEEDS = 0x0CE;
 const CAN_ID_VEHICLE_SPEED = 0x130;
 const CAN_ID_BATTERY = 0x316;
+
+// v0.17.0 E-series additions (best-effort)
+const CAN_ID_GEAR = 0x3B4;          // EGS: current gear
+const CAN_ID_ENGINE_TORQUE = 0x0D0; // DME: engine torque (Nm)
 
 // Scale / offset constants. All per-byte derivations of decoded
 // values live here, named, so the real-car verification in v0.14.1
@@ -97,6 +107,11 @@ const VEHICLE_SPEED_BYTE = 0;
 const BATTERY_SCALE = 0.1;
 const BATTERY_OFFSET_V = 6.0;
 const BATTERY_BYTE = 0;
+
+// v0.17.0 additions (best-effort; verify on real E9x/E6x)
+const GEAR_BYTE = 1;                 // common location in EGS 0x3B4
+const TORQUE_SCALE = 0.5;            // Nm per LSB (typical BMW)
+const TORQUE_BYTE = 0;               // start of u16 for torque
 
 // ---------- frame length validation ----------
 
@@ -228,6 +243,33 @@ function decodeBatteryVoltage(frame) {
   return byteAt(frame, BATTERY_BYTE) * BATTERY_SCALE + BATTERY_OFFSET_V;
 }
 
+// ---------- v0.17.0 E-series additions ----------
+
+/**
+ * Current gear from EGS 0x3B4 broadcast (E90/E60 etc).
+ * Returns a small integer (0=P,1=R,2=N,3=D1...) or null.
+ * Layout is best-effort; real encoding can vary by transmission.
+ */
+function decodeGear(frame) {
+  if (!isFrame(frame)) return null;
+  const raw = byteAt(frame, GEAR_BYTE);
+  // Common simple mapping seen in logs; adjust per verification.
+  if (raw === 0) return 0; // P
+  if (raw === 1) return 1; // R
+  if (raw === 2) return 2; // N
+  if (raw >= 3 && raw <= 8) return raw; // D1..D6 or similar
+  return raw; // pass through unknown codes for caller to interpret
+}
+
+/**
+ * Engine torque (Nm) from 0x0D0 DME broadcast.
+ * Returns number or null. Best-effort scale.
+ */
+function decodeEngineTorque(frame) {
+  if (!isFrame(frame)) return null;
+  return u16beAt(frame, TORQUE_BYTE) * TORQUE_SCALE;
+}
+
 // ---------- dispatch by CAN ID ----------
 
 /**
@@ -249,6 +291,9 @@ const DECODERS = {
   [CAN_ID_WHEEL_SPEEDS]: { name: "wheel_speeds", decode: decodeWheelSpeeds },
   [CAN_ID_VEHICLE_SPEED]: { name: "vehicle_speed", decode: decodeVehicleSpeed },
   [CAN_ID_BATTERY]: { name: "battery", decode: decodeBatteryVoltage },
+  // v0.17.0
+  [CAN_ID_GEAR]: { name: "gear", decode: decodeGear },
+  [CAN_ID_ENGINE_TORQUE]: { name: "engine_torque", decode: decodeEngineTorque },
 };
 
 /**
@@ -278,6 +323,9 @@ const api = {
   CAN_ID_WHEEL_SPEEDS,
   CAN_ID_VEHICLE_SPEED,
   CAN_ID_BATTERY,
+  // v0.17.0 additions
+  CAN_ID_GEAR,
+  CAN_ID_ENGINE_TORQUE,
   // Scale / offset constants — exported for v0.14.1 real-car
   // verification and for the harness doc (slice 8) to print
   // them in the user-facing report.
@@ -297,6 +345,9 @@ const api = {
   decodeWheelSpeeds,
   decodeVehicleSpeed,
   decodeBatteryVoltage,
+  // v0.17.0
+  decodeGear,
+  decodeEngineTorque,
   // Dispatch.
   DECODERS,
   decodeFor,

@@ -2,7 +2,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { buildBundleHtml, computeWalkState } = require("../../src/js/walkthrough_bundle.js");
+const { buildBundleHtml, computeWalkState, snippetFromLogSeries } = require("../../src/js/walkthrough_bundle.js");
 
 // Minimal 2A82-style test plan fixture.
 const plan2A82 = {
@@ -121,6 +121,27 @@ test("buildBundleHtml: embeds a pre-rendered log chart SVG when provided", () =>
   const html = buildBundleHtml(baseInput({ logChartSvg: fakeSvg }));
   assert.ok(html.includes("chart-wrap"), "chart wrapper present");
   assert.ok(html.includes(fakeSvg), "pre-rendered SVG embedded verbatim");
+});
+
+test("buildBundleHtml: renders log channel snippet when provided", () => {
+  const html = buildBundleHtml(baseInput({
+    logSnippet: [{ label: "rpm", n: 12, last: "800" }],
+  }));
+  assert.ok(html.includes("Log channels:"), "snippet heading present");
+  assert.ok(html.includes("rpm"), "channel label present");
+  assert.ok(html.includes("n=12"), "sample count present");
+});
+
+test("snippetFromLogSeries skips empty channels", () => {
+  const series = new Map([
+    ["rpm", { label: "rpm", getAllData: () => [{ x: 0, y: 800 }, { x: 1, y: 900 }] }],
+    ["empty", { label: "empty", data: [] }],
+  ]);
+  const rows = snippetFromLogSeries(series);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].label, "rpm");
+  assert.equal(rows[0].n, 2);
+  assert.equal(rows[0].last, "900");
 });
 
 test("buildBundleHtml: omits the chart-wrap DIV when no logChartSvg is provided", () => {

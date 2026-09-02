@@ -686,7 +686,25 @@ async function showFreezeFrame(code) {
     loadOpinion(code),
     loadSchematics(code),
     loadTestPlan(code),
+    loadServiceManual(code),
   ]);
+}
+
+function loadServiceManual(code) {
+  const panel = $("service-manual-panel");
+  const body = $("service-manual-body");
+  if (!panel || !body) return;
+  const api = window.beeemuuServiceManual;
+  const url = api && api.manualUrl ? api.manualUrl(code) : null;
+  if (!url) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+  const label = (window.beeemuuI18n && window.beeemuuI18n.t)
+    ? window.beeemuuI18n.t("service_manual")
+    : "Service manual";
+  body.innerHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)} ${escapeHtml(code)}</a>`;
 }
 
 /* ---------- related schematics (CC0 wiring diagrams) ----------
@@ -862,23 +880,16 @@ function renderWalkStep() {
   const r = TestPlanWalk.walk(walkPlan, walkAnswers);
   const step = r.current;
 
-  // Freeze-frame seeding: surface the fault-time context if present.
   let ffContext = "";
   if (!r.done && !r.invalid && step && step.id === TestPlanWalk.entryStep(walkPlan)) {
-    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
-    const ff = sessionReplay
-      ? (modules.find((x) => x.address === selectedAddress)?.dtcs?.find((d) => d.code === walkPlan.dtc)?.freeze_frame || [])
+    const lookup = window.beeemuuWalkFreeze && window.beeemuuWalkFreeze.lookupFreezeFrame;
+    const frames = lookup
+      ? lookup({ dtcs: lastDtcs, modules, address: selectedAddress, code: walkPlan.dtc })
       : [];
-    // We only have freeze frames via the read_freeze_frame command path;
-    // for session replay we pull from the loaded DTC. Keep it light:
-    // the composition already loads the freeze panel in parallel.
-    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
-      const parts = dtc.freeze_frame
-        .map((f) => `${escapeHtml(f.label)} ${escapeHtml(f.value)}`)
-        .join(" · ");
+    if (frames.length) {
+      const parts = frames.map((f) => `${escapeHtml(f.label)} ${escapeHtml(f.value)}`).join(" · ");
       ffContext = `<div class="wt-ff">At fault time: ${parts}</div>`;
     }
-    void ff; // (placeholder for future replay wiring; see plan PR #4)
   }
 
   if (r.invalid) {
@@ -1006,20 +1017,23 @@ $("btn-walk-share").addEventListener("click", async () => {
   // Freeze-frame context for the current DTC, if the active DTC row carries it.
   let freezeFrame = [];
   try {
-    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
-    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
-      freezeFrame = dtc.freeze_frame.map((f) => ({ label: f.label, value: f.value }));
-    }
+    const lookup = window.beeemuuWalkFreeze && window.beeemuuWalkFreeze.lookupFreezeFrame;
+    freezeFrame = lookup
+      ? lookup({ dtcs: lastDtcs, modules, address: selectedAddress, code: walkPlan.dtc })
+      : [];
   } catch (_) { /* best-effort */ }
   const html = window.beeemuuWalkthroughBundle.buildBundleHtml({
     plan: walkPlan,
     walkAnswers: walkAnswers.slice(),
     logChartSvg,
     freezeFrame,
+    logSnippet: window.beeemuuWalkthroughBundle.snippetFromLogSeries
+      ? window.beeemuuWalkthroughBundle.snippetFromLogSeries(logSeries)
+      : [],
     meta: {
       vehicleLabel: $("info-vin") ? $("info-vin").textContent || "" : "",
       profileName: $("log-profile") ? $("log-profile").value || "" : "",
-      appVersion: "0.10.0",
+      appVersion: "0.16.0",
       exportedAtIso: new Date().toISOString(),
     },
   });
@@ -4077,23 +4091,19 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 /************* i18n *************/
-(async function i18nInit() {
-  const lang = localStorage.getItem("beeemuu-lang") || "en";
-  $("lang-select").value = lang;
-  i18nSetLang(lang);
-  $("lang-select").addEventListener("change", e=>{ localStorage.setItem("beeemuu-lang",e.target.value); i18nSetLang(e.target.value); });
+(function i18nInit() {
+  const api = window.beeemuuI18n;
+  if (!api) return;
+  const sel = $("lang-select");
+  const lang = api.init(document);
+  if (sel) {
+    sel.value = lang;
+    sel.addEventListener("change", (e) => {
+      api.setLang(e.target.value);
+      api.apply(document);
+    });
+  }
 })();
-
-function i18nSetLang(lang){const l=beeemuuI18n[lang];if(!l)return;
-  document.title = l.title||"BeeEmUu Diagnostics";
-  // header
-  const _kdcan_el = $("conn-kdcan-opts").previousElementSibling; if(_kdcan_el){_kdcan_el.textContent = l.conn_kdcan||"K+DCAN";}
-  const _enet_el = $("conn-enet-opts").previousElementSibling; if(_enet_el){_enet_el.textContent = l.conn_enet||"ENET";}
-  // logging
-  const header = $("view-logging").previousElementSibling;
-  if(header)header.textContent = l.logging||"Data logging";
-}
-
 /************* end i18n *************/
 
 /* ---------------- init ---------------- */
@@ -4221,19 +4231,4 @@ $("snapshot-load-file").addEventListener("change", async (e) => {
   reader.readAsText(file);
 });
 
-/************* i18n DE/EN *************/
-window.beeemuuI18n = {
-  en: {
-    title: 'BeeEmUu Diagnostics',
-    conn_kdcan: 'K+DCAN',
-    conn_enet: 'ENET',
-    logging: 'Data logging',
-  },
-  de: {
-    title: 'BeeEmUu Diagnostik',
-    conn_kdcan: 'K+DCAN',
-    conn_enet: 'ENET',
-    logging: 'Messprotokoll',
-  },
-};
-/************* end i18n *************/
+

@@ -268,7 +268,16 @@ body {
 }
 .live-can-status.live-can-off { color: var(--muted); }
 @media (max-width: 860px) {
-  .live-can-gauge-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+  .live-can-gauge-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+  .header { flex-wrap: wrap; gap: 10px; }
+  .header-vehicle { flex: 1 1 100%; text-align: left; }
+  .header-conn { flex-wrap: wrap; }
+  .tabbar { flex-wrap: wrap; overflow-x: auto; }
+  .tab { flex: 1 1 auto; }
+  .split { flex-direction: column; }
+  .tree-panel, .detail-panel { width: 100%; min-height: 180px; }
+  .log-body { flex-direction: column; }
+  .panel-head { flex-wrap: wrap; gap: 8px; }
 }
 
 /* v0.5.0 PR #3 â€” severity-bearing enum channels (Light /
@@ -1121,4 +1130,35 @@ body[data-theme="dark"] .dtc-source { color: #4da3ff; }
   .receipt-list { list-style: none; padding-left: 0; }
   .print-report .disclaimer { margin-top: 8mm; color: #555; font-size: 8pt; }
   @page { size: A4; margin: 12mm; }
+}
+
+/* v0.17.1 — accessibility: visible focus for keyboard users */
+button:focus-visible,
+.tab:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.pid-remove:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--blue-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--panel);
+}
+body[data-theme="dark"] button:focus-visible,
+body[data-theme="dark"] .tab:focus-visible,
+body[data-theme="dark"] select:focus-visible,
+body[data-theme="dark"] input:focus-visible,
+body[data-theme="dark"] .btn:focus-visible {
+  outline-color: #6fb3f0;
+}
+
+/* v0.17.1 — mobile hardening for narrow viewports (320px–480px) */
+@media (max-width: 480px) {
+  .header { padding: 8px 10px; font-size: 13px; }
+  .tab { padding: 6px 8px; font-size: 12px; }
+  .panel-head { font-size: 12px; }
+  .live-can-gauge-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 8px; }
+  .gauge-cell canvas { max-width: 140px; }
+  .fault-table { font-size: 11px; }
+  .btn { padding: 4px 8px; font-size: 12px; }
 }
