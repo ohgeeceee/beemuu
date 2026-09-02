@@ -42,6 +42,11 @@ const KNOWN_GAUGE_KEYS = Object.freeze([
   "vehicleSpeed",
   "batteryVoltage",
   "throttle",
+  // v0.17.0 additional from expanded CAN decoders
+  "gear",
+  "torque",
+  "steering",
+  "brake",
 ]);
 
 // -----------------------------------------------------------------------
@@ -121,10 +126,11 @@ function createSimulatorSource(options = {}) {
 
   function tick() {
     const tMs = now() - startedAt;
-    for (const frame of framesAt(tMs, vehicleSpeedKmh)) {
+    const framesThisTick = framesAt(tMs, vehicleSpeedKmh);
+    for (const frame of framesThisTick) {
       mergeDecoded(values, decodeFor(frame.id, frame.data));
     }
-    frameCount += 6;
+    frameCount += framesThisTick.length;
     lastFrameAt = now();
   }
 
@@ -141,7 +147,7 @@ function createSimulatorSource(options = {}) {
 
   function framesPerSecond() {
     if (lastFrameAt == null) return 0;
-    // 6 frames per simulated tick; divide by elapsed-seconds-since-start.
+    // N frames per simulated tick (core + additional); divide by elapsed-seconds-since-start.
     const elapsedSec = Math.max(0.001, (now() - startedAt) / 1000);
     return Math.round((frameCount / elapsedSec) * 10) / 10;
   }

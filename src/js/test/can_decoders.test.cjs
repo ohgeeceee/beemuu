@@ -49,16 +49,16 @@ test("decodeBatteryVoltage from 0x316", () => {
 });
 
 test("decodeGear from 0x3B4 (v0.17.0)", () => {
-  assert.equal(dec.decodeGear([0, 0]), 0);   // P
-  assert.equal(dec.decodeGear([0, 1]), 1);   // R
-  assert.equal(dec.decodeGear([0, 2]), 2);   // N
-  assert.equal(dec.decodeGear([0, 3]), 3);   // D1-ish
-  assert.equal(dec.decodeGear([0, 5]), 5);
+  assert.equal(dec.decodeGear([0, 0]).gear, 0);   // P
+  assert.equal(dec.decodeGear([0, 1]).gear, 1);   // R
+  assert.equal(dec.decodeGear([0, 2]).gear, 2);   // N
+  assert.equal(dec.decodeGear([0, 3]).gear, 3);   // D1-ish
+  assert.equal(dec.decodeGear([0, 5]).gear, 5);
 });
 
 test("decodeEngineTorque from 0x0D0 (v0.17.0)", () => {
   const frame = [0x00, 0x64, 0,0,0,0,0,0]; // 0x0064 = 100 * 0.5 = 50 Nm
-  assert.equal(dec.decodeEngineTorque(frame), 50);
+  assert.equal(dec.decodeEngineTorque(frame).torque, 50);
 });
 
 test("decodeFor dispatches correctly", () => {
@@ -74,4 +74,17 @@ test("decodeFor unknown ID returns null", () => {
 test("malformed frame returns null", () => {
   assert.equal(dec.decodeRpm(null), null);
   assert.equal(dec.decodeGear([]), null);
+});
+
+test("decodeSteeringAngle from 0x1B4 (v0.17.0)", () => {
+  const frame = [0x00, 0x64, 0,0,0,0,0,0]; // 100 * 0.1 = 10 deg
+  assert.equal(dec.decodeSteeringAngle(frame).steering, 10);
+  // negative
+  const neg = [0xFF, 0x9C, 0,0,0,0,0,0]; // -100 signed *0.1 = -10
+  assert.equal(dec.decodeSteeringAngle(neg).steering, -10);
+});
+
+test("decodeBrakePressure from 0x0C0 (v0.17.0)", () => {
+  const frame = [0x00, 0xC8, 0,0,0,0,0,0]; // 200 * 0.1 = 20
+  assert.equal(dec.decodeBrakePressure(frame).brake, 20);
 });

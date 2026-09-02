@@ -265,11 +265,13 @@ function decodeGear(frame) {
   if (!isFrame(frame)) return null;
   const raw = byteAt(frame, GEAR_BYTE);
   // Common simple mapping seen in logs; adjust per verification.
-  if (raw === 0) return 0; // P
-  if (raw === 1) return 1; // R
-  if (raw === 2) return 2; // N
-  if (raw >= 3 && raw <= 8) return raw; // D1..D6 or similar
-  return raw; // pass through unknown codes for caller to interpret
+  let g;
+  if (raw === 0) g = 0; // P
+  else if (raw === 1) g = 1; // R
+  else if (raw === 2) g = 2; // N
+  else if (raw >= 3 && raw <= 8) g = raw; // D1..D6 or similar
+  else g = raw;
+  return g == null ? null : { gear: g };
 }
 
 /**
@@ -278,7 +280,8 @@ function decodeGear(frame) {
  */
 function decodeEngineTorque(frame) {
   if (!isFrame(frame)) return null;
-  return u16beAt(frame, TORQUE_BYTE) * TORQUE_SCALE;
+  const t = u16beAt(frame, TORQUE_BYTE) * TORQUE_SCALE;
+  return { torque: t };
 }
 
 /**
@@ -288,7 +291,7 @@ function decodeSteeringAngle(frame) {
   if (!isFrame(frame)) return null;
   let raw = u16beAt(frame, 0);
   if (raw > 0x7FFF) raw -= 0x10000; // two's complement signed
-  return raw * STEERING_SCALE;
+  return { steering: raw * STEERING_SCALE };
 }
 
 /**
@@ -296,7 +299,7 @@ function decodeSteeringAngle(frame) {
  */
 function decodeBrakePressure(frame) {
   if (!isFrame(frame)) return null;
-  return u16beAt(frame, BRAKE_BYTE) * BRAKE_SCALE;
+  return { brake: u16beAt(frame, BRAKE_BYTE) * BRAKE_SCALE };
 }
 
 // ---------- dispatch by CAN ID ----------
