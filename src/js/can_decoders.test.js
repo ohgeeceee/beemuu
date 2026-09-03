@@ -244,11 +244,15 @@ test("module.exports is the same shape as window.beeemuuCanDecoders", () => {
   const expectedKeys = [
     "CAN_ID_RPM_THROTTLE", "CAN_ID_COOLANT_AMBIENT", "CAN_ID_OIL_TEMP",
     "CAN_ID_WHEEL_SPEEDS", "CAN_ID_VEHICLE_SPEED", "CAN_ID_BATTERY",
+    "CAN_ID_GEAR", "CAN_ID_ENGINE_TORQUE", "CAN_ID_STEERING_YAW", "CAN_ID_BRAKE_PRESSURE",
     "RPM_SCALE", "THROTTLE_SCALE", "TEMP_OFFSET_C", "WHEEL_SCALE",
     "VEHICLE_SPEED_SCALE", "BATTERY_SCALE", "BATTERY_OFFSET_V",
+    "STEERING_SCALE", "YAW_SCALE", "BRAKE_SCALE",
     "decodeRpm", "decodeThrottle", "decodeCoolant", "decodeAmbientTemp",
     "decodeOilTemp", "decodeWheelSpeeds", "decodeVehicleSpeed",
-    "decodeBatteryVoltage", "DECODERS", "decodeFor",
+    "decodeBatteryVoltage", "decodeGear", "decodeEngineTorque",
+    "decodeSteeringAngle", "decodeBrakePressure",
+    "DECODERS", "decodeFor",
     "isFrame", "byteAt", "u16beAt",
   ];
   for (const key of expectedKeys) {

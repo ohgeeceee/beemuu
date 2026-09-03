@@ -22,7 +22,7 @@
 //   - "none" / unknown → the source is idle. The panel stays unlit
 //                until the user connects to a transport.
 //
-// The 6 broadcast IDs and their decoders live in can_decoders.js —
+// The broadcast IDs (original 6 + v0.17.0 expansions) and their decoders live in can_decoders.js —
 // this module is the *source* (frame producer), not the *decoder*.
 // Each ticker emits frames through can_decoders.decodeFor() and
 // caches the freshest value per gauge key.
@@ -42,14 +42,19 @@ const KNOWN_GAUGE_KEYS = Object.freeze([
   "vehicleSpeed",
   "batteryVoltage",
   "throttle",
+  // v0.17.0 additional from expanded CAN decoders
+  "gear",
+  "torque",
+  "steering",
+  "brake",
 ]);
 
 // -----------------------------------------------------------------------
 // Frame generator — mirrors the Rust broadcast_frames_at() in
-// src-tauri/src/transport/sim.rs. Same scales, same IDs, same
-// formulas. The point of mirroring is to keep the JS-side demo and
-// the Rust-side hardware path producing the SAME byte patterns so
-// the decoder output is verifiable without a real car.
+// src-tauri/src/transport/sim.rs (core 6 + v0.17.0 extra IDs).
+// Same scales, same IDs, same formulas. The point of mirroring is to
+// keep the JS-side demo and the Rust-side hardware path producing the
+// SAME byte patterns so the decoder output is verifiable without a real car.
 //
 // If the Rust formula moves, this function moves with it. The test
 // `js/live_can_source.test.js` pins the byte-for-byte output at
@@ -76,6 +81,11 @@ function framesAt(t_ms, vehicle_speed_kmh) {
     { id: 0x130, data: [speedRaw, 0, 0, 0, 0, 0, 0, 0] },
     { id: 0x545, data: [0, Math.round(oilC + 48), 0, 0, 0, 0, 0, 0] },
     { id: 0x316, data: [batteryRaw, 0, 0, 0, 0, 0, 0, 0] },
+    // v0.17.0 additional decoders (best-effort; not core gauges)
+    { id: 0x3B4, data: [0, 3, 0, 0, 0, 0, 0, 0] }, // gear ~ D3
+    { id: 0x0D0, data: [0, 100, 0, 0, 0, 0, 0, 0] }, // torque ~50 Nm
+    { id: 0x1B4, data: [0, 0, 0, 0, 0, 0, 0, 0] }, // steering 0
+    { id: 0x0C0, data: [0, 0, 0, 0, 0, 0, 0, 0] }, // brake 0
   ];
 }
 
@@ -116,10 +126,11 @@ function createSimulatorSource(options = {}) {
 
   function tick() {
     const tMs = now() - startedAt;
-    for (const frame of framesAt(tMs, vehicleSpeedKmh)) {
+    const framesThisTick = framesAt(tMs, vehicleSpeedKmh);
+    for (const frame of framesThisTick) {
       mergeDecoded(values, decodeFor(frame.id, frame.data));
     }
-    frameCount += 6;
+    frameCount += framesThisTick.length;
     lastFrameAt = now();
   }
 
@@ -136,7 +147,7 @@ function createSimulatorSource(options = {}) {
 
   function framesPerSecond() {
     if (lastFrameAt == null) return 0;
-    // 6 frames per simulated tick; divide by elapsed-seconds-since-start.
+    // N frames per simulated tick (core + additional); divide by elapsed-seconds-since-start.
     const elapsedSec = Math.max(0.001, (now() - startedAt) / 1000);
     return Math.round((frameCount / elapsedSec) * 10) / 10;
   }

@@ -12,11 +12,11 @@ const decoders = require("./can_decoders.js");
 // scales move, the JS-side mirror must move with it — the test
 // catches drift before it reaches the decoder.
 
-test("framesAt: t=0 produces the expected 6-frame idle pattern", () => {
+test("framesAt: t=0 produces the expected core + v0.17.0 additional frames", () => {
   const frames = src.framesAt(0, 50);
-  assert.equal(frames.length, 6);
+  assert.equal(frames.length, 10);
   const ids = frames.map((f) => f.id);
-  assert.deepEqual(ids, [0x0AA, 0x0CE, 0x1D0, 0x130, 0x545, 0x316]);
+  assert.deepEqual(ids, [0x0AA, 0x0CE, 0x1D0, 0x130, 0x545, 0x316, 0x3B4, 0x0D0, 0x1B4, 0x0C0]);
   // 0x0AA: rpm ≈ 750 → 750 * 4 = 3000 = 0x0BB8, throttle ~ 12 / 0.3922 ≈ 31
   assert.equal(frames[0].data[0], 0x0B);
   assert.equal(frames[0].data[1], 0xB8);
@@ -25,12 +25,15 @@ test("framesAt: t=0 produces the expected 6-frame idle pattern", () => {
   assert.equal(frames[3].data[0], 100);
   // 0x316: battery ≈ 14 V → (14 - 6) / 0.1 = 80
   assert.equal(frames[5].data[0], 80);
+  // additional
+  assert.equal(frames[6].id, 0x3B4);
+  assert.equal(frames[7].id, 0x0D0);
 });
 
 test("framesAt: t=10000 (10s in) — engine is revving, coolant warming", () => {
   const frames = src.framesAt(10_000, 50);
   const decoded = frames.map((f) => decoders.decodeFor(f.id, f.data));
-  // Frame order (mirrors Rust broadcast_frames_at): 0x0AA, 0x0CE, 0x1D0, 0x130, 0x545, 0x316.
+  // Frame order (mirrors Rust broadcast_frames_at): original 6 + v0.17.0 additions.
   const rpm = decoded[0].rpm; //    0x0AA
   const coolant = decoded[2].coolant; // 0x1D0
   const speed = decoded[3]; //      0x130
@@ -236,5 +239,5 @@ test("module.exports includes the documented API surface", () => {
     const t = typeof src[key];
     assert.ok(t === "function" || t === "object", `missing or wrong-typed ${key} (got ${t})`);
   }
-  assert.deepEqual(src.KNOWN_GAUGE_KEYS, ["rpm", "coolant", "oilTemp", "vehicleSpeed", "batteryVoltage", "throttle"]);
+  assert.deepEqual(src.KNOWN_GAUGE_KEYS, ["rpm", "coolant", "oilTemp", "vehicleSpeed", "batteryVoltage", "throttle", "gear", "torque", "steering", "brake"]);
 });

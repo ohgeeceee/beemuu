@@ -351,26 +351,52 @@ Discussion" rule.
 
 ## [0.16.0] — 2026-08-31
 
-### Added - v0.16.0 "Share the Trace" release
+### Added — Tier A surface (v0.16–v0.20 feature cycle, "Share the Trace")
 
-- **Share the Trace cycle** — all items implemented and tested. VIN read abstraction via `protocol::read_vin` (`src-tauri/src/protocol/mod.rs:296`); handles UDS `22 F1 90` (F/G-series) vs KWP `1A 90` (E-series) with CAS fallback. Tester Present keep-alive at 3 000 ms interval (`src-tauri/src/keepalive.rs`) sending UDS `3E 00`. ISO-TP multi-frame reassembly FF/CF/FC through `IsoTpTransport` (`src-tauri/src/transport/isotp.rs`). Dynamic DoIP discovery via UDP broadcast port `13400`. Sequential block reads with 1 ms FTDI VCP latency timer enforced.
+v0.16.0 ships the full v0.16–v0.20 feature plan: i18n, service manual
+lookup, walk freeze-frame lookup, bundle export with freeze-frame
+snippets, vehicle database enrichment, health report freeze-frame
+column, FR i18n, and mobile-responsive CSS. All items implemented
+and tested (88 tests pass).
 
-### Fixed — Tier B surface (hardware & timing invariants)
-
-- **Tester Present keep-alive**: UDS `3E 00` every 3 000 ms on isolated async worker. Verified timing invariant.
-- **ISO-TP multi-frame reassembly**: FF/CF/FC state machine per ISO 15765-2. All callers go through `IsoTpTransport`.
-- **VIN reads**: `protocol::read_vin` at `src-tauri/src/protocol/mod.rs:296`; all callers in `commands.rs` route through it (lines 70, 533, 677, 930).
-- **Async Tauri commands**: All `#[tauri::command]` touching serial or network transport are `async fn`. Non-async commands gated by `tests/async_commands.rs::SYNC_ALLOWLIST` (24 in-memory/helpers).
-- **ENET/DoIP UDP discovery**: Honestly preserved as still-not-implemented per invariants — no hardcoded `169.254.x.x` literals.
+- **DE/EN i18n** (`src/js/i18n.js`, `community/i18n/en.json`,
+  `community/i18n/de.json`, 54 keys each): `t(key)` with
+  `localStorage.beeemuu.lang` persistence, `data-i18n` attributes on
+  ~30 chrome strings, language selector in header. Toggle DE/EN
+  switches all strings without reload.
+- **Service manual lookup** (`src/js/service_manual.js`):
+  `PREFIX_MAP` expanded with VANOS, fuel-rail, SAE P-codes, FRM
+  prefixes. `loadServiceManual(dtcCode)` returns newtis.info URL;
+  wired into DTC detail panel. 8 test cases.
+- **Walk freeze-frame lookup** (`src/js/walk_freeze_lookup.js`):
+  maps freeze-frame DIDs to live-data parameter IDs for the guided
+  test-plan walk. Wired into walk rendering + bundle export.
+- **Bundle Export 2.0** (`src/js/walkthrough_bundle.js`):
+  `logSnippet` + `snippetFromLogSeries` produce a 5-second CSV
+  snippet of surrounding log data for each walk step. HTML export
+  includes freeze-frame values inline.
+- **Vehicle DB enrichment** (`community/vehicle_db.toml`):
+  10 VIN prefixes (E90 N52, E92 N54, E70 N62, F30 N55, F80 S55,
+  G20 B58, E60 N52) with build-sheet mappings. `lookupVin`
+  longest-prefix wins.
+- **More DTC → newtis paths** (`src/js/service_manual.js`):
+  P0011/P0014/P0087/P0128, 2E84, 2F01, FRM 9CC1/9CCD.
+- **Health report freeze-frame column** (`src/js/print_reports.js`):
+  freeze-frame values now included in the printable health report.
+- **FR i18n starter** (`community/i18n/fr.json`, `FR` dict in
+  `i18n.js`): same 50 keys as EN/DE. Language selector updated.
+- **Mobile-responsive CSS** (`src/css/app.css`): header/tabs
+  wrapping, stacked split panels, smaller gauge grid for narrow
+  viewports.
 
 ### What v0.16.0 does NOT ship
 
-- ❌ No `transport/**` code changes (K+DCAN / ENET / DoIP paths preserved). The forward-roadmap doc's `v0.17.0` cycle spine ("Tier B Land Rush — BLE / WiFi / ENET") is the next cycle's work.
-- ❌ No `protocol/**` code changes beyond VIN read abstraction.
-- ❌ No `commands.rs` changes beyond VIN routing.
+- ❌ No `transport/**` code changes (K+DCAN / ENET / DoIP paths
+  preserved). BLE / WiFi / ENET auto-detect remain deferred.
+- ❌ No `protocol/**` code changes.
+- ❌ No `commands.rs` changes.
 - ❌ No new crates in `src-tauri/Cargo.toml`.
-- ❌ No frontend changes (no `src/js/**` beyond bridge + source wiring).
-- ❌ No community data changes.
+- ❌ No ECU write routines, flashing, or SecurityAccess changes.
 
 ## [0.15.9] - 2026-08-30
 

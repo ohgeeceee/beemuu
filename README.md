@@ -117,101 +117,35 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The previous cycle was **v0.8.0 — "Service Bay"** (PRs #114 / #115 /
-#116 merged; PR #117 pending human merge): service-function breadth
-with `[UNVERIFIED]` write gating, DTC-text rescue + corpus growth to
-208 entries with a TOML parse gate, B48/S58/N57 profiles, and ECU
-scan-table breadth (12 → 17 addresses). The next planned cycle is
-**v0.9.0 — "Guided Fault Finding"**
-([`docs/v0.9.0_plan.md`](docs/v0.9.0_plan.md)): branching, step-by-step
-test plans per DTC — schema + parse gates, a grounded first corpus, a
-read-only query command, a walkthrough UI in the fault-detail panel,
-and a validation harness — plus an explicit list of what BeeEmUu will
-**not** do (emissions-monitor tampering, VIN/odometer fraud, imported
-ISTA plans, auto-executing writes) and why. See
-[`ROADMAP.md`](ROADMAP.md) for canonical state.
+The current release is **v0.16.0 — "Share the Trace"** (shipped
+2026-08-31): i18n (DE/EN/FR), service manual lookup per DTC,
+walk freeze-frame lookup, bundle export with freeze-frame snippets,
+vehicle database enrichment (10 VIN prefixes), health report
+freeze-frame column, and mobile-responsive CSS. 88 tests pass.
+See [`CHANGELOG.md`](CHANGELOG.md) for the full list.
 
-### Recently merged (v0.7.0 — 2026-07-16)
+### What shipped in v0.15.x (2026-08-30)
 
-For context — these are on `main` and are *not* "coming":
+- **Tuner logging workflow** ✅ — injector duty, trigger-based
+  logging, custom math channels, workspace persistence.
+  PRs #228–#235, v0.15.0–v0.15.9.
+- **External log import** ✅ — Bootmod3/MHD CSV read-only adapter.
+  PR #257.
+- **CAN broadcast validation harness** ✅ — anonymized fixture +
+  real-car capture instructions. PR #258.
+- **Vehicle database** ✅ — VIN prefix → build-sheet mappings.
+  PR #258.
 
-- **ENET/DoIP auto-detection** ✅ (PR #108) — UDP broadcast discovery
-  on port 13400 finds the car's IP/VIN; the hardcoded-IP era is over.
-- **Dark/light theme + workspace persistence** ✅ (PR #109) — the
-  whole app chrome re-skins through CSS variables and the layout
-  survives restarts.
-- **Per-profile gauge themes** ✅ (PR #109) — optional
-  `[profile.theme]` TOML blocks recolour live-data gauges.
-- **N20/N26 + S55 profiles** ✅ (PR #110) — the last two mainstream
-  engine gaps closed; S55 ships the first BMW M tricolor theme.
+### What shipped in v0.14.0 (2026-07-25)
 
-### Recently shipped (v0.5.0 — 2026-07-15)
-
-For context — these are in the binary and are *not* "coming":
-
-- **Diagnostic Story** ✅ — turn a session snapshot into a mechanic's
-  narrative report. Local model, no cloud.
-  ([`src-tauri/src/story.rs`](src-tauri/src/story.rs))
-- **Community Oracle** ✅ — opt-in pattern matching across anonymised
-  community data ("42 N55 owners saw this DTC set — 80% replaced the
-  HPFP"). ([`src-tauri/src/oracle.rs`](src-tauri/src/oracle.rs))
-- **DTC Opinions** ✅ — opinionated explainers for specific codes
-  (when to fix immediately vs. monitor vs. ignore).
-  ([`src-tauri/src/opinions.rs`](src-tauri/src/opinions.rs))
-- **VPS-hosted backend** ✅ — full read-only deployment with admin
-  panel, DTC bootstrap, and a 144-test suite now running in CI.
-  ([`backend/`](backend/))
-- **`u8_enum` decoder + enum tables** ✅ (PR #60 + frontend #64–#66) —
-  the one decoder from the v0.3.0 list that genuinely didn't ship.
-  Maps raw bytes to named labels (gear, engine state, knock
-  detection) via a per-parameter TOML map. Foundation for the
-  rest of v0.4. ([`src-tauri/src/data/live.rs`](src-tauri/src/data/live.rs),
-  [`docs/DECODE_FUNCTIONS.md`](docs/DECODE_FUNCTIONS.md) § 8)
-- **Histogram viewer for logged channels** ✅ (PR #62) — pure
-  client-side; reuses Chart.js bar mode. 13 unit tests.
-- **`ServiceFunction` multi-module data shape** ✅ (PR #67) —
-  foundation for chassis-validated EGS/DSC CBS resets. Routine
-  IDs intentionally not invented; defer to real-car testing.
-- **$5 AliExpress ENET cable pinout doc** ✅ (PR #61) — DIY
-  OBD-II → RJ45 wiring + 100 Ω termination. ([`docs/hardware/enet-cable-pinout.md`](docs/hardware/enet-cable-pinout.md))
-- **N55 fuel-trim / adaptation DIDs** ✅ (PR #73) — long-term
-  fuel trim (`DID 0x1201`) and idle adaptation (`DID 0x1202`)
-  on N55 F/G-series DME. Marked `[needs verification]`; the
-  values come from the project's own `TECH_SPECS.md`, not
-  forum-sourced guesses.
-- **Severity-class styling for enum channels** ✅ (PR #74) —
-  pure JS/CSS helper (`severityClass`) maps enum text to
-  severity tiers (warning / critical). `knock_detect`'s
-  "Moderate" or "Severe" states get visible amber / red
-  emphasis. 14 unit tests for the helper.
-- **Real-car u8_enum validation harness** ✅ (PR #72) —
-  checklist for an F/G-series owner with an ENET adapter to
-  validate the example enum DIDs (`gear` / `engine_state` /
-  `knock_detect`) marked `[needs verification]`.
-  ([`docs/validation/u8_enum-validation.md`](docs/validation/u8_enum-validation.md))
-
-### v0.6.0 "Real Hardware" — items shipped
-
-- **Log-merge / comparison modal** ✅ (PR #77) — pure
-  client-side over CSV; per-channel mean / std-dev / max deltas;
-  side-by-side rendering on the Logging tab. The "before vs.
-  after my tune" workflow, which is the single most common
-  tuner use case. 16 unit tests for the math.
-- **Real-car injector-time validation harness** ✅ (PR #80) —
-  checklist for an F/G-series owner to validate the
-  pre-existing `inj_time` channel (`DID 0x4363`, ms per
-  cylinder) on B58 / N55 by comparing against ISTA at three
-  steady-state points (idle / cruise / WOT). Plus the
-  retroactive `[needs verification, UDS only]` marker on
-  the `inj_time` labels in both profile TOMLs — matching the
-  v0.5.0 PR #73 discipline. ([`docs/validation/injector-validation.md`](docs/validation/injector-validation.md))
-- **OBD-II mode 01 PID auto-discovery** ✅ (PR #81) — new
-  `protocol::scan_obd2_pids()` helper walks SAE J1979 PID
-  bitmasks to report which standard OBD-II PIDs a single ECU
-  actually responds to. Surfaced on the Vehicle Test tab via
-  a "Scan OBD-II PIDs" button that renders the supported set
-  as a grid of monospace hex cells. Useful diagnostic before
-  opening Parameter Explorer. 5 new unit tests.
+- **Live Gauges panel** ✅ — 6-gauge real-time panel under Live
+  Data tab. PR #162.
+- **Pure JS CAN broadcast decoders** ✅ — 8 byte-level decoders
+  for E-series broadcast IDs. PR #157.
+- **JS-side simulator broadcast personality** ✅ — 10-thread
+  worker producing 6 known frames at documented rates. PR #158.
+- **Live Gauges on `beemuu.com`** ✅ — same 6 gauges on the
+  public site. PR #167.
 
 ### Ideas being explored (not on the roadmap yet)
 
@@ -227,9 +161,9 @@ PR — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) Rule 2
   against a stock baseline (useful when buying used).
 
 Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.16.0**
-(2026-07-16), "Real Hardware" — log-merge modal, injector-time
-validation harness, OBD-II PID auto-discovery. See
-[`RELEASE_NOTES_v0.6.0.md`](RELEASE_NOTES_v0.6.0.md).
+(2026-08-31), "Share the Trace" — i18n, service manual lookup,
+walk freeze-frame lookup, bundle export, vehicle DB, reports,
+FR i18n, mobile CSS. 88 tests pass.
 
 ---
 

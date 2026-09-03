@@ -47,7 +47,7 @@
 "2793" = "DME: Power management, battery"
 "3886" = "System voltage: voltage too high"
 
-# --- BODY (15) ---
+# --- BODY (22) ---
 "2F44" = "EWS preventing manipulation (immobilizer)"
 "2F45" = "EWS preventing manipulation (related to 2F44)"
 "A092" = "SHD Standardization"
@@ -63,6 +63,12 @@
 "A554" = "Alive telephone"
 "A559" = "Clamp 30g_f cutoff"
 "A8B6" = "Error will not cause a warning light"
+"A907" = "FRM: headlight washer relay"
+"A908" = "FRM: headlight range control"
+"A90A" = "FRM: turn signal / hazard lights"
+"A916" = "FRM: fog light"
+"A918" = "FRM: parking light"
+"A919" = "FRM: daytime driving light"
 
 # --- FRM (4) ---
 # Observed 2026-08-28 on a 2006 E90 330i FRM (P/N 6988000). Wording is
@@ -96,11 +102,12 @@
 "E717" = "CAN message: Dates of engine"
 "E71A" = "CAN message: Torque 3"
 
-# --- COOLING (11) ---
+# --- COOLING (14) ---
 "279B" = "Map cooling thermostat mechanically stuck (also 2EF4)"
 "2E83" = "Electric coolant pump: communication fault"
 "2E84" = "Cooling system related"
 "2E85" = "Electric coolant pump: communication / cutoff"
+"2E86" = "Electric coolant pump: blocked or mechanically stuck"
 "2E8D" = "Cooling system (from community PDF)"
 "2EE0" = "Cooling system related"
 "2EE1" = "Cooling system related"
@@ -108,17 +115,24 @@
 "2EE3" = "Cooling system related"
 "2EF4" = "Map cooling thermostat mechanically stuck (same as 279B)"
 "2F0D" = "Cooling system related"
+"3ECA" = "Coolant thermostat: control range not reached"
+"3ECB" = "Coolant thermostat: regulation fault"
 
-# --- DSC (7) ---
+# --- DSC (12) ---
 "51B0" = "DSC signal not plausible: brake pressure signal"
 "5DE0" = "DSC-ECU: ECU-internal plausibility VASP-U_Bit"
 "5DE1" = "DSC-ECU: ECU-internal clockstatus missing clock"
 "5E19" = "DSC: engine management interface"
 "5E1A" = "DSC-ECU: SPI transmission failure multi IC"
+"5E23" = "DSC: wheel speed sensor front left"
+"5E24" = "DSC: wheel speed sensor front right"
 "5E40" = "Wheel speed sensor rear right: signal edge missing"
+"5E41" = "Wheel speed sensor rear left: signal edge missing"
 "5E5B" = "Stability control - wheel speed sensor general long-term error"
+"5E60" = "DSC: lateral acceleration sensor"
+"5E61" = "DSC: yaw rate sensor"
 
-# --- FUEL (10) ---
+# --- FUEL (15) ---
 "29E0" = "Mixture too lean"
 "29E1" = "Fuel pressure sensor signal"
 "29E2" = "Fuel injection rail, pressure sensor signal"
@@ -128,7 +142,12 @@
 "2A17" = "DMTL diagnosis module tank leakage, system failure"
 "2A2D" = "DMTL diagnosis module tank leakage, system failure"
 "2AAF" = "Fuel Pump Plausibility"
+"2B5E" = "Fuel pump control module (EKP): communication"
+"2B5F" = "Fuel pump control module (EKP): output stage"
+"2B60" = "Fuel pump: pressure too low"
 "2FD4" = "Fuel system (N20 related)"
+"30E8" = "Fuel pump control module (EKP): implausible"
+"30E9" = "Fuel pump control module (EKP): internal error"
 
 # --- HVAC (14) ---
 "9C54" = "AUC sensor (automatic recirculation control)"
@@ -182,9 +201,17 @@
 "E095" = "Rail pressure sensor plausibility"
 "E102" = "Injector cylinder 1 fault"
 
-# --- MISFIRE (2) ---
+# --- MISFIRE (10) ---
 "29D9" = "Misfire in case of tank filling level too low"
 "29DC" = "Cylinder injection switch-off"
+"29DD" = "Misfire detected, catalyst damaging"
+"29DE" = "Misfire detected, no catalyst damage"
+"29DF" = "Combustion misfires detected, multiple cylinders"
+"29E3" = "Misfire cylinder 1"
+"29E4" = "Misfire cylinder 2"
+"29E5" = "Misfire cylinder 3"
+"29E6" = "Misfire cylinder 4"
+"29E7" = "Misfire cylinder 5"
 
 # --- OTHER (10) ---
 "2DC3" = "Engine code (from community PDF)"
@@ -254,7 +281,7 @@
 "2D5A" = "Control motor torque limitation"
 "2F8F" = "Throttle/pedal related"
 
-# --- TRANSMISSION (11) ---
+# --- TRANSMISSION (19) ---
 "4F82" = "Transmission error (EGS/GWS)"
 "4FA0" = "SMG: clutch (activation position deviation)"
 "507B" = "Parking brake failure (transmission related)"
@@ -264,6 +291,13 @@
 "520A" = "SMG: signal, steering angle is faulty (DSC)"
 "5401" = "SMG: starter enable"
 "6140" = "Transmission code (from community PDF)"
+"CF00" = "EGS: gear ratio monitoring"
+"CF01" = "EGS: gear ratio monitoring, ratio plausibility"
+"CF0D" = "EGS: gear ratio incorrect (adaptive stop)"
+"CF14" = "EGS: output speed sensor"
+"CF1A" = "EGS: gear selector lever position"
+"CF22" = "EGS: torque converter lockup clutch"
+"CF2E" = "EGS: pressure regulator valve 1"
 "CDA7" = "Transmission: status gear reverse"
 "CF33" = "Transmission code (from community PDF)"
 
@@ -282,10 +316,18 @@
 "3100" = "Boost-pressure control, deactivation"
 "CD87" = "E-Wastegate control deviation (B48/B58)"
 
-# --- VANOS (6) ---
+# --- VANOS (14) ---
 "2A80" = "Inlet VANOS variable cam control test, input signal"
+"2A82" = "VANOS inlet: control fault, camshaft stuck"
 "2A85" = "Outlet VANOS variable cam control test"
+"2A87" = "VANOS exhaust: control fault, camshaft stuck"
 "2A96" = "Crankshaft sensor, tooth failure"
+"2A98" = "DISA intake manifold runner fault"
 "2A99" = "VANOS exhaust: control fault, camshaft stuck (community list)"
 "2A9A" = "Camshaft sensor inlet, signal"
+"2A9B" = "Camshaft sensor exhaust, signal"
+"2AAA" = "Valvetronic eccentric shaft fault"
+"2AAB" = "Valvetronic eccentric shaft sensor, adjustment range"
+"2AAC" = "Valvetronic adjustment range not reached"
+"2AAE" = "Valvetronic actuator: jammed mechanically"
 "3E80" = "Valvetronic actuator, activation: jammed mechanically"

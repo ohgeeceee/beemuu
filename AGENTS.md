@@ -178,3 +178,37 @@ The only production host is the NJ Spectrum VPS
 (`vps3490050.trouble-free.net`, `162.35.175.39`). The retired LA VPS
 (`montanablotter.com`, `74.208.64.42`) is decommissioned — do not reference
 or reactivate it.
+
+## Imported Claude Cowork project instructions
+
+# Beemuu Setup and Usage Instructions
+
+Welcome to **Beemuu**, an open-source alternative to BMW ISTA+ for vehicle diagnostics, programming, and service functions. 
+
+> ⚠️ **Disclaimer:** Modifying vehicle electronics carries inherent risks. Beeemuu is provided "as-is." Always connect a stable battery maintainer (minimum 15-30A) before performing any ECU flashing or deep coding.
+
+---
+
+## 1. Prerequisites & Environment Setup
+
+### System Requirements
+* **OS:** Windows 10/11 (Recommended for native driver support), Linux, or macOS.
+* **Runtime:** Node.js v18+ (if frontend/backend-based) or Python 3.10+ (depending on your project stack).
+* **Hardware Interface:** 
+  * **ENET Cable / Adapter:** For F, G, and I-series models (Ethernet-to-OBD).
+  * **K+DCAN Cable:** For E-series models (USB-to-OBD with FTDI chip).
+
+### Driver Setup (K+DCAN Only)
+If you are using a K+DCAN cable on Windows:
+1. Download and install the latest **FTDI Virtual COM Port (VCP) drivers**.
+2. Open **Device Manager**, find your USB Serial Port, go to **Properties -> Port Settings -> Advanced**.
+3. Set the **Latency Timer to 1 msec** (crucial for protocol timing to prevent timeouts).
+
+---
+
+## 2. Quick Start / Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/your-username/beeemuu.git](https://github.com/your-username/beeemuu.git)
+   cd beeemuu

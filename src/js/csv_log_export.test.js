@@ -15,6 +15,56 @@ test("buildLogCsv: returns null when there are no enabled series", () => {
   assert.equal(buildLogCsv([["x", { label: "x", unit: "", getAllData: () => [] }]]), null);
 });
 
+test("buildLogCsv: adds a safe metadata header for a session tag", () => {
+  const csv = buildLogCsv([
+    series("Engine speed", "rpm", [{ x: 0, y: 800 }]),
+  ], { sessionTag: "Cold\nstart" });
+  const lines = csv.split("\n");
+  assert.equal(lines[0], '# beemuu log v1 session_tag="Cold start"');
+  assert.equal(lines[1], "time_s,Engine speed (rpm)");
+  assert.equal(lines[2], "0.00,800.00,800.00");
+});
+
+test("buildLogCsv: adds sorted bookmark annotations before the columns", () => {
+  const csv = buildLogCsv([
+    series("Engine speed", "rpm", [{ x: 0, y: 800 }]),
+  ], {
+    bookmarks: [
+      { time: 12.5, label: "Throttle\nopen" },
+      { time: 3, label: "Cold start" },
+    ],
+  });
+  const lines = csv.split("\n");
+  assert.equal(lines[0], "# beemuu log v1");
+  assert.equal(lines[1], '# bookmark time_s=3.00 label="Cold start"');
+  assert.equal(lines[2], '# bookmark time_s=12.50 label="Throttle open"');
+  assert.equal(lines[3], "time_s,Engine speed (rpm)");
+});
+
+test("buildLogCsv: emits VIN, profile, and recording date metadata", () => {
+  const csv = buildLogCsv([
+    series("Engine speed", "rpm", [{ x: 0, y: 800 }]),
+  ], {
+    sessionTag: "Road test",
+    metadata: { vin: "WBAXXXXX", profile: "N55", recordedAt: "2026-09-03T12:00:00.000Z" },
+  });
+  assert.equal(
+    csv.split("\n")[0],
+    '# beemuu log v1 session_tag="Road test" vin="WBAXXXXX" profile="N55" recorded_at="2026-09-03T12:00:00.000Z"'
+  );
+});
+
+test("buildLogCsv: supports semicolons and selected channels only", () => {
+  const enabled = series("Engine speed", "rpm", [{ x: 0, y: 800 }]);
+  enabled[1].enabled = true;
+  const disabled = series("Coolant", "°C", [{ x: 0, y: 90 }]);
+  disabled[1].enabled = false;
+  const csv = buildLogCsv([enabled, disabled], { delimiter: ";", selectedOnly: true });
+  const lines = csv.split("\n");
+  assert.equal(lines[0], "time_s;Engine speed (rpm)");
+  assert.equal(lines[1], "0.00;800.00;800.00");
+});
+
 test("buildLogCsv: default shape matches the on-disk format", () => {
   // Mirrors `beeemuu-log-2026-07-06T20-37-19.csv`:
   //   header = "time_s" + 1 col per series (label + unit)

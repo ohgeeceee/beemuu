@@ -20,11 +20,13 @@ test("service history is stored per VIN and sorted newest first", () => {
 });
 
 test("health report includes vehicle, faults, and cautious recommended work", () => {
-  const html = reports.buildHealthReport(info, [{ present: true, name: "DME", dtcs: [{ code: "2A82", text: "VANOS intake", status_text: "confirmed" }] }], new Date("2026-01-02T00:00:00Z"));
+  const html = reports.buildHealthReport(info, [{ present: true, name: "DME", dtcs: [{ code: "2A82", text: "VANOS intake", status_text: "confirmed", freeze_frame: [{ label: "RPM", value: "800" }] }] }], new Date("2026-01-02T00:00:00Z"));
   assert.match(html, /Vehicle Health Report/);
   assert.match(html, /WBA123/);
   assert.match(html, /2A82/);
   assert.match(html, /Diagnose VANOS intake before replacing parts/);
+  assert.match(html, /Freeze frame/);
+  assert.match(html, /RPM 800/);
 });
 
 test("service report escapes owner-entered content", () => {

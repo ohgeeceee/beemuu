@@ -686,7 +686,25 @@ async function showFreezeFrame(code) {
     loadOpinion(code),
     loadSchematics(code),
     loadTestPlan(code),
+    loadServiceManual(code),
   ]);
+}
+
+function loadServiceManual(code) {
+  const panel = $("service-manual-panel");
+  const body = $("service-manual-body");
+  if (!panel || !body) return;
+  const api = window.beeemuuServiceManual;
+  const url = api && api.manualUrl ? api.manualUrl(code) : null;
+  if (!url) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+  const label = (window.beeemuuI18n && window.beeemuuI18n.t)
+    ? window.beeemuuI18n.t("service_manual")
+    : "Service manual";
+  body.innerHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)} ${escapeHtml(code)}</a>`;
 }
 
 /* ---------- related schematics (CC0 wiring diagrams) ----------
@@ -862,23 +880,16 @@ function renderWalkStep() {
   const r = TestPlanWalk.walk(walkPlan, walkAnswers);
   const step = r.current;
 
-  // Freeze-frame seeding: surface the fault-time context if present.
   let ffContext = "";
   if (!r.done && !r.invalid && step && step.id === TestPlanWalk.entryStep(walkPlan)) {
-    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
-    const ff = sessionReplay
-      ? (modules.find((x) => x.address === selectedAddress)?.dtcs?.find((d) => d.code === walkPlan.dtc)?.freeze_frame || [])
+    const lookup = window.beeemuuWalkFreeze && window.beeemuuWalkFreeze.lookupFreezeFrame;
+    const frames = lookup
+      ? lookup({ dtcs: lastDtcs, modules, address: selectedAddress, code: walkPlan.dtc })
       : [];
-    // We only have freeze frames via the read_freeze_frame command path;
-    // for session replay we pull from the loaded DTC. Keep it light:
-    // the composition already loads the freeze panel in parallel.
-    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
-      const parts = dtc.freeze_frame
-        .map((f) => `${escapeHtml(f.label)} ${escapeHtml(f.value)}`)
-        .join(" · ");
+    if (frames.length) {
+      const parts = frames.map((f) => `${escapeHtml(f.label)} ${escapeHtml(f.value)}`).join(" · ");
       ffContext = `<div class="wt-ff">At fault time: ${parts}</div>`;
     }
-    void ff; // (placeholder for future replay wiring; see plan PR #4)
   }
 
   if (r.invalid) {
@@ -1006,20 +1017,23 @@ $("btn-walk-share").addEventListener("click", async () => {
   // Freeze-frame context for the current DTC, if the active DTC row carries it.
   let freezeFrame = [];
   try {
-    const dtc = lastDtcs.find((d) => d.code === walkPlan.dtc);
-    if (dtc && dtc.freeze_frame && dtc.freeze_frame.length) {
-      freezeFrame = dtc.freeze_frame.map((f) => ({ label: f.label, value: f.value }));
-    }
+    const lookup = window.beeemuuWalkFreeze && window.beeemuuWalkFreeze.lookupFreezeFrame;
+    freezeFrame = lookup
+      ? lookup({ dtcs: lastDtcs, modules, address: selectedAddress, code: walkPlan.dtc })
+      : [];
   } catch (_) { /* best-effort */ }
   const html = window.beeemuuWalkthroughBundle.buildBundleHtml({
     plan: walkPlan,
     walkAnswers: walkAnswers.slice(),
     logChartSvg,
     freezeFrame,
+    logSnippet: window.beeemuuWalkthroughBundle.snippetFromLogSeries
+      ? window.beeemuuWalkthroughBundle.snippetFromLogSeries(logSeries)
+      : [],
     meta: {
       vehicleLabel: $("info-vin") ? $("info-vin").textContent || "" : "",
       profileName: $("log-profile") ? $("log-profile").value || "" : "",
-      appVersion: "0.10.0",
+      appVersion: "0.16.0",
       exportedAtIso: new Date().toISOString(),
     },
   });
@@ -2473,6 +2487,7 @@ async function logTick() {
 function startLogging() {
   if (!connected) { log("Connect first."); return; }
   if (logTimer) return;
+  activeLogSessionTag = normalizeSessionTag($("log-session-tag").value);
   logStart = Date.now();
   logSeries.clear();
   logSeries.paused = false;
@@ -2482,6 +2497,7 @@ function startLogging() {
   updatePlayButton();
   $("btn-log-start").textContent = "Stop recording";
   $("btn-log-start").classList.remove("btn-primary");
+  $("btn-log-bookmark").disabled = false;
   $("btn-log-export").disabled = false;
   $("btn-log-export-png").disabled = false;
   $("btn-log-export-svg").disabled = false;
@@ -2519,6 +2535,7 @@ function stopLogging() {
   updatePlayButton();
   $("btn-log-start").textContent = "Start recording";
   $("btn-log-start").classList.add("btn-primary");
+  $("btn-log-bookmark").disabled = logSeries.totalDuration === 0;
   $("log-status").textContent = "Stopped.";
   updateScrubber();
   autoSaveSession();
@@ -2553,12 +2570,18 @@ function stepTime(delta) {
 }
 
 function addMarker(time) {
-  const label = `Marker ${logSeries.markers.length + 1}`;
+  const label = `Bookmark ${logSeries.markers.length + 1}`;
   logSeries.markers.push({ time, label });
   logSeries.markers.sort((a, b) => a.time - b.time);
   rebuildChart();
   renderMarkerList();
   $("btn-log-clear-markers").disabled = false;
+}
+
+function addBookmark() {
+  if (!logTimer && logSeries.totalDuration === 0) return;
+  const time = logTimer ? (Date.now() - logStart) / 1000 : logSeries.scrubTime;
+  addMarker(Math.max(0, Math.min(logSeries.totalDuration, time)));
 }
 
 function renderMarkerList() {
@@ -2568,7 +2591,7 @@ function renderMarkerList() {
     const li = document.createElement("li");
     li.innerHTML = `<span class="log-marker-time">${formatTime(m.time)}</span> <span class="log-marker-label" contenteditable="true">${escapeHtml(m.label)}</span> <button class="btn btn-small log-marker-del" data-idx="${i}">×</button>`;
     li.querySelector(".log-marker-label").addEventListener("blur", (e) => {
-      logSeries.markers[i].label = e.target.textContent.trim() || `Marker ${i + 1}`;
+      logSeries.markers[i].label = e.target.textContent.trim() || `Bookmark ${i + 1}`;
       rebuildChart();
     });
     li.querySelector(".log-marker-del").addEventListener("click", () => {
@@ -2593,10 +2616,23 @@ function clearMarkers() {
 }
 
 /* localStorage */
+let activeLogSessionTag = "";
+
+function normalizeSessionTag(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+function sessionLabel(data) {
+  const date = new Date(data.timestamp || 0).toLocaleString();
+  const tag = normalizeSessionTag(data.sessionTag);
+  return tag ? `${tag} · ${date}` : date;
+}
+
 function autoSaveSession() {
   const payload = {
     startTime: logStart,
     timestamp: Date.now(),
+    sessionTag: activeLogSessionTag,
     markers: logSeries.markers,
     series: [...logSeries.entries()].map(([id, s]) => ({
       id, label: s.label, unit: s.unit, color: s.color, enabled: s.enabled,
@@ -2606,6 +2642,7 @@ function autoSaveSession() {
   try {
     const key = `beeemuu-log-session-${payload.timestamp}`;
     localStorage.setItem(key, JSON.stringify(payload));
+    renderSavedSessions();
   } catch (e) {
     console.warn("Session save failed", e);
   }
@@ -2619,8 +2656,9 @@ function checkSavedSession() {
   const data = loadSession(latest);
   if (!data) return;
   const banner = $("log-restore-banner");
-  $("log-restore-time").textContent = new Date(data.timestamp).toLocaleString();
+  $("log-restore-time").textContent = sessionLabel(data);
   banner.classList.remove("hidden");
+  renderSavedSessions();
 }
 
 function listSessionKeys() {
@@ -2635,13 +2673,16 @@ function loadSession(key) {
   } catch (e) { return null; }
 }
 
-function restoreSession() {
+function restoreSession(key) {
   const keys = listSessionKeys().sort();
-  if (!keys.length) return;
-  const data = loadSession(keys.pop());
+  const selectedKey = key || keys.pop();
+  if (!selectedKey) return;
+  const data = loadSession(selectedKey);
   if (!data) return;
   logSeries.clear();
   logStart = data.startTime || 0;
+  activeLogSessionTag = normalizeSessionTag(data.sessionTag);
+  $("log-session-tag").value = activeLogSessionTag;
   logSeries.markers = data.markers || [];
   for (const s of data.series) {
     const series = new LogSeries(s.label, s.unit, s.color, s.enabled);
@@ -2677,9 +2718,11 @@ function restoreSession() {
   $("btn-log-histogram").disabled = false;
   $("btn-log-diff").disabled = false;
   $("btn-log-clear").disabled = false;
+  $("btn-log-bookmark").disabled = logSeries.totalDuration === 0;
   $("btn-log-clear-markers").disabled = logSeries.markers.length === 0;
   $("log-scrubber").disabled = logSeries.totalDuration === 0;
   dismissRestoreBanner();
+  renderSavedSessions();
 }
 
 function dismissRestoreBanner() {
@@ -2689,17 +2732,45 @@ function dismissRestoreBanner() {
 function clearSavedSessions() {
   for (const k of listSessionKeys()) localStorage.removeItem(k);
   dismissRestoreBanner();
+  renderSavedSessions();
+}
+
+function renderSavedSessions() {
+  const panel = $("log-saved-sessions");
+  const list = $("log-saved-session-list");
+  if (!panel || !list) return;
+  const sessions = listSessionKeys().sort().reverse()
+    .map((key) => ({ key, data: loadSession(key) }))
+    .filter(({ data }) => data && Array.isArray(data.series));
+  list.innerHTML = "";
+  panel.classList.toggle("hidden", sessions.length === 0);
+  for (const { key, data } of sessions) {
+    const item = document.createElement("li");
+    const label = document.createElement("span");
+    label.textContent = sessionLabel(data);
+    const restore = document.createElement("button");
+    restore.className = "btn btn-small";
+    restore.textContent = "Restore";
+    restore.addEventListener("click", () => restoreSession(key));
+    item.append(label, restore);
+    list.appendChild(item);
+  }
 }
 
 /* Events */
 $("btn-log-start").addEventListener("click", () => {
   if (logTimer) stopLogging(); else startLogging();
 });
+$("btn-log-bookmark").addEventListener("click", addBookmark);
+$("log-session-tag").addEventListener("input", (e) => {
+  if (logTimer) activeLogSessionTag = normalizeSessionTag(e.target.value);
+});
 $("btn-log-clear").addEventListener("click", () => {
   for (const s of logSeries.values()) s.clear();
   logSeries.paused = true;
   logSeries.scrubTime = 0;
   if (logChart) logChart.update("none");
+  $("btn-log-bookmark").disabled = true;
   $("log-status").textContent = "Cleared.";
   updateScrubber();
   updatePlayButton();
@@ -2715,20 +2786,33 @@ $("btn-log-clear").addEventListener("click", () => {
  */
 function buildLogCsv(opts) {
   if (!window.beeemuuCsvLog || !window.beeemuuCsvLog.buildLogCsv) return null;
+  const profile = $("log-profile");
+  const delimiter = $("log-export-delimiter");
+  const selectedOnly = $("log-export-selected");
   return window.beeemuuCsvLog.buildLogCsv([...logSeries.entries()], {
     withUnits: !!(opts && opts.withUnits),
+    delimiter: delimiter ? delimiter.value : ",",
+    selectedOnly: !!(selectedOnly && selectedOnly.checked),
+    sessionTag: activeLogSessionTag,
+    bookmarks: logSeries.markers,
+    metadata: {
+      vin: lastVehicleInfo && lastVehicleInfo.vin ? lastVehicleInfo.vin : "unavailable",
+      profile: profile ? profile.options[profile.selectedIndex]?.text || profile.value : "unavailable",
+      recordedAt: logStart || Date.now(),
+    },
     liveFormat: window.LiveFormat,
   });
 }
 
 $("btn-log-export").addEventListener("click", async () => {
   const withUnits = $("log-export-units") && $("log-export-units").checked;
+  const delimiter = $("log-export-delimiter") && $("log-export-delimiter").value;
   const csv = buildLogCsv({ withUnits });
   if (!csv) { log("Nothing recorded yet."); return; }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   // Filename carries a `-units` suffix when the units row is on, so a
   // user can tell at a glance which CSV variant they're sharing.
-  const suffix = withUnits ? "-units" : "";
+  const suffix = `${withUnits ? "-units" : ""}${delimiter === ";" ? "-semicolon" : ""}`;
   try {
     const path = await invoke("export_text", { filename: `beeemuu-log-${stamp}${suffix}.csv`, content: csv });
     log("Saved: " + path);
@@ -3147,7 +3231,7 @@ function getDiffableSessions() {
       if (map.size === 0) continue;
       sessions.push({
         key: k,
-        label: new Date(data.timestamp || 0).toLocaleString(),
+        label: sessionLabel(data),
         timestamp: data.timestamp || 0,
         seriesMap: map,
       });
@@ -4077,23 +4161,19 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 /************* i18n *************/
-(async function i18nInit() {
-  const lang = localStorage.getItem("beeemuu-lang") || "en";
-  $("lang-select").value = lang;
-  i18nSetLang(lang);
-  $("lang-select").addEventListener("change", e=>{ localStorage.setItem("beeemuu-lang",e.target.value); i18nSetLang(e.target.value); });
+(function i18nInit() {
+  const api = window.beeemuuI18n;
+  if (!api) return;
+  const sel = $("lang-select");
+  const lang = api.init(document);
+  if (sel) {
+    sel.value = lang;
+    sel.addEventListener("change", (e) => {
+      api.setLang(e.target.value);
+      api.apply(document);
+    });
+  }
 })();
-
-function i18nSetLang(lang){const l=beeemuuI18n[lang];if(!l)return;
-  document.title = l.title||"BeeEmUu Diagnostics";
-  // header
-  const _kdcan_el = $("conn-kdcan-opts").previousElementSibling; if(_kdcan_el){_kdcan_el.textContent = l.conn_kdcan||"K+DCAN";}
-  const _enet_el = $("conn-enet-opts").previousElementSibling; if(_enet_el){_enet_el.textContent = l.conn_enet||"ENET";}
-  // logging
-  const header = $("view-logging").previousElementSibling;
-  if(header)header.textContent = l.logging||"Data logging";
-}
-
 /************* end i18n *************/
 
 /* ---------------- init ---------------- */
@@ -4220,20 +4300,3 @@ $("snapshot-load-file").addEventListener("change", async (e) => {
   };
   reader.readAsText(file);
 });
-
-/************* i18n DE/EN *************/
-window.beeemuuI18n = {
-  en: {
-    title: 'BeeEmUu Diagnostics',
-    conn_kdcan: 'K+DCAN',
-    conn_enet: 'ENET',
-    logging: 'Data logging',
-  },
-  de: {
-    title: 'BeeEmUu Diagnostik',
-    conn_kdcan: 'K+DCAN',
-    conn_enet: 'ENET',
-    logging: 'Messprotokoll',
-  },
-};
-/************* end i18n *************/

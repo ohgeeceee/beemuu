@@ -57,7 +57,7 @@ of that file), and the corresponding DIDs are already uncommented in
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Mobile-responsive layout | 🟡 | Tauri supports mobile; needs testing |
+| Mobile-responsive layout | ✅ Done (v0.16.0) | `src/css/app.css` — header/tabs wrapping, stacked split panels, smaller gauge grid. |
 
 ### ✅ Protocol, Transport, UI/UX — historical (shipped)
 
@@ -875,52 +875,101 @@ v0.15.0`).
 Slices dispatch as PRs when the work completes — no
 Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2).
 
-## v0.15.1 — "Test-Plan Walks on the Bench" (In Progress — cycle plan)
+## v0.15.1 — "Test-Plan Walks on the Bench" (Historical)
 
-**Premise.** v0.7.0 / v0.8.0 / v0.9.0 / v0.10.0 shipped the
-walkthrough bundle, the test-plan walk reducer, the verified
-routine marker, and the share-as-HTML export — all on the
-simulator. v0.15.1 ports the test-plan walk to **real-car
-sessions**: walks against the K+DCAN cable, records results
-against the real freeze-frame data, exports to the same
-self-contained HTML.
+**Note:** This cycle plan was superseded. Core elements (real
+freeze-frame wiring in walks, bundle export with snippets) shipped
+as part of v0.16–v0.17 "Share the Trace" and bundle 2.0 work.
+The Tier B `record_walk_result` command remains deferred.
 
 See [`docs/v0.15.1_plan.md`](docs/v0.15.1_plan.md) for the
-full cycle plan, including the explicit "what this cycle does
-NOT ship" list (no `transport/**` changes, no
-`protocol/**` changes, no `commands.rs` write-surface changes).
+original plan. The active roadmap continues with v0.16+ sections
+below.
 
-### Slices planned
+## v0.16.0 — "Share the Trace" (Shipped 2026-08-31)
+
+**Premise.** v0.15.x delivered the tuner logging workflow.
+v0.16.0 shipped the full v0.16–v0.20 feature plan: i18n, service
+manual lookup, walk freeze-frame lookup, bundle export with
+freeze-frame snippets, vehicle database enrichment, health report
+freeze-frame column, FR i18n, and mobile-responsive CSS. All items
+implemented and tested (88 tests pass).
+
+### Slices shipped
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Cycle plan + ROADMAP header + CHANGELOG entry | 🔲 Open (this PR, slice 0) | A | `docs/v0.15.1_plan.md` + this ROADMAP entry + CHANGELOG `## [0.15.1] — Unreleased` section. Docs-only. |
-| Test-plan walk on real freeze-frames | 🟢 Open (slice 1) | A | Reuses the v0.14.0 freeze-frame schema split (PR #170) so each walk step knows which freeze-frame fields to read from which DME. Frontend-only. |
-| `record_walk_result` async Tauri command | 🟡 Open (slice 2) | **B** | Saves a walk outcome (passed/failed/skipped per step) to `<HOME>/beeemuu/walks/<timestamp>.json`. Mirrors the v0.12.0 DTC history pattern. `async_commands` allowlist guard applies. Touches `src-tauri/src/commands.rs`. |
-| Walk export to HTML includes real freeze-frame snippets | 🟢 Open (slice 3) | A | The v0.11.0 share-as-HTML PR (#142) embeds the freeze-frame in the HTML; this slice ensures the embedded freeze-frame is the **real one** for walks on real cars, not the simulator's. Frontend-only. |
+| DE/EN i18n | ✅ Done | A | `src/js/i18n.js`, `community/i18n/en.json`, `de.json` — 54 keys each, `data-i18n` on ~30 chrome strings. |
+| Service manual lookup | ✅ Done | A | `src/js/service_manual.js` — expanded `PREFIX_MAP` (VANOS, fuel-rail, SAE P-codes, FRM). 8 test cases. |
+| Walk freeze-frame lookup | ✅ Done | A | `src/js/walk_freeze_lookup.js` — DID → live-data parameter mapping. |
+| Bundle Export 2.0 | ✅ Done | A | `src/js/walkthrough_bundle.js` — `logSnippet` + `snippetFromLogSeries`. |
+| Vehicle DB enrichment | ✅ Done | A | `community/vehicle_db.toml` — 10 VIN prefixes (E90 N52, E92 N54, E70 N62, F30 N55, F80 S55, G20 B58, E60 N52). |
+| More DTC → newtis paths | ✅ Done | A | P0011/P0014/P0087/P0128, 2E84, 2F01, FRM 9CC1/9CCD. |
+| Health report freeze-frame | ✅ Done | A | `src/js/print_reports.js` — freeze-frame column in printable report. |
+| FR i18n starter | ✅ Done | A | `community/i18n/fr.json` — same 50 keys as EN/DE. |
+| Mobile-responsive CSS | ✅ Done | A | `src/css/app.css` — header/tabs wrapping, stacked split panels, smaller gauge grid. |
 
-### What this cycle does NOT ship
+## v0.16.1 — Patch (In Progress)
 
-- ❌ No new transport support (BLE / WiFi / ENET
-  auto-detect). The forward-roadmap doc's `v0.16.0`
-  cycle spine ("Tier B Land Rush — BLE / WiFi / ENET") is
-  the next cycle's work.
-- ❌ No `protocol/**` code changes. The
-  `read_freeze_frame` async command is already shipped
-  (v0.11.0 / PR #142). v0.15.1 only adds the
-  `record_walk_result` write surface + the freeze-frame
-  wiring in the walk reducer.
-- ❌ No community data changes (the v0.15.0
-  DID-projection bridge works against the existing
-  `community/profiles/*.toml` data shape; no new DIDs,
-  no new decoders, no new profile entries).
-- ❌ No new BMW hex descriptions.
-- ❌ No `git tag v0.15.1` (Tier C release cut,
-  separate step after all 3 slices land).
+**Premise.** Patch to ship the BMW-FAST FMT transport fix (Tier B)
++ wire the FRM coding dump into the Service Functions tab (Tier A).
 
-Slices dispatch as PRs when the work completes — no
-Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2) since the
-cycle premise was ratified by the v0.15.0 Discussion thread
-(PR #228 plan doc + community feedback).
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| BMW-FAST FMT fix PR | 🔲 Open | **B** | Transport bugfix verified on 2006 E90 330i. Code done; needs PR + human merge. |
+| FRM coding dump tests + wiring | 🔲 Open | A | `frm_coding_dump.js` exists but has no tests; wire into Service Functions tab. |
+
+## v0.17.0 — "E-Series Data Desert" (Planned)
+
+**Premise.** Expand the E-series data surface: CAN broadcast decoder
+expansion, DTC text growth, vehicle DB E-series prefixes.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| CAN broadcast decoder expansion | 🟢 Ready | A | New decoder functions for additional E9x/E6x broadcast IDs. |
+| E-series DTC text expansion | 🟢 Ready | A | N52/N54-specific DME codes, EGS, DSC entries in `dtc_texts.toml`. |
+| Vehicle DB E-series growth | 🟢 Ready | A | More E60/E90/E9x VIN prefixes in `vehicle_db.toml`. |
+
+## v0.17.1 — "UI Polish" (Planned)
+
+**Premise.** Dark mode refinements, accessibility pass, mobile CSS
+hardening.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Dark mode refinements | 🟢 Ready | A | Audit theme across all tabs; fix unstyled elements. |
+| Accessibility pass | 🟢 Ready | A | ARIA labels, keyboard navigation, focus indicators. |
+| Mobile CSS hardening | 🟢 Ready | A | Test on 320px/375px/768px; fix overflow and touch targets. |
+
+## v0.17.2 — "Snapshot v2" (Planned)
+
+**Premise.** Improve the self-contained HTML export with better
+formatting, multi-vehicle comparison, and JSON export.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| HTML template refresh | 🟢 Ready | A | Cleaner layout, better typography, responsive design. |
+| Multi-vehicle comparison | 🟢 Ready | A | Load two snapshots side-by-side; highlight differences. |
+| JSON export | 🟢 Ready | A | Machine-readable snapshot format alongside HTML. |
+
+## v0.18.0 — "Logging Enhancements" (Planned)
+
+**Premise.** Session tagging, log bookmarks, improved CSV export.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Session tagging | 🟢 Ready | A | Label sessions ("WOT pull", "highway cruise"); save in CSV header. |
+| Log bookmarks | 🟢 Ready | A | Mark points in time during logging; show as chart annotations. |
+| CSV export improvements | 🟢 Ready | A | Configurable delimiter, metadata header, channel selection. |
 
 ---

@@ -14,22 +14,23 @@
       <div class="brand-badge">◔</div>
       <div>
         <div class="brand-title">BeeEmUu</div>
-        <div class="brand-sub">Integrated Diagnostics</div>
+        <div class="brand-sub" data-i18n="brand_sub">Integrated Diagnostics</div>
       </div>
     </div>
     <div class="header-vehicle" id="vehicle-banner">
-      <span class="vehicle-label">No vehicle connected</span>
+      <span class="vehicle-label" data-i18n="no_vehicle">No vehicle connected</span>
     </div>
     <div class="header-conn">
       <select id="conn-kind">
-        <option value="sim">Simulator (virtual E90)</option>
-        <option value="kdcan">K+DCAN cable</option>
-        <option value="enet">ENET cable</option>
+        <option value="sim" data-i18n="sim">Simulator (virtual E90)</option>
+        <option value="kdcan" data-i18n="kdcan">K+DCAN cable</option>
+        <option value="enet" data-i18n="enet">ENET cable</option>
       </select>
-      <button id="btn-conn-adv" class="btn btn-small" type="button" aria-expanded="false" title="Show cable/port options">⚙ Connection</button>
-      <select id="lang-select" class="app-mode" title="Language / Sprache">
+      <button id="btn-conn-adv" class="btn btn-small" type="button" aria-expanded="false" title="Show cable/port options" data-i18n="connection">⚙ Connection</button>
+      <select id="lang-select" class="app-mode" title="Language / Sprache / Langue">
         <option value="en">English</option>
         <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
       </select>
       <span id="conn-kdcan-opts" class="conn-opts hidden">
         <select id="conn-port"></select>
@@ -41,14 +42,14 @@
       </span>
       <span id="conn-enet-opts" class="conn-opts hidden">
         <input type="text" id="conn-addr" placeholder="169.254.x.x:6801 — or Discover" size="24" />
-        <button id="btn-enet-discover" class="btn btn-small" type="button" title="DoIP broadcast discovery (UDP 13400)">Discover</button>
+        <button id="btn-enet-discover" class="btn btn-small" type="button" title="DoIP broadcast discovery (UDP 13400)" data-i18n="discover">Discover</button>
         <select id="enet-discovered" class="hidden" title="Discovered vehicles — pick one to fill the address"></select>
       </span>
-      <button id="btn-connect" class="btn btn-primary">Connect</button>
+      <button id="btn-connect" class="btn btn-primary" data-i18n="connect">Connect</button>
       <select id="app-mode" class="app-mode" title="Show more or fewer features">
-        <option value="basic">Basic</option>
-        <option value="advanced">Advanced</option>
-        <option value="developer">Developer</option>
+        <option value="basic" data-i18n="mode_basic">Basic</option>
+        <option value="advanced" data-i18n="mode_advanced">Advanced</option>
+        <option value="developer" data-i18n="mode_developer">Developer</option>
       </select>
       <button id="btn-theme" title="Toggle dark mode">🌙</button>
       <button id="btn-about" class="btn" title="About &amp; license">ⓘ</button>
@@ -57,14 +58,14 @@
 
   <!-- Tab bar -->
   <nav class="tabbar">
-    <button class="tab active" data-view="vehicle" data-mode="basic">Vehicle Test</button>
-    <button class="tab" data-view="live" data-mode="basic">Live Data</button>
-    <button class="tab" data-view="logging" data-mode="advanced">Logging</button>
-    <button class="tab" data-view="explorer" data-mode="developer">Parameter Explorer</button>
-    <button class="tab" data-view="info" data-mode="basic">Vehicle Info</button>
-    <button class="tab" data-view="service" data-mode="advanced">Service Functions</button>
-    <button class="tab" data-view="diagnostics" data-mode="advanced">Diagnostics</button>
-    <button class="tab" data-view="snapshots" data-mode="advanced">Snapshots</button>
+    <button class="tab active" data-view="vehicle" data-mode="basic" data-i18n="tab_vehicle">Vehicle Test</button>
+    <button class="tab" data-view="live" data-mode="basic" data-i18n="tab_live">Live Data</button>
+    <button class="tab" data-view="logging" data-mode="advanced" data-i18n="tab_logging">Logging</button>
+    <button class="tab" data-view="explorer" data-mode="developer" data-i18n="tab_explorer">Parameter Explorer</button>
+    <button class="tab" data-view="info" data-mode="basic" data-i18n="tab_info">Vehicle Info</button>
+    <button class="tab" data-view="service" data-mode="advanced" data-i18n="tab_service">Service Functions</button>
+    <button class="tab" data-view="diagnostics" data-mode="advanced" data-i18n="tab_diagnostics">Diagnostics</button>
+    <button class="tab" data-view="snapshots" data-mode="advanced" data-i18n="tab_snapshots">Snapshots</button>
   </nav>
 
   <main class="content">
@@ -73,8 +74,8 @@
       <div class="split">
         <aside class="panel tree-panel">
           <div class="panel-head">
-            <span>Control units</span>
-            <button id="btn-scan" class="btn btn-small">Run vehicle test</button>
+            <span data-i18n="control_units">Control units</span>
+            <button id="btn-scan" class="btn btn-small" data-i18n="run_vehicle_test">Run vehicle test</button>
           </div>
           <ul id="ecu-tree" class="ecu-tree">
             <li class="tree-empty">Connect and run a vehicle test to identify control units.</li>
@@ -82,13 +83,13 @@
         </aside>
         <div class="panel detail-panel">
           <div class="panel-head">
-            <span id="detail-title">Fault memory</span>
+            <span id="detail-title" data-i18n="fault_memory">Fault memory</span>
             <span>
-              <button id="btn-read-faults" class="btn btn-small" disabled>Read</button>
-              <button id="btn-export-faults" class="btn btn-small" disabled>Export CSV</button>
-              <button id="btn-clear-faults" class="btn btn-small btn-danger" disabled>Clear fault memory</button>
+              <button id="btn-read-faults" class="btn btn-small" disabled data-i18n="read">Read</button>
+              <button id="btn-export-faults" class="btn btn-small" disabled data-i18n="export_csv">Export CSV</button>
+              <button id="btn-clear-faults" class="btn btn-small btn-danger" disabled data-i18n="clear_faults">Clear fault memory</button>
               <label class="chk" title="Record every DTC read to ~/beeemuu-exports/dtc-history.jsonl so the recurring-DTC callout (slice 5) can show history.">
-                <input type="checkbox" id="record-dtc-history" /> Record history
+                <input type="checkbox" id="record-dtc-history" /> <span data-i18n="record_history">Record history</span>
               </label>
             </span>
           </div>
@@ -98,7 +99,7 @@
               <tr><th>Code</th><th>Description</th><th>Status</th></tr>
             </thead>
             <tbody id="fault-rows">
-              <tr><td colspan="3" class="muted">Select a control unit.</td></tr>
+              <tr><td colspan="3" class="muted" data-i18n="select_ecu">Select a control unit.</td></tr>
             </tbody>
           </table>
           <div id="fault-history-callout" class="fault-history-callout hidden">
@@ -143,7 +144,7 @@
             </div>
           </div>
           <div id="service-manual-panel" class="schematics-panel hidden">
-            <div class="schematics-head">Service manual</div>
+            <div class="schematics-head" data-i18n="service_manual">Service manual</div>
             <div id="service-manual-body" class="schematics-body"><span class="muted">Click a DTC row to see manual link.</span></div>
           </div>
         </div>
@@ -154,11 +155,11 @@
     <section id="view-live" class="view">
       <div class="panel">
         <div class="panel-head">
-          <span>Live values —
+          <span><span data-i18n="live_values">Live values —</span>
             <select id="live-profile"></select>
             <span id="live-unsupported-count" class="live-unsupported-count" hidden></span>
           </span>
-          <label class="chk"><input type="checkbox" id="live-poll" /> Poll</label>
+          <label class="chk"><input type="checkbox" id="live-poll" /> <span data-i18n="poll">Poll</span></label>
           <label class="chk" title="Polling interval. 100 ms = busy; 1000 ms = gentle on the bus.">
             <span class="muted">every</span>
             <select id="live-poll-rate" class="poll-rate-select">
@@ -168,7 +169,7 @@
               <option value="1000">1 s</option>
             </select>
           </label>
-          <button id="btn-live-snapshot" class="btn btn-small" type="button" disabled>Save snapshot</button>
+          <button id="btn-live-snapshot" class="btn btn-small" type="button" disabled data-i18n="save_snapshot">Save snapshot</button>
         </div>
         <div id="gauge-grid" class="gauge-grid"></div>
         <div id="live-peaks" class="live-peaks" hidden>
@@ -182,8 +183,8 @@
       </div>
       <div id="live-can-panel" class="panel live-can-panel">
         <div class="panel-head">
-          <span>Live Gauges <span id="live-can-status" class="live-can-status live-can-off">Off</span></span>
-          <button id="btn-live-can-toggle" class="btn btn-small" type="button" aria-pressed="false">Start CAN listener</button>
+          <span><span data-i18n="live_gauges">Live Gauges</span> <span id="live-can-status" class="live-can-status live-can-off">Off</span></span>
+          <button id="btn-live-can-toggle" class="btn btn-small" type="button" aria-pressed="false" data-i18n="start_can">Start CAN listener</button>
         </div>
         <div class="live-can-gauge-grid">
           <div class="gauge-cell"><canvas data-live-can-gauge="rpm"></canvas><div class="gauge-label">RPM</div><div class="gauge-peak" data-live-can-peak="rpm">—</div></div>
@@ -192,12 +193,6 @@
           <div class="gauge-cell"><canvas data-live-can-gauge="vehicleSpeed"></canvas><div class="gauge-label">Vehicle speed</div><div class="gauge-peak" data-live-can-peak="vehicleSpeed">—</div></div>
           <div class="gauge-cell"><canvas data-live-can-gauge="batteryVoltage"></canvas><div class="gauge-label">Battery voltage</div><div class="gauge-peak" data-live-can-peak="batteryVoltage">—</div></div>
           <div class="gauge-cell"><canvas data-live-can-gauge="throttle"></canvas><div class="gauge-label">Throttle</div><div class="gauge-peak" data-live-can-peak="throttle">—</div></div>
-          <div class="gauge-cell"><canvas data-live-can-gauge="rpm"></canvas><div class="gauge-label">RPM</div></div>
-          <div class="gauge-cell"><canvas data-live-can-gauge="coolant"></canvas><div class="gauge-label">Coolant</div></div>
-          <div class="gauge-cell"><canvas data-live-can-gauge="oilTemp"></canvas><div class="gauge-label">Oil temp</div></div>
-          <div class="gauge-cell"><canvas data-live-can-gauge="vehicleSpeed"></canvas><div class="gauge-label">Vehicle speed</div></div>
-          <div class="gauge-cell"><canvas data-live-can-gauge="batteryVoltage"></canvas><div class="gauge-label">Battery voltage</div></div>
-          <div class="gauge-cell"><canvas data-live-can-gauge="throttle"></canvas><div class="gauge-label">Throttle</div></div>
         </div>
       </div>
     </section>
@@ -206,26 +201,39 @@
     <section id="view-logging" class="view">
       <div class="panel">
         <div class="panel-head">
-          <span>Data logging —
+          <span><span data-i18n="data_logging">Data logging —</span>
             <select id="log-profile"></select>
           </span>
           <span>
-            <button id="btn-log-start" class="btn btn-small btn-primary">Start recording</button>
-            <button id="btn-log-export" class="btn btn-small" disabled>Export CSV</button>
-            <button id="btn-log-share" class="btn btn-small" disabled title="Share log via beemuu.com — anyone with link can view">Share log</button>
+            <button id="btn-log-start" class="btn btn-small btn-primary" data-i18n="start_recording">Start recording</button>
+            <button id="btn-log-bookmark" class="btn btn-small" disabled title="Bookmark the current log time">Bookmark</button>
+            <label title="A short label saved with this recording and included in CSV exports">
+              Session tag
+              <input id="log-session-tag" type="text" maxlength="80" placeholder="e.g. cold start" />
+            </label>
+            <button id="btn-log-export" class="btn btn-small" disabled data-i18n="export_csv">Export CSV</button>
+            <button id="btn-log-share" class="btn btn-small" disabled title="Share log via beemuu.com — anyone with link can view" data-i18n="share_log">Share log</button>
             <label class="log-export-units-label" title="Add a second header row with units (rpm, °C, ...) so the CSV is readable in Excel">
               <input type="checkbox" id="log-export-units" />
-              Include units row
+              <span data-i18n="include_units">Include units row</span>
             </label>
-            <button id="btn-log-export-png" class="btn btn-small" disabled>Export PNG</button>
-            <button id="btn-log-export-svg" class="btn btn-small" disabled>Export SVG</button>
-            <button id="btn-log-histogram" class="btn btn-small" disabled>Histogram</button>
-            <button id="btn-log-diff" class="btn btn-small" disabled>Compare logs</button>
-            <button id="btn-log-clear" class="btn btn-small" disabled>Clear</button>
+            <label title="Choose the separator used in exported CSV files">
+              Delimiter
+              <select id="log-export-delimiter"><option value=",">Comma</option><option value=";">Semicolon</option></select>
+            </label>
+            <label title="Only export channels selected in the Logging panel">
+              <input type="checkbox" id="log-export-selected" checked />
+              Selected channels only
+            </label>
+            <button id="btn-log-export-png" class="btn btn-small" disabled data-i18n="export_png">Export PNG</button>
+            <button id="btn-log-export-svg" class="btn btn-small" disabled data-i18n="export_svg">Export SVG</button>
+            <button id="btn-log-histogram" class="btn btn-small" disabled data-i18n="histogram">Histogram</button>
+            <button id="btn-log-diff" class="btn btn-small" disabled data-i18n="compare_logs">Compare logs</button>
+            <button id="btn-log-clear" class="btn btn-small" disabled data-i18n="clear">Clear</button>
             <input type="file" id="log-load-file" accept=".csv,text/csv" class="hidden" />
             <input type="file" id="log-import-external-file" accept=".csv,text/csv" class="hidden" />
-            <button id="btn-log-load" class="btn btn-small">Load session</button>
-            <button id="btn-log-import-external" class="btn btn-small" title="Import Bootmod3/MHD CSV (read-only, reuses histogram/diff)">Import external log</button>
+            <button id="btn-log-load" class="btn btn-small" data-i18n="load_session">Load session</button>
+            <button id="btn-log-import-external" class="btn btn-small" title="Import Bootmod3/MHD CSV (read-only, reuses histogram/diff)" data-i18n="import_external">Import external log</button>
             <button id="btn-log-replay" class="btn btn-small hidden">Replay</button>
             <select id="log-replay-speed" class="hidden">
               <option value="1">1×</option>
@@ -239,6 +247,10 @@
           <span>Saved session found (<span id="log-restore-time"></span>)</span>
           <button id="btn-log-restore" class="btn btn-small">Restore</button>
           <button id="btn-log-restore-dismiss" class="btn btn-small">Dismiss</button>
+        </div>
+        <div id="log-saved-sessions" class="hidden" style="padding:7px 10px; border-bottom:1px solid var(--border)">
+          <span class="muted">Saved sessions</span>
+          <ul id="log-saved-session-list" style="display:flex; flex-wrap:wrap; gap:6px; margin:5px 0 0; padding:0; list-style:none"></ul>
         </div>
         <div id="trigger-panel" class="panel" style="padding:8px 10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border);">
           <span class="muted" style="font-weight:600">Trigger:</span>
@@ -275,11 +287,11 @@
               <input type="range" id="log-scrubber" min="0" max="0" step="0.1" value="0" disabled />
               <button id="btn-log-step-forward" class="btn btn-small" title="Step forward 1s (→)">→</button>
               <span id="log-time" class="log-time">0:00.0 / 0:00.0</span>
-              <button id="btn-log-clear-markers" class="btn btn-small" disabled>Clear markers</button>
+              <button id="btn-log-clear-markers" class="btn btn-small" disabled>Clear bookmarks</button>
               <button id="btn-log-clear-session" class="btn btn-small">Clear session</button>
             </div>
             <div class="log-markers" id="log-markers">
-              <div class="log-markers-head">Markers <span class="muted">(double-click chart to add)</span></div>
+              <div class="log-markers-head">Bookmarks <span class="muted">(double-click chart or use Bookmark)</span></div>
               <ul id="log-marker-list" class="log-marker-list"></ul>
             </div>
             <div class="log-shortcuts muted">
@@ -294,15 +306,15 @@
     <section id="view-info" class="view">
       <div class="panel">
         <div class="panel-head">
-          <span>Vehicle information</span>
+          <span data-i18n="vehicle_information">Vehicle information</span>
           <span class="share-export">
-            <button id="btn-info-share" class="btn btn-small btn-primary" type="button" aria-expanded="false">Share / Export ▾</button>
+            <button id="btn-info-share" class="btn btn-small btn-primary" type="button" aria-expanded="false" data-i18n="share_export">Share / Export ▾</button>
             <span id="info-share-menu" class="share-menu hidden">
-              <button class="share-item" data-action="read">Read vehicle</button>
-              <button class="share-item" data-action="report">Export report</button>
+              <button class="share-item" data-action="read" data-i18n="read_vehicle">Read vehicle</button>
+              <button class="share-item" data-action="report" data-i18n="export_report">Export report</button>
               <button class="share-item" data-action="print-health">Print vehicle health report</button>
               <button class="share-item" data-action="print-history">Service history / print</button>
-              <button class="share-item" data-action="snapshot">Export snapshot</button>
+              <button class="share-item" data-action="snapshot" data-i18n="export_snapshot">Export snapshot</button>
               <button class="share-item" data-action="secure">🔒 Secure share</button>
               <button class="share-item" data-action="story">Generate story</button>
             </span>
@@ -711,8 +723,10 @@
   <script src="js/log_import_bootmod3.js"></script>
   <script src="js/log_share.js"></script>
   <script src="js/service_manual.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/log_diff.js"></script>
   <script src="js/testplan_walk.js"></script>
+  <script src="js/walk_freeze_lookup.js"></script>
   <script src="js/live_format.js"></script>
   <script src="js/workspace.js"></script>
   <script src="js/vehicle_db.js"></script>
