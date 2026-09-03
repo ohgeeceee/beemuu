@@ -206,11 +206,24 @@
           </span>
           <span>
             <button id="btn-log-start" class="btn btn-small btn-primary" data-i18n="start_recording">Start recording</button>
+            <button id="btn-log-bookmark" class="btn btn-small" disabled title="Bookmark the current log time">Bookmark</button>
+            <label title="A short label saved with this recording and included in CSV exports">
+              Session tag
+              <input id="log-session-tag" type="text" maxlength="80" placeholder="e.g. cold start" />
+            </label>
             <button id="btn-log-export" class="btn btn-small" disabled data-i18n="export_csv">Export CSV</button>
             <button id="btn-log-share" class="btn btn-small" disabled title="Share log via beemuu.com — anyone with link can view" data-i18n="share_log">Share log</button>
             <label class="log-export-units-label" title="Add a second header row with units (rpm, °C, ...) so the CSV is readable in Excel">
               <input type="checkbox" id="log-export-units" />
               <span data-i18n="include_units">Include units row</span>
+            </label>
+            <label title="Choose the separator used in exported CSV files">
+              Delimiter
+              <select id="log-export-delimiter"><option value=",">Comma</option><option value=";">Semicolon</option></select>
+            </label>
+            <label title="Only export channels selected in the Logging panel">
+              <input type="checkbox" id="log-export-selected" checked />
+              Selected channels only
             </label>
             <button id="btn-log-export-png" class="btn btn-small" disabled data-i18n="export_png">Export PNG</button>
             <button id="btn-log-export-svg" class="btn btn-small" disabled data-i18n="export_svg">Export SVG</button>
@@ -234,6 +247,10 @@
           <span>Saved session found (<span id="log-restore-time"></span>)</span>
           <button id="btn-log-restore" class="btn btn-small">Restore</button>
           <button id="btn-log-restore-dismiss" class="btn btn-small">Dismiss</button>
+        </div>
+        <div id="log-saved-sessions" class="hidden" style="padding:7px 10px; border-bottom:1px solid var(--border)">
+          <span class="muted">Saved sessions</span>
+          <ul id="log-saved-session-list" style="display:flex; flex-wrap:wrap; gap:6px; margin:5px 0 0; padding:0; list-style:none"></ul>
         </div>
         <div id="trigger-panel" class="panel" style="padding:8px 10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border);">
           <span class="muted" style="font-weight:600">Trigger:</span>
@@ -270,11 +287,11 @@
               <input type="range" id="log-scrubber" min="0" max="0" step="0.1" value="0" disabled />
               <button id="btn-log-step-forward" class="btn btn-small" title="Step forward 1s (→)">→</button>
               <span id="log-time" class="log-time">0:00.0 / 0:00.0</span>
-              <button id="btn-log-clear-markers" class="btn btn-small" disabled>Clear markers</button>
+              <button id="btn-log-clear-markers" class="btn btn-small" disabled>Clear bookmarks</button>
               <button id="btn-log-clear-session" class="btn btn-small">Clear session</button>
             </div>
             <div class="log-markers" id="log-markers">
-              <div class="log-markers-head">Markers <span class="muted">(double-click chart to add)</span></div>
+              <div class="log-markers-head">Bookmarks <span class="muted">(double-click chart or use Bookmark)</span></div>
               <ul id="log-marker-list" class="log-marker-list"></ul>
             </div>
             <div class="log-shortcuts muted">

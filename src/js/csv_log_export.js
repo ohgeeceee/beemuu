@@ -30,7 +30,7 @@
  *   `main.js` writes to the chart. Output rows are aligned across all
  *   series by index, assuming (as `main.js` does) that every enabled
  *   series has the same number of points.
- * @param {{withUnits?: boolean, liveFormat?: {csvCell?: (point: any) => string}}} [opts]
+ * @param {{withUnits?: boolean, delimiter?: ","|";", selectedOnly?: boolean, sessionTag?: string, bookmarks?: Array<{time: number, label?: string}>, metadata?: {vin?: string, profile?: string, recordedAt?: string|number}, liveFormat?: {csvCell?: (point: any) => string}}} [opts]
  *   - `withUnits` (default false): when true, emit a second header
  *     line whose cells are the per-series unit, repeated twice per
  *     series to mirror the two-cell emission pattern below. The
@@ -40,11 +40,21 @@
  *     Defaults to a thin inline formatter that matches the existing
  *     behaviour when no helper is passed — callers that have the
  *     shared `window.LiveFormat` available should pass it.
+ *   - `sessionTag`: when non-empty, prepend a comment-style metadata
+ *     header that keeps the existing column header intact for CSV tools.
+ *   - `bookmarks`: append comment-style timestamp annotations before
+ *     the column header so exported traces retain investigation context.
+ *   - `delimiter`: comma (default) or semicolon for spreadsheet locales.
+ *   - `selectedOnly`: when true, exclude disabled logging series.
+ *   - `metadata`: optional VIN, profile, and recording timestamp fields.
  * @returns {string|null} CSV text, or null if no enabled series had data.
  */
 function buildLogCsv(entries, opts) {
-  const enabled = (entries || []).filter(([, s]) => s && typeof s.getAllData === "function" && s.getAllData().length > 0);
+  const selectedOnly = !!(opts && opts.selectedOnly);
+  const enabled = (entries || []).filter(([, s]) => s && typeof s.getAllData === "function" && s.getAllData().length > 0 && (!selectedOnly || s.enabled));
   if (!enabled.length) return null;
+
+  const delimiter = opts && opts.delimiter === ";" ? ";" : ",";
 
   const liveFormat = (opts && opts.liveFormat) || {};
   const csvCell = (typeof liveFormat.csvCell === "function")
@@ -59,12 +69,40 @@ function buildLogCsv(entries, opts) {
   // per series (numeric `y` and `LiveFormat.csvCell(point)`), which
   // matches the on-disk format in `beeemuu-log-2026-07-06T20-37-19.csv`.
   // The pre-extraction code in `main.js` did the same.
-  let csv = "time_s," + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(",") + "\n";
+  const sessionTag = String((opts && opts.sessionTag) || "").replace(/[\r\n]+/g, " ").trim();
+  const metadata = (opts && opts.metadata) || {};
+  const metadataFields = [];
+  if (sessionTag) metadataFields.push(`session_tag=${JSON.stringify(sessionTag)}`);
+  for (const [name, value] of [["vin", metadata.vin], ["profile", metadata.profile]]) {
+    const normalized = String(value || "").replace(/[\r\n]+/g, " ").trim();
+    if (normalized) metadataFields.push(`${name}=${JSON.stringify(normalized)}`);
+  }
+  if (metadata.recordedAt) {
+    let recordedAt = "";
+    if (typeof metadata.recordedAt === "number") {
+      const date = new Date(metadata.recordedAt);
+      recordedAt = Number.isFinite(date.getTime()) ? date.toISOString() : "";
+    } else {
+      recordedAt = String(metadata.recordedAt).replace(/[\r\n]+/g, " ").trim();
+    }
+    if (recordedAt && recordedAt !== "Invalid Date") metadataFields.push(`recorded_at=${JSON.stringify(recordedAt)}`);
+  }
+  const bookmarks = Array.isArray(opts && opts.bookmarks)
+    ? opts.bookmarks.filter((bookmark) => bookmark && Number.isFinite(bookmark.time))
+      .sort((a, b) => a.time - b.time)
+    : [];
+  let csv = metadataFields.length ? `# beemuu log v1 ${metadataFields.join(" ")}\n` : "";
+  if (bookmarks.length && !metadataFields.length) csv += "# beemuu log v1\n";
+  for (const bookmark of bookmarks) {
+    const label = String(bookmark.label || "Bookmark").replace(/[\r\n]+/g, " ").trim() || "Bookmark";
+    csv += `# bookmark time_s=${bookmark.time.toFixed(2)} label=${JSON.stringify(label)}\n`;
+  }
+  csv += "time_s" + delimiter + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(delimiter) + "\n";
   // Optional units row: "units" + 1 cell per series (unit). Two-cell
   // pairing with the data row is preserved by aligning the data row's
   // second cell with the same series's unit.
   if (opts && opts.withUnits) {
-    csv += "units," + enabled.map(([, s]) => s.unit).join(",") + "\n";
+    csv += "units" + delimiter + enabled.map(([, s]) => s.unit).join(delimiter) + "\n";
   }
   for (let i = 0; i < rows; i++) {
     const t = allData[i] && allData[i].x;
@@ -79,7 +117,7 @@ function buildLogCsv(entries, opts) {
       // including its `"NaN"` emission for non-finite `y` — preserved
       // here on purpose so the wire format is byte-identical to what
       // `main.js` ships today.
-      row += "," + (p
+      row += delimiter + (p
         ? (p.text !== undefined && p.text !== null
             ? JSON.stringify(p.text)
             : (p.y ?? "").toFixed(2))
@@ -87,7 +125,7 @@ function buildLogCsv(entries, opts) {
       // Second cell: the LiveFormat-shaped cell (the human label /
       // enum-string cell). Kept identical to the pre-extraction
       // behaviour via the helper.
-      row += "," + csvCell(p);
+      row += delimiter + csvCell(p);
     }
     csv += row + "\n";
   }
