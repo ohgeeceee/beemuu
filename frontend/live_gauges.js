@@ -38,15 +38,12 @@
       { id: 0x130, data: [speedRaw, 0, 0, 0, 0, 0, 0, 0] },
       { id: 0x545, data: [0, Math.round(oilC + 48), 0, 0, 0, 0, 0, 0] },
       { id: 0x316, data: [batteryRaw, 0, 0, 0, 0, 0, 0, 0] },
-      // v0.17.0 additional decoders (best-effort; not core gauges).
-      // Kept byte-identical to src/js/live_can_source.js::framesAt so
-      // the parity test in frontend/live_gauges.test.js holds. The
-      // public site's DECODERS below intentionally does not decode
-      // these — the landing page only renders the six core gauges.
-      { id: 0x3B4, data: [0, 3, 0, 0, 0, 0, 0, 0] }, // gear ~ D3
-      { id: 0x0D0, data: [0, 100, 0, 0, 0, 0, 0, 0] }, // torque ~50 Nm
-      { id: 0x1B4, data: [0, 0, 0, 0, 0, 0, 0, 0] }, // steering 0
-      { id: 0x0C0, data: [0, 0, 0, 0, 0, 0, 0, 0] }, // brake 0
+      // v0.17.0 additions. They are not rendered as public-site gauges,
+      // but keeping the simulator frame-complete preserves desktop parity.
+      { id: 0x3B4, data: [0, 3, 0, 0, 0, 0, 0, 0] },
+      { id: 0x0D0, data: [0, 100, 0, 0, 0, 0, 0, 0] },
+      { id: 0x1B4, data: [0, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x0C0, data: [0, 0, 0, 0, 0, 0, 0, 0] },
     ];
   }
 

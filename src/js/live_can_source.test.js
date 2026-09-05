@@ -14,9 +14,9 @@ const decoders = require("./can_decoders.js");
 
 test("framesAt: t=0 produces the expected core + v0.17.0 additional frames", () => {
   const frames = src.framesAt(0, 50);
-  assert.equal(frames.length, 10);
-  const ids = frames.map((f) => f.id);
-  assert.deepEqual(ids, [0x0AA, 0x0CE, 0x1D0, 0x130, 0x545, 0x316, 0x3B4, 0x0D0, 0x1B4, 0x0C0]);
+  assert.equal(frames.length, 25);
+  const ids = frames.map(f => f.id);
+  assert.deepEqual(ids, [0x0AA, 0x0CE, 0x1D0, 0x130, 0x545, 0x316, 0x3B4, 0x0D0, 0x1B4, 0x0C0, 0x2C4, 0x1A0, 0x3B8, 0x0F4, 0x1D1, 0x2D0, 0x3E0, 0x2C0, 0x0D1, 0x3D0, 0x2C2, 0x1D2, 0x0B4, 0x3A0, 0x2D1]);
   // 0x0AA: rpm ≈ 750 → 750 * 4 = 3000 = 0x0BB8, throttle ~ 12 / 0.3922 ≈ 31
   assert.equal(frames[0].data[0], 0x0B);
   assert.equal(frames[0].data[1], 0xB8);
@@ -239,5 +239,5 @@ test("module.exports includes the documented API surface", () => {
     const t = typeof src[key];
     assert.ok(t === "function" || t === "object", `missing or wrong-typed ${key} (got ${t})`);
   }
-  assert.deepEqual(src.KNOWN_GAUGE_KEYS, ["rpm", "coolant", "oilTemp", "vehicleSpeed", "batteryVoltage", "throttle", "gear", "torque", "steering", "brake"]);
+  assert.deepEqual(src.KNOWN_GAUGE_KEYS, ["rpm", "coolant", "oilTemp", "vehicleSpeed", "batteryVoltage", "throttle", "gear", "torque", "steering", "brake", "intakeTemp", "load", "cruiseActive", "map_kPa", "oilPress_bar", "extTemp", "iat", "map", "torqueNm", "acOn", "fan", "coolant2", "amb", "absActive", "acRequested", "blower", "oilTemp2", "fuelLevel", "lambda"]);
 });

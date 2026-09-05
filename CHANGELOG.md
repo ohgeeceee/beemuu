@@ -7,31 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — Tier B (K+DCAN transport)
+### Added — Tier A (analysis & clarity, v0.19 work)
 
-- **BMW-FAST FMT on K+DCAN** (Tier B): `build_frame` was sending a raw
-  length byte (`0x05` for `1A 80`) instead of BMW-FAST
-  `FMT = 0x80 | payload_len` (`0x82`). Real E90 D-CAN modules ignored
-  those frames; the FTDI still echoed TX, so Traffic showed
-  `Malformed frame: short` after the full 1 s / 3 s deadline. The
-  same adapter worked in an Android K+DCAN app. Read-path length
-  decode now accepts BMW-FAST, extended, and the legacy Beemuu
-  prefix. Unit tests pin the on-wire shape. Verified 2026-08-28 on a
-  2006 E90 330i (DME answered in ~15 ms; vehicle test found 9
-  control units).
-### Planned — Tier A (read-only research, not a v0.15.1 slice)
-
-- **E90 FRM coding dump** (Tier A): a read-only card on the Service
-  Functions tab that identifies FRM (`0x72`, KWP `1A 80`) and
-  exports a local-ID + DID probe to `~/beeemuu-exports/`. Mirror-fold
-  state is always **Unknown** — no bit map and no ECU write
-  (`write_did` / `0x3B` / `set_coding_parameter` are not added).
-  Reuses existing `scan_modules`, `probe_range`, `read_vehicle_info`,
-  and `export_text`. Harness:
-  [`docs/validation/coding-mirror-fold.md`](docs/validation/coding-mirror-fold.md).
-  To change automatic mirror folding on the car, use NCS Expert.
-  Community overlay texts for FRM `9CC1` / `9CCD` / `9CCE` /
-  `9CD0` (observed on that E90; `9CCC` and `E58B` stay unknown).
+- Snapshot comparison improvements: `renderCompareHtml` + visual diff table in UI; better support for current JSON snapshots; initial log tags/bookmarks restore on snapshot load.
+- +7 CAN broadcast decoders (intake, load, cruise, fuel rail, MAP, oil pressure, ext temp) with tests + simulator + gauges exposure.
+- Enhanced health report with richer freeze-frame snippets (up to 5 + count) and optional snapshot source note.
+- Beginner first-scan guide + fault summary rendering polish (tone classes).
+- +5 E-series DTCs + 3 more VIN prefixes in community data.
+- A11y sweep: more ARIA labels, roles (switch, region, atomic), on theme, guides, forms.
+- Log interoperability: native Beemuu CSV import now parses/restores sessionTag + bookmarks; snapshot load fully restores log data + UI.
+- More CAN decoders + data expansions (DTCs, VINs).
+- Report freeze-frame now includes units and more context.
+- Guides polish: first-scan + beginner summary now styled with icons and better layout.
+- Snapshot compare: nicer table output + CSS.
+- Additional CAN + a11y + mobile tweaks.
+- Snapshot library multi-select for compare (Left/Right on cards).
+- More decoders, DTCs, roundtrip test for log CSV.
+- Full native Beemuu CSV import restore (tags, bookmarks, series) for log replay.
+- Health report header/summary now shows snapshot source.
+- Additional ARIA and mobile polish for snapshots, reports, cards.
+- Dedicated native Beemuu CSV parser (`log_import_beemuu.js`) with full restore + 3 tests.
+- Recurring DTC section stub in health reports (accepts data from history).
+- 2 more CAN decoders (fuelLevel, lambda) + KNOWN_GAUGE_KEYS + tests.
+- Expanded community data: +5 DTCs in dtc_texts.toml, +5 VIN prefixes in vehicle_db.toml.
+- A11y: role=list on snapshot library, aria-labels on compare buttons, tables in reports/compare.
+- Mobile: tighter CSS for reports, log scrubber, snapshot cards.
+- Log replay now refreshes scrubber, marker list, buttons, chart markers on native CSV import + snapshot log restore.
+- Recurring callouts wired into print health report (live lastDtcs + fallback).
+- Snapshot compare log section upgraded to diff table.
+- +6 more DTCs + 2 profiles in community data.
+- A11y on log scrub/play/step controls and marker list.
+- Mobile hardening for log replay + compare.
+- Test for recurring section in reports.
 
 ## [0.14.0] — 2026-07-25
 
@@ -397,6 +404,52 @@ and tested (88 tests pass).
 - ❌ No `commands.rs` changes.
 - ❌ No new crates in `src-tauri/Cargo.toml`.
 - ❌ No ECU write routines, flashing, or SecurityAccess changes.
+
+## [0.16.1] — 2026-09-03
+
+### Fixed — Tier B (K+DCAN transport)
+
+- **BMW-FAST FMT on K+DCAN** (Tier B): `build_frame` was sending a raw
+  length byte (`0x05` for `1A 80`) instead of BMW-FAST
+  `FMT = 0x80 | payload_len` (`0x82`). Real E90 D-CAN modules ignored
+  those frames; the FTDI still echoed TX, so Traffic showed
+  `Malformed frame: short` after the full 1 s / 3 s deadline. The
+  same adapter worked in an Android K+DCAN app. Read-path length
+  decode now accepts BMW-FAST, extended, and the legacy Beemuu
+  prefix. Unit tests pin the on-wire shape. Verified 2026-08-28 on a
+  2006 E90 330i (DME answered in ~15 ms; vehicle test found 9
+  control units). Code + tests complete; requires human merge PR (Tier B).
+
+### Added — Tier A (read-only research)
+
+- **E90 FRM coding dump** (Tier A): a read-only card on the Service
+  Functions tab that identifies FRM (`0x72`, KWP `1A 80`) and
+  exports a local-ID + DID probe to `~/beeemuu-exports/`. Mirror-fold
+  state is always **Unknown** — no bit map and no ECU write
+  (`write_did` / `0x3B` / `set_coding_parameter` are not added).
+  Reuses existing `scan_modules`, `probe_range`, `read_vehicle_info`,
+  and `export_text`. Harness:
+  [`docs/validation/coding-mirror-fold.md`](docs/validation/coding-mirror-fold.md).
+  To change automatic mirror folding on the car, use NCS Expert.
+  Community overlay texts for FRM `9CC1` / `9CCD` / `9CCE` /
+  `9CD0` (observed on that E90; `9CCC` and `E58B` stay unknown).
+  21 unit tests added; fully wired in Service Functions tab + export.
+
+## [0.17.0] — 2026-09-03
+
+### Added — Tier A (E-series data)
+
+- **CAN broadcast decoder expansion** (Tier A): 4 new IDs in `src/js/can_decoders.js` + tests (0x3B4 gear from EGS, 0x0D0 engine torque from DME, 0x1B4 steering angle/yaw from DSC, 0x0C0 brake pressure). Decoders return objects. Wired into `live_can_source.js` simulator (emits frames), exposed via `KNOWN_GAUGE_KEYS`, and surfaced in gauges / live data. 123 tests pass.
+- **E-series DTC text expansion** (`community/dtc_texts.toml`, Tier A): +24 codes for N52/N54 (VANOS, Valvetronic), EGS, DSC, fuel system, misfire, body modules (FRM etc).
+- **Vehicle DB E-series growth** (`community/vehicle_db.toml`, Tier A): +20 VIN prefixes for E90/E60/E70/E82/E89 (N52/N54 etc) with build-sheet options. `lookupVin` longest-prefix match.
+
+## [0.18.0] — 2026-09-03
+
+### Added — Tier A (logging)
+
+- **Session tagging**: input in Logging tab; tag saved to CSV header (`session_tag=...`) and shown in loaded session list.
+- **Log bookmarks**: "Bookmark" button during recording; markers shown as verticals on chart and as `# bookmark time_s=...` lines in CSV.
+- **CSV export improvements**: selectable delimiter (comma/semicolon), metadata header (VIN, profile, recorded_at, tag), option to export only selected channels.
 
 ## [0.15.9] - 2026-08-30
 
