@@ -15,30 +15,26 @@ const desktop = require("../src/js/live_can_source.js");
 
 const VEHICLE_SPEED = 50;
 
-test("public-site simulator matches desktop app simulator at t=0", () => {
-  const a = publicSite.framesAt(0, VEHICLE_SPEED);
-  const b = desktop.framesAt(0, VEHICLE_SPEED);
+function assertSimulatorParity(tMs) {
+  const a = publicSite.framesAt(tMs, VEHICLE_SPEED);
+  const b = desktop.framesAt(tMs, VEHICLE_SPEED);
   assert.equal(a.length, b.length, "frame count mismatch");
   for (let i = 0; i < a.length; i++) {
     assert.equal(a[i].id, b[i].id, `frame ${i} id mismatch`);
-    assert.deepEqual(a[i].data, b[i].data, `frame ${i} (0x${a[i].id.toString(16)}) data mismatch`);
+    assert.deepEqual(a[i].data, b[i].data, `frame ${i} (0x${a[i].id.toString(16)}) data mismatch at t=${tMs}`);
   }
+}
+
+test("public-site simulator matches desktop app simulator at t=0", () => {
+  assertSimulatorParity(0);
 });
 
 test("public-site simulator matches desktop app simulator at t=10000", () => {
-  const a = publicSite.framesAt(10_000, VEHICLE_SPEED);
-  const b = desktop.framesAt(10_000, VEHICLE_SPEED);
-  for (let i = 0; i < a.length; i++) {
-    assert.deepEqual(a[i].data, b[i].data, `frame ${i} (0x${a[i].id.toString(16)}) data mismatch at t=10000`);
-  }
+  assertSimulatorParity(10_000);
 });
 
 test("public-site simulator matches desktop app simulator at t=30000 (steady-state)", () => {
-  const a = publicSite.framesAt(30_000, VEHICLE_SPEED);
-  const b = desktop.framesAt(30_000, VEHICLE_SPEED);
-  for (let i = 0; i < a.length; i++) {
-    assert.deepEqual(a[i].data, b[i].data, `frame ${i} (0x${a[i].id.toString(16)}) data mismatch at t=30000`);
-  }
+  assertSimulatorParity(30_000);
 });
 
 test("public-site decoder mirrors desktop app decoder via shared scale constants", () => {

@@ -88,3 +88,19 @@ test("decodeBrakePressure from 0x0C0 (v0.17.0)", () => {
   const frame = [0x00, 0xC8, 0,0,0,0,0,0]; // 200 * 0.1 = 20
   assert.equal(dec.decodeBrakePressure(frame).brake, 20);
 });
+
+test("v0.19 additional decoders (intake, load, cruise, fuel rail + more)", () => {
+  assert.equal(dec.decodeFor(0x2C4, [0, 80]).intakeTemp, 40);
+  assert.ok(Math.abs(dec.decodeFor(0x1A0, [0,0,180]).load - 70.6) < 1);
+  assert.equal(dec.decodeFor(0x3B8, [0x08]).cruiseActive, true);
+  assert.ok(dec.decodeFor(0x0F4, [0x12, 0x34]).fuelRail_kPa > 46000);
+  assert.equal(dec.decodeFor(0x1D1, [0x01, 0x90]).map_kPa, 40);
+  assert.equal(dec.decodeFor(0x3E0, [0x2D]).extTemp, 5);
+  assert.ok(dec.decodeFor(0x2C0, [0,70,1,0x90]).iat !== undefined);
+  assert.ok(dec.decodeFor(0x0D1, [0x64]).torqueNm > 0);
+  assert.equal(dec.decodeFor(0x3D0, [1]).acOn, true);
+  assert.equal(dec.decodeFor(0x2C2, [0x60]).coolant2, 48);
+  assert.equal(dec.decodeFor(0x0B4, [4]).absActive, true);
+  assert.equal(dec.decodeFor(0x3A0, [0x80]).acRequested, true);
+  assert.equal(dec.decodeFor(0x2D1, [0x50]).oilTemp2, 32);
+});

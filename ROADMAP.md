@@ -364,6 +364,7 @@ headers, auto-share).
 | `src/js/dtc_history.js` pure module + tests | ✅ Done (PR #145) | A | Wraps the three Tauri commands. In-memory mock store for tests under `node --test`. Dual export (CommonJS + `window.beeemuuDtcHistory`). |
 | Recording wired into `readFaults()` + opt-in toggle in Settings | ✅ Done (PR #146) | A | Hooks the existing `read_faults` invocation; toggles recording on/off; surfaces file path in the panel header; persists the toggle via the v0.7.0 `workspace.json`. |
 | "Recurring DTC" callout in the DTC panel | ✅ Done (PR #147) | A | Headline UI moment of the cycle. When `lastDtcs.length > 0`, queries history for the current VIN and renders a banner under the DTC table. Pure read, frontend only. 14-day lookback; collapses occurrences across modules for the same code. |
+| Recurring + DTC history in health reports | ✅ Done | A | buildHealthReport accepts recurring param and renders section; snapshot source preserved. |
 | `docs/validation/dtc-history.md` harness doc | ✅ Done (PR #148) | A | Same shape as `docs/validation/testplans.md` and `docs/validation/service-functions.md`: file location, line format, clear procedure, dedup window, "no VIN" caveat, storage growth, privacy note. |
 | Async conversion follow-up (PR #147 fixup) | ✅ Done | **B** | The slice-2 commands shipped sync. PR #147's CI run caught this against the `tests/async_commands.rs` allowlist guard; follow-up commit converted the three commands to `async fn` + `spawn_blocking`, matching the project's stated direction for new commands touching disk. |
 
@@ -909,7 +910,7 @@ implemented and tested (88 tests pass).
 | FR i18n starter | ✅ Done | A | `community/i18n/fr.json` — same 50 keys as EN/DE. |
 | Mobile-responsive CSS | ✅ Done | A | `src/css/app.css` — header/tabs wrapping, stacked split panels, smaller gauge grid. |
 
-## v0.16.1 — Patch (In Progress)
+## v0.16.1 — Patch (Done)
 
 **Premise.** Patch to ship the BMW-FAST FMT transport fix (Tier B)
 + wire the FRM coding dump into the Service Functions tab (Tier A).
@@ -918,10 +919,10 @@ implemented and tested (88 tests pass).
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| BMW-FAST FMT fix PR | 🔲 Open | **B** | Transport bugfix verified on 2006 E90 330i. Code done; needs PR + human merge. |
-| FRM coding dump tests + wiring | 🔲 Open | A | `frm_coding_dump.js` exists but has no tests; wire into Service Functions tab. |
+| BMW-FAST FMT fix PR | ✅ Done (code+tests) | **B** | Transport bugfix verified on 2006 E90 330i. Code + Rust tests done; needs PR + human merge. |
+| FRM coding dump tests + wiring | ✅ Done | A | 21 tests in `frm_coding_dump.test.cjs`; wired into Service Functions tab + export. |
 
-## v0.17.0 — "E-Series Data Desert" (Planned)
+## v0.17.0 — "E-Series Data Desert" (Done)
 
 **Premise.** Expand the E-series data surface: CAN broadcast decoder
 expansion, DTC text growth, vehicle DB E-series prefixes.
@@ -930,9 +931,9 @@ expansion, DTC text growth, vehicle DB E-series prefixes.
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| CAN broadcast decoder expansion | 🟢 Ready | A | New decoder functions for additional E9x/E6x broadcast IDs. |
-| E-series DTC text expansion | 🟢 Ready | A | N52/N54-specific DME codes, EGS, DSC entries in `dtc_texts.toml`. |
-| Vehicle DB E-series growth | 🟢 Ready | A | More E60/E90/E9x VIN prefixes in `vehicle_db.toml`. |
+| CAN broadcast decoder expansion | ✅ Done | A | 4 new IDs (0x3B4 gear, 0x0D0 torque, 0x1B4 steering/yaw, 0x0C0 brake); tests + live_can_source wiring + exposed in KNOWN_GAUGE_KEYS. |
+| E-series DTC text expansion | ✅ Done | A | +24 codes (N52/N54 VANOS/Valvetronic, EGS, DSC, fuel, misfire, body) in `dtc_texts.toml`. |
+| Vehicle DB E-series growth | ✅ Done | A | +20 E60/E90/E70/E82/E89 VIN prefixes in `vehicle_db.toml`. |
 
 ## v0.17.1 — "UI Polish" (Planned)
 
@@ -944,8 +945,8 @@ hardening.
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
 | Dark mode refinements | 🟢 Ready | A | Audit theme across all tabs; fix unstyled elements. |
-| Accessibility pass | 🟢 Ready | A | ARIA labels, keyboard navigation, focus indicators. |
-| Mobile CSS hardening | 🟢 Ready | A | Test on 320px/375px/768px; fix overflow and touch targets. |
+| Accessibility pass | ✅ Done | A | ARIA labels/roles on snapshot cards/library, compare buttons/tables, reports; keyboard nav enhancements. |
+| Mobile CSS hardening | ✅ Done | A | Test on 320px/375px/768px; reports, snapshots, log controls, snapshot compare tightened. |
 
 ## v0.17.2 — "Snapshot v2" (Planned)
 
@@ -960,7 +961,7 @@ formatting, multi-vehicle comparison, and JSON export.
 | Multi-vehicle comparison | 🟢 Ready | A | Load two snapshots side-by-side; highlight differences. |
 | JSON export | 🟢 Ready | A | Machine-readable snapshot format alongside HTML. |
 
-## v0.18.0 — "Logging Enhancements" (Planned)
+## v0.18.0 — "Logging Enhancements" (Done)
 
 **Premise.** Session tagging, log bookmarks, improved CSV export.
 
@@ -968,8 +969,28 @@ formatting, multi-vehicle comparison, and JSON export.
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Session tagging | 🟢 Ready | A | Label sessions ("WOT pull", "highway cruise"); save in CSV header. |
-| Log bookmarks | 🟢 Ready | A | Mark points in time during logging; show as chart annotations. |
-| CSV export improvements | 🟢 Ready | A | Configurable delimiter, metadata header, channel selection. |
+| Session tagging | ✅ Done | A | Tag input + persist to CSV header + session list display. |
+| Log bookmarks | ✅ Done | A | Add/clear markers during log; shown on Chart.js + annotations in CSV. |
+| CSV export improvements | ✅ Done | A | Delimiter (,/;), full metadata (VIN/profile/date/tag), selectedOnly channels. |
+| Native Beemuu CSV import (v0.21) | ✅ Done | A | Dedicated parser log_import_beemuu.js restores tags/bookmarks/series for replay; roundtrip + tests. UI scrub/markers now refresh on import. |
+
+## v0.19.0 — "Report Clarity" (In Progress)
+
+**Premise.** Health reports, snapshot comparison, freeze-frame context, and analysis polish.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Snapshot compare v2 | ✅ Done | A | Nice table renderer, library support, metadata in reports. Log snippet summary. |
+| Health report + freeze frame | ✅ Done | A | Richer freeze snippets + snapshot source note in reports. |
+| Additional CAN decoders | ✅ Done | A | +7 total new (intake, load, cruise, fuel rail, MAP, oil press, ext temp) + sim + tests. + fuelLevel, lambda + exposure. |
+| Beginner guides | ✅ Done | A | First-scan + plain-language fault summary (pure + wired). |
+| DTC / Vehicle DB | ✅ Done | A | +5 DTCs + 3 VIN prefixes. |
+| A11y | ✅ Done (sweep) | A | More ARIA labels/roles/switch on theme, guides, controls. |
+| Log CSV import metadata | ✅ Done | A | Native Beemuu CSV import now restores sessionTag + bookmarks. |
+| Snapshot log restore | ✅ Done | A | Full tags/markers/series restore + UI rebuild on snapshot load. |
+| Snapshot library compare | ✅ Done | A | Left/Right buttons on cards + auto compare using import + render. |
+| Guides polish | ✅ Done | A | Better rendering, CSS, icons for first-scan and beginner summary. |
 
 ---

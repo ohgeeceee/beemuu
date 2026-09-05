@@ -215,3 +215,10 @@ test("buildLogCsv: withUnits row is the second line, immediately after the heade
   assert.equal(lines[1], "units,psi");
   assert.ok(!lines[1].endsWith(","), "units row should not have a trailing comma");
 });
+
+test("buildLogCsv roundtrip metadata (tag + bookmarks) for v0.21", () => {
+  const entries = [series("rpm", "rpm", [{x:0,y:1000}])];
+  const csv = buildLogCsv(entries, { sessionTag: "WOT pull", bookmarks: [{time: 1.5, label: "peak"}] });
+  assert.ok(csv.includes('session_tag="WOT pull"'));
+  assert.ok(csv.includes('# bookmark time_s=1.50 label="peak"'));
+});

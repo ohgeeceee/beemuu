@@ -38,6 +38,12 @@
       { id: 0x130, data: [speedRaw, 0, 0, 0, 0, 0, 0, 0] },
       { id: 0x545, data: [0, Math.round(oilC + 48), 0, 0, 0, 0, 0, 0] },
       { id: 0x316, data: [batteryRaw, 0, 0, 0, 0, 0, 0, 0] },
+      // v0.17.0 additions. They are not rendered as public-site gauges,
+      // but keeping the simulator frame-complete preserves desktop parity.
+      { id: 0x3B4, data: [0, 3, 0, 0, 0, 0, 0, 0] },
+      { id: 0x0D0, data: [0, 100, 0, 0, 0, 0, 0, 0] },
+      { id: 0x1B4, data: [0, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x0C0, data: [0, 0, 0, 0, 0, 0, 0, 0] },
     ];
   }
 

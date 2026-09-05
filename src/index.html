@@ -21,13 +21,13 @@
       <span class="vehicle-label" data-i18n="no_vehicle">No vehicle connected</span>
     </div>
     <div class="header-conn">
-      <select id="conn-kind">
+      <select id="conn-kind" aria-label="Connection type">
         <option value="sim" data-i18n="sim">Simulator (virtual E90)</option>
         <option value="kdcan" data-i18n="kdcan">K+DCAN cable</option>
         <option value="enet" data-i18n="enet">ENET cable</option>
       </select>
       <button id="btn-conn-adv" class="btn btn-small" type="button" aria-expanded="false" title="Show cable/port options" data-i18n="connection">⚙ Connection</button>
-      <select id="lang-select" class="app-mode" title="Language / Sprache / Langue">
+      <select id="lang-select" class="app-mode" aria-label="Language" title="Language / Sprache / Langue">
         <option value="en">English</option>
         <option value="de">Deutsch</option>
         <option value="fr">Français</option>
@@ -46,36 +46,40 @@
         <select id="enet-discovered" class="hidden" title="Discovered vehicles — pick one to fill the address"></select>
       </span>
       <button id="btn-connect" class="btn btn-primary" data-i18n="connect">Connect</button>
-      <select id="app-mode" class="app-mode" title="Show more or fewer features">
+      <select id="app-mode" class="app-mode" aria-label="App mode" title="Show more or fewer features">
         <option value="basic" data-i18n="mode_basic">Basic</option>
         <option value="advanced" data-i18n="mode_advanced">Advanced</option>
         <option value="developer" data-i18n="mode_developer">Developer</option>
       </select>
-      <button id="btn-theme" title="Toggle dark mode">🌙</button>
+      <button id="btn-theme" aria-label="Toggle dark/light theme" title="Toggle dark mode" role="switch" aria-checked="false">🌙</button>
       <button id="btn-about" class="btn" title="About &amp; license">ⓘ</button>
     </div>
   </header>
 
   <!-- Tab bar -->
-  <nav class="tabbar">
-    <button class="tab active" data-view="vehicle" data-mode="basic" data-i18n="tab_vehicle">Vehicle Test</button>
-    <button class="tab" data-view="live" data-mode="basic" data-i18n="tab_live">Live Data</button>
-    <button class="tab" data-view="logging" data-mode="advanced" data-i18n="tab_logging">Logging</button>
-    <button class="tab" data-view="explorer" data-mode="developer" data-i18n="tab_explorer">Parameter Explorer</button>
-    <button class="tab" data-view="info" data-mode="basic" data-i18n="tab_info">Vehicle Info</button>
-    <button class="tab" data-view="service" data-mode="advanced" data-i18n="tab_service">Service Functions</button>
-    <button class="tab" data-view="diagnostics" data-mode="advanced" data-i18n="tab_diagnostics">Diagnostics</button>
-    <button class="tab" data-view="snapshots" data-mode="advanced" data-i18n="tab_snapshots">Snapshots</button>
+  <nav class="tabbar" role="tablist" aria-label="Main navigation">
+    <button role="tab" aria-selected="true" class="tab active" data-view="vehicle" data-mode="basic" data-i18n="tab_vehicle" aria-controls="view-vehicle">Vehicle Test</button>
+    <button role="tab" aria-selected="false" class="tab" data-view="live" data-mode="basic" data-i18n="tab_live" aria-controls="view-live">Live Data</button>
+    <button role="tab" aria-selected="false" class="tab" data-view="logging" data-mode="advanced" data-i18n="tab_logging" aria-controls="view-logging">Logging</button>
+    <button role="tab" aria-selected="false" class="tab" data-view="explorer" data-mode="developer" data-i18n="tab_explorer" aria-controls="view-explorer">Parameter Explorer</button>
+    <button role="tab" aria-selected="false" class="tab" data-view="info" data-mode="basic" data-i18n="tab_info" aria-controls="view-info">Vehicle Info</button>
+    <button role="tab" aria-selected="false" class="tab" data-view="service" data-mode="advanced" data-i18n="tab_service" aria-controls="view-service">Service Functions</button>
+    <button role="tab" aria-selected="false" class="tab" data-view="diagnostics" data-mode="advanced" data-i18n="tab_diagnostics" aria-controls="view-diagnostics">Diagnostics</button>
+    <button role="tab" aria-selected="false" class="tab" data-view="snapshots" data-mode="advanced" data-i18n="tab_snapshots" aria-controls="view-snapshots">Snapshots</button>
   </nav>
 
   <main class="content">
     <!-- ============ VEHICLE TEST ============ -->
     <section id="view-vehicle" class="view active">
+      <div id="first-scan-guide" class="panel" style="margin-bottom:12px" role="region" aria-label="First BMW scan guide">
+        <div class="panel-head"><span>First BMW scan</span><span class="muted">Read-only beginner guide</span></div>
+        <div id="first-scan-guide-body" style="padding:12px"></div>
+      </div>
       <div class="split">
         <aside class="panel tree-panel">
           <div class="panel-head">
             <span data-i18n="control_units">Control units</span>
-            <button id="btn-scan" class="btn btn-small" data-i18n="run_vehicle_test">Run vehicle test</button>
+            <button id="btn-scan" class="btn btn-small" data-i18n="run_vehicle_test" aria-label="Run vehicle test scan">Run vehicle test</button>
           </div>
           <ul id="ecu-tree" class="ecu-tree">
             <li class="tree-empty">Connect and run a vehicle test to identify control units.</li>
@@ -102,6 +106,10 @@
               <tr><td colspan="3" class="muted" data-i18n="select_ecu">Select a control unit.</td></tr>
             </tbody>
           </table>
+          <div id="beginner-fault-summary" class="panel hidden" style="margin:10px" role="status" aria-live="polite" aria-atomic="true">
+            <div id="beginner-fault-summary-title" class="panel-head"></div>
+            <div id="beginner-fault-summary-body" style="padding:10px"></div>
+          </div>
           <div id="fault-history-callout" class="fault-history-callout hidden">
             <div class="fault-history-callout-head">⚠ Seen before</div>
             <ul id="fault-history-callout-list" class="fault-history-callout-list"></ul>
@@ -156,13 +164,13 @@
       <div class="panel">
         <div class="panel-head">
           <span><span data-i18n="live_values">Live values —</span>
-            <select id="live-profile"></select>
+            <select id="live-profile" aria-label="Live data profile"></select>
             <span id="live-unsupported-count" class="live-unsupported-count" hidden></span>
           </span>
           <label class="chk"><input type="checkbox" id="live-poll" /> <span data-i18n="poll">Poll</span></label>
           <label class="chk" title="Polling interval. 100 ms = busy; 1000 ms = gentle on the bus.">
             <span class="muted">every</span>
-            <select id="live-poll-rate" class="poll-rate-select">
+            <select id="live-poll-rate" class="poll-rate-select" aria-label="Poll rate">
               <option value="100">100 ms</option>
               <option value="250" selected>250 ms</option>
               <option value="500">500 ms</option>
@@ -202,14 +210,14 @@
       <div class="panel">
         <div class="panel-head">
           <span><span data-i18n="data_logging">Data logging —</span>
-            <select id="log-profile"></select>
+            <select id="log-profile" aria-label="Logging profile"></select>
           </span>
           <span>
-            <button id="btn-log-start" class="btn btn-small btn-primary" data-i18n="start_recording">Start recording</button>
+            <button id="btn-log-start" class="btn btn-small btn-primary" data-i18n="start_recording" aria-label="Start logging recording">Start recording</button>
             <button id="btn-log-bookmark" class="btn btn-small" disabled title="Bookmark the current log time">Bookmark</button>
             <label title="A short label saved with this recording and included in CSV exports">
               Session tag
-              <input id="log-session-tag" type="text" maxlength="80" placeholder="e.g. cold start" />
+              <input id="log-session-tag" type="text" maxlength="80" placeholder="e.g. cold start" aria-label="Session tag" />
             </label>
             <button id="btn-log-export" class="btn btn-small" disabled data-i18n="export_csv">Export CSV</button>
             <button id="btn-log-share" class="btn btn-small" disabled title="Share log via beemuu.com — anyone with link can view" data-i18n="share_log">Share log</button>
@@ -282,17 +290,17 @@
               </div>
             </div>
             <div class="log-playback-bar">
-              <button id="btn-log-play" class="btn btn-small" title="Play/Pause (Space)">▶</button>
-              <button id="btn-log-step-back" class="btn btn-small" title="Step back 1s (←)">←</button>
-              <input type="range" id="log-scrubber" min="0" max="0" step="0.1" value="0" disabled />
-              <button id="btn-log-step-forward" class="btn btn-small" title="Step forward 1s (→)">→</button>
+              <button id="btn-log-play" class="btn btn-small" title="Play/Pause (Space)" aria-label="Play or pause log replay">▶</button>
+              <button id="btn-log-step-back" class="btn btn-small" title="Step back 1s (←)" aria-label="Step log back 1 second">←</button>
+              <input type="range" id="log-scrubber" min="0" max="0" step="0.1" value="0" disabled aria-label="Log playback scrubber" />
+              <button id="btn-log-step-forward" class="btn btn-small" title="Step forward 1s (→)" aria-label="Step log forward 1 second">→</button>
               <span id="log-time" class="log-time">0:00.0 / 0:00.0</span>
               <button id="btn-log-clear-markers" class="btn btn-small" disabled>Clear bookmarks</button>
               <button id="btn-log-clear-session" class="btn btn-small">Clear session</button>
             </div>
             <div class="log-markers" id="log-markers">
               <div class="log-markers-head">Bookmarks <span class="muted">(double-click chart or use Bookmark)</span></div>
-              <ul id="log-marker-list" class="log-marker-list"></ul>
+              <ul id="log-marker-list" class="log-marker-list" role="list" aria-label="Log bookmarks"></ul>
             </div>
             <div class="log-shortcuts muted">
               <kbd>Space</kbd> Play/Pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> Step 1s &nbsp; <kbd>Shift+←</kbd> <kbd>Shift+→</kbd> Step 5s
@@ -584,9 +592,21 @@
             <button id="btn-story-from-snapshot" class="btn btn-small" disabled>Generate Story</button>
           </span>
         </div>
-        <div id="snapshot-list" class="snapshot-list">
+        <div id="snapshot-list" class="snapshot-list" role="list" aria-label="Snapshot library">
           <p class="muted">No snapshots yet. Export one from Vehicle Info or load a file.</p>
         </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <div class="panel-head"><span>Compare two snapshots</span></div>
+        <p class="share-hint muted">Use library cards below (Left/Right buttons) or file inputs. Differences in freeze-frame/walk highlighted.</p>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px">
+          <label style="font-size:12px">Left <input type="file" id="cmp-left" accept=".json,application/json" aria-label="Left snapshot file" /></label>
+          <label style="font-size:12px">Right <input type="file" id="cmp-right" accept=".json,application/json" aria-label="Right snapshot file" /></label>
+          <button id="btn-cmp-run" class="btn btn-small btn-primary" aria-label="Run snapshot comparison">Compare</button>
+          <button id="btn-cmp-clear" class="btn btn-small">Clear</button>
+        </div>
+        <div id="cmp-result" style="font-size:13px" role="region" aria-label="Comparison results"></div>
       </div>
     </section>
   </main>
@@ -716,11 +736,13 @@
   <script src="js/svg_export.js"></script>
   <script src="js/csv_log_export.js"></script>
   <script src="js/walkthrough_bundle.js"></script>
+  <script src="js/snapshot_compare.js"></script>
   <script src="js/dtc_history.js"></script>
   <script src="js/recurring_dtc.js"></script>
   <script src="js/trigger.js"></script>
   <script src="js/math_channels.js"></script>
   <script src="js/log_import_bootmod3.js"></script>
+  <script src="js/log_import_beemuu.js"></script>
   <script src="js/log_share.js"></script>
   <script src="js/service_manual.js"></script>
   <script src="js/i18n.js"></script>
@@ -737,6 +759,8 @@
   <script src="js/live_data_source_wiring.js"></script>
   <script src="js/live_can_source.js"></script>
   <script src="js/live_gauges.js"></script>
+  <script src="js/first_scan_guide.js"></script>
+  <script src="js/beginner_fault_summary.js"></script>
   <script src="js/dialog.js"></script>
   <script src="js/frm_coding_dump.js"></script>
   <script src="js/print_reports.js"></script>
