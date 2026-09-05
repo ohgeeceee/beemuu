@@ -97,4 +97,3 @@ const server = http.createServer((req, res) => {
     console.log("PASS: install, persistence, replacement, enable/disable/remove, tool execution, isolation, blocked network, timeout, literal rendering, profile bridge");
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => server.close());
-
