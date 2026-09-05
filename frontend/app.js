@@ -11,6 +11,23 @@
 
 // ---- pure helpers (testable) ----
 
+const DEFAULT_SITE_CONFIG = {
+  apiBaseUrl: "",
+  repository: "ohgeeceee/beemuu",
+};
+
+function getSiteConfig() {
+  if (typeof window !== "undefined" && window.BEEMUU_CONFIG) {
+    return { ...DEFAULT_SITE_CONFIG, ...window.BEEMUU_CONFIG };
+  }
+  return DEFAULT_SITE_CONFIG;
+}
+
+function joinUrl(base, path) {
+  if (!base) return path;
+  return `${String(base).replace(/\/+$/, "")}/${String(path).replace(/^\/+/, "")}`;
+}
+
 function relativeTime(iso, nowMs) {
   if (!iso) return "";
   const then = Date.parse(iso);
@@ -120,6 +137,27 @@ function buildPrsFragment(prBlock) {
   return frag;
 }
 
+function normalizeGithubCommit(item) {
+  const sha = item?.sha || "";
+  const message = item?.commit?.message || "";
+  return {
+    short: sha ? sha.slice(0, 7) : "",
+    subject: message.split("\n")[0],
+    author: item?.commit?.author?.name || item?.author?.login || "",
+    iso: item?.commit?.author?.date || item?.commit?.committer?.date || "",
+  };
+}
+
+function normalizeGithubPull(item) {
+  return {
+    number: item?.number,
+    title: item?.title,
+    author: item?.user?.login,
+    created_at: item?.created_at,
+    merged_at: item?.pull_request?.merged_at || item?.closed_at,
+  };
+}
+
 // ---- Node-test export (no DOM required) ----
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -127,6 +165,10 @@ if (typeof module !== "undefined" && module.exports) {
     formatTimestampLabel,
     buildCommitsFragment,
     buildPrsFragment,
+    normalizeGithubCommit,
+    normalizeGithubPull,
+    getSiteConfig,
+    joinUrl,
   };
 }
 
@@ -135,7 +177,7 @@ if (typeof module !== "undefined" && module.exports) {
 // only `createElement` and `createDocumentFragment`. We detect that
 // case by checking for `getElementById` — the real browser always has
 // it, the test shim doesn't.
-if (typeof document === "undefined" || typeof document.getElementById !== "function") return;
+if (typeof document !== "undefined" && typeof document.getElementById === "function") {
 
 // ---- DOM wiring ----
 const statusEl = document.getElementById("status");
@@ -154,6 +196,7 @@ let lastFetchAt = null;
 let liveTimer = null;
 let timestampTimer = null;
 const LIVE_REFRESH_MS = 30000;
+const siteConfig = getSiteConfig();
 
 function text(value) {
   return value === null || value === undefined || value === "" ? "—" : String(value);
@@ -195,10 +238,33 @@ function render(data) {
   rawEl.textContent = JSON.stringify(data, null, 2);
 }
 
+function renderStaticDashboard() {
+  statusEl.replaceChildren(
+    card("Site", "GitHub Pages"),
+    card("Backend", "serverless migration pending"),
+    card("Repo", siteConfig.repository),
+    card("Admin", "static UI staged"),
+  );
+  artifactsEl.replaceChildren();
+  const li = document.createElement("li");
+  li.textContent = "Release downloads load from GitHub releases when release metadata is available.";
+  artifactsEl.append(li);
+  rawEl.textContent = JSON.stringify({
+    ok: true,
+    hosting: "github-pages",
+    backend: siteConfig.backendStatus || "pending-serverless-migration",
+    repository: siteConfig.repository,
+  }, null, 2);
+}
+
 async function loadDashboard() {
+  if (!siteConfig.apiBaseUrl) {
+    renderStaticDashboard();
+    return;
+  }
   refreshBtn.disabled = true;
   try {
-    const response = await fetch("/api/dashboard", { cache: "no-store" });
+    const response = await fetch(joinUrl(siteConfig.apiBaseUrl, "/api/dashboard"), { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     render(await response.json());
   } catch (error) {
@@ -241,7 +307,11 @@ function updateLiveTimestamp() {
 
 async function loadLive() {
   try {
-    const response = await fetch("/api/live", { cache: "no-store" });
+    if (!siteConfig.apiBaseUrl) {
+      await loadGithubLive();
+      return;
+    }
+    const response = await fetch(joinUrl(siteConfig.apiBaseUrl, "/api/live"), { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     renderLive(await response.json());
   } catch (error) {
@@ -252,6 +322,34 @@ async function loadLive() {
       livePrsEl.firstElementChild.textContent = `Live feed unreachable: ${error.message}`;
     }
   }
+}
+
+async function loadGithubLive() {
+  const repo = siteConfig.repository || DEFAULT_SITE_CONFIG.repository;
+  const headers = { "Accept": "application/vnd.github+json" };
+  const [commitsRes, prsRes, mergedRes] = await Promise.all([
+    fetch(`https://api.github.com/repos/${repo}/commits?per_page=5`, { headers, cache: "no-store" }),
+    fetch(`https://api.github.com/repos/${repo}/pulls?state=open&per_page=5`, { headers, cache: "no-store" }),
+    fetch(`https://api.github.com/search/issues?q=repo:${repo}+is:pr+is:merged&sort=updated&order=desc&per_page=5`, { headers, cache: "no-store" }),
+  ]);
+  if (!commitsRes.ok) throw new Error(`GitHub commits HTTP ${commitsRes.status}`);
+  if (!prsRes.ok) throw new Error(`GitHub pulls HTTP ${prsRes.status}`);
+  const commits = (await commitsRes.json()).map(normalizeGithubCommit);
+  const open = (await prsRes.json()).map(normalizeGithubPull);
+  let recentlyMerged = [];
+  if (mergedRes.ok) {
+    const merged = await mergedRes.json();
+    recentlyMerged = (merged.items || []).map(normalizeGithubPull);
+  }
+  renderLive({
+    ok: true,
+    commits,
+    pull_requests: {
+      available: true,
+      open,
+      recently_merged: recentlyMerged,
+    },
+  });
 }
 
 function startLiveTimer() {
@@ -276,7 +374,7 @@ async function loadReleaseInfo() {
   try {
     const response = await fetch("/_release_info.json", { cache: "no-store" });
     if (response.status === 404) {
-      versionEl.textContent = "no release yet";
+      await loadGithubReleaseInfo({ versionEl, dateEl, msiEl, nsisEl });
       return;
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -290,13 +388,44 @@ async function loadReleaseInfo() {
   }
 }
 
+async function loadGithubReleaseInfo({ versionEl, dateEl, msiEl, nsisEl }) {
+  const repo = siteConfig.repository || DEFAULT_SITE_CONFIG.repository;
+  const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+    headers: { "Accept": "application/vnd.github+json" },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    versionEl.textContent = response.status === 404 ? "no public release yet" : `unavailable: GitHub HTTP ${response.status}`;
+    return;
+  }
+  const release = await response.json();
+  versionEl.textContent = release.tag_name || release.name || "latest";
+  if (release.published_at) dateEl.textContent = release.published_at;
+  const assets = release.assets || [];
+  const msi = assets.find((asset) => /\.msi$/i.test(asset.name || ""));
+  const nsis = assets.find((asset) => /setup\.exe$/i.test(asset.name || ""));
+  if (msi?.browser_download_url) msiEl.href = msi.browser_download_url;
+  if (nsis?.browser_download_url) nsisEl.href = nsis.browser_download_url;
+}
+
 refreshBtn.addEventListener("click", () => { loadDashboard(); loadLive(); });
 loadDashboard();
 loadLive();
 loadReleaseInfo();
 startLiveTimer();
 
+}
+
 // Window surface for in-browser scripts that want to use the helpers.
 if (typeof window !== "undefined") {
-  window.beeemuuDashboard = { relativeTime, formatTimestampLabel, buildCommitsFragment, buildPrsFragment };
+  window.beeemuuDashboard = {
+    relativeTime,
+    formatTimestampLabel,
+    buildCommitsFragment,
+    buildPrsFragment,
+    normalizeGithubCommit,
+    normalizeGithubPull,
+    getSiteConfig,
+    joinUrl,
+  };
 }

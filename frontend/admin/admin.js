@@ -1,8 +1,17 @@
 // beemuu admin SPA — vanilla, no build step.
-// Same-origin fetch; cookies are HttpOnly so we just call /api/admin/* directly.
+// API origin is configured by /site-config.js so the static UI can live on
+// GitHub Pages while the admin API moves off the VPS.
 (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const config = {
+    adminApiBaseUrl: "",
+    ...((typeof window !== "undefined" && window.BEEMUU_CONFIG) || {}),
+  };
+  const adminApiBaseUrl = String(config.adminApiBaseUrl || "").replace(/\/+$/, "");
+  const apiUrl = (path) => adminApiBaseUrl
+    ? adminApiBaseUrl + "/" + String(path).replace(/^\/+/, "")
+    : path;
   const fmtTime = (epoch) => {
     if (!epoch) return "—";
     const d = new Date(epoch * 1000);
@@ -22,7 +31,7 @@
     }
     let res;
     try {
-      res = await fetch(path, opts);
+      res = await fetch(apiUrl(path), opts);
     } catch (err) {
       throw new Error(`network error: ${err.message}`);
     }
@@ -72,11 +81,18 @@
 
   function showLogin() {
     $("#login-screen").hidden = false;
+    $("#offline-screen").hidden = true;
     $("#app-screen").hidden = true;
     setTimeout(() => $("input[name=username]").focus(), 50);
   }
+  function showOffline() {
+    $("#login-screen").hidden = true;
+    $("#offline-screen").hidden = false;
+    $("#app-screen").hidden = true;
+  }
   function showApp(me) {
     $("#login-screen").hidden = true;
+    $("#offline-screen").hidden = true;
     $("#app-screen").hidden = false;
     $("#who-name").textContent = me.username || `id=${me.id}`;
   }
@@ -353,6 +369,10 @@
 
   // -------- Boot --------
   (async function boot() {
+    if (!adminApiBaseUrl) {
+      showOffline();
+      return;
+    }
     const me = await whoami();
     if (me) {
       showApp(me);
