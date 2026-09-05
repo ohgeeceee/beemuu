@@ -1,0 +1,5 @@
+Contact: https://github.com/ohgeeceee/beemuu/issues
+Contact: mailto:admin@beemuu.local
+Expires: 2027-08-02T00:00:00Z
+Preferred-Languages: en
+Canonical: https://beemuu.com/.well-known/security.txt

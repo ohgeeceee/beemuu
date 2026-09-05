@@ -1,0 +1,11 @@
+/* TEAM */
+Beemuu is an independent, community-owned project.
+Site: https://beemuu.com
+Source: https://github.com/ohgeeceee/beemuu
+Contact: mailto:admin@beemuu.local
+
+/* SITE */
+Last update: 2026-08-02
+Standards: HTML5, CSS3, vanilla JavaScript
+Components: Beemuu desktop application (Tauri 2 + Rust), hosted read-only API (Python stdlib)
+License: GPL-3.0-or-later
