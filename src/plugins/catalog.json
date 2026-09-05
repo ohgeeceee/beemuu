@@ -1,0 +1,32 @@
+[
+  {
+    "schemaVersion": 1,
+    "id": "beemuu.scan-notes",
+    "name": "First scan notebook",
+    "version": "1.0.0",
+    "author": "Beemuu contributors",
+    "description": "A starter reference pack for recording symptoms and keeping diagnostic evidence together.",
+    "license": "GPL-3.0-or-later",
+    "kind": "data",
+    "permissions": [],
+    "content": {
+      "articles": [
+        { "title": "Record the conditions", "body": "Write down the symptom, when it occurs, and whether the engine was cold or warm. Save the fault report and available freeze-frame data before changing anything." },
+        { "title": "Keep a diagnostic notebook", "body": "A fault code is a clue, not a parts replacement instruction. Record each check and its result so you can compare evidence after a repair." }
+      ]
+    }
+  },
+  {
+    "schemaVersion": 1,
+    "id": "beemuu.temperature-converter",
+    "name": "Temperature converter",
+    "version": "1.0.0",
+    "author": "Beemuu contributors",
+    "description": "Convert Celsius values from an exported log to Fahrenheit. A small executable plugin authoring example.",
+    "license": "GPL-3.0-or-later",
+    "kind": "tool",
+    "permissions": [],
+    "exampleInput": { "celsius": [0, 20, 90, 100] },
+    "code": "if (!Array.isArray(input.celsius) || input.celsius.length > 1000 || !input.celsius.every(v => typeof v === 'number' && Number.isFinite(v))) throw new Error('Expected up to 1000 numeric Celsius values');\nreturn { fahrenheit: input.celsius.map(value => Math.round((value * 9 / 5 + 32) * 10) / 10) };"
+  }
+]

@@ -6,6 +6,7 @@
   <title>BeeEmUu Diagnostics</title>
   <link rel="stylesheet" href="css/app.css" />
   <link rel="stylesheet" href="css/explorer.css" />
+  <link rel="stylesheet" href="css/plugins.css" />
 </head>
 <body>
   <!-- Top header band -->
@@ -66,9 +67,32 @@
     <button class="tab" data-view="service" data-mode="advanced" data-i18n="tab_service">Service Functions</button>
     <button class="tab" data-view="diagnostics" data-mode="advanced" data-i18n="tab_diagnostics">Diagnostics</button>
     <button class="tab" data-view="snapshots" data-mode="advanced" data-i18n="tab_snapshots">Snapshots</button>
+    <button class="tab" data-view="plugins" data-mode="basic">Plugins</button>
   </nav>
 
   <main class="content">
+    <section id="view-plugins" class="view">
+      <div class="panel plugin-panel">
+        <h2>Community plugins</h2>
+        <p>Add community data packs and JavaScript tools. Packages stay on this device and run only when you choose.</p>
+        <p id="plugins-status" role="status" aria-live="polite"></p>
+        <h3>Installed</h3>
+        <div id="plugins-installed" class="plugin-grid"></div>
+        <div id="plugins-detail" class="plugin-detail"></div>
+        <h3>Discover</h3>
+        <p class="muted">Catalog included with this app version. Import a package file to try a newer community release.</p>
+        <div id="plugins-catalog" class="plugin-grid">Loading catalog…</div>
+        <h3>Import a package</h3>
+        <label for="plugins-file">Choose a .beemuu-plugin.json file (up to 256 KiB)</label>
+        <input id="plugins-file" type="file" accept=".json,application/json">
+        <pre id="plugins-preview" class="plugin-output"></pre>
+        <details><summary>Inspect package before installing</summary><pre id="plugins-package-source" class="plugin-output"></pre></details>
+        <button id="plugins-install" class="btn btn-primary" type="button" hidden>Install package</button>
+        <h3>Publish your plugin</h3>
+        <p>Download an authoring example above, edit its metadata and content, then import and test it here. Share your package file from your own GitHub repository. To include it in Beemuu’s catalog, submit a pull request adding the package to <code>src/plugins/catalog.json</code> in <code>ohgeeceee/beemuu</code>. Catalog submissions are reviewed before inclusion in an app build.</p>
+        <p class="muted">The author guide is in <code>docs/PLUGINS.md</code>. Version 1 supports reference articles, live-data profile packs, and JSON-processing JavaScript tools. Hardware command permissions are not available.</p>
+      </div>
+    </section>
     <!-- ============ VEHICLE TEST ============ -->
     <section id="view-vehicle" class="view active">
       <div class="split">
@@ -743,5 +767,8 @@
   <script src="js/dtc_confidence.js"></script>
   <script src="js/dtc_source_lookup.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/plugins.js"></script>
+  <script src="js/plugins_ui.js"></script>
+  <script src="js/plugins_boot.js"></script>
 </body>
 </html>
