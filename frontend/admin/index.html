@@ -12,7 +12,7 @@
     <section id="login-screen" class="panel hero" hidden>
       <p class="eyebrow">beemuu admin</p>
       <h1>Sign in</h1>
-      <p class="hint">Same-origin only. Cookies are HttpOnly; the session is bound to your IP for 7 days.</p>
+      <p class="hint">Admin API required. Cookies are HttpOnly; the session is bound to your IP for 7 days.</p>
       <form id="login-form" class="form">
         <label>
           <span>Username</span>
@@ -25,6 +25,13 @@
         <button type="submit">Sign in</button>
         <p id="login-error" class="error" role="alert" hidden></p>
       </form>
+    </section>
+
+    <section id="offline-screen" class="panel hero" hidden>
+      <p class="eyebrow">beemuu admin</p>
+      <h1>Backend migration pending</h1>
+      <p class="hint">The admin interface is ready for GitHub Pages, but writes stay disabled until the replacement API, auth, database, and file storage are live.</p>
+      <p class="hint">Set <code>adminApiBaseUrl</code> in <code>/site-config.js</code> after the serverless admin API is deployed.</p>
     </section>
 
     <!-- App shell, shown when authenticated -->
@@ -149,6 +156,7 @@
 
     <p id="toast" class="toast" role="status" hidden></p>
   </main>
+  <script src="/site-config.js"></script>
   <script src="/admin/admin.js"></script>
 </body>
 </html>
