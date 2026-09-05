@@ -147,7 +147,13 @@
 "2B60" = "Fuel pump: pressure too low"
 "2FD4" = "Fuel system (N20 related)"
 "30E8" = "Fuel pump control module (EKP): implausible"
-"30E9" = "Fuel pump control module (EKP): internal error"
+# 30E9 was defined twice: here as "Fuel pump control module (EKP):
+# internal error" and in the NOx block as "Nitric oxide catalytic
+# converter, aging". Resolved in favour of the NOx reading because the
+# 30D6-30EA run is a systematic NOx/DeNox sequence (30EA immediately
+# after is "DeNox catalytic converter sulfurized"), whereas EKP faults
+# are already covered in their normal 2B5E/2B5F/2B60 range above.
+# Override here if vehicle evidence says otherwise.
 
 # --- HVAC (14) ---
 "9C54" = "AUC sensor (automatic recirculation control)"
@@ -191,9 +197,11 @@
 "30E6" = "NOx sensor, dynamics"
 "30EA" = "DeNox catalytic converter sulfurized"
 
-# --- MISC (7) ---
-"2A98" = "DISA intake manifold runner fault"
-"2AAA" = "Valvetronic eccentric shaft fault"
+# --- MISC (5) ---
+# 2A98 / 2AAA previously also appeared here as exact duplicates of the
+# VANOS-block entries below. TOML forbids duplicate keys, so the whole
+# file failed to parse and the overlay loaded nothing. Kept once, in the
+# VANOS block, where they sit with their 2A9x siblings.
 "2C57" = "Crankcase ventilation heater fault"
 "CDBB" = "FlexRay communication fault"
 "E094" = "Rail pressure deviation"

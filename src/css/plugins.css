@@ -1,0 +1,10 @@
+.plugin-panel { display: block; height: auto; min-height: 100%; padding: 24px; overflow: auto; }
+.plugin-panel h2, .plugin-panel h3 { margin: 16px 0 8px; }
+.plugin-panel p { margin: 8px 0 12px; }
+.plugin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.plugin-card, .plugin-detail:not(:empty) { border: 1px solid #8886; border-radius: 8px; padding: 16px; }
+.plugin-card .btn, .plugin-detail .btn { margin: 4px 8px 4px 0; }
+.plugin-detail { margin-top: 20px; }
+.plugin-detail textarea { display: block; box-sizing: border-box; width: 100%; margin: 8px 0; font-family: monospace; }
+.plugin-output, .plugin-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.plugin-output { max-height: 360px; overflow: auto; }

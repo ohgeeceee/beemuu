@@ -1,5 +1,18 @@
 # Test plugin profile
-# This profile demonstrates the enhanced plugin system for custom decoders
+# This profile demonstrates the enhanced plugin system for custom decoders.
+#
+# Referenced by RELEASE_NOTES_v0.5.1.md as the example plugin profile
+# (gear / engine state). The `u8_enum` decoder maps a raw byte to a
+# human-readable label via the `enum = { ... }` inline table; byte keys
+# must be quoted decimal strings (the `toml` crate types inline-table
+# keys as strings — see docs/DECODE_FUNCTIONS.md §8). Same convention as
+# the shipped n55.toml enum examples this profile mirrors.
+#
+# NOTE: this file previously shipped with unquoted string values
+# (`id =  test_plugin`, `enum = { 0 = P/N, ... }`), which is invalid
+# TOML. It failed the `shipped_community_tomls_parse` gate, so every
+# profile in community/ was rejected by the loader. Values below are
+# unchanged in meaning — only quoted to make them parse.
 
 [[profile]]
 id = "test_plugin"

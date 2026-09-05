@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Tighten the application policy for this disposable, opaque-origin frame.
+       Plugin code runs only in a worker; never in this document or the host. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src blob:; connect-src 'none'; style-src 'none'; img-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Plugin worker runner</title>
+</head>
+<body><script src="js/plugin_runner.js"></script></body>
+</html>

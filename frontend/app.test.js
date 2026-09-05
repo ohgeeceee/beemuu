@@ -221,8 +221,56 @@ test("buildPrsFragment: empty open + empty merged = single empty-state line", ()
 });
 
 test("module.exports shape matches window surface (parity check)", () => {
-  const expected = ["relativeTime", "formatTimestampLabel", "buildCommitsFragment", "buildPrsFragment"];
+  const expected = [
+    "relativeTime",
+    "formatTimestampLabel",
+    "buildCommitsFragment",
+    "buildPrsFragment",
+    "normalizeGithubCommit",
+    "normalizeGithubPull",
+    "getSiteConfig",
+    "joinUrl",
+  ];
   for (const key of expected) {
     assert.equal(typeof app[key], "function", `missing or wrong-typed: ${key}`);
   }
+});
+
+test("joinUrl combines API origins and paths without double slashes", () => {
+  assert.equal(app.joinUrl("", "/api/dashboard"), "/api/dashboard");
+  assert.equal(app.joinUrl("https://api.beemuu.com/", "/api/dashboard"), "https://api.beemuu.com/api/dashboard");
+  assert.equal(app.joinUrl("https://api.beemuu.com", "api/live"), "https://api.beemuu.com/api/live");
+});
+
+test("normalizeGithubCommit maps GitHub REST commit payloads to live feed rows", () => {
+  const row = app.normalizeGithubCommit({
+    sha: "abcdef123456",
+    commit: {
+      message: "feat: pages\n\nbody",
+      author: { name: "alice", date: "2026-09-05T10:00:00Z" },
+    },
+  });
+  assert.deepEqual(row, {
+    short: "abcdef1",
+    subject: "feat: pages",
+    author: "alice",
+    iso: "2026-09-05T10:00:00Z",
+  });
+});
+
+test("normalizeGithubPull maps GitHub REST pull payloads to live feed rows", () => {
+  const row = app.normalizeGithubPull({
+    number: 270,
+    title: "feat: plugins",
+    user: { login: "maintainer" },
+    created_at: "2026-09-05T09:00:00Z",
+    closed_at: "2026-09-05T11:00:00Z",
+  });
+  assert.deepEqual(row, {
+    number: 270,
+    title: "feat: plugins",
+    author: "maintainer",
+    created_at: "2026-09-05T09:00:00Z",
+    merged_at: "2026-09-05T11:00:00Z",
+  });
 });

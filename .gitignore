@@ -25,6 +25,9 @@ backend/data/*.db-*
 # and rsynced to the VPS. Not committed.
 frontend/_release_info.json
 
+# Generated GitHub Pages artifact.
+_site/
+
 # Hermes agent artifacts (plans, scratch)
 .hermes/
 

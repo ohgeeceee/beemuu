@@ -59,6 +59,18 @@ jobs:
       - name: pytest backend/tests/
         run: python -m pytest backend/tests/ -q
 
+  plugins-browser:
+    name: Plugin browser isolation and lifecycle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-plugins-browser.cjs
+
   # ─── Frontend JS unit tests (node --test, builtin runner) ───
   # Tests require only repo files + node builtins, so no npm ci is needed.
   # Explicit globs: `node --test <dir>` mis-handles the mixed
