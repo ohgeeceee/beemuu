@@ -189,6 +189,23 @@ test("decodeFor: returns primitive for single-value frames", () => {
   assert.deepEqual(d.decodeFor(d.CAN_ID_WHEEL_SPEEDS, [0, 0, 0, 0, 0, 0, 0, 0]), [0, 0, 0, 0]);
 });
 
+// ---------- 0x2A0: Fuel level ----------
+test("decodeFuelLevel: transforms byte 0 to a 0-100 percent", () => {
+  assert.deepEqual(d.decodeFor(0x2A0, [0, 0, 0, 0, 0, 0, 0, 0]), { fuelLevel: 0 });
+  assert.deepEqual(d.decodeFor(0x2A0, [128, 0, 0, 0, 0, 0, 0, 0]), { fuelLevel: 50 });
+  assert.deepEqual(d.decodeFor(0x2A0, [255, 0, 0, 0, 0, 0, 0, 0]), { fuelLevel: 100 });
+});
+
+// ---------- 0x3C0: Lambda ----------
+test("decodeLambda: maps byte 0 to an air-fuel ratio near 1.0", () => {
+  // 100 * 0.004 + 0.5 = 0.9
+  const lean = d.decodeFor(0x3C0, [100, 0, 0, 0, 0, 0, 0, 0]);
+  assert.ok(Math.abs(lean.lambda - 0.9) < 1e-9);
+  // 125 * 0.004 + 0.5 = 1.0 (stoich)
+  const stoich = d.decodeFor(0x3C0, [125, 0, 0, 0, 0, 0, 0, 0]);
+  assert.ok(Math.abs(stoich.lambda - 1.0) < 1e-9);
+});
+
 test("decodeFor: unknown CAN ID returns null", () => {
   // 0x999 is not in the DECODERS map.
   assert.equal(d.decodeFor(0x999, [0, 0, 0, 0, 0, 0, 0, 0]), null);
