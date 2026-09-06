@@ -1,0 +1,32 @@
+dtc = "2E87"
+dtc_text = "Coolant pump, speed deviation outside tolerance"
+
+[[opinion]]
+perspective = "diy"
+action = "Check coolant level and inspect for leaks. Verify the electric coolant pump connector is seated firmly. Monitor coolant temperature — if it stays normal, the pump may be intermittently failing."
+cost_usd = 0
+time_estimate = "15 minutes"
+difficulty = "easy"
+source = "Bimmerfest / N54Tech forums"
+source_url = "https://www.bimmerfest.com/threads/electric-coolant-pump-failure.580432/"
+note = "The N54/N55 electric coolant pump is a known wear item, typically failing at 60k–100k miles. The connector can corrode from coolant exposure. Cleaning the connector contacts sometimes buys time."
+
+[[opinion]]
+perspective = "indie"
+action = "Activate the coolant pump via ISTA service functions and verify it reaches target speed. If it deviates by more than 10%, replace the pump."
+cost_usd = 350
+time_estimate = "1-2 hours"
+difficulty = "moderate"
+source = "Independent BMW shop experience"
+source_url = ""
+note = "The electric pump on N54/N55 is bolted to the engine block with 2 bolts and 2 coolant hoses. Replacement is straightforward — drain coolant, swap pump, refill and bleed. OEM Pierburg pump recommended (~$180)."
+
+[[opinion]]
+perspective = "dealer"
+action = "Replace electric coolant pump and bleed cooling system per ISTA procedure"
+cost_usd = 800
+time_estimate = "2-3 hours"
+difficulty = "moderate"
+source = "BMW service information"
+source_url = ""
+note = "Dealer will replace the pump and perform a full cooling system bleed via ISTA. They may also recommend replacing the thermostat and upper/lower hoses while the system is drained."

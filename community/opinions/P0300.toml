@@ -1,0 +1,32 @@
+dtc = "P0300"
+dtc_text = "Random/multiple cylinder misfire detected"
+
+[[opinion]]
+perspective = "diy"
+action = "Check for vacuum leaks, inspect spark plugs and ignition coils. Swap coils between cylinders to see if the misfire follows the coil."
+cost_usd = 50
+time_estimate = "30-60 minutes"
+difficulty = "easy"
+source = "OBD-II forums and YouTube guides"
+source_url = ""
+note = "On BMW N54/N55, the most common cause is worn spark plugs or a failing ignition coil. Spark plugs should be replaced every 40k–60k miles on tuned N54s, 60k–80k on stock N55s. The coil-swap test is the fastest way to isolate a bad coil."
+
+[[opinion]]
+perspective = "indie"
+action = "Compression test, leakdown test, inspect injectors, check fuel trims and VANOS adaptation. Replace plugs and coils as a set if aged."
+cost_usd = 400
+time_estimate = "2-4 hours"
+difficulty = "moderate"
+source = "Independent BMW specialist experience"
+source_url = ""
+note = "Random misfire (P0300) without a specific cylinder code usually means multiple weak cylinders or a systemic issue. On high-mileage N54s, check the HPFP and injectors — failing injectors cause lean misfire that mimics ignition problems."
+
+[[opinion]]
+perspective = "dealer"
+action = "Full engine diagnostic: compression, leakdown, injector flow test, VANOS timing verification, DME software update"
+cost_usd = 1200
+time_estimate = "1-2 days"
+difficulty = "advanced"
+source = "BMW service information"
+source_url = ""
+note = "Dealer will run the full ISTA test plan for misfire diagnosis. If injectors are suspect, they'll perform an injector quantity test. DME software updates sometimes improve misfire detection thresholds."
