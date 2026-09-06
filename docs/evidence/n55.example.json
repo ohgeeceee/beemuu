@@ -1,0 +1,56 @@
+[
+  {
+    "id": "0x0AA",
+    "data": [11, 184, 0, 0, 0, 0, 31, 0],
+    "expected": { "rpm": 750.0, "throttle": 12.1621 },
+    "source": "Simulator baseline — byte-identical to src/js/live_can_source.js::framesAt(0, 50). Replace with real-car capture.",
+    "captured_at": "2026-09-05T00:00:00Z",
+    "vehicle": { "engine": "N55", "chassis": "E90" },
+    "notes": "Simulator t=0 idle baseline. RPM=750, throttle=12% (closed). Real-car validation should produce the same decoded values for the same raw bytes."
+  },
+  {
+    "id": "0x1D0",
+    "data": [68, 68, 0, 0, 0, 0, 0, 0],
+    "expected": { "coolant": 20, "ambient": 20 },
+    "source": "Simulator baseline at t=0 (cold engine).",
+    "captured_at": "2026-09-05T00:00:00Z",
+    "vehicle": { "engine": "N55", "chassis": "E90" },
+    "notes": "Byte 0 = coolant + 48 offset. 68 - 48 = 20°C. Byte 1 = ambient + 48 offset."
+  },
+  {
+    "id": "0x545",
+    "data": [0, 66, 0, 0, 0, 0, 0, 0],
+    "expected": { "oilTemp": 18 },
+    "source": "Simulator baseline at t=0 (cold engine).",
+    "captured_at": "2026-09-05T00:00:00Z",
+    "vehicle": { "engine": "N55", "chassis": "E90" },
+    "notes": "Byte 1 = oil temp + 48 offset. 66 - 48 = 18°C."
+  },
+  {
+    "id": "0x130",
+    "data": [100, 0, 0, 0, 0, 0, 0, 0],
+    "expected": { "vehicleSpeed": 50.0 },
+    "source": "Simulator baseline at 50 km/h.",
+    "captured_at": "2026-09-05T00:00:00Z",
+    "vehicle": { "engine": "N55", "chassis": "E90" },
+    "notes": "Byte 0 = speed / 0.5 km/h per LSB. 100 * 0.5 = 50 km/h."
+  },
+  {
+    "id": "0x316",
+    "data": [80, 0, 0, 0, 0, 0, 0, 0],
+    "expected": { "batteryVoltage": 14.0 },
+    "source": "Simulator baseline at 14V.",
+    "captured_at": "2026-09-05T00:00:00Z",
+    "vehicle": { "engine": "N55", "chassis": "E90" },
+    "notes": "Byte 0 = (voltage - 6.0) / 0.1. (80 * 0.1) + 6.0 = 14.0V."
+  },
+  {
+    "id": "0x0CE",
+    "data": [1, 144, 1, 144, 1, 144, 1, 144],
+    "expected": { "wheelSpeeds": [25.0, 25.0, 25.0, 25.0] },
+    "source": "Simulator baseline at 25 km/h per wheel.",
+    "captured_at": "2026-09-05T00:00:00Z",
+    "vehicle": { "engine": "N55", "chassis": "E90" },
+    "notes": "Each wheel pair: u16BE / 0.0625. 400 * 0.0625 = 25 km/h. 0x0190 = 400."
+  }
+]

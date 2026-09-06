@@ -1,0 +1,32 @@
+dtc = "2A86"
+dtc_text = "VANOS intake: cold start control deviation"
+
+[[opinion]]
+perspective = "diy"
+action = "Check oil level and condition. If oil is old or low, change it. Clear the code and monitor — cold-start VANOS codes often resolve with fresh oil."
+cost_usd = 80
+time_estimate = "45 minutes"
+difficulty = "easy"
+source = "Bimmerpost / SpoolStreet forums"
+source_url = "https://spoolstreet.com/threads/n55-codes-list.580/"
+note = "VANOS solenoids are sensitive to oil quality. On the N54/N55, the intake VANOS solenoid screen can also clog with carbon. A $15 replacement screen from the dealer often fixes it."
+
+[[opinion]]
+perspective = "indie"
+action = "Remove and clean both VANOS solenoids, replace solenoid screens, verify oil pressure at cold start, check VANOS adaptation values via ISTA"
+cost_usd = 250
+time_estimate = "1-2 hours"
+difficulty = "moderate"
+source = "Independent BMW specialist experience"
+source_url = ""
+note = "If cleaning doesn't resolve it, the VANOS solenoid itself may be failing. Replacement solenoids are ~$80 each. Check the eccentric shaft sensor (2AAA) if the code returns — Valvetronic issues can mimic VANOS faults."
+
+[[opinion]]
+perspective = "dealer"
+action = "Replace VANOS intake solenoid and reprogram DME with latest integration level"
+cost_usd = 450
+time_estimate = "2-3 hours"
+difficulty = "moderate"
+source = "BMW service information"
+source_url = ""
+note = "Dealer will typically replace the solenoid outright rather than cleaning. DME reprogramming ensures the latest VANOS adaptation algorithm is loaded."

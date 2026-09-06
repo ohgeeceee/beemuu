@@ -675,11 +675,11 @@
 
   <!-- Histogram modal (Logging tab) -->
   <div id="histogram-overlay" class="modal-overlay hidden">
-    <div class="modal histogram-modal">
+    <div class="modal histogram-modal" role="dialog" aria-modal="true" aria-labelledby="histogram-modal-title">
       <div class="modal-head">
-        <span class="brand-badge">▥</span>
+        <span class="brand-badge" aria-hidden="true">▥</span>
         <div>
-          <div class="brand-title">Histogram</div>
+          <div id="histogram-modal-title" class="brand-title">Histogram</div>
           <div class="brand-sub">Distribution of a logged channel's values</div>
         </div>
       </div>
@@ -697,14 +697,14 @@
           </select>
         </div>
         <div class="histogram-chart-wrap">
-          <canvas id="histogram-chart"></canvas>
+          <canvas id="histogram-chart" aria-label="Histogram bar chart of selected channel"></canvas>
         </div>
-        <div id="histogram-stats" class="histogram-stats"></div>
-        <div id="histogram-dropped" class="muted"></div>
+        <div id="histogram-stats" class="histogram-stats" role="status" aria-live="polite"></div>
+        <div id="histogram-dropped" class="muted" role="status" aria-live="polite"></div>
       </div>
       <div class="modal-actions">
-        <button id="histogram-export" class="btn" disabled>Export PNG</button>
-        <button id="histogram-export-svg" class="btn" disabled>Export SVG</button>
+        <button id="histogram-export" class="btn" disabled aria-label="Export histogram as PNG image">Export PNG</button>
+        <button id="histogram-export-svg" class="btn" disabled aria-label="Export histogram as SVG vector image">Export SVG</button>
         <button id="histogram-close" class="btn btn-primary">Close</button>
       </div>
     </div>
@@ -712,11 +712,11 @@
 
   <!-- v0.6.0 Log-merge / comparison modal (Logging tab) -->
   <div id="log-diff-overlay" class="modal-overlay hidden">
-    <div class="modal log-diff-modal">
+    <div class="modal log-diff-modal" role="dialog" aria-modal="true" aria-labelledby="log-diff-modal-title">
       <div class="modal-head">
-        <span class="brand-badge">⇄</span>
+        <span class="brand-badge" aria-hidden="true">⇄</span>
         <div>
-          <div class="brand-title">Compare logs</div>
+          <div id="log-diff-modal-title" class="brand-title">Compare logs</div>
           <div class="brand-sub">Per-channel stats diff between two loaded logs</div>
         </div>
       </div>
@@ -729,27 +729,27 @@
           <button id="log-diff-recompute" class="btn btn-small">Recompute</button>
         </div>
         <div class="log-diff-table-wrap">
-          <table class="log-diff-table">
+          <table class="log-diff-table" aria-label="Per-channel stats comparison between two log sessions">
             <thead>
               <tr>
-                <th>Channel</th>
-                <th>A — n</th>
-                <th>A — mean</th>
-                <th>A — σ</th>
-                <th>A — max</th>
-                <th>B — n</th>
-                <th>B — mean</th>
-                <th>B — σ</th>
-                <th>B — max</th>
-                <th>Δmean</th>
-                <th>Δσ</th>
-                <th>Δmax</th>
+                <th scope="col">Channel</th>
+                <th scope="col">A — n</th>
+                <th scope="col">A — mean</th>
+                <th scope="col">A — σ</th>
+                <th scope="col">A — max</th>
+                <th scope="col">B — n</th>
+                <th scope="col">B — mean</th>
+                <th scope="col">B — σ</th>
+                <th scope="col">B — max</th>
+                <th scope="col">Δmean</th>
+                <th scope="col">Δσ</th>
+                <th scope="col">Δmax</th>
               </tr>
             </thead>
             <tbody id="log-diff-tbody"></tbody>
           </table>
         </div>
-        <div id="log-diff-summary" class="muted"></div>
+        <div id="log-diff-summary" class="muted" role="status" aria-live="polite"></div>
       </div>
       <div class="modal-actions">
         <button id="log-diff-close" class="btn btn-primary">Close</button>

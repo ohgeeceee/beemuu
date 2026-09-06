@@ -1027,13 +1027,13 @@ decimals = 0
     #[test]
     fn loads_dsc_and_frm_schemas_in_one_pass() {
         let (count, warnings, _scratch) = load_fixture(&[
-            ("12.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("13.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
             ("29.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
             ("72.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
         ]);
         assert_eq!(count, 3);
         assert!(warnings.is_empty());
-        for addr in [0x12u8, 0x29, 0x72] {
+        for addr in [0x13u8, 0x29, 0x72] {
             assert!(freeze::registry().get_schema(addr).is_some(), "0x{addr:02X} registered");
         }
     }
@@ -1041,11 +1041,11 @@ decimals = 0
     #[test]
     fn bad_filename_emits_warning_and_does_not_crash() {
         let (count, warnings, _scratch) = load_fixture(&[
-            ("12.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
+            ("14.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
             ("not-hex.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
             ("99.toml", "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"u16\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n"),
         ]);
-        assert_eq!(count, 2, "the 12.toml and 99.toml register; not-hex.toml is skipped");
+        assert_eq!(count, 2, "the 14.toml and 99.toml register; not-hex.toml is skipped");
         assert_eq!(warnings.len(), 1);
         assert!(warnings[0].contains("Bad freeze filename"));
     }
@@ -1056,7 +1056,7 @@ decimals = 0
         // a whole is rejected so the address doesn't get registered
         // with a half-broken field list.
         let (count, warnings, _scratch) = load_fixture(&[(
-            "12.toml",
+            "15.toml",
             "[[field]]\nlabel = \"RPM\"\nunit = \"rpm\"\noffset = 0\nwidth = \"banana\"\nscale = 1.0\nbias = 0.0\ndecimals = 0\n",
         )]);
         assert_eq!(count, 0);

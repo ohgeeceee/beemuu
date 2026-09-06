@@ -136,21 +136,17 @@
     return s;
   }
 
-  function buildHealthReport(info, modules, generatedAt = new Date(), snapshotMeta, recurring) {
+  function buildHealthReport(info, modules, generatedAt = new Date(), recurring) {
     const present = (modules || []).filter((m) => m.present);
     const faults = present.flatMap((m) => (m.dtcs || []).map((d) => ({ ...d, module: m.name })));
     const faultRows = faults.length ? faults.map((d) => `<tr><td>${escapeHtml(d.module)}</td><td>${escapeHtml(d.code)}</td><td>${escapeHtml(d.text)}</td><td>${escapeHtml(d.status_text)}</td><td>${escapeHtml(freezeSnippet(d))}</td></tr>`).join("") : `<tr><td colspan="5">No stored faults were included in this report.</td></tr>`;
-    const sourceNote = snapshotMeta ? `<p class="muted">Loaded from snapshot: ${escapeHtml(snapshotMeta.name || snapshotMeta.vin || "unknown")} (${escapeHtml(snapshotMeta.recordedAt || "")})</p>` : "";
-    const snapSummary = snapshotMeta ? ` · from snapshot` : "";
-    let recurringHtml = "";
-    if (recurring && Array.isArray(recurring) && recurring.length) {
-      const rows = recurring.slice(0,3).map(r => `<li>${escapeHtml(r.code)} seen ${r.occurrences || 1}x (last ${escapeHtml(r.last_seen || '')})</li>`).join("");
-      recurringHtml = `<h2>Recurring DTCs</h2><ul class="recurring">${rows}</ul>`;
-    }
-    return `<article class="print-report"><header><h1>Beemuu Vehicle Health Report</h1><p>Generated ${escapeHtml(generatedAt.toLocaleString())}${snapSummary}</p>${sourceNote}</header>
+    const recurringHtml = (Array.isArray(recurring) && recurring.length)
+      ? `<h2>Recurring faults</h2><ul>${recurring.map((r) => `<li><strong>${escapeHtml(r.code)}</strong>: seen ${r.occurrences}× (last ${escapeHtml(r.last_seen || "—")}${r.same_address === false ? ", different module" : ""})</li>`).join("")}</ul>`
+      : "";
+    return `<article class="print-report"><header><h1>Beemuu Vehicle Health Report</h1><p>Generated ${escapeHtml(generatedAt.toLocaleString())}</p></header>
       ${vehicleBlock(info)}
       <h2>Diagnostic summary</h2><p>${present.length} control unit${present.length === 1 ? "" : "s"} identified · ${faults.length} stored fault${faults.length === 1 ? "" : "s"}</p>
-      <table role="table" aria-label="Faults"><thead><tr><th>Module</th><th>Code</th><th>Finding</th><th>Status</th><th>Freeze frame</th></tr></thead><tbody>${faultRows}</tbody></table>
+      <table><thead><tr><th>Module</th><th>Code</th><th>Finding</th><th>Status</th><th>Freeze frame</th></tr></thead><tbody>${faultRows}</tbody></table>
       ${recurringHtml}
       <h2>Recommended work</h2><ul>${faults.length ? faults.map((d) => `<li><strong>${escapeHtml(d.code)}:</strong> Diagnose ${escapeHtml(d.text, "the reported condition")} before replacing parts. Confirm with BMW service information and vehicle-specific testing.</li>`).join("") : "<li>No fault-led work is indicated by the data included in this report.</li>"}</ul>
       <p class="disclaimer">Diagnostic aid only. A fault code does not by itself prove that a component needs replacement.</p></article>`;

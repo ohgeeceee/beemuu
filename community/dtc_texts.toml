@@ -337,6 +337,12 @@
 "2AAE" = "Valvetronic actuator: jammed mechanically"
 "3E80" = "Valvetronic actuator, activation: jammed mechanically"
 
+# --- Community additions (v0.16.0) ---
+"2A86" = "VANOS intake: cold start control deviation"
+"2A88" = "VANOS exhaust: cold start control deviation"
+"2A9C" = "Camshaft position sensor intake: signal fault"
+"2E87" = "Coolant pump, speed deviation outside tolerance (N54/N55 electric pump)"
+"2E88" = "Coolant pump, activation fault (N54/N55 electric pump)"
 # additional E-series (observed in traces / community, v0.19)
 "2E81" = "Electric coolant pump: supply voltage"
 "29CC" = "Misfire cylinder 3 (random/multiple)"
