@@ -20,13 +20,20 @@ test("service history is stored per VIN and sorted newest first", () => {
 });
 
 test("health report includes vehicle, faults, and cautious recommended work", () => {
-  const html = reports.buildHealthReport(info, [{ present: true, name: "DME", dtcs: [{ code: "2A82", text: "VANOS intake", status_text: "confirmed", freeze_frame: [{ label: "RPM", value: "800" }] }] }], new Date("2026-01-02T00:00:00Z"));
+  const html = reports.buildHealthReport(info, [{ present: true, name: "DME", dtcs: [{ code: "2A82", text: "VANOS intake", status_text: "confirmed", freeze_frame: [{ label: "RPM", value: "800" }] }] }], new Date("2026-01-02T00:00:00Z"), null, null);
   assert.match(html, /Vehicle Health Report/);
   assert.match(html, /WBA123/);
   assert.match(html, /2A82/);
   assert.match(html, /Diagnose VANOS intake before replacing parts/);
   assert.match(html, /Freeze frame/);
-  assert.match(html, /RPM 800/);
+  assert.match(html, /RPM: 800/);
+});
+
+test("health report includes recurring DTC section when provided", () => {
+  const rec = [{ code: "2A82", occurrences: 3, last_seen: "2026-01-01" }];
+  const html = reports.buildHealthReport(info, [{ present: true, name: "DME", dtcs: [] }], new Date(), null, rec);
+  assert.match(html, /Recurring DTCs/);
+  assert.match(html, /2A82 seen 3x/);
 });
 
 test("health report omits recurring section when not provided", () => {

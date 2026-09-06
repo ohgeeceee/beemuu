@@ -37,7 +37,7 @@ function harness({ source = null } = {}) {
   return { controller, status, button, timer: () => timerCallback, cleared: () => cleared, onTickCalls };
 }
 
-test("defines the six planned Live CAN gauges", () => {
+test("defines the eight planned Live CAN gauges", () => {
   assert.deepEqual(
     GAUGE_DEFINITIONS.map(({ key, label, unit, min, max }) => ({ key, label, unit, min, max })),
     [
@@ -47,6 +47,8 @@ test("defines the six planned Live CAN gauges", () => {
       { key: "vehicleSpeed", label: "Vehicle speed", unit: "km/h", min: 0, max: 250 },
       { key: "batteryVoltage", label: "Battery voltage", unit: "V", min: 10, max: 16 },
       { key: "throttle", label: "Throttle", unit: "%", min: 0, max: 100 },
+      { key: "fuelLevel", label: "Fuel level", unit: "%", min: 0, max: 100 },
+      { key: "lambda", label: "Lambda", unit: "λ", min: 0.5, max: 1.6 },
     ],
   );
 });

@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 let connected = false;
 let modules = [];
 let selectedAddress = null;
+let faultMemoryRead = false;
 const gauges = new Map(); // id -> Gauge
 let pollTimer = null;
 let sessionReplay = false; // true when viewing a loaded snapshot
@@ -212,11 +213,25 @@ try {
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     if (tab.classList.contains("hidden")) return; // disabled by current mode
-    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach((t) => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     tab.classList.add("active");
+    tab.setAttribute("aria-selected", "true");
     $("view-" + tab.dataset.view).classList.add("active");
     saveSettings(); // persist the active tab (v0.7.0 workspace)
+  });
+  // Keyboard arrow nav for tabs (v0.17.1 a11y)
+  tab.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const tabs = Array.from(document.querySelectorAll(".tab:not(.hidden)"));
+    const idx = tabs.indexOf(tab);
+    if (idx < 0) return;
+    const next = e.key === "ArrowRight" ? tabs[idx + 1] : tabs[idx - 1];
+    if (next) {
+      e.preventDefault();
+      next.click();
+      next.focus();
+    }
   });
 });
 
@@ -239,6 +254,56 @@ function applyMode(mode) {
     $("view-" + active.dataset.view).classList.add("active");
   }
   saveSettings(); // persist the mode (v0.7.0 workspace; was beeemuu_mode)
+}
+
+function renderFirstScanGuide() {
+  const body = $("first-scan-guide-body");
+  const api = window.beeemuuFirstScanGuide;
+  if (!body || !api || typeof api.buildFirstScanGuide !== "function") return;
+  const selected = modules.find((module) => module.address === selectedAddress);
+  const guide = api.buildFirstScanGuide({
+    connectionKind: $("conn-kind").value,
+    connected,
+    moduleCount: modules.filter((module) => module.present).length,
+    selectedModuleName: selected && selected.name,
+    faultMemoryRead,
+    faultCount: lastDtcs.length,
+  });
+  body.innerHTML = "";
+  const intro = document.createElement("p");
+  intro.className = "muted";
+  intro.style.marginTop = "0";
+  intro.textContent = guide.intro;
+  body.appendChild(intro);
+  const list = document.createElement("div");
+  list.style.marginTop = "6px";
+  for (const step of guide.steps) {
+    const row = document.createElement("div");
+    row.className = `scan-step${step.complete ? " complete" : ""}`;
+    row.innerHTML = `<span class="step-icon">${step.complete ? "✅" : "→"}</span>` +
+      `<div><strong>${escapeHtml(step.title)}</strong><div class="muted" style="font-size:12px">${escapeHtml(step.detail)}</div></div>`;
+    list.appendChild(row);
+  }
+  body.appendChild(list);
+}
+
+function renderBeginnerFaultSummary() {
+  const panel = $("beginner-fault-summary");
+  const title = $("beginner-fault-summary-title");
+  const body = $("beginner-fault-summary-body");
+  const api = window.beeemuuBeginnerFaultSummary;
+  if (!panel || !title || !body || !api || typeof api.buildBeginnerFaultSummary !== "function") return;
+  const selected = modules.find((module) => module.address === selectedAddress);
+  const summary = api.buildBeginnerFaultSummary({
+    faultMemoryRead,
+    faultCount: lastDtcs.length,
+    moduleName: selected && selected.name,
+  });
+  panel.classList.toggle("hidden", !summary);
+  if (!summary) return;
+  title.textContent = summary.title;
+  body.innerHTML = `<p style="margin:0">${escapeHtml(summary.detail)}</p>`;
+  panel.className = `panel ${summary.tone === "ok" ? "ok-tone" : "attention-tone"}`;
 }
 
 $("app-mode").addEventListener("change", () => applyMode($("app-mode").value));
@@ -305,6 +370,7 @@ $("conn-kind").addEventListener("change", async () => {
   $("conn-enet-opts").classList.toggle("hidden", !(advOpen && kind === "enet"));
   if (advOpen && kind === "kdcan") await refreshPorts();
   saveSettings();
+  renderFirstScanGuide();
 });
 $("conn-dcan").addEventListener("change", saveSettings);
 $("conn-addr").addEventListener("input", saveSettings);
@@ -391,12 +457,15 @@ $("btn-connect").addEventListener("click", async () => {
     selectedAddress = null;
     lastVehicleInfo = null;
     lastTraffic = [];
+    faultMemoryRead = false;
     $("btn-connect").textContent = "Connect";
     $("btn-connect").classList.add("btn-primary");
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
     renderTree();
     refreshFrmCodingCard();
+    renderFirstScanGuide();
+    renderBeginnerFaultSummary();
     return;
   }
   if (sessionReplay) {
@@ -405,6 +474,7 @@ $("btn-connect").addEventListener("click", async () => {
     selectedAddress = null;
     lastVehicleInfo = null;
     lastTraffic = [];
+    faultMemoryRead = false;
     $("ecu-tree").innerHTML = "<li class='tree-empty'>Connect and run a vehicle test to identify control units.</li>";
     $("fault-rows").innerHTML = "<tr><td colspan='3' class='muted'>Select a control unit.</td></tr>";
     $("info-body").innerHTML = "<p class='muted'>Connect and click 'Read vehicle' to read VIN, decode it, and read mileage.</p>";
@@ -414,6 +484,8 @@ $("btn-connect").addEventListener("click", async () => {
     $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
     setStatus("Disconnected");
     refreshFrmCodingCard();
+    renderFirstScanGuide();
+    renderBeginnerFaultSummary();
     return;
   }
   try {
@@ -442,9 +514,12 @@ $("btn-connect").addEventListener("click", async () => {
     }
     saveSettings();
     refreshFrmCodingCard();
+    renderFirstScanGuide();
+    renderBeginnerFaultSummary();
   } catch (e) {
     setStatus("Disconnected");
     log("Connect failed: " + e);
+    renderFirstScanGuide();
   }
 });
 
@@ -461,8 +536,11 @@ $("btn-scan").addEventListener("click", async () => {
     fillExplorerEcus();
     fillSecurityEcus();
     const found = modules.filter((m) => m.present).length;
+    faultMemoryRead = false;
     setStatus(`Vehicle test complete — ${found} control units found`);
     refreshFrmCodingCard();
+    renderFirstScanGuide();
+    renderBeginnerFaultSummary();
   } catch (e) {
     log("Scan failed: " + e);
     setStatus("Connected");
@@ -495,11 +573,14 @@ function renderTree() {
     li.appendChild(div);
     ul.appendChild(li);
   }
+  renderFirstScanGuide();
 }
 
 async function selectModule(address) {
   selectedAddress = address;
+  faultMemoryRead = false;
   renderTree();
+  renderBeginnerFaultSummary();
   const m = modules.find((x) => x.address === address);
   $("detail-title").textContent = `Fault memory — ${m.name}`;
   const identEl = $("ecu-ident");
@@ -511,6 +592,8 @@ async function selectModule(address) {
   $("freeze-panel").classList.add("hidden");
   showObdPidPanel();
   await readFaults();
+  renderFirstScanGuide();
+  renderBeginnerFaultSummary();
   await loadOracle(address);
 }
 
@@ -538,6 +621,7 @@ async function readFaults() {
     const m = modules.find((x) => x.address === selectedAddress);
     const dtcs = m?.dtcs || [];
     lastDtcs = dtcs;
+    faultMemoryRead = true;
     if (dtcs.length === 0) {
       tbody.innerHTML = `<tr><td colspan='3' class='fault-ok'>No faults stored. <span class="muted">This module's fault memory is clear — a useful baseline. Try scanning other modules (DME, EGS, DSC) to confirm the vehicle's overall health.</span></td></tr>`;
       return;
@@ -561,6 +645,7 @@ async function readFaults() {
   try {
     const dtcs = await invoke("read_faults", { address: selectedAddress });
     lastDtcs = dtcs;
+    faultMemoryRead = true;
     // v0.12.0 Fault Memory: record this read to the local history if the
     // user opted in. Best-effort — a recording failure (e.g. home dir not
     // writable, slice 2 PR #144 not yet merged) should not break the
@@ -1153,7 +1238,11 @@ async function doSecureShare() {
   }
 }
 
-$("btn-read-faults").addEventListener("click", readFaults);
+$("btn-read-faults").addEventListener("click", async () => {
+  await readFaults();
+  renderFirstScanGuide();
+  renderBeginnerFaultSummary();
+});
 
 /* ---------------- OBD-II PID scan ---------------- */
 // Show the OBD-II panel only when a present ECU is selected. Hidden
@@ -3156,23 +3245,51 @@ $("log-import-external-file")?.addEventListener("change", async (e)=>{
   const file=e.target.files?.[0]; if(!file) return;
   const text=await file.text();
   try{
+    if (text.startsWith("# beemuu log")) {
+      // v0.21: full native Beemuu CSV restore for replay (tags, bookmarks, series)
+      const parsed = window.beeemuuLogImport.parseBeemuuCsv(text);
+      if (parsed.sessionTag) {
+        activeLogSessionTag = normalizeSessionTag(parsed.sessionTag);
+        $("log-session-tag").value = activeLogSessionTag;
+      }
+      if (parsed.bookmarks && parsed.bookmarks.length) logSeries.markers = parsed.bookmarks;
+
+      logSeries.clear();
+      parsed.series.forEach((info, id) => {
+        const s = new LogSeries(info.label || id, info.unit || "", "#4a90d9", true);
+        (info.data || []).forEach(p => s.push(p));
+        logSeries.set(id, s);
+      });
+
+      logSeries.paused = true;
+      logSeries.scrubTime = logSeries.totalDuration || 0;
+      if (logChart) {
+        logChart.options.plugins.markerLines.markers = logSeries.markers;
+        logChart.update("none");
+      }
+      updateScrubber();
+      renderMarkerList();
+      $("btn-log-bookmark").disabled = logSeries.totalDuration === 0;
+      $("btn-log-clear-markers").disabled = logSeries.markers.length === 0;
+      $("log-scrubber").disabled = logSeries.totalDuration === 0;
+      $("btn-log-play").disabled = logSeries.totalDuration === 0;
+      $("btn-log-export").disabled = false;
+      $("btn-log-export-png").disabled = false;
+      $("btn-log-export-svg").disabled = false;
+      $("btn-log-clear").disabled = false;
+      log(`Native Beemuu CSV fully restored: tag + ${(parsed.bookmarks||[]).length} bookmarks + ${parsed.series.size} series`);
+      $("btn-log-histogram").disabled=false; $("btn-log-diff").disabled=false;
+      return; // done for native
+    }
     const parsed = window.beeemuuLogImport.parseBootmod3Csv(text);
-    // inject as virtual series into logSeries for histogram/diff reuse
     for(const [id, points] of parsed.series.entries()){
       let s=logSeries.get(id);
-      if(!s){
-        // create minimal series entry if not exists — use header as label
-        const label = parsed.headers[parsed.ids.indexOf(id)] || id;
-        // create series stub via logSeries internal API if available
-        // fallback: skip if no series
-        continue;
-      }
-      // append points with time offset
+      if(!s){ continue; }
       for(const p of points){ s.push(p); }
     }
     if(logChart) logChart.update("none");
+    updateScrubber();
     log(`External log imported: ${parsed.ids.join(", ")} (${parsed.rows.length} rows)`);
-    // enable histogram/diff buttons
     $("btn-log-histogram").disabled=false; $("btn-log-diff").disabled=false;
   }catch(err){ log("External import failed: "+err.message); }
   e.target.value="";
@@ -3696,8 +3813,47 @@ function showServiceHistoryEditor() {
           if (!file) return;
           const reader = new FileReader();
           reader.onload = () => applyImported(reader.result);
-          reader.readAsText(file);
-        });
+  reader.readAsText(file);
+});
+
+/* ---------------- snapshot compare (v0.17.2) ---------------- */
+function renderCompareResult(cmp) {
+  const el = $("cmp-result");
+  if (!el) return;
+  const api = window.beeemuuSnapshotCompare;
+  if (api && typeof api.renderCompareHtml === "function") {
+    el.innerHTML = api.renderCompareHtml(cmp);
+  } else {
+    // fallback
+    el.innerHTML = cmp ? `<pre>${JSON.stringify(cmp, null, 2).slice(0, 800)}</pre>` : "";
+  }
+}
+
+$("btn-cmp-run").addEventListener("click", async () => {
+  if (compareLeftName && compareRightName) {
+    await runLibraryCompare();
+    return;
+  }
+  const leftF = $("cmp-left").files[0];
+  const rightF = $("cmp-right").files[0];
+  if (!leftF || !rightF) { $("cmp-result").innerHTML = "<span class='muted'>Pick two JSON files or use library Left/Right.</span>"; return; }
+  const read = (f) => new Promise(res => { const r = new FileReader(); r.onload = () => res(JSON.parse(r.result)); r.readAsText(f); });
+  try {
+    const [L, R] = await Promise.all([read(leftF), read(rightF)]);
+    const cmpMod = window.beeemuuSnapshotCompare || (typeof require !== "undefined" ? require("./snapshot_compare.js") : null);
+    const cmp = cmpMod && cmpMod.compareSnapshots ? cmpMod.compareSnapshots(L, R) : { freezeFrame: [], walk: [] };
+    renderCompareResult(cmp);
+  } catch (e) {
+    $("cmp-result").innerHTML = `<span style="color:#c00">Compare failed: ${e.message || e}</span>`;
+  }
+});
+
+$("btn-cmp-clear").addEventListener("click", () => {
+  $("cmp-left").value = ""; $("cmp-right").value = ""; $("cmp-result").innerHTML = "";
+  compareLeftName = null; compareRightName = null;
+  const runBtn = $("btn-cmp-run"); if (runBtn) runBtn.textContent = "Compare";
+});
+
         input.click();
         return; // applyImported will run via FileReader
       }
@@ -3810,6 +3966,49 @@ function loadSnapshot(data) {
   if (data.traffic) {
     lastTraffic = data.traffic;
     refreshTraffic();
+  }
+
+  // v0.21: full log restore from snapshot (tags, bookmarks, series) for interoperability
+  const logData = data.log || data.logging || (data.session && data.session.log);
+  if (logData) {
+    try {
+      logSeries.clear();
+      logStart = logData.startTime || Date.now();
+      activeLogSessionTag = normalizeSessionTag(logData.sessionTag);
+      $("log-session-tag").value = activeLogSessionTag;
+      logSeries.markers = Array.isArray(logData.markers) ? logData.markers : [];
+      if (Array.isArray(logData.series)) {
+        for (const s of logData.series) {
+          const series = new LogSeries(s.label, s.unit, s.color || "#888", !!s.enabled);
+          if (Array.isArray(s.data)) for (const p of s.data) series.push(p);
+          logSeries.set(s.id, series);
+        }
+      }
+      logSeries.paused = true;
+      logSeries.scrubTime = logSeries.totalDuration || 0;
+      $("btn-log-bookmark").disabled = logSeries.totalDuration === 0;
+      $("btn-log-clear-markers").disabled = logSeries.markers.length === 0;
+      // rebuild log params UI if visible
+      const el = $("log-params");
+      if (el) {
+        el.innerHTML = "";
+        for (const [id, s] of logSeries) {
+          const row = document.createElement("label");
+          row.className = "log-param";
+          row.innerHTML = `<input type="checkbox" ${s.enabled ? "checked" : ""} data-id="${id}" />` +
+            `<span class="swatch" style="background:${escapeHtml(s.color)}"></span>` +
+            `<span>${escapeHtml(s.label)} (${escapeHtml(s.unit)})</span>`;
+          row.querySelector("input").addEventListener("change", (e) => { s.enabled = e.target.checked; rebuildChart(); });
+          el.appendChild(row);
+        }
+      }
+      if (logChart) {
+        logChart.options.plugins.markerLines.markers = logSeries.markers;
+        logChart.update("none");
+      }
+      updateScrubber();
+      renderMarkerList();
+    } catch (e) { /* best effort */ }
   }
 
   if (data.vehicle_info?.suggested_profile) {
@@ -4218,6 +4417,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
   await loadSettings();
   applyMode($("app-mode").value);
   restoreActiveTab();
+  renderFirstScanGuide();
   // Persist now: a first-boot legacy migration lands on disk immediately,
   // and every later change re-saves through the debounce.
   saveSettings();
@@ -4262,14 +4462,55 @@ function renderSnapshots(files) {
     const sizeStr = f.size_bytes < 1024 ? `${f.size_bytes} B` : f.size_bytes < 1048576 ? `${(f.size_bytes / 1024).toFixed(1)} KB` : `${(f.size_bytes / 1048576).toFixed(1)} MB`;
     const card = document.createElement("div");
     card.className = "snapshot-card";
+    card.setAttribute("role", "listitem");
+    card.setAttribute("aria-label", `Snapshot ${f.name}`);
     card.innerHTML =
       `<div class="snapshot-title">${escapeHtml(f.name)}</div>` +
       `<div class="snapshot-meta">${dateStr} · ${sizeStr}</div>` +
       `<div class="snapshot-actions">` +
-        `<button class="btn btn-small" data-name="${escapeHtml(f.name)}">Open</button>` +
+        `<button class="btn btn-small" data-action="open" data-name="${escapeHtml(f.name)}" aria-label="Open snapshot ${escapeHtml(f.name)}">Open</button>` +
+        `<button class="btn btn-small" data-action="left" data-name="${escapeHtml(f.name)}" aria-label="Select ${escapeHtml(f.name)} as left for compare">Left</button>` +
+        `<button class="btn btn-small" data-action="right" data-name="${escapeHtml(f.name)}" aria-label="Select ${escapeHtml(f.name)} as right for compare">Right</button>` +
       `</div>`;
-    card.querySelector("button").addEventListener("click", () => loadSnapshotFromFile(f.name));
+    card.querySelector('[data-action="open"]').addEventListener("click", () => loadSnapshotFromFile(f.name));
+    card.querySelector('[data-action="left"]').addEventListener("click", () => setCompareFile(f.name, 'left'));
+    card.querySelector('[data-action="right"]').addEventListener("click", () => setCompareFile(f.name, 'right'));
     list.appendChild(card);
+  }
+}
+
+let compareLeftName = null;
+let compareRightName = null;
+
+async function setCompareFile(name, side) {
+  if (side === 'left') compareLeftName = name;
+  else compareRightName = name;
+  const leftBtn = $("btn-cmp-run");
+  if (leftBtn) leftBtn.textContent = (compareLeftName && compareRightName) ? "Compare selected" : "Compare";
+  if (compareLeftName && compareRightName) {
+    await runLibraryCompare();
+  }
+}
+
+async function runLibraryCompare() {
+  if (!compareLeftName || !compareRightName) return;
+  try {
+    setStatus("Loading for compare…");
+    const leftData = await invoke("import_session_file", { name: compareLeftName });
+    const rightData = await invoke("import_session_file", { name: compareRightName });
+    const cmpMod = window.beeemuuSnapshotCompare;
+    const cmp = cmpMod && cmpMod.compareSnapshots ? cmpMod.compareSnapshots(leftData, rightData) : null;
+    const resultEl = $("cmp-result");
+    if (resultEl && cmpMod && cmpMod.renderCompareHtml) {
+      resultEl.innerHTML = cmpMod.renderCompareHtml(cmp);
+    } else if (resultEl) {
+      resultEl.innerHTML = `<pre>${escapeHtml(JSON.stringify(cmp, null, 2).slice(0, 600))}</pre>`;
+    }
+    log(`Compared ${compareLeftName} vs ${compareRightName}`);
+  } catch (e) {
+    log("Compare failed: " + e);
+  } finally {
+    setStatus("Session replay (offline)");
   }
 }
 

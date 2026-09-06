@@ -29,6 +29,8 @@ const GAUGE_DEFINITIONS = Object.freeze([
   { key: "vehicleSpeed", label: "Vehicle speed", unit: "km/h", min: 0, max: 250 },
   { key: "batteryVoltage", label: "Battery voltage", unit: "V", min: 10, max: 16 },
   { key: "throttle", label: "Throttle", unit: "%", min: 0, max: 100 },
+  { key: "fuelLevel", label: "Fuel level", unit: "%", min: 0, max: 100 },
+  { key: "lambda", label: "Lambda", unit: "λ", min: 0.5, max: 1.6 },
 ]);
 
 function createLiveGaugesController(options) {

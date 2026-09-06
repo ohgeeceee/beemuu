@@ -125,10 +125,6 @@ source = "community"
 options = ["N54 3.0 twin-turbo", "E82 135i coupe", "2009"]
 source = "community"
 
-["WBA8E7"]
-options = ["N55 3.0", "E82 135i coupe", "2011"]
-source = "community"
-
 # --- E83 X3 (N52) ---
 ["WBXAH3"]
 options = ["N52 3.0", "E83 X3 3.0i", "2007"]
@@ -156,11 +152,63 @@ source = "community"
 options = ["N55 3.0", "E89 Z4 35i", "2012"]
 source = "community"
 
-# --- Community additions (v0.16.0) ---
-["WBAKE3"]
-options = ["N52 3.0", "E90 328i", "2008"]
+# more E-series prefixes (v0.19)
+["WBA8E4"]
+options = ["N52 3.0", "E90 330i", "2007"]
 source = "community"
 
-["WBAKE5"]
+["WBAVC9"]
 options = ["N54 3.0 twin-turbo", "E92 335i", "2008"]
+source = "community"
+
+["WBA5K1"]
+options = ["N52 3.0", "E60 525i", "2006"]
+source = "community"
+
+["WBAVD1"]
+options = ["N55 3.0", "E82 135i", "2011"]
+source = "community"
+
+["5UXZV5"]
+options = ["N52 3.0", "E70 X5 3.0si", "2007"]
+source = "community"
+
+["WBA8F1"]
+options = ["B58 3.0", "G20 340i", "2016"]
+source = "community"
+
+["WBA8E7"]
+options = ["N55 3.0", "F30 335i", "2012"]
+source = "community"
+
+["5UXZV8"]
+options = ["N63 4.4", "E71 X6 50i", "2009"]
+source = "community"
+
+["WBA5M3"]
+options = ["S55 3.0", "F80 M3", "2015"]
+source = "community"
+
+["WBADD3"]
+options = ["B48 2.0", "F40 118i", "2020"]
+source = "community"
+
+["WBA3V7"]
+options = ["N54 3.0", "E90 335i", "2007"]
+source = "community"
+
+["5UXWX9"]
+options = ["N52 3.0", "E83 X3 3.0si", "2008"]
+source = "community"
+
+["WBS3S9"]
+options = ["S65 4.0", "E92 M3", "2008"]
+source = "community"
+
+["WBAPK7"]
+options = ["N63 4.4", "F01 750i", "2010"]
+source = "community"
+
+["5UXKT0"]
+options = ["B58 3.0", "G05 X5 40i", "2019"]
 source = "community"

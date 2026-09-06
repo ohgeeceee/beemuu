@@ -47,7 +47,8 @@ describe("createKdcanSource", () => {
 
     // Must stop: start() arms an FPS setInterval that only stop()
     // clears. Leaving it running keeps Node's event loop alive and the
-    // `node --test` process never exits.
+    // `node --test` process never exits (hangs CI — see ci.yml:87 and
+    // test.yml:88, both of which glob this file).
     source.stop();
   });
 

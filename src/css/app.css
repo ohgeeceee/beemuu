@@ -1132,7 +1132,7 @@ body[data-theme="dark"] .dtc-source { color: #4da3ff; }
   @page { size: A4; margin: 12mm; }
 }
 
-/* v0.17.1 — accessibility: visible focus for keyboard users */
+/* v0.17.1 ï¿½ accessibility: visible focus for keyboard users */
 button:focus-visible,
 .tab:focus-visible,
 select:focus-visible,
@@ -1152,7 +1152,35 @@ body[data-theme="dark"] .btn:focus-visible {
   outline-color: #6fb3f0;
 }
 
-/* v0.17.1 — mobile hardening for narrow viewports (320px–480px) */
+/* v0.19 â€” beginner tone indicators (report clarity) */
+.ok-tone { border-left: 4px solid var(--ok); }
+.attention-tone { border-left: 4px solid var(--warn); }
+
+/* v0.19+ polish for beginner guides */
+#first-scan-guide .scan-step { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; }
+#first-scan-guide .scan-step.complete { color: var(--ok); }
+#first-scan-guide .scan-step .step-icon { width: 16px; flex: 0 0 16px; }
+#beginner-fault-summary .panel-head { font-weight: 600; padding: 6px 10px; }
+#beginner-fault-summary-body { padding: 8px 10px; font-size: 13px; line-height: 1.4; }
+
+.cmp-table td, .cmp-table th { padding: 2px 6px; border-bottom: 1px solid #eee; text-align: left; }
+
+.scan-step { display: flex; gap: 6px; align-items: flex-start; margin: 3px 0; font-size: 13px; }
+.scan-step.complete { opacity: 0.85; }
+.scan-step .step-icon { width: 18px; text-align: center; }
+
+@media (max-width: 480px) {
+  .cmp-wrap table { font-size: 11px; }
+  #first-scan-guide, #beginner-fault-summary { font-size: 12px; }
+  .snapshot-card { padding: 6px; }
+  .snapshot-actions button { font-size: 11px; padding: 2px 4px; }
+  .print-report table { font-size: 10px; }
+  .log-scrubber, .log-controls { flex-wrap: wrap; }
+  #log-chart, .log-marker-list { max-height: 120px; }
+  .cmp-wrap { font-size: 11px; }
+}
+
+/* v0.17.1 â€” mobile hardening for narrow viewports (320pxâ€“480px) + dark refinements */
 @media (max-width: 480px) {
   .header { padding: 8px 10px; font-size: 13px; }
   .tab { padding: 6px 8px; font-size: 12px; }
@@ -1162,3 +1190,18 @@ body[data-theme="dark"] .btn:focus-visible {
   .fault-table { font-size: 11px; }
   .btn { padding: 4px 8px; font-size: 12px; }
 }
+@media (max-width: 375px) {
+  .live-can-gauge-grid { grid-template-columns: 1fr; }
+  .gauge-cell canvas { max-width: 100%; }
+  .header-brand { gap: 6px; }
+}
+@media (max-width: 320px) {
+  body { font-size: 13px; }
+  .tab { padding: 4px 6px; font-size: 11px; }
+}
+
+/* Dark mode audit follow-ups: ensure a few light-only hardcodes get dark fallbacks */
+body[data-theme="dark"] .gauge-label { color: #9fb2c8; }
+body[data-theme="dark"] .dossier-stats strong { color: #d7e2ec; }
+body[data-theme="dark"] .dossier-stats span { color: #8496a9; }
+body[data-theme="dark"] .print-report .disclaimer { color: #8496a9; }

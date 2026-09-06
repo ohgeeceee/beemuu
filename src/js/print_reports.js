@@ -126,7 +126,14 @@
   function freezeSnippet(dtc) {
     const frames = Array.isArray(dtc?.freeze_frame) ? dtc.freeze_frame : [];
     if (!frames.length) return "—";
-    return frames.map((f) => `${safeText(f.label)} ${safeText(f.value)}`).join(" · ");
+    const shown = frames.slice(0, 6);
+    let s = shown.map((f) => {
+      const val = safeText(f.value);
+      const unit = f.unit ? ` ${safeText(f.unit)}` : "";
+      return `${safeText(f.label)}: ${val}${unit}`;
+    }).join(" · ");
+    if (frames.length > 6) s += ` (+${frames.length - 6} more)`;
+    return s;
   }
 
   function buildHealthReport(info, modules, generatedAt = new Date(), recurring) {
