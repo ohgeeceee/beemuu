@@ -5,6 +5,14 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.16.0]
+
+### Added — Tier A (analysis, data, a11y)
+- **Landing page redesign** (`feat(landing)`): replaced developer-oriented dashboard with product landing page for GitHub Pages. Hero section with value proposition and download CTA; 6 feature cards (fault codes, live gauges, service functions, guided fault finding, export, hosted API); live gauges demo running client-side via `live_gauges.js`; download section with release version + installer links; vehicle coverage grid (E-series/K+DCAN, F/G-series/ENET+DoIP, 11 engine profiles, 444+ fault codes); documentation grid with 8 cards linking to guide pages; project activity panel showing live commits + PRs; footer with license + links. Dark theme matching existing `app.css` palette (`#69d2ff` accent, `#08111f` background, rounded cards). Responsive down to mobile. Hidden compatibility containers so existing `app.js` runs without modification.
+
+### Changed — Tier A (UI, data, tooling)
+- `frontend/index.html`: redesigned as product landing page (see above).
+
 ## [Unreleased]
 
 ### Added — Tier A (analysis, data, a11y)
