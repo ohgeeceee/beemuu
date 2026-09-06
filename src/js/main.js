@@ -539,7 +539,7 @@ async function readFaults() {
     const dtcs = m?.dtcs || [];
     lastDtcs = dtcs;
     if (dtcs.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='3' class='fault-ok'>No faults stored.</td></tr>";
+      tbody.innerHTML = `<tr><td colspan='3' class='fault-ok'>No faults stored. <span class="muted">This module's fault memory is clear — a useful baseline. Try scanning other modules (DME, EGS, DSC) to confirm the vehicle's overall health.</span></td></tr>`;
       return;
     }
     tbody.innerHTML = "";
@@ -582,7 +582,7 @@ async function readFaults() {
       }
     }
     if (dtcs.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='3' class='fault-ok'>No faults stored.</td></tr>";
+      tbody.innerHTML = `<tr><td colspan='3' class='fault-ok'>No faults stored. <span class="muted">This module's fault memory is clear — a useful baseline. Try scanning other modules (DME, EGS, DSC) to confirm the vehicle's overall health.</span></td></tr>`;
       return;
     }
     tbody.innerHTML = "";
@@ -3212,6 +3212,7 @@ function getDiffableSessions() {
     label: "Current session",
     timestamp: 0,
     seriesMap: new Map(),
+    markers: Array.isArray(logSeries.markers) ? logSeries.markers.slice() : [],
   };
   for (const [id, s] of logSeries) {
     live.seriesMap.set(id, s.getAllData());
@@ -3234,6 +3235,7 @@ function getDiffableSessions() {
         label: sessionLabel(data),
         timestamp: data.timestamp || 0,
         seriesMap: map,
+        markers: Array.isArray(data.markers) ? data.markers : [],
       });
     }
   } catch (e) { /* localStorage fail-soft */ }
@@ -3309,7 +3311,10 @@ function renderLogDiffTable() {
     tbody.appendChild(tr);
     counted++;
   }
-  summary.textContent = `Compared ${counted} channel(s) between "${a.label}" and "${b.label}".`;
+  const markA = (a.markers || []).length;
+  const markB = (b.markers || []).length;
+  const markNote = (markA || markB) ? ` · ${markA}/${markB} bookmark(s)` : "";
+  summary.textContent = `Compared ${counted} channel(s) between "${a.label}" and "${b.label}"${markNote}.`;
 }
 
 function showLogDiffModal() {
@@ -3562,10 +3567,23 @@ function setInfoActionsEnabled(on) {
   });
 }
 
-function doPrintHealthReport() {
+async function doPrintHealthReport() {
   if (!lastVehicleInfo || !window.beeemuuPrintReports) return;
   const api = window.beeemuuPrintReports;
-  api.printHtml(document, api.buildHealthReport(lastVehicleInfo, modules));
+  // Best-effort DTC history callout. If the history module isn't
+  // available (pre-v0.12.0 builds, test harness) or the query fails,
+  // the report is still generated with just the live fault table.
+  let recurring = null;
+  if (window.beeemuuDtcHistory && window.beeemuuRecurringDtc
+      && Array.isArray(lastDtcs) && lastDtcs.length) {
+    try {
+      const summary = await window.beeemuuDtcHistory.queryDtcHistory(
+        lastVehicleInfo.vin || null, null,
+      );
+      recurring = window.beeemuuRecurringDtc.computeCallout(lastDtcs, summary, Date.now());
+    } catch (e) { /* history unavailable — omit section */ }
+  }
+  api.printHtml(document, api.buildHealthReport(lastVehicleInfo, modules, new Date(), recurring));
 }
 
 function showServiceHistoryEditor() {

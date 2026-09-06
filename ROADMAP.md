@@ -920,6 +920,17 @@ implemented and tested (88 tests pass).
 |------|--------|------|-------|
 | BMW-FAST FMT fix PR | 🔲 Open | **B** | Transport bugfix verified on 2006 E90 330i. Code done; needs PR + human merge. |
 | FRM coding dump tests + wiring | 🔲 Open | A | `frm_coding_dump.js` exists but has no tests; wire into Service Functions tab. |
+| Live Gauges: fuel level + lambda | ✅ Done | A | Two new gauge cells (0x2A0, 0x3C0), panel now 8 gauges. Branch: `feat/live-gauges-fuel-lambda`. |
+| Health report recurring DTCs | ✅ Done | A | `buildHealthReport` accepts `recurring` param; `doPrintHealthReport` queries history. |
+| Log diff marker summary | ✅ Done | A | Compare Logs modal shows bookmark counts for both sources. |
+| Evidence pack skeleton | ✅ Done | A | `docs/evidence/` with README, JSON schema, N55 example trace. |
+| Community data: +5 DTCs, +2 VINs | ✅ Done | A | 2A86/2A88/2A9C/2E87/2E88 in `dtc_texts.toml`; WBAKE3/WBAKE5 in `vehicle_db.toml`. |
+| A11y: histogram + log diff modals | ✅ Done | A | `role="dialog"`, `aria-modal`, `aria-labelledby`, `aria-live`, `scope="col"`. |
+| Fault panel beginner hint | ✅ Done | A | "No faults stored" message now includes baseline hint. |
+| CI green: TOML fixes | ✅ Done | A | `dtc_texts.toml` (3 duplicate keys), `test_plugin.toml` (invalid TOML). Branch: `fix/ci-green-tomls-and-test-leaks`. |
+| CI green: test hang fix | ✅ Done | A | `live_kdcan_source.test.js` leaked intervals; `node --test` now exits in ~12s. |
+| CI green: simulator parity | ✅ Done | A | `frontend/live_gauges.js` missing 4 v0.17.0 frames; added byte-identical. |
+| Flaky `loads_dme_schema` fix | ✅ Done | A | Tests used unique ECU addresses to avoid global registry collision. |
 
 ## v0.17.0 — "E-Series Data Desert" (Planned)
 

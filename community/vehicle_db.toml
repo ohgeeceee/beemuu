@@ -155,3 +155,12 @@ source = "community"
 ["WBAKG7"]
 options = ["N55 3.0", "E89 Z4 35i", "2012"]
 source = "community"
+
+# --- Community additions (v0.16.0) ---
+["WBAKE3"]
+options = ["N52 3.0", "E90 328i", "2008"]
+source = "community"
+
+["WBAKE5"]
+options = ["N54 3.0 twin-turbo", "E92 335i", "2008"]
+source = "community"

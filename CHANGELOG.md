@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Tier A (analysis, data, a11y)
+
+- **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
+  wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
+  lambda) into the desktop Live Gauges panel. Both values were already
+  in the DECODERS map and KNOWN_GAUGE_KEYS; this makes them render as
+  visible gauges. Panel now shows eight gauges (was six). 2 new decoder
+  tests + updated gauge-definition test.
+- **Health report: recurring DTC section**: `buildHealthReport` now
+  accepts an optional `recurring` parameter. When `queryDtcHistory` is
+  available and past occurrences exist, the report includes a "Recurring
+  faults" section with occurrence counts and relative time labels.
+  `doPrintHealthReport` is now async and queries history before
+  rendering.
+- **Log diff modal: marker summary header**: the Compare Logs modal now
+  shows bookmark counts for both sources alongside the channel count
+  (e.g. "Compared 8 channel(s) between 'Session A' and 'Session B' ·
+  3/5 bookmark(s)"). Session extraction now includes markers.
+- **Evidence pack skeleton** (`docs/evidence/`): README explaining the
+  CAN trace validation format, JSON schema for trace files, and an
+  example N55 trace with byte-level decoder verification. Scaffolding
+  for the v0.22 real-car evidence program.
+- **Community data**: +5 DTCs (2A86 VANOS cold start, 2A88 VANOS
+  exhaust cold start, 2A9C camshaft sensor, 2E87/2E88 coolant pump)
+  and +2 VIN profiles (WBAKE3 E90 328i, WBAKE5 E92 335i).
+
+### Changed — Tier A (a11y)
+
+- **Histogram + Log Diff modals**: added `role="dialog"`,
+  `aria-modal="true"`, `aria-labelledby` on both modals. Added
+  `aria-label` on histogram canvas, `aria-hidden="true"` on decorative
+  badges, `role="status"` + `aria-live="polite"` on dynamic summary
+  regions, `aria-label` on export buttons, `scope="col"` on table
+  headers.
+- **Fault panel**: "No faults stored" message now includes a beginner
+  hint: "This module's fault memory is clear — a useful baseline. Try
+  scanning other modules (DME, EGS, DSC)."
+
+### Fixed — Tier A (CI, tests, community data)
+
+- **CI green — TOML parse errors** (`fix/ci-green-tomls-and-test-leaks`):
+  `community/dtc_texts.toml` had 3 duplicate keys breaking the
+  `shipped_dtc_texts_parse` gate. 2A98/2AAA exact duplicates removed
+  from the MISC block (kept in VANOS). 30E9 conflict resolved to the
+  NOx reading (systematic 30D6-30EA block). `test_plugin.toml` was
+  entirely invalid TOML — rewritten to valid format matching n55.toml
+  conventions.
+- **CI green — test hang**: `live_kdcan_source.test.js` leaked two
+  `setInterval` timers (tests called `start()` without `stop()`), so
+  `node --test` never exited. This affected both CI workflows and the
+  AGENTS.md-prescribed test glob. Added missing `stop()` calls.
+- **CI green — simulator parity drift**: `frontend/live_gauges.js` was
+  missing the 4 v0.17.0 frame IDs (0x3B4/0x0D0/0x1B4/0x0C0) that
+  desktop emits. Added byte-identical frames to restore parity test.
+- **Flaky `loads_dme_schema` test**: tests shared global
+  `freeze::registry()` and collided on address 0x12 when run in
+  parallel. Changed non-DME tests to use unique addresses (0x13, 0x14,
+  0x15). Verified stable across 5 consecutive parallel runs.
+
 ### Fixed — Tier B (K+DCAN transport)
 
 - **BMW-FAST FMT on K+DCAN** (Tier B): `build_frame` was sending a raw

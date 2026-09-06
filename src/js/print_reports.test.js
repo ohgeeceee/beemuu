@@ -29,6 +29,29 @@ test("health report includes vehicle, faults, and cautious recommended work", ()
   assert.match(html, /RPM 800/);
 });
 
+test("health report omits recurring section when not provided", () => {
+  const html = reports.buildHealthReport(info, [], new Date("2026-01-02T00:00:00Z"));
+  assert.doesNotMatch(html, /Recurring faults/);
+});
+
+test("health report renders recurring DTC section when provided", () => {
+  const recurring = [
+    { code: "2A82", occurrences: 3, last_seen: "2d ago", same_address: true },
+    { code: "29E0", occurrences: 2, last_seen: "5d ago", same_address: false },
+  ];
+  const html = reports.buildHealthReport(info, [], new Date("2026-01-02T00:00:00Z"), recurring);
+  assert.match(html, /Recurring faults/);
+  assert.match(html, /2A82.*seen 3.*last 2d ago/);
+  assert.match(html, /29E0.*seen 2.*different module/);
+});
+
+test("health report escapes recurring section content", () => {
+  const recurring = [{ code: "<XSS>", occurrences: 1, last_seen: "<b>now</b>" }];
+  const html = reports.buildHealthReport(info, [], new Date(), recurring);
+  assert.match(html, /&lt;XSS&gt;/);
+  assert.match(html, /&lt;b&gt;now&lt;\/b&gt;/);
+});
+
 test("service report escapes owner-entered content", () => {
   const html = reports.buildServiceHistoryReport(info, [{ date: "2026-01-01", service: "Oil <script>", notes: "A&B" }]);
   assert.match(html, /Oil &lt;script&gt;/);

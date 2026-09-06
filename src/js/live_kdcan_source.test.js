@@ -44,6 +44,11 @@ describe("createKdcanSource", () => {
     source.applySweepFromTauri(values, []);
     const cached = source.latestValues();
     assert.strictEqual(cached.rpm, 750);
+
+    // Must stop: start() arms an FPS setInterval that only stop()
+    // clears. Leaving it running keeps Node's event loop alive and the
+    // `node --test` process never exits.
+    source.stop();
   });
 
   it.skip("tracks framesPerSecond over 1-second window", async () => {
@@ -90,5 +95,7 @@ describe("createKdcanSource", () => {
     assert.strictEqual(bridge.peakFor("rpm"), 3200);
     source.resetPeaks();
     assert.strictEqual(bridge.peakFor("rpm"), undefined);
+    // Stop for the same event-loop reason as above.
+    source.stop();
   });
 });
