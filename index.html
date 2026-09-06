@@ -3,102 +3,302 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BeeEmUu — BMW diagnostics, with real-time live gauges</title>
+  <title>BeeEmUu — Free BMW diagnostics with real-time live gauges</title>
+  <meta name="description" content="Free, open-source BMW diagnostic tool. Read fault codes, view live data, run service functions. Works with K+DCAN (E-series) and ENET/DoIP (F/G-series). No subscription, no account required.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="BeeEmUu">
+  <meta property="og:title" content="BeeEmUu — Free BMW diagnostics with real-time live gauges">
+  <meta property="og:description" content="Open-source BMW diagnostic tool for Windows. Read fault memory, live data, service functions. No paid tier, no account, no telemetry.">
+  <meta property="og:url" content="https://ohgeeceee.github.io/beemuu/">
+  <meta property="og:image" content="https://ohgeeceee.github.io/beemuu/og-image-download.png">
+  <meta property="og:image:alt" content="BeeEmUu desktop application screenshot">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://ohgeeceee.github.io/beemuu/og-image-download.png">
+  <link rel="canonical" href="https://ohgeeceee.github.io/beemuu/">
   <link rel="stylesheet" href="/beemuu/app.css">
   <link rel="stylesheet" href="/beemuu/live_gauges.css">
+  <style>
+    .lp-nav { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; margin-bottom: 24px; }
+    .lp-nav .lp-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: var(--text); text-decoration: none; }
+    .lp-nav .lp-brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #03111f; font-weight: 900; font-size: 16px; }
+    .lp-nav .lp-links { display: flex; gap: 16px; font-size: 14px; }
+    .lp-nav .lp-links a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
+    .lp-nav .lp-links a:hover { color: var(--accent); }
+
+    .lp-hero { text-align: center; padding: 48px 0 32px; }
+    .lp-hero .eyebrow { margin-bottom: 12px; }
+    .lp-hero h1 { font-size: clamp(38px, 8vw, 82px); line-height: 0.95; margin: 0 0 18px; letter-spacing: -0.03em; }
+    .lp-hero h1 .lp-accent { color: var(--accent); }
+    .lp-hero .lp-subtitle { max-width: 640px; margin: 0 auto 28px; color: var(--muted); font-size: clamp(16px, 2.5vw, 20px); line-height: 1.5; }
+    .lp-hero .lp-cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .lp-hero .lp-cta-row button { font-size: 16px; padding: 0 28px; min-height: 50px; }
+    .lp-hero .lp-cta-secondary { background: transparent; border: 2px solid var(--line); color: var(--text); transition: border-color 0.15s; }
+    .lp-hero .lp-cta-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    .lp-badges { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 24px 0 0; }
+    .lp-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+    .lp-badge .lp-dot { width: 6px; height: 6px; border-radius: 50%; background: #3ddc84; }
+
+    .lp-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 18px; }
+    .lp-feature { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; transition: border-color 0.2s; }
+    .lp-feature:hover { border-color: var(--accent); }
+    .lp-feature .lp-feature-icon { font-size: 28px; margin-bottom: 10px; }
+    .lp-feature h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; }
+    .lp-feature p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+    .lp-section { margin-top: 18px; }
+    .lp-section h2 { font-size: clamp(22px, 4vw, 32px); margin: 0 0 14px; letter-spacing: -0.02em; }
+    .lp-section .lp-section-sub { color: var(--muted); font-size: 15px; margin: -8px 0 16px; }
+
+    .lp-coverage { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+    .lp-coverage-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; text-align: center; }
+    .lp-coverage-card .lp-cov-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .lp-coverage-card .lp-cov-value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+    .lp-coverage-card .lp-cov-detail { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    .lp-docs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .lp-doc-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; text-decoration: none; color: var(--text); transition: border-color 0.2s; display: block; }
+    .lp-doc-card:hover { border-color: var(--accent); }
+    .lp-doc-card h4 { margin: 0 0 6px; font-size: 15px; }
+    .lp-doc-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+
+    .lp-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--muted); }
+    .lp-footer a { color: var(--accent); text-decoration: none; }
+    .lp-footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 540px) {
+      .lp-hero { padding: 32px 0 24px; }
+      .lp-features { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <p class="eyebrow">BeeEmUu Pages</p>
-      <h1>BMW diagnostics, with real-time live gauges</h1>
-      <p>Open-source desktop app with a static project site. The six gauges below show what your car looks like in real time — the same Live CAN module that ships in the desktop build, mirrored here as a JS-side demo so visitors can see live data without installing anything.</p>
-      <button id="refresh" type="button">Refresh dashboard</button>
+  <div class="shell">
+    <nav class="lp-nav">
+      <a class="lp-brand" href="/beemuu/">
+        <span class="lp-brand-mark">B</span>
+        BeeEmUu
+      </a>
+      <div class="lp-links">
+        <a href="/beemuu/bmw-k-dcan-diagnostics.html">K+DCAN</a>
+        <a href="/beemuu/bmw-enet-doip-diagnostics.html">ENET</a>
+        <a href="/beemuu/bmw-fault-codes.html">Fault codes</a>
+        <a href="/beemuu/faq.html">FAQ</a>
+        <a href="https://github.com/ohgeeceee/beemuu">GitHub</a>
+      </div>
+    </nav>
+
+    <!-- Hidden containers for app.js compatibility (dashboard elements moved to landing page layout) -->
+    <div id="status" style="display:none"></div>
+    <ul id="artifacts" style="display:none"></ul>
+    <pre id="raw" style="display:none"></pre>
+    <button id="refresh" type="button" style="display:none"></button>
+
+    <section class="lp-hero">
+      <p class="eyebrow">Free &middot; Open-source &middot; Windows</p>
+      <h1>BMW diagnostics,<br><span class="lp-accent">with real-time live gauges</span></h1>
+      <p class="lp-subtitle">Read fault codes, view live sensor data, run service functions. Works with K+DCAN cables (E-series) and ENET/DoIP adapters (F/G-series). No subscription, no account, no telemetry.</p>
+      <div class="lp-cta-row">
+        <button id="download-btn" type="button" onclick="document.getElementById('release-panel').scrollIntoView({behavior:'smooth'})">Download for Windows</button>
+        <button class="lp-cta-secondary" type="button" onclick="document.getElementById('beemuu-live-gauges').scrollIntoView({behavior:'smooth'})">See live demo &darr;</button>
+      </div>
+      <div class="lp-badges">
+        <span class="lp-badge"><span class="lp-dot"></span> GPL-3.0</span>
+        <span class="lp-badge"><span class="lp-dot"></span> No account required</span>
+        <span class="lp-badge"><span class="lp-dot"></span> Zero telemetry</span>
+        <span class="lp-badge"><span class="lp-dot"></span> Community-maintained</span>
+      </div>
     </section>
 
-    <section id="status" class="grid" aria-live="polite">
-      <article class="card"><span>API</span><strong>Loading</strong></article>
-      <article class="card"><span>Repo</span><strong>Loading</strong></article>
-      <article class="card"><span>Profiles</span><strong>Loading</strong></article>
-      <article class="card"><span>Bundles</span><strong>Loading</strong></article>
+    <section class="lp-section">
+      <div class="lp-features">
+        <div class="lp-feature">
+          <div class="lp-feature-icon">&#x1F50D;</div>
+          <h3>Read fault memory</h3>
+          <p>Scan every control unit for stored DTCs. See fault descriptions, freeze-frame snapshots, and confidence badges sourced from the community knowledge base.</p>
+        </div>
+        <div class="lp-feature">
+          <div class="lp-feature-icon">&#x1F4CA;</div>
+          <h3>Live data gauges</h3>
+          <p>Real-time round-dial gauges for RPM, coolant, oil temp, vehicle speed, battery voltage, and throttle. Peak tracking per session. Try the demo below.</p>
+        </div>
+        <div class="lp-feature">
+          <div class="lp-feature-icon">&#x1F527;</div>
+          <h3>Service functions</h3>
+          <p>CBS reset, battery registration, service date reset, and more. Guided step-by-step walkthroughs for each function.</p>
+        </div>
+        <div class="lp-feature">
+          <div class="lp-feature-icon">&#x1F4DD;</div>
+          <h3>Guided fault finding</h3>
+          <p>Community-authored test plans walk you through diagnostic procedures step by step, with expected live-data ranges at each step.</p>
+        </div>
+        <div class="lp-feature">
+          <div class="lp-feature-icon">&#x1F4E6;</div>
+          <h3>Export &amp; share</h3>
+          <p>Export fault reports, log sessions to CSV, generate anonymized diagnostic bundles to share with mechanics or online forums.</p>
+        </div>
+        <div class="lp-feature">
+          <div class="lp-feature-icon">&#x1F310;</div>
+          <h3>Hosted API &amp; catalog</h3>
+          <p>444+ BMW fault codes, wiring schematics, and a DTC catalog at <code>api.beemuu.com</code> — accessible from any browser without installing anything.</p>
+        </div>
+      </div>
     </section>
 
     <section class="panel live-gauges" id="beemuu-live-gauges">
       <div class="live-gauges-head">
         <div>
-          <h2>Live Gauges</h2>
-          <p class="live-gauges-tagline">Simulated BMW E-series CAN broadcast frames, decoded live. The desktop app reads these same IDs (0x0AA / 0x1D0 / 0x545 / 0x0CE / 0x130 / 0x316) from the OBDLink SX cable on a real E46.</p>
+          <h2>Live Gauges Demo</h2>
+          <p class="live-gauges-tagline">Simulated BMW E-series CAN broadcast frames, decoded live in your browser. The desktop app reads these same IDs from a real OBD cable.</p>
         </div>
         <span class="live-gauges-status" data-live-can-status>
-          <span data-live-can-status-text>Starting…</span>
+          <span data-live-can-status-text>Starting&hellip;</span>
           <span class="fps" data-live-can-fps></span>
         </span>
       </div>
       <div class="live-gauges-grid">
         <div class="live-gauges-cell" data-live-can-cell="rpm">
           <canvas></canvas>
-          <span class="live-gauges-peak" data-live-can-peak>—</span>
+          <span class="live-gauges-peak" data-live-can-peak>&mdash;</span>
         </div>
         <div class="live-gauges-cell" data-live-can-cell="coolant">
           <canvas></canvas>
-          <span class="live-gauges-peak" data-live-can-peak>—</span>
+          <span class="live-gauges-peak" data-live-can-peak>&mdash;</span>
         </div>
         <div class="live-gauges-cell" data-live-can-cell="oilTemp">
           <canvas></canvas>
-          <span class="live-gauges-peak" data-live-can-peak>—</span>
+          <span class="live-gauges-peak" data-live-can-peak>&mdash;</span>
         </div>
         <div class="live-gauges-cell" data-live-can-cell="vehicleSpeed">
           <canvas></canvas>
-          <span class="live-gauges-peak" data-live-can-peak>—</span>
+          <span class="live-gauges-peak" data-live-can-peak>&mdash;</span>
         </div>
         <div class="live-gauges-cell" data-live-can-cell="batteryVoltage">
           <canvas></canvas>
-          <span class="live-gauges-peak" data-live-can-peak>—</span>
+          <span class="live-gauges-peak" data-live-can-peak>&mdash;</span>
         </div>
         <div class="live-gauges-cell" data-live-can-cell="throttle">
           <canvas></canvas>
-          <span class="live-gauges-peak" data-live-can-peak>—</span>
+          <span class="live-gauges-peak" data-live-can-peak>&mdash;</span>
         </div>
       </div>
       <p class="live-gauges-foot">
-        Demo runs in your browser via <code>frontend/live_gauges.js</code>. Source of truth for the byte patterns is the Rust simulator in <code>src-tauri/src/transport/sim.rs::broadcast_frames_at</code>; the public-site mirror and the desktop-app mirror are pinned to byte-for-byte parity by <code>frontend/live_gauges.test.js</code>. Real-car scales need E46 verification — see <a href="https://github.com/ohgeeceee/beemuu/blob/main/docs/validation/can-broadcast.md">docs/validation/can-broadcast.md</a>.
+        This demo runs entirely in your browser via <code>live_gauges.js</code> &mdash; no server, no installation. The byte patterns are generated by the same Rust simulator that ships in the desktop app. Connect a K+DCAN cable to your E-series BMW to see real data in the desktop app.
       </p>
     </section>
 
-    <section class="panel" id="release-panel">
-      <h2>Latest release</h2>
-      <article class="card" id="release-card">
-        <span>Version</span><strong id="release-version">Loading…</strong>
-        <span>Released</span><strong id="release-date">—</strong>
-        <span>Downloads</span>
-        <strong id="release-downloads"><a id="release-msi" href="#">MSI</a> · <a id="release-nsis" href="#">NSIS</a></strong>
-      </article>
+    <section class="lp-section panel" id="release-panel">
+      <h2>Download</h2>
+      <p class="lp-section-sub">Windows 10/11. Free forever. No installer account needed.</p>
+      <div class="grid">
+        <article class="card" id="release-card">
+          <span>Latest version</span><strong id="release-version">Loading&hellip;</strong>
+          <span>Released</span><strong id="release-date">&mdash;</strong>
+        </article>
+        <article class="card">
+          <span>Downloads</span>
+          <strong id="release-downloads"><a id="release-msi" href="#">MSI installer</a> &middot; <a id="release-nsis" href="#">NSIS installer</a></strong>
+          <span style="margin-top:8px">Requires a K+DCAN or ENET cable to connect to your vehicle.</span>
+        </article>
+        <article class="card">
+          <span>API status</span>
+          <strong id="status-api" style="color:#3ddc84">Online</strong>
+          <span style="margin-top:8px">Hosted at <a href="https://api.beemuu.com" style="color:var(--accent)">api.beemuu.com</a></span>
+        </article>
+      </div>
     </section>
 
-    <section class="panel">
-      <h2>Build artifacts</h2>
-      <ul id="artifacts"><li>Loading…</li></ul>
-    </section>
-
-    <section class="panel" id="live-panel">
-      <h2>Live activity <span class="live-ts" id="live-ts"></span></h2>
-      <div class="live-grid">
-        <div class="live-col">
-          <h3>Recent commits</h3>
-          <ol class="live-commits" id="live-commits"><li>Loading…</li></ol>
+    <section class="lp-section">
+      <h2>Vehicle coverage</h2>
+      <p class="lp-section-sub">BMW from 2002 onwards. Two cable types cover the full range.</p>
+      <div class="lp-coverage">
+        <div class="lp-coverage-card">
+          <div class="lp-cov-label">E-series (2002&ndash;2013)</div>
+          <div class="lp-cov-value">K+DCAN</div>
+          <div class="lp-cov-detail">E46, E60, E90, E83, E70, E85&hellip;</div>
         </div>
-        <div class="live-col">
-          <h3>Pull requests</h3>
-          <div class="live-prs" id="live-prs"><span class="muted">Loading…</span></div>
+        <div class="lp-coverage-card">
+          <div class="lp-cov-label">F/G-series (2010+)</div>
+          <div class="lp-cov-value">ENET / DoIP</div>
+          <div class="lp-cov-detail">F10, F30, F80, G20, G01, G05&hellip;</div>
+        </div>
+        <div class="lp-coverage-card">
+          <div class="lp-cov-label">Engines</div>
+          <div class="lp-cov-value">11 profiles</div>
+          <div class="lp-cov-detail">N20, N52, N54, N55, N57, N62, B48, B58, S55, S58</div>
+        </div>
+        <div class="lp-coverage-card">
+          <div class="lp-cov-label">Fault codes</div>
+          <div class="lp-cov-value">444+</div>
+          <div class="lp-cov-detail">BMW hex + SAE P/B/C/U codes</div>
         </div>
       </div>
     </section>
 
-    <section class="panel">
-      <h2>Raw dashboard JSON</h2>
-      <pre id="raw">Loading…</pre>
+    <section class="lp-section">
+      <h2>Documentation</h2>
+      <div class="lp-docs-grid">
+        <a class="lp-doc-card" href="/beemuu/bmw-k-dcan-diagnostics.html">
+          <h4>K+DCAN guide</h4>
+          <p>Cable setup, driver installation, latency timer configuration, and step-by-step connection guide for E-series vehicles.</p>
+        </a>
+        <a class="lp-doc-card" href="/beemuu/bmw-enet-doip-diagnostics.html">
+          <h4>ENET / DoIP guide</h4>
+          <p>Ethernet adapter setup, DoIP discovery, and connection guide for F-series and G-series vehicles.</p>
+        </a>
+        <a class="lp-doc-card" href="/beemuu/bmw-fault-codes.html">
+          <h4>Fault code catalog</h4>
+          <p>Browse 444+ BMW-specific and SAE standard fault codes with descriptions, severity, and common fixes.</p>
+        </a>
+        <a class="lp-doc-card" href="/beemuu/hardware.html">
+          <h4>Hardware guide</h4>
+          <p>Which cable to buy, how to verify it works, and compatibility notes for different adapters.</p>
+        </a>
+        <a class="lp-doc-card" href="/beemuu/protocols.html">
+          <h4>Protocol deep-dive</h4>
+          <p>KWP2000, UDS, ISO-TP, and DoIP explained for BMW diagnostics. How the wire protocols actually work.</p>
+        </a>
+        <a class="lp-doc-card" href="/beemuu/community.html">
+          <h4>Community</h4>
+          <p>How to contribute DTC opinions, test plans, freeze-frame schemas, and engine profiles to the knowledge base.</p>
+        </a>
+        <a class="lp-doc-card" href="/beemuu/faq.html">
+          <h4>FAQ</h4>
+          <p>Every question answered in one place: cables, codes, service functions, contributing, troubleshooting.</p>
+        </a>
+        <a class="lp-doc-card" href="/beemuu/glossary.html">
+          <h4>Glossary</h4>
+          <p>BMW diagnostic terminology explained: DME, DSC, EGS, CAS, FRM, VANOS, Valvetronic, and more.</p>
+        </a>
+      </div>
     </section>
-  </main>
+
+    <section class="panel lp-section" id="live-panel">
+      <h2>Project activity <span class="live-ts" id="live-ts"></span></h2>
+      <p class="lp-section-sub">Live updates from the GitHub repository.</p>
+      <div class="live-grid">
+        <div class="live-col">
+          <h3>Recent commits</h3>
+          <ol class="live-commits" id="live-commits"><li>Loading&hellip;</li></ol>
+        </div>
+        <div class="live-col">
+          <h3>Pull requests</h3>
+          <div class="live-prs" id="live-prs"><span class="muted">Loading&hellip;</span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="lp-footer">
+      <div>BeeEmUu &copy; 2026 contributors. <a href="https://github.com/ohgeeceee/beemuu/blob/main/LICENSE">GPL-3.0-or-later</a>.</div>
+      <div>
+        <a href="https://github.com/ohgeeceee/beemuu">Source</a> &middot;
+        <a href="https://github.com/ohgeeceee/beemuu/issues">Report a bug</a> &middot;
+        <a href="https://github.com/ohgeeceee/beemuu/discussions">Discussions</a> &middot;
+        <a href="/beemuu/press.html">Press kit</a>
+      </div>
+    </footer>
+  </div>
   <script src="/beemuu/site-config.js"></script>
   <script src="/beemuu/app.js"></script>
   <script src="/beemuu/live_gauges.js"></script>
