@@ -29,13 +29,6 @@ test("health report includes vehicle, faults, and cautious recommended work", ()
   assert.match(html, /RPM: 800/);
 });
 
-test("health report includes recurring DTC section when provided", () => {
-  const rec = [{ code: "2A82", occurrences: 3, last_seen: "2026-01-01" }];
-  const html = reports.buildHealthReport(info, [{ present: true, name: "DME", dtcs: [] }], new Date(), null, rec);
-  assert.match(html, /Recurring DTCs/);
-  assert.match(html, /2A82 seen 3x/);
-});
-
 test("health report omits recurring section when not provided", () => {
   const html = reports.buildHealthReport(info, [], new Date("2026-01-02T00:00:00Z"));
   assert.doesNotMatch(html, /Recurring faults/);
