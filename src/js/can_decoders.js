@@ -67,6 +67,22 @@ const CAN_ID_ENGINE_TORQUE = 0x0D0; // DME: engine torque (Nm)
 const CAN_ID_STEERING_YAW = 0x1B4;  // DSC: steering angle, yaw rate
 const CAN_ID_BRAKE_PRESSURE = 0x0C0; // brake pressure
 
+// v0.19.0 additions (best-effort; emitted by live_can_source.js)
+const CAN_ID_INTAKE_TEMP = 0x2C4;   // DME: intake air temp
+const CAN_ID_ENGINE_LOAD = 0x1A0;   // DME: calculated engine load
+const CAN_ID_CRUISE = 0x3B8;        // DME/DSC: cruise control state
+const CAN_ID_FUEL_RAIL = 0x0F4;     // DME: fuel rail pressure
+const CAN_ID_MAP = 0x1D1;           // DME: manifold absolute pressure
+const CAN_ID_OIL_PRESSURE = 0x2D0;  // DME: oil pressure
+const CAN_ID_EXT_TEMP = 0x3E0;      // IHKA/JBE: outside temperature
+const CAN_ID_IAT_MAP = 0x2C0;       // DME: intake air temp + MAP pair
+const CAN_ID_TORQUE_BYTE = 0x0D1;   // DME: single-byte torque
+const CAN_ID_AC_COMPRESSOR = 0x3D0; // IHKA: A/C compressor state
+const CAN_ID_COOLANT_2 = 0x2C2;     // DME: second coolant sensor
+const CAN_ID_ABS_STATE = 0x0B4;     // DSC: ABS active
+const CAN_ID_AC_REQUEST = 0x3A0;    // IHKA: A/C request
+const CAN_ID_OIL_TEMP_2 = 0x2D1;    // DME: second oil temp sensor
+
 // Scale / offset constants. All per-byte derivations of decoded
 // values live here, named, so the real-car verification in v0.14.1
 // can adjust them in one place.
@@ -123,6 +139,27 @@ const YAW_SCALE = 0.1;       // deg/s per LSB
 // 0x0C0 — brake pressure
 const BRAKE_SCALE = 0.1;     // bar or MPa, best-effort
 const BRAKE_BYTE = 0;
+
+// v0.19.0 additions — additional E9x/E6x broadcast IDs. Same honesty
+// caveat as the v0.17.0 block: the IDs and what they carry come from
+// community logs / TECH_SPECS.md, the byte offsets and scales below
+// are best-effort and need real-car verification. Changing a scale
+// here is the single place to adjust it.
+const INTAKE_TEMP_BYTE = 1;
+const INTAKE_TEMP_OFFSET_C = -40;   // 0x2C4
+const LOAD_BYTE = 2;
+const LOAD_SCALE = 0.3922;          // %/LSB — same 8-bit sensor scale as throttle
+const CRUISE_ACTIVE_BIT = 0x08;     // 0x3B8 byte 0
+const FUEL_RAIL_SCALE = 10;         // kPa per LSB
+const MAP_SCALE = 0.1;              // kPa per LSB
+const EXT_TEMP_OFFSET_C = -40;      // 0x3E0
+const TORQUE_NM_SCALE = 0.5;        // Nm per LSB (single-byte 0x0D1 variant)
+const OIL_PRESS_SCALE = 0.05;       // bar per LSB (0x2D0)
+const COOLANT2_OFFSET_C = -48;      // 0x2C2
+const OIL_TEMP2_OFFSET_C = -48;     // 0x2D1
+const AC_ON_BIT = 0x01;             // 0x3D0 byte 0
+const AC_REQUESTED_BIT = 0x80;      // 0x3A0 byte 0
+const ABS_ACTIVE_BIT = 0x04;        // 0x0B4 byte 0
 
 // ---------- frame length validation ----------
 
@@ -302,6 +339,106 @@ function decodeBrakePressure(frame) {
   return { brake: u16beAt(frame, BRAKE_BYTE) * BRAKE_SCALE };
 }
 
+// ---------- v0.19.0 additions ----------
+//
+// Each takes a frame (1..8 bytes; missing trailing bytes read as 0,
+// matching the DME's zero-padding) and returns an object keyed by the
+// names in `live_can_source.js::KNOWN_GAUGE_KEYS`, or `null` when the
+// input is malformed. Bit-flag decoders read byte 0.
+//
+// Deliberately NOT decoded here: 0x1D2 (the `amb` key) and the `fan` /
+// `blower` keys have no byte layout we can defend without a real-car
+// capture — the simulator emits a placeholder 0x1D2 frame, but nothing
+// consumes it. Fill these in from `docs/validation/can-broadcast.md`
+// evidence rather than guessing a scale.
+
+/** Intake air temperature (°C) from DME 0x2C4. */
+function decodeIntakeTemp(frame) {
+  if (!isFrame(frame)) return null;
+  return { intakeTemp: byteAt(frame, INTAKE_TEMP_BYTE) + INTAKE_TEMP_OFFSET_C };
+}
+
+/** Calculated engine load (%) from DME 0x1A0. */
+function decodeEngineLoad(frame) {
+  if (!isFrame(frame)) return null;
+  return { load: byteAt(frame, LOAD_BYTE) * LOAD_SCALE };
+}
+
+/** Cruise control active flag from 0x3B8 byte 0 bit 3. */
+function decodeCruise(frame) {
+  if (!isFrame(frame)) return null;
+  return { cruiseActive: (byteAt(frame, 0) & CRUISE_ACTIVE_BIT) !== 0 };
+}
+
+/** Fuel rail pressure (kPa) from DME 0x0F4. */
+function decodeFuelRail(frame) {
+  if (!isFrame(frame)) return null;
+  return { fuelRail_kPa: u16beAt(frame, 0) * FUEL_RAIL_SCALE };
+}
+
+/** Manifold absolute pressure (kPa) from DME 0x1D1. */
+function decodeMap(frame) {
+  if (!isFrame(frame)) return null;
+  return { map_kPa: u16beAt(frame, 0) * MAP_SCALE };
+}
+
+/** Oil pressure (bar) from DME 0x2D0. */
+function decodeOilPressure(frame) {
+  if (!isFrame(frame)) return null;
+  return { oilPress_bar: byteAt(frame, 1) * OIL_PRESS_SCALE };
+}
+
+/** Outside temperature (°C) from 0x3E0. */
+function decodeExtTemp(frame) {
+  if (!isFrame(frame)) return null;
+  return { extTemp: byteAt(frame, 0) + EXT_TEMP_OFFSET_C };
+}
+
+/** Intake air temp (°C) plus MAP (kPa) from the paired 0x2C0 frame. */
+function decodeIatMap(frame) {
+  if (!isFrame(frame)) return null;
+  return {
+    iat: byteAt(frame, 1) + INTAKE_TEMP_OFFSET_C,
+    map: u16beAt(frame, 2) * MAP_SCALE,
+  };
+}
+
+/** Engine torque (Nm) from the single-byte 0x0D1 frame. */
+function decodeTorqueNm(frame) {
+  if (!isFrame(frame)) return null;
+  return { torqueNm: byteAt(frame, 0) * TORQUE_NM_SCALE };
+}
+
+/** A/C compressor engaged flag from 0x3D0 byte 0 bit 0. */
+function decodeAcOn(frame) {
+  if (!isFrame(frame)) return null;
+  return { acOn: (byteAt(frame, 0) & AC_ON_BIT) !== 0 };
+}
+
+/** Second coolant temperature (°C) from DME 0x2C2. */
+function decodeCoolant2(frame) {
+  if (!isFrame(frame)) return null;
+  return { coolant2: byteAt(frame, 0) + COOLANT2_OFFSET_C };
+}
+
+/** ABS active flag from DSC 0x0B4 byte 0 bit 2. */
+function decodeAbsActive(frame) {
+  if (!isFrame(frame)) return null;
+  return { absActive: (byteAt(frame, 0) & ABS_ACTIVE_BIT) !== 0 };
+}
+
+/** A/C request flag from IHKA 0x3A0 byte 0 bit 7. */
+function decodeAcRequested(frame) {
+  if (!isFrame(frame)) return null;
+  return { acRequested: (byteAt(frame, 0) & AC_REQUESTED_BIT) !== 0 };
+}
+
+/** Second oil temperature (°C) from DME 0x2D1. */
+function decodeOilTemp2(frame) {
+  if (!isFrame(frame)) return null;
+  return { oilTemp2: byteAt(frame, 0) + OIL_TEMP2_OFFSET_C };
+}
+
 // ---------- dispatch by CAN ID ----------
 
 /**
@@ -331,6 +468,21 @@ const DECODERS = {
   // v0.20 additional — broadcast frames generated by live_can_source.js
   0x2A0: { name: "fuel_level", decode: (f) => ({ fuelLevel: Math.round(((f[0] || 0) * 100) / 255) }) },
   0x3C0: { name: "lambda", decode: (f) => ({ lambda: 0.5 + ((f[0] || 0) * 0.004) }) },
+  // v0.19.0 additions (see the decode block above)
+  [CAN_ID_INTAKE_TEMP]: { name: "intake_temp", decode: decodeIntakeTemp },
+  [CAN_ID_ENGINE_LOAD]: { name: "engine_load", decode: decodeEngineLoad },
+  [CAN_ID_CRUISE]: { name: "cruise", decode: decodeCruise },
+  [CAN_ID_FUEL_RAIL]: { name: "fuel_rail", decode: decodeFuelRail },
+  [CAN_ID_MAP]: { name: "map", decode: decodeMap },
+  [CAN_ID_OIL_PRESSURE]: { name: "oil_pressure", decode: decodeOilPressure },
+  [CAN_ID_EXT_TEMP]: { name: "ext_temp", decode: decodeExtTemp },
+  [CAN_ID_IAT_MAP]: { name: "iat_map", decode: decodeIatMap },
+  [CAN_ID_TORQUE_BYTE]: { name: "torque_nm", decode: decodeTorqueNm },
+  [CAN_ID_AC_COMPRESSOR]: { name: "ac_on", decode: decodeAcOn },
+  [CAN_ID_COOLANT_2]: { name: "coolant_2", decode: decodeCoolant2 },
+  [CAN_ID_ABS_STATE]: { name: "abs_active", decode: decodeAbsActive },
+  [CAN_ID_AC_REQUEST]: { name: "ac_requested", decode: decodeAcRequested },
+  [CAN_ID_OIL_TEMP_2]: { name: "oil_temp_2", decode: decodeOilTemp2 },
 };
 
 /**
@@ -365,6 +517,21 @@ const api = {
   CAN_ID_ENGINE_TORQUE,
   CAN_ID_STEERING_YAW,
   CAN_ID_BRAKE_PRESSURE,
+  // v0.19.0 additions
+  CAN_ID_INTAKE_TEMP,
+  CAN_ID_ENGINE_LOAD,
+  CAN_ID_CRUISE,
+  CAN_ID_FUEL_RAIL,
+  CAN_ID_MAP,
+  CAN_ID_OIL_PRESSURE,
+  CAN_ID_EXT_TEMP,
+  CAN_ID_IAT_MAP,
+  CAN_ID_TORQUE_BYTE,
+  CAN_ID_AC_COMPRESSOR,
+  CAN_ID_COOLANT_2,
+  CAN_ID_ABS_STATE,
+  CAN_ID_AC_REQUEST,
+  CAN_ID_OIL_TEMP_2,
   // Scale / offset constants — exported for v0.14.1 real-car
   // verification and for the harness doc (slice 8) to print
   // them in the user-facing report.
@@ -378,6 +545,20 @@ const api = {
   STEERING_SCALE,
   YAW_SCALE,
   BRAKE_SCALE,
+  // v0.19.0 — same purpose as the block above.
+  INTAKE_TEMP_OFFSET_C,
+  LOAD_SCALE,
+  CRUISE_ACTIVE_BIT,
+  FUEL_RAIL_SCALE,
+  MAP_SCALE,
+  EXT_TEMP_OFFSET_C,
+  TORQUE_NM_SCALE,
+  OIL_PRESS_SCALE,
+  COOLANT2_OFFSET_C,
+  OIL_TEMP2_OFFSET_C,
+  AC_ON_BIT,
+  AC_REQUESTED_BIT,
+  ABS_ACTIVE_BIT,
   // Per-ID decoders.
   decodeRpm,
   decodeThrottle,
@@ -392,6 +573,21 @@ const api = {
   decodeEngineTorque,
   decodeSteeringAngle,
   decodeBrakePressure,
+  // v0.19.0
+  decodeIntakeTemp,
+  decodeEngineLoad,
+  decodeCruise,
+  decodeFuelRail,
+  decodeMap,
+  decodeOilPressure,
+  decodeExtTemp,
+  decodeIatMap,
+  decodeTorqueNm,
+  decodeAcOn,
+  decodeCoolant2,
+  decodeAbsActive,
+  decodeAcRequested,
+  decodeOilTemp2,
   // Dispatch.
   DECODERS,
   decodeFor,
