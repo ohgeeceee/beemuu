@@ -99,6 +99,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   package) with no source importing it. Reverted `package.json` and
   the `package-lock.json` churn that came with it.
 
+### Fixed — Tier B (ENET/HSFZ transport)
+
+- **Gateway rejections no longer masquerade as silence** (issue #248): the
+  HSFZ request loop only recognised `CTRL_DIAG` and `CTRL_ACK`, so every
+  ZGW rejection control word (`0x0040`–`0x0045`, `0x00FF`) fell into the
+  same `continue` as keep-alive traffic and was discarded. A refused
+  request then sat until the 3 s read timeout and surfaced as a generic
+  `Timeout` with no reason — the reporter's "0 control units found" on an
+  F36/N55 whose gateway answered ping and TCP 6801 fine.
+  Rejections are now returned as `TransportError::Rejected` naming the
+  control word, the target ECU address, and which knob to turn (tester
+  address vs destination address vs frame size). When a read times out
+  after the gateway sent only control words the loop skips, the error
+  names those too, so "the car is quiet" and "the car answered and we
+  ignored the answer" stop looking identical. No wire format, timeout,
+  or success path changed.
+
 ### Fixed — Tier B (K+DCAN transport)
 
 - **BMW-FAST FMT on K+DCAN** (Tier B): `build_frame` was sending a raw
