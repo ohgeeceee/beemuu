@@ -101,6 +101,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — Tier B (ENET/HSFZ transport)
 
+- **Experimental #248 additions, separate and droppable** (two commits on
+  this branch): an `ALIVE_CHECK` (0x0012) wake-up sent right after connect
+  (some F-series ZGWs won't route diagnostics until they've seen one), and a
+  one-shot `0xF4` → `0xF5` tester-address retry on `0x0040`. Both come from
+  the issue's attached draft; **neither is verified on hardware** — the wake-up
+  changes what goes on the wire on every connect, so it is deliberately not
+  part of the merged-anytime rejection fix. If you have an F36/N55 to test
+  with, build these and see whether discovery succeeds; if not, drop the
+  wake-up commit.
 - **Gateway rejections no longer masquerade as silence** (issue #248): the
   HSFZ request loop only recognised `CTRL_DIAG` and `CTRL_ACK`, so every
   ZGW rejection control word (`0x0040`–`0x0045`, `0x00FF`) fell into the
