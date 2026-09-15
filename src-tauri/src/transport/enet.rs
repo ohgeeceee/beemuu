@@ -248,6 +248,10 @@ pub fn resolve_addr(addr: &str, auto_discover: bool) -> Result<String> {
 pub struct EnetTransport {
     stream: TcpStream,
     read_timeout: Duration,
+    /// Tester address carried in the `src` byte of every frame we send.
+    /// Starts at the standard value and steps to `0xF5` once if the gateway
+    /// refuses `0xF4` (issue #248: some F-series ZGWs want the alternate).
+    tester: u8,
 }
 
 impl EnetTransport {
@@ -268,6 +272,7 @@ impl EnetTransport {
         Ok(Self {
             stream,
             read_timeout,
+            tester: TESTER,
         })
     }
 
@@ -304,7 +309,7 @@ impl Transport for EnetTransport {
         let mut msg = Vec::with_capacity(data_len + 6);
         msg.extend_from_slice(&(data_len as u32).to_be_bytes());
         msg.extend_from_slice(&CTRL_DIAG.to_be_bytes());
-        msg.push(TESTER);
+        msg.push(self.tester);
         msg.push(target);
         msg.extend_from_slice(payload);
         self.stream
@@ -328,6 +333,13 @@ impl Transport for EnetTransport {
                 }
                 Err(e) => return Err(e),
             };
+            // The gateway refuses our tester address outright: retry the same
+            // request once under the alternate address (0xF4 -> 0xF5). If it
+            // refuses that too, fall through to the named rejection below.
+            if ctrl == CTRL_ERR_TESTER_ADDR && self.tester == 0xF4 {
+                self.tester = 0xF5;
+                return self.request(target, payload);
+            }
             if let Some(reason) = zgw_rejection_reason(ctrl) {
                 return Err(TransportError::Rejected(format!(
                     "target 0x{target:02X}: {reason} (control 0x{ctrl:04X})"
@@ -472,9 +484,29 @@ mod tests {
 
     /* -------- issue #248: a ZGW rejection must not look like silence -------- */
 
+    /// Read one HSFZ frame: [len u32 BE][ctrl u16 BE][data...]. Returns
+    /// `(ctrl, data)` or `None` if the connection dies mid-frame.
+    fn read_frame(stream: &mut std::net::TcpStream) -> Option<(u16, Vec<u8>)> {
+        let mut hdr = [0u8; 6];
+        std::io::Read::read_exact(stream, &mut hdr).ok()?;
+        let len = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]) as usize;
+        let mut body = vec![0u8; len];
+        std::io::Read::read_exact(stream, &mut body).ok()?;
+        Some((u16::from_be_bytes([hdr[4], hdr[5]]), body))
+    }
+
+    /// Write one HSFZ frame.
+    fn write_frame(stream: &mut std::net::TcpStream, ctrl: u16, data: &[u8]) -> bool {
+        let mut frame = (data.len() as u32).to_be_bytes().to_vec();
+        frame.extend_from_slice(&ctrl.to_be_bytes());
+        frame.extend_from_slice(data);
+        std::io::Write::write_all(stream, &frame).is_ok() && stream.flush().is_ok()
+    }
+
     /// Scripted HSFZ gateway on loopback: accepts one connection, drains the
-    /// request frame, writes each `(ctrl, data)` reply in order, then holds
-    /// the socket open for `hold` so the client sees quiet rather than EOF.
+    /// transport's wake-up frame if `open` sends one, then the request frame,
+    /// writes each `(ctrl, data)` reply in order, then holds the socket open
+    /// for `hold` so the client sees quiet rather than EOF.
     fn scripted_gateway(replies: Vec<(u16, Vec<u8>)>, hold: Duration) -> String {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
@@ -482,22 +514,16 @@ mod tests {
             let Ok((mut stream, _)) = listener.accept() else {
                 return;
             };
-            // drain one request frame: [len u32 BE][ctrl u16 BE][data...]
-            let mut hdr = [0u8; 6];
-            if std::io::Read::read_exact(&mut stream, &mut hdr).is_err() {
-                return;
+            // Tolerate both orderings: before and after the ALIVE_CHECK
+            // wake-up was added, the first frame is the wake-up or the request.
+            let first = read_frame(&mut stream).unwrap_or((0, Vec::new()));
+            if first.0 == CTRL_ALIVE_CHECK {
+                let _ = read_frame(&mut stream); // the request
             }
-            let len = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]) as usize;
-            let mut body = vec![0u8; len];
-            let _ = std::io::Read::read_exact(&mut stream, &mut body);
             for (ctrl, data) in replies {
-                let mut frame = (data.len() as u32).to_be_bytes().to_vec();
-                frame.extend_from_slice(&ctrl.to_be_bytes());
-                frame.extend_from_slice(&data);
-                if std::io::Write::write_all(&mut stream, &frame).is_err() {
+                if !write_frame(&mut stream, ctrl, &data) {
                     return;
                 }
-                let _ = stream.flush();
             }
             std::thread::sleep(hold);
         });
@@ -559,14 +585,59 @@ mod tests {
         assert!(msg.contains("destination"), "must explain why: {msg}");
     }
 
+    /// The reporter's ZGW refused the tester address; the transport must retry
+    /// the same request under the alternate address (0xF5) and succeed.
     #[test]
-    fn surfaces_tester_address_rejection() {
-        let addr = scripted_gateway(vec![(CTRL_ERR_TESTER_ADDR, vec![])], Duration::from_millis(600));
+    fn falls_back_to_tester_0xf5_when_gateway_refuses_0xf4() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let first = read_frame(&mut stream).unwrap();
+            let _req1 = if first.0 == CTRL_ALIVE_CHECK {
+                read_frame(&mut stream).unwrap()
+            } else {
+                first
+            };
+            write_frame(&mut stream, CTRL_ERR_TESTER_ADDR, &[]);
+            let (_ctrl2, req2) = read_frame(&mut stream).unwrap();
+            assert_eq!(req2[0], 0xF5, "retry must use the alternate tester address");
+            write_frame(&mut stream, CTRL_DIAG, &diag_body(&[0x62, 0xF1, 0x90, 0x00]));
+            std::thread::sleep(Duration::from_millis(300));
+        });
+        let mut t = connect(&addr);
+        let resp = t.request(0x12, &[0x22, 0xF1, 0x90]).expect("retry must succeed");
+        assert_eq!(resp, vec![0x62, 0xF1, 0x90, 0x00]);
+    }
+
+    /// Both tester addresses refused: the transport gives up with a named
+    /// rejection rather than retrying forever.
+    #[test]
+    fn rejects_when_both_tester_addresses_refused() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let first = read_frame(&mut stream).unwrap();
+            let _req1 = if first.0 == CTRL_ALIVE_CHECK {
+                read_frame(&mut stream).unwrap()
+            } else {
+                first
+            };
+            write_frame(&mut stream, CTRL_ERR_TESTER_ADDR, &[]);
+            let _ = read_frame(&mut stream).unwrap(); // the 0xF5 retry
+            write_frame(&mut stream, CTRL_ERR_TESTER_ADDR, &[]);
+            std::thread::sleep(Duration::from_millis(300));
+        });
         let mut t = connect(&addr);
         let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
         assert!(matches!(err, TransportError::Rejected(_)), "got {err:?}");
         let msg = err.to_string();
-        assert!(msg.contains("0x0040"), "{msg}");
+        assert!(msg.contains("0x0040"), "must name the rejection: {msg}");
         assert!(msg.contains("tester address"), "{msg}");
     }
 
