@@ -439,6 +439,23 @@ function decodeOilTemp2(frame) {
   return { oilTemp2: byteAt(frame, 0) + OIL_TEMP2_OFFSET_C };
 }
 
+/**
+ * Wraps a decoder that returns a bare number as `{ key: value }`.
+ *
+ * The dispatch table's contract is "an object of gauge key -> value" —
+ * that is what the live-values cache merges (see
+ * `live_can_source.js::mergeDecoded`, which iterates KNOWN_GAUGE_KEYS and
+ * reads `decoded[key]`). Three of the per-ID decoders return a bare
+ * number instead, so oilTemp / vehicleSpeed / batteryVoltage were silently
+ * dropped from the cache and three of the eight Live Gauges dials never
+ * moved — on real cars as well as the simulator, because both sources share
+ * the merge. `null` passes through so malformed frames still report
+ * "unusable" rather than `{ key: null }`.
+ */
+function keyed(key, value) {
+  return value == null ? null : { [key]: value };
+}
+
 // ---------- dispatch by CAN ID ----------
 
 /**
@@ -456,10 +473,10 @@ const DECODERS = {
     coolant: decodeCoolant(frame),
     ambient: decodeAmbientTemp(frame),
   }) },
-  [CAN_ID_OIL_TEMP]: { name: "oil_temp", decode: decodeOilTemp },
+  [CAN_ID_OIL_TEMP]: { name: "oil_temp", decode: (frame) => keyed("oilTemp", decodeOilTemp(frame)) },
   [CAN_ID_WHEEL_SPEEDS]: { name: "wheel_speeds", decode: decodeWheelSpeeds },
-  [CAN_ID_VEHICLE_SPEED]: { name: "vehicle_speed", decode: decodeVehicleSpeed },
-  [CAN_ID_BATTERY]: { name: "battery", decode: decodeBatteryVoltage },
+  [CAN_ID_VEHICLE_SPEED]: { name: "vehicle_speed", decode: (frame) => keyed("vehicleSpeed", decodeVehicleSpeed(frame)) },
+  [CAN_ID_BATTERY]: { name: "battery", decode: (frame) => keyed("batteryVoltage", decodeBatteryVoltage(frame)) },
   // v0.17.0
   [CAN_ID_GEAR]: { name: "gear", decode: decodeGear },
   [CAN_ID_ENGINE_TORQUE]: { name: "engine_torque", decode: decodeEngineTorque },
@@ -486,9 +503,15 @@ const DECODERS = {
 };
 
 /**
- * Decodes a frame by its CAN ID. Returns the decoded value
- * (object for the multi-value frames, primitive for the rest) or
- * `null` if the ID is unknown or the frame is malformed.
+ * Decodes a frame by its CAN ID. Returns a map of gauge key -> value
+ * (`{ oilTemp: 88 }`, `{ rpm: 800, throttle: 12 }`) or `null` if the ID is
+ * unknown or the frame is malformed.
+ *
+ * Always a map, never a bare number: the live-values cache merges by reading
+ * `decoded[key]` (`live_can_source.js::mergeDecoded`), so a primitive here is
+ * dropped silently and its dial never moves. `0x0CE` (wheel speeds) is the
+ * one exception — it returns an array because `KNOWN_GAUGE_KEYS` declares no
+ * wheel keys, so there is nothing for the cache to merge.
  *
  * Important: a malformed frame returns `null` even for the
  * multi-value CAN IDs (0x0AA, 0x1D0), not `{ rpm: null, throttle: null }`.
