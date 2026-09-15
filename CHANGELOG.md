@@ -98,6 +98,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dependencies.tauri: ^0.15.0` entry (an unrelated, deprecated npm
   package) with no source importing it. Reverted `package.json` and
   the `package-lock.json` churn that came with it.
+- **Vehicle speed dial never filled on the K+DCAN path** (Tier A): the
+  DID-projection bridge maps profile param IDs to gauge keys, and it mapped
+  `vehicleSpeed` — a spelling no profile uses. Every shipped profile calls that
+  param `speed` (`query = "obd:0D"`, label "Vehicle speed"), so `applySweep`
+  dropped it as "not a gauge param" and the dial stayed empty on real K+DCAN
+  cars while the car was reporting the value. `speed` is now mapped (the
+  `vehicleSpeed` alias stays for out-of-tree profiles), and the bridge's tests
+  now read `community/profiles/*.toml`, so a gauge key no shipped profile can
+  ever fill fails loudly instead of looking like a wiring choice.
 
 ### Fixed — Tier B (K+DCAN transport)
 
