@@ -31,6 +31,15 @@ const GAUGE_DEFINITIONS = Object.freeze([
   { key: "throttle", label: "Throttle", unit: "%", min: 0, max: 100 },
   { key: "fuelLevel", label: "Fuel level", unit: "%", min: 0, max: 100 },
   { key: "lambda", label: "Lambda", unit: "λ", min: 0.5, max: 1.6 },
+  // v0.22: the broadcast values the v0.19 decoders had been producing since
+  // the data-path fix; the extra dials are numeric and exercise the
+  // simulator, so the panel shows what the car is actually broadcasting.
+  { key: "intakeTemp", label: "Intake air temp", unit: "°C", min: -40, max: 150 },
+  { key: "load", label: "Engine load", unit: "%", min: 0, max: 100 },
+  { key: "map_kPa", label: "Manifold pressure", unit: "kPa", min: 0, max: 250 },
+  { key: "oilPress_bar", label: "Oil pressure", unit: "bar", min: 0, max: 10 },
+  { key: "extTemp", label: "Outside temp", unit: "°C", min: -40, max: 60 },
+  { key: "torqueNm", label: "Engine torque", unit: "Nm", min: 0, max: 700 },
 ]);
 
 function createLiveGaugesController(options) {

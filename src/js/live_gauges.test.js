@@ -37,7 +37,7 @@ function harness({ source = null } = {}) {
   return { controller, status, button, timer: () => timerCallback, cleared: () => cleared, onTickCalls };
 }
 
-test("defines the eight planned Live CAN gauges", () => {
+test("defines the Live CAN gauge set (markup must match)", () => {
   assert.deepEqual(
     GAUGE_DEFINITIONS.map(({ key, label, unit, min, max }) => ({ key, label, unit, min, max })),
     [
@@ -49,6 +49,12 @@ test("defines the eight planned Live CAN gauges", () => {
       { key: "throttle", label: "Throttle", unit: "%", min: 0, max: 100 },
       { key: "fuelLevel", label: "Fuel level", unit: "%", min: 0, max: 100 },
       { key: "lambda", label: "Lambda", unit: "λ", min: 0.5, max: 1.6 },
+      { key: "intakeTemp", label: "Intake air temp", unit: "°C", min: -40, max: 150 },
+      { key: "load", label: "Engine load", unit: "%", min: 0, max: 100 },
+      { key: "map_kPa", label: "Manifold pressure", unit: "kPa", min: 0, max: 250 },
+      { key: "oilPress_bar", label: "Oil pressure", unit: "bar", min: 0, max: 10 },
+      { key: "extTemp", label: "Outside temp", unit: "°C", min: -40, max: 60 },
+      { key: "torqueNm", label: "Engine torque", unit: "Nm", min: 0, max: 700 },
     ],
   );
 });

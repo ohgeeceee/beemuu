@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A (analysis, data, a11y)
 
+- **Live Gauges panel: six more dials** (intake air temp, engine load,
+  manifold pressure, oil pressure, outside temp, engine torque) — the values
+  the v0.19 CAN decoders produce but the panel never rendered. Now that the
+  data path reaches the cache, the extra broadcast values are visible instead
+  of decoded-and-hidden. Panel goes from 8 to 14 dials; the 3-column grid
+  wraps, and a test pins that the markup, the definitions and the decoders
+  agree. `gear` stays an enum (status readout, not a dial), and the public
+  beemuu.com demo keeps its six core gauges.
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already
