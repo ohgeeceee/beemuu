@@ -44,6 +44,24 @@
       { id: 0x0D0, data: [0, 100, 0, 0, 0, 0, 0, 0] },
       { id: 0x1B4, data: [0, 0, 0, 0, 0, 0, 0, 0] },
       { id: 0x0C0, data: [0, 0, 0, 0, 0, 0, 0, 0] },
+      // v0.19 expansions — same reason: desktop emits these, so the
+      // public-site simulator must emit the identical byte patterns
+      // (frontend/live_gauges.test.js pins the parity per tick).
+      { id: 0x2C4, data: [0, 80, 0, 0, 0, 0, 0, 0] },
+      { id: 0x1A0, data: [0, 0, 180, 0, 0, 0, 0, 0] },
+      { id: 0x3B8, data: [0x08, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x0F4, data: [0x12, 0x34, 0, 0, 0, 0, 0, 0] },
+      { id: 0x1D1, data: [0x01, 0x90, 0, 0, 0, 0, 0, 0] },
+      { id: 0x2D0, data: [0, 0x28, 0, 0, 0, 0, 0, 0] },
+      { id: 0x3E0, data: [0x2D, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x2C0, data: [0, 70, 0x01, 0x90, 0, 0, 0, 0] },
+      { id: 0x0D1, data: [0x64, 0, 0x50, 0, 0, 0, 0, 0] },
+      { id: 0x3D0, data: [0x01, 0x01, 0, 0, 0, 0, 0, 0] },
+      { id: 0x2C2, data: [0x60, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x1D2, data: [0x2D, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x0B4, data: [0x04, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x3A0, data: [0x80, 0x05, 0, 0, 0, 0, 0, 0] },
+      { id: 0x2D1, data: [0x50, 0, 0, 0, 0, 0, 0, 0] },
     ];
   }
 
