@@ -269,11 +269,34 @@ impl EnetTransport {
             .set_read_timeout(Some(read_timeout))
             .map_err(|e| TransportError::Io(e.to_string()))?;
         stream.set_nodelay(true).ok();
-        Ok(Self {
+        let mut transport = Self {
             stream,
             read_timeout,
             tester: TESTER,
-        })
+        };
+        transport.send_wakeup()?;
+        Ok(transport)
+    }
+
+    /// Send an ALIVE_CHECK (0x0012) wake-up right after connecting.
+    ///
+    /// Experimental (issue #248): some F-series ZGWs won't route diagnostic
+    /// frames to the CAN side until they have seen one, per the issue's
+    /// attached draft. This is its own commit because it adds a frame to the
+    /// wire on *every* connect — a success-path change — unlike the rest of
+    /// the #248 work, which only turns opaque failures into explained ones.
+    /// Not verified on hardware. Deliberately no sleep after the write: TCP
+    /// preserves order, and the first request already carries its own read
+    /// timeout; if the F36 needs a pause here, add it when we have evidence.
+    fn send_wakeup(&mut self) -> Result<()> {
+        let mut msg = Vec::with_capacity(8);
+        msg.extend_from_slice(&2u32.to_be_bytes()); // len = src + tgt
+        msg.extend_from_slice(&CTRL_ALIVE_CHECK.to_be_bytes());
+        msg.push(self.tester);
+        msg.push(0x00); // gateway
+        self.stream
+            .write_all(&msg)
+            .map_err(|e| TransportError::Io(e.to_string()))
     }
 
     fn read_msg(&mut self) -> Result<(u16, Vec<u8>)> {
@@ -692,6 +715,28 @@ mod tests {
         let mut t = connect(&addr);
         let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
         assert!(matches!(err, TransportError::Timeout), "got {err:?}");
+    }
+
+    /// `open()` sends an ALIVE_CHECK wake-up before the first request — that
+    /// is the whole point of the separate wake-up commit, so pin it.
+    #[test]
+    fn open_sends_alive_check_wakeup() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let (ctrl, body) = read_frame(&mut stream).unwrap();
+            assert_eq!(ctrl, CTRL_ALIVE_CHECK, "first frame must be the wake-up");
+            assert_eq!(body, vec![0xF4, 0x00], "wake-up carries tester + gateway address");
+            let _ = read_frame(&mut stream).unwrap(); // the request
+            write_frame(&mut stream, CTRL_DIAG, &diag_body(&[0x62, 0xF1, 0x90, 0x00]));
+            std::thread::sleep(Duration::from_millis(200));
+        });
+        let mut t = connect(&addr);
+        let resp = t.request(0x12, &[0x22, 0xF1, 0x90]).expect("succeeds after the wake-up");
+        assert_eq!(resp, vec![0x62, 0xF1, 0x90, 0x00]);
     }
 
     /// Keep-alive traffic then silence: the timeout must name what it saw,
