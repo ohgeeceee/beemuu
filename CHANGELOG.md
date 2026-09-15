@@ -65,6 +65,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `freeze::registry()` and collided on address 0x12 when run in
   parallel. Changed non-DME tests to use unique addresses (0x13, 0x14,
   0x15). Verified stable across 5 consecutive parallel runs.
+- **CI green — `dtc_texts.toml` duplicate keys (round 2)**: the v0.17.0
+  DTC expansion added `2A9C` and `2E87` to the VANOS block without
+  removing the older, shorter MISC-block entries, so the shipped file
+  was still invalid TOML and `shipped_dtc_texts_parse_and_nonempty`
+  could not parse it (`Cannot overwrite a value`). Removed the two
+  stale texts and kept the newer, richer ones. Verified with a TOML
+  1.0 parser.
+- **CI green — v0.19 CAN decoders were never registered**: the v0.19
+  slice added 15 broadcast frames to `live_can_source.js` and 17 keys
+  to `KNOWN_GAUGE_KEYS`, but `can_decoders.js` kept no `DECODERS`
+  entries for them, so `decodeFor()` returned `null` for every one of
+  them and the v0.19 decoder test failed. Registered 14 decoders
+  (intake temp 0x2C4, engine load 0x1A0, cruise 0x3B8, fuel rail
+  0x0F4, MAP 0x1D1, oil pressure 0x2D0, ext temp 0x3E0, IAT+MAP
+  0x2C0, torque 0x0D1, A/C on 0x3D0, coolant 2 0x2C2, ABS 0x0B4, A/C
+  request 0x3A0, oil temp 2 0x2D1) with named scale constants and
+  CAN-ID exports, following the existing per-ID pattern. A simulator
+  tick now populates 17 gauge keys (was 7). `0x1D2` (`amb`) plus the
+  `fan` / `blower` keys stay intentionally unmapped — no byte layout
+  we can defend without a real-car capture.
+- **CI green — simulator parity drift (round 2)**: `frontend/live_gauges.js`
+  was 15 frames behind the desktop simulator, so the three public-site
+  parity tests failed. Added the v0.19 frames byte-identically.
+- **Stale duplicate health-report test**: `print_reports.test.js` had
+  two tests for the same feature with contradictory expectations
+  (`Recurring DTCs` / `2A82 seen 3x` vs. the shipped `Recurring
+  faults` / `seen 3×`). Removed the stale one, which also called
+  `buildHealthReport` with a fifth argument the signature does not
+  take — the only production caller passes `recurring` fourth.
+- **Stray `tauri` npm dependency**: `package.json` had picked up a
+  `dependencies.tauri: ^0.15.0` entry (an unrelated, deprecated npm
+  package) with no source importing it. Reverted `package.json` and
+  the `package-lock.json` churn that came with it.
 
 ### Fixed — Tier B (K+DCAN transport)
 
