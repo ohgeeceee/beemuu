@@ -81,10 +81,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
+      # Full JS suite, and the same command as .github/workflows/test.yml::js.
+      # This job gates auto-merge, and it used to run only
+      # `node --test src/js/*.test.js` — which misses every
+      # src/js/test/*.test.cjs (the CAN decoder and snapshot suites) and all of
+      # frontend/** (the public-site simulator parity tests). Both of those
+      # were red on main while this job stayed green, so a Tier A PR could
+      # auto-merge with them failing.
+      #
+      # Quoted globs are expanded by Node itself and need >= 22; hence node 24
+      # here, matching test.yml. `shopt -s globstar` would be the alternative
+      # on older Node.
       - name: Run Native Node Test Suite
-        run: node --test src/js/*.test.js
+        run: node --test "src/js/**/*.test.js" "src/js/**/*.test.cjs" "frontend/**/*.test.js"
 
   # ---------------------------------------------------------------------------
   # 2. AUTONOMOUS AUTO-MERGE (Tier A PRs)
