@@ -6,6 +6,11 @@ offline. Packages are stored in this webview's local storage; clearing webview
 data may remove them. Export packages to keep a copy. Installation and replacement
 leave a package disabled. No tool runs at startup.
 
+If that storage cannot be read (a corrupted or truncated entry), the panel says
+so and offers **Reset plugin storage**. Resetting deletes the stored packages so
+you can install again; it never runs code, and exported packages are unaffected.
+Without it the tab could not be recovered from inside the app.
+
 ## Author and publish
 
 1. In Plugins → Discover, download either authoring example. Examples also live
