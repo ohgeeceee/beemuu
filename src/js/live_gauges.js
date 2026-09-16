@@ -42,13 +42,17 @@ const GAUGE_DEFINITIONS = Object.freeze([
   { key: "torqueNm", label: "Engine torque", unit: "Nm", min: 0, max: 700 },
 ]);
 
-// Status readout for the non-dial CAN values (gear + the boolean flag
-// keys). The dials only take numbers; these are the ones worth showing as
-// text. Purely a function of the values cache, so it is unit-testable.
-// Returns "—" when there is nothing to show.
-function liveStatusText(values) {
+// Status readout for the non-dial values: gear + the boolean flag keys, plus
+// any enum label the source keeps as text (the K+DCAN DID path reports gear
+// and engine state as labels, not numbers). The dials only take numbers, so
+// these are the ones worth showing as text. Purely a function of the two
+// caches, so it is unit-testable. Returns "—" when there is nothing to show.
+function liveStatusText(values, texts) {
+  const labels = texts && typeof texts === "object" ? texts : {};
   const bits = [];
-  if (values.gear != null && Number.isFinite(values.gear)) bits.push(`Gear ${Math.round(values.gear)}`);
+  const gear = labels.gear || (Number.isFinite(values.gear) ? String(Math.round(values.gear)) : null);
+  if (gear) bits.push(`Gear ${gear}`);
+  if (labels.engine_state) bits.push(labels.engine_state);
   if (values.cruiseActive === true) bits.push("Cruise on");
   if (values.acOn === true) bits.push("A/C on");
   if (values.absActive === true) bits.push("ABS active");
@@ -95,8 +99,14 @@ function createLiveGaugesController(options) {
       if (fresh && typeof fresh === "object") {
         setValues(fresh);
         // Gear + the flag keys are not dials, so they never reach `values`;
-        // read them from the source's live cache instead.
-        if (statusLine) statusLine.textContent = liveStatusText(fresh);
+        // read them from the source's live cache instead. The K+DCAN DID path
+        // also reports enum labels (gear, engine state) through latestText().
+        if (statusLine) {
+          const labels = typeof sourceHolder.source.latestText === "function"
+            ? sourceHolder.source.latestText()
+            : null;
+          statusLine.textContent = liveStatusText(fresh, labels);
+        }
       }
       if (typeof onSourceTick === "function") {
         onSourceTick(fresh);

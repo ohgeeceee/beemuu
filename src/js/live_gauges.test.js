@@ -269,6 +269,33 @@ test("liveStatusText: false flags are not rendered", () => {
   assert.equal(liveStatusText({ gear: 5, cruiseActive: false, acOn: false }), "Gear 5");
 });
 
+test("liveStatusText prefers an enum label over the numeric gear", () => {
+  // K+DCAN DID path: gear arrives as a label, CAN broadcast: as a number.
+  assert.equal(liveStatusText({ gear: 3 }, { gear: "D3" }), "Gear D3");
+  assert.equal(liveStatusText({ gear: 3 }), "Gear 3");
+  assert.equal(liveStatusText({}, { gear: "N" }), "Gear N");
+});
+
+test("liveStatusText renders the engine-state label from the DID path", () => {
+  assert.equal(liveStatusText({ rpm: 750 }, { gear: "N", engine_state: "Running" }), "Gear N · Running");
+  // no labels and no numeric gear → nothing to say
+  assert.equal(liveStatusText({ rpm: 750 }, {}), "—");
+});
+
+test("the status line uses the source's enum labels when it has them", () => {
+  const source = {
+    start: () => {}, stop: () => {},
+    latestValues: () => ({ rpm: 800 }),
+    latestText: () => ({ gear: "D3", engine_state: "Running" }),
+    framesPerSecond: () => 0,
+  };
+  const h = harness({ source });
+  h.controller.start();
+  h.timer()();
+  assert.equal(h.statusLine.textContent, "Gear D3 · Running");
+  h.controller.stop();
+});
+
 test("the status line is refreshed on each render from the values cache", () => {
   const source = {
     start: () => {}, stop: () => {},
