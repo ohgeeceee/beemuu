@@ -5,29 +5,33 @@
 > the release cut is Tier C (propose only) and the PR bodies are easier to copy
 > from a file than from chat.
 
-Nine branches are staged in the repo. All nine were verified to **merge cleanly
-into current `main` (`dccab143`)** — no rebase, no conflicts.
+**Two merges instead of nine — and no conflicts to resolve by hand.** The seven
+Tier A fixes are consolidated into one branch; the Tier B work stays separate
+for its human merge:
 
-**The integrated result was also verified**: I merged all nine into `main` in a
-scratch branch and ran everything against the combined tree —
+| Branch | Merge | Tier |
+|---|---|---|
+| `release/v0.19.0-tier-a` | one PR — all seven Tier A fixes | A |
+| `fix/248-enet-zgw-diagnostics` | one PR — ENET/HSFZ rejection surfacing + F36 harness doc | **B — your merge** |
+| `fix/248-enet-hsfz-wakeup-retry` | optional, stacked on the above | B, experimental |
 
-| Check | Result |
+The seven individual `fix/*` Tier A branches still exist if you would rather
+review them one at a time. That route costs six `CHANGELOG.md` conflict
+resolutions (each branch appends at the same anchor; the fix is "keep both
+entries"). The consolidated branch was built by merging all seven and
+union-resolving exactly those taps, so that price is already paid — use the
+individual branches only if you want per-fix review.
+
+## Verified (on merged trees, not branches in isolation)
+
+| State | Result |
 |---|---|
-| JS suite | **440 tests, 439 pass, 0 fail**, 1 skipped |
-| Python backend | **219 passed** |
-| Rust harness (`rust-harness`) | **104 passed** |
-| Plugin browser suite (headless Chromium, shipping CSP) | **PASS** |
+| `release/v0.19.0-tier-a` alone | JS **440 tests, 0 fail**; pytest **219 passed**; rust-harness **93 passed** |
+| + `fix/248-enet-zgw-diagnostics` merged in | JS **440 tests, 0 fail**; rust-harness **102 passed**; plugin browser suite **PASS** |
+| + `fix/248-enet-hsfz-wakeup-retry` merged in | rust-harness **104 passed** |
 
-So the branches do not just pass individually; the merged whole does.
-
-**One thing to expect:** merging them one PR at a time **conflicts on
-`CHANGELOG.md`**. Each branch appends its entry at the same anchor, so the
-second and later PRs will report a conflict in that file only. Resolution is
-"keep both entries" — delete the `<<<<<<<` / `=======` / `>>>>>>>` markers and
-leave the text from both sides. No code file conflicts. (If you would rather
-avoid the six resolutions entirely, merge the branches in one go with a local
-`git merge` and push the result — your call, but the per-PR route is what your
-AGENTS.md prescribes.)
+The Tier B merge was checked to leave **both** changelog entries intact, with no
+conflict markers and `enet.rs` / `isotp.rs` whole.
 
 ---
 
@@ -57,29 +61,58 @@ branch 1 in particular was left untouched by this plan.
 
 ---
 
-## 1. Push the branches
+## 1. Push
 
 ```bash
 cd ~/Desktop/beemuu
-for b in fix/v0.19-green-suite fix/live-gauges-data-path fix/live-gauges-panel-exposure fix/ci-full-js-suite fix/did-bridge-speed-mapping fix/plugins-storage-recovery fix/rust-verification-harness fix/248-enet-zgw-diagnostics fix/248-enet-hsfz-wakeup-retry; do git push -u origin "$b"; done
+for b in release/v0.19.0-tier-a fix/248-enet-zgw-diagnostics fix/248-enet-hsfz-wakeup-retry; do git push -u origin "$b"; done
 ```
+
+(Add the individual `fix/*` branches to that list only if you are taking the
+per-fix review route instead.)
 
 ## 2. Merge order
 
-1. **`fix/v0.19-green-suite`** — Tier A. **Merge this first**: it greens the JS
-   suite and every other branch is based on it. Closes issue #268.
-2. **Independent Tier A** (any order, after 1): `fix/live-gauges-data-path` →
-   `fix/live-gauges-panel-exposure`, `fix/ci-full-js-suite`,
-   `fix/did-bridge-speed-mapping`, `fix/plugins-storage-recovery`,
-   `fix/rust-verification-harness`.
-3. **Tier B** — `fix/248-enet-zgw-diagnostics` (rejection surfacing + the F36
-   harness doc). Your merge.
-4. **Optional** — `fix/248-enet-hsfz-wakeup-retry` is experimental (ALIVE_CHECK
-   wake-up + `0xF4`→`0xF5` retry, unverified on hardware). Hold it unless you
-   want it in the build you send to the F36 tester; it is two extra commits on
-   top of branch 3 and can be dropped independently.
+1. **`release/v0.19.0-tier-a`** — Tier A. All seven Tier A fixes in one PR, no
+   conflicts. Closes issue #268 and lands the data-path, UI, CI-gate, plugins
+   and harness work.
+2. **`fix/248-enet-zgw-diagnostics`** — Tier B: ENET/HSFZ rejection surfacing
+   plus `docs/validation/enet-hsfz.md`. **Your merge** — flag the protected
+   path. Merges cleanly after step 1 (verified: both changelog entries survive).
+3. **Optional — `fix/248-enet-hsfz-wakeup-retry`** — experimental (ALIVE_CHECK
+   wake-up + `0xF4`→`0xF5` retry, neither verified on hardware). Hold it unless
+   you want it in the build you send to the F36 tester; it stacks on step 2 and
+   either commit can be dropped.
 
 ## 3. PR bodies
+
+### release/v0.19.0-tier-a (the one to paste)
+
+```
+Lands the seven Tier A fixes from this session as one reviewable merge, with
+the changelog conflicts between them already resolved.
+
+- Greens the JS suite, which was red on main (420 pass / 5 fail): invalid
+  dtc_texts.toml TOML (duplicate keys), the v0.19 CAN decoders that were never
+  registered in DECODERS, public-site simulator frame drift, a stale
+  contradictory test, and a stray `tauri` npm dependency. Closes #268.
+- Fixes three Live Gauges dials that never moved (the decoder returned a bare
+  number where the cache merges by key), plus the two decoded keys and four
+  boolean flag keys that were dropped, plus a data-surface guard test.
+- Surfaces six more dials and a gear/flag status readout in the panel.
+- Fixes the K+DCAN vehicle-speed dial (the bridge mapped a param id no profile
+  uses).
+- Makes the CI job that gates auto-merge run the full JS suite instead of a
+  subset that missed src/js/test/*.test.cjs and frontend/**.
+- Fixes the Plugins tab being unrecoverable when its storage is corrupt.
+- Adds rust-harness/, which runs ~93 non-Tauri Rust tests with plain cargo
+  (no glib/gtk/webkit2gtk needed) — deliberate, since CI is currently blocked.
+
+Tier A. Verified on the merged tree: JS 440 tests / 0 fail, pytest 219 passed,
+rust-harness 93 passed, plugin browser suite PASS.
+```
+
+### The individual branches (only for the per-fix route)
 
 Branches with a **single commit** (`fix/ci-full-js-suite`,
 `fix/did-bridge-speed-mapping`, `fix/rust-verification-harness`,
