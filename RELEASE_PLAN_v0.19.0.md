@@ -108,7 +108,7 @@ the changelog conflicts between them already resolved.
 - Adds rust-harness/, which runs ~93 non-Tauri Rust tests with plain cargo
   (no glib/gtk/webkit2gtk needed) — deliberate, since CI is currently blocked.
 
-Tier A. Verified on the merged tree: JS 440 tests / 0 fail, pytest 219 passed,
+Tier A. Verified on the merged tree: JS 446 tests / 0 fail, pytest 219 passed,
 rust-harness 93 passed, plugin browser suite PASS.
 ```
 
