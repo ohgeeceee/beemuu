@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wraps, and a test pins that the markup, the definitions and the decoders
   agree. `gear` stays an enum (status readout, not a dial), and the public
   beemuu.com demo keeps its six core gauges.
+- **Live Gauges panel: status readout for gear + the flag keys** — a compact
+  text line under the dial grid (Gear · Cruise on · A/C on · ABS active · A/C
+  request) fed from the source's live cache. The four boolean flag keys were
+  decoded and cached but never surfaced anywhere; gear was decoded but shown
+  nowhere. Pure formatter (`liveStatusText`) + 4 tests.
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already

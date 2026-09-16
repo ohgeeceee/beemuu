@@ -4,6 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const {
   GAUGE_DEFINITIONS,
+  liveStatusText,
   createLiveGaugesController,
 } = require("./live_gauges.js");
 
@@ -23,6 +24,7 @@ function harness({ source = null } = {}) {
   let cleared = null;
   const status = { textContent: "", classList: { toggle() {} } };
   const button = { textContent: "" };
+  const statusLine = { textContent: "" };
   const onTickCalls = [];
   const controller = createLiveGaugesController({
     GaugeCtor: FakeGauge,
@@ -30,11 +32,12 @@ function harness({ source = null } = {}) {
     status,
     button,
     source,
+    statusLine,
     onSourceTick: (latest) => onTickCalls.push(latest),
     setIntervalFn: (callback, delay) => { timerCallback = callback; return { delay }; },
     clearIntervalFn: (timer) => { cleared = timer; },
   });
-  return { controller, status, button, timer: () => timerCallback, cleared: () => cleared, onTickCalls };
+  return { controller, status, button, statusLine, timer: () => timerCallback, cleared: () => cleared, onTickCalls };
 }
 
 test("defines the Live CAN gauge set (markup must match)", () => {
@@ -247,4 +250,34 @@ test("slice 2c: setSource(null) detaches the source", () => {
 test("slice 2c: setSource exposes the method on the controller surface", () => {
   const h = harness();
   assert.equal(typeof h.controller.setSource, "function");
+});
+
+// ---- live status readout (gear + flag keys) ----
+
+test("liveStatusText: empty values read as an em dash", () => {
+  assert.equal(liveStatusText({}), "—");
+  assert.equal(liveStatusText({ rpm: 750, coolant: 92 }), "—");
+});
+
+test("liveStatusText: renders gear and the flag keys when set", () => {
+  assert.equal(liveStatusText({ gear: 3 }), "Gear 3");
+  assert.equal(liveStatusText({ gear: 1, cruiseActive: true, acOn: true, absActive: true, acRequested: true }),
+    "Gear 1 · Cruise on · A/C on · ABS active · A/C request");
+});
+
+test("liveStatusText: false flags are not rendered", () => {
+  assert.equal(liveStatusText({ gear: 5, cruiseActive: false, acOn: false }), "Gear 5");
+});
+
+test("the status line is refreshed on each render from the values cache", () => {
+  const source = {
+    start: () => {}, stop: () => {},
+    latestValues: () => ({ rpm: 800, gear: 3, cruiseActive: true }),
+    framesPerSecond: () => 0,
+  };
+  const h = harness({ source });
+  h.controller.start();
+  h.timer()();
+  assert.equal(h.statusLine.textContent, "Gear 3 · Cruise on");
+  h.controller.stop();
 });
