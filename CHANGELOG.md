@@ -98,6 +98,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dependencies.tauri: ^0.15.0` entry (an unrelated, deprecated npm
   package) with no source importing it. Reverted `package.json` and
   the `package-lock.json` churn that came with it.
+- **Plugins tab could not be recovered from inside the app** (Tier A): if the
+  stored plugin packages are unreadable (corrupted or truncated entry), every
+  install and removal threw "Plugin storage is unavailable. Reload after fixing
+  the storage error" and nothing in the UI could clear the bad entry — reloading
+  does not help, so the only way out was the webview's devtools. The panel now
+  explains the state and offers an explicit **Reset plugin storage** control
+  that deletes the stored packages and lets install work again. Covers the
+  corrupt-storage path in `scripts/test-plugins-browser.cjs`, which previously
+  had no scenario for it.
 
 ### Fixed — Tier B (K+DCAN transport)
 
