@@ -132,6 +132,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `vehicleSpeed` alias stays for out-of-tree profiles), and the bridge's tests
   now read `community/profiles/*.toml`, so a gauge key no shipped profile can
   ever fill fails loudly instead of looking like a wiring choice.
+- **The CI gate ran a subset of the JS suite** (Tier A): `ci.yml`'s
+  `test-frontend` job — the one `auto-merge` waits on — ran
+  `node --test src/js/*.test.js`, which misses every
+  `src/js/test/*.test.cjs` (the CAN decoder, snapshot, log-import and
+  vehicle-db suites) and all of `frontend/**` (the public-site simulator
+  parity tests). Both were red on main while that job stayed green, so a
+  Tier A PR could auto-merge over them. It now runs the same command as
+  `test.yml`, on Node 24 (quoted globs need >= 22).
+- **Local Rust verification harness** (`rust-harness/`, Tier A tooling):
+  `cargo test` on the full crate needs Tauri v2's Linux system libraries
+  (glib/gtk/webkit2gtk), which are not installable without root — and when CI
+  is down there is no other gate. The harness compiles the real `protocol`,
+  `data`, `community` and transport modules through relative symlinks against
+  documented stand-ins, and runs ~104 of their tests with plain `cargo`. Runs
+  from a fresh clone; see `rust-harness/README.md`.
 - **Plugins tab could not be recovered from inside the app** (Tier A): if the
   stored plugin packages are unreadable (corrupted or truncated entry), every
   install and removal threw "Plugin storage is unavailable. Reload after fixing
