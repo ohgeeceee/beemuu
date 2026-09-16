@@ -31,7 +31,30 @@ const GAUGE_DEFINITIONS = Object.freeze([
   { key: "throttle", label: "Throttle", unit: "%", min: 0, max: 100 },
   { key: "fuelLevel", label: "Fuel level", unit: "%", min: 0, max: 100 },
   { key: "lambda", label: "Lambda", unit: "λ", min: 0.5, max: 1.6 },
+  // v0.22: the broadcast values the v0.19 decoders had been producing since
+  // the data-path fix; the extra dials are numeric and exercise the
+  // simulator, so the panel shows what the car is actually broadcasting.
+  { key: "intakeTemp", label: "Intake air temp", unit: "°C", min: -40, max: 150 },
+  { key: "load", label: "Engine load", unit: "%", min: 0, max: 100 },
+  { key: "map_kPa", label: "Manifold pressure", unit: "kPa", min: 0, max: 250 },
+  { key: "oilPress_bar", label: "Oil pressure", unit: "bar", min: 0, max: 10 },
+  { key: "extTemp", label: "Outside temp", unit: "°C", min: -40, max: 60 },
+  { key: "torqueNm", label: "Engine torque", unit: "Nm", min: 0, max: 700 },
 ]);
+
+// Status readout for the non-dial CAN values (gear + the boolean flag
+// keys). The dials only take numbers; these are the ones worth showing as
+// text. Purely a function of the values cache, so it is unit-testable.
+// Returns "—" when there is nothing to show.
+function liveStatusText(values) {
+  const bits = [];
+  if (values.gear != null && Number.isFinite(values.gear)) bits.push(`Gear ${Math.round(values.gear)}`);
+  if (values.cruiseActive === true) bits.push("Cruise on");
+  if (values.acOn === true) bits.push("A/C on");
+  if (values.absActive === true) bits.push("ABS active");
+  if (values.acRequested === true) bits.push("A/C request");
+  return bits.length ? bits.join(" · ") : "—";
+}
 
 function createLiveGaugesController(options) {
   const {
@@ -40,6 +63,7 @@ function createLiveGaugesController(options) {
     status,
     button,
     source: initialSource = null,
+    statusLine = null,
     setIntervalFn = setInterval,
     clearIntervalFn = clearInterval,
     onSourceTick = null, // (latestValues) => void — for the panel header to mirror fps
@@ -70,6 +94,9 @@ function createLiveGaugesController(options) {
       const fresh = sourceHolder.source.latestValues();
       if (fresh && typeof fresh === "object") {
         setValues(fresh);
+        // Gear + the flag keys are not dials, so they never reach `values`;
+        // read them from the source's live cache instead.
+        if (statusLine) statusLine.textContent = liveStatusText(fresh);
       }
       if (typeof onSourceTick === "function") {
         onSourceTick(fresh);
@@ -182,6 +209,14 @@ function mountLiveGauges(documentRef = document) {
     fpsEl.textContent = "";
     status.parentElement?.appendChild(fpsEl);
   }
+  let statusLine = documentRef.querySelector("[data-live-can-status-line]");
+  if (!statusLine) {
+    statusLine = documentRef.createElement("div");
+    statusLine.className = "live-can-status-line";
+    statusLine.setAttribute("data-live-can-status-line", "");
+    statusLine.textContent = "—";
+    status.parentElement?.appendChild(statusLine);
+  }
   const peakEls = {};
   for (const definition of GAUGE_DEFINITIONS) {
     const el = documentRef.querySelector(`[data-live-can-peak="${definition.key}"]`);
@@ -196,6 +231,7 @@ function mountLiveGauges(documentRef = document) {
     status,
     button,
     source,
+    statusLine,
     onSourceTick: () => {
       const fps = controller.framesPerSecond();
       fpsEl.textContent = fps > 0 ? `${fps} fps` : "";
@@ -232,10 +268,10 @@ function formatPeak(value, definition) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { GAUGE_DEFINITIONS, createLiveGaugesController, mountLiveGauges };
+  module.exports = { GAUGE_DEFINITIONS, liveStatusText, createLiveGaugesController, mountLiveGauges };
 }
 if (typeof window !== "undefined") {
-  window.beeemuuLiveGauges = { GAUGE_DEFINITIONS, createLiveGaugesController, mountLiveGauges };
+  window.beeemuuLiveGauges = { GAUGE_DEFINITIONS, liveStatusText, createLiveGaugesController, mountLiveGauges };
   // The script tag is loaded after the panel DOM in src/index.html, so by
   // the time this module executes the DOM is already parsed. Mount
   // synchronously now. If a future refactor moves the script tag to
