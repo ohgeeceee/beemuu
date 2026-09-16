@@ -26,8 +26,8 @@ individual branches only if you want per-fix review.
 
 | State | Result |
 |---|---|
-| `release/v0.19.0-tier-a` alone | JS **440 tests, 0 fail**; pytest **219 passed**; rust-harness **93 passed** |
-| + `fix/248-enet-zgw-diagnostics` merged in | JS **440 tests, 0 fail**; rust-harness **102 passed**; plugin browser suite **PASS** |
+| `release/v0.19.0-tier-a` alone | JS **446 tests, 0 fail**; pytest **219 passed**; rust-harness **93 passed** |
+| + `fix/248-enet-zgw-diagnostics` merged in | JS **446 tests, 0 fail**; rust-harness **102 passed**; plugin browser suite **PASS** |
 | + `fix/248-enet-hsfz-wakeup-retry` merged in | rust-harness **104 passed** |
 
 The Tier B merge was checked to leave **both** changelog entries intact, with no
@@ -331,7 +331,7 @@ shipped an installer is **v0.15.0 (2026-08-05)**.
 
 - CI green on `main` (needs the unlock first).
 - `node --test "src/js/**/*.test.js" "src/js/**/*.test.cjs" "frontend/**/*.test.js"`
-  → **440 tests, 0 fail**.
+  → **446 tests, 0 fail**.
 - `cd rust-harness && cargo test` → **104 pass** (no Tauri libs needed).
 - `pytest backend/tests/ -q` → 219 passed.
 - The installer release has `.exe` / `.msi` assets attached before you publish.
