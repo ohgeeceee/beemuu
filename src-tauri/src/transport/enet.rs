@@ -14,15 +14,82 @@
 //! reassembled diagnostic payload (u32 length field). No FF/CF/FC machinery
 //! is needed here; it lives in `transport::isotp` for raw CAN-class
 //! transports.
+//!
+//! Rejection handling (issue #248, real-car F36/N55 report): the gateway
+//! answers a request it will *not* route with a rejection control word
+//! (0x0040..0x0045, 0x00FF) rather than a diagnostic message. Those frames
+//! used to fall into the same `continue` as keep-alive traffic and were
+//! discarded, so a refused request surfaced only as a generic 3 s
+//! `TransportError::Timeout` with no reason — the reporter's "0 control
+//! units found" on a car that answered ping and TCP 6801 fine.
+//!
+//! This module now names rejections (`TransportError::Rejected`) and, when a
+//! read times out after the gateway sent *only* control words it ignores,
+//! says which ones it saw. The change is deliberately one-directional: it
+//! never alters a success path and never changes what is written to the
+//! socket, so a session that works today cannot start failing because of it.
 
 use super::{Result, Transport, TransportError};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
+/// Tester (diagnostic tool) address we present to the gateway.
 const TESTER: u8 = 0xF4;
 const CTRL_DIAG: u16 = 0x0001;
 const CTRL_ACK: u16 = 0x0002;
+/// Gateway keep-alive. Benign; expected interleaved with a live session.
+const CTRL_ALIVE_CHECK: u16 = 0x0012;
+
+/// ZGW rejection control words (HSFZ). Each tells the user which knob to
+/// turn, which is the whole point of surfacing them.
+const CTRL_ERR_TESTER_ADDR: u16 = 0x0040;
+const CTRL_ERR_CONTROL_WORD: u16 = 0x0041;
+const CTRL_ERR_FORMAT: u16 = 0x0042;
+const CTRL_ERR_DEST_ADDR: u16 = 0x0043;
+const CTRL_ERR_TOO_LARGE: u16 = 0x0044;
+const CTRL_ERR_NOT_READY: u16 = 0x0045;
+const CTRL_ERR_OOM: u16 = 0x00FF;
+
+/// Production read timeout for one HSFZ frame.
+const DEFAULT_READ_TIMEOUT: Duration = Duration::from_millis(3000);
+
+/// Human-readable reason for a gateway rejection control word, or `None`
+/// when the control word is not a rejection.
+fn zgw_rejection_reason(ctrl: u16) -> Option<&'static str> {
+    Some(match ctrl {
+        CTRL_ERR_TESTER_ADDR => "incorrect tester address (this gateway refuses 0xF4)",
+        CTRL_ERR_CONTROL_WORD => "unknown control word",
+        CTRL_ERR_FORMAT => "malformed frame (check the HSFZ length field)",
+        CTRL_ERR_DEST_ADDR => "destination ECU address not reachable on this car",
+        CTRL_ERR_TOO_LARGE => "message too large for the gateway",
+        CTRL_ERR_NOT_READY => "gateway not ready (retry once the car is awake)",
+        CTRL_ERR_OOM => "gateway out of memory",
+        _ => return None,
+    })
+}
+
+/// "control word 0x0012 (keep-alive)" / "control words 0x0012 (keep-alive),
+/// 0x0005" — used to explain a timeout that was not really silence.
+fn describe_control_words(ctrls: &[u16]) -> String {
+    let list = ctrls
+        .iter()
+        .map(|c| match *c {
+            CTRL_ALIVE_CHECK => "0x0012 (keep-alive)".to_string(),
+            // Reached when a diagnostic frame was too short to carry
+            // src+tgt+payload: worth naming, because it means the gateway
+            // answered and we could not use the answer.
+            CTRL_DIAG => "0x0001 (diagnostic frame too short)".to_string(),
+            other => format!("0x{other:04X}"),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    if ctrls.len() == 1 {
+        format!("control word {list}")
+    } else {
+        format!("control words {list}")
+    }
+}
 
 /* ---------------- DoIP discovery (ISO 13400-2, UDP 13400) ---------------- */
 
@@ -180,17 +247,28 @@ pub fn resolve_addr(addr: &str, auto_discover: bool) -> Result<String> {
 
 pub struct EnetTransport {
     stream: TcpStream,
+    read_timeout: Duration,
 }
 
 impl EnetTransport {
     pub fn open(addr: &str) -> Result<Self> {
+        Self::open_with(addr, DEFAULT_READ_TIMEOUT)
+    }
+
+    /// Connect with an explicit per-frame read timeout. Split out from
+    /// `open` so tests can drive a scripted gateway without waiting out the
+    /// production deadline.
+    fn open_with(addr: &str, read_timeout: Duration) -> Result<Self> {
         let stream = TcpStream::connect(addr)
             .map_err(|e| TransportError::Io(format!("connect {addr}: {e}")))?;
         stream
-            .set_read_timeout(Some(Duration::from_millis(3000)))
+            .set_read_timeout(Some(read_timeout))
             .map_err(|e| TransportError::Io(e.to_string()))?;
         stream.set_nodelay(true).ok();
-        Ok(Self { stream })
+        Ok(Self {
+            stream,
+            read_timeout,
+        })
     }
 
     fn read_msg(&mut self) -> Result<(u16, Vec<u8>)> {
@@ -233,13 +311,36 @@ impl Transport for EnetTransport {
             .write_all(&msg)
             .map_err(|e| TransportError::Io(e.to_string()))?;
 
+        // Control words the gateway sent that are neither a rejection nor a
+        // diagnostic message (keep-alives, status) — skipped as before, but
+        // remembered so a timeout can explain itself instead of reporting
+        // silence the car never produced.
+        let mut ignored: Vec<u16> = Vec::new();
         loop {
-            let (ctrl, data) = self.read_msg()?;
+            let (ctrl, data) = match self.read_msg() {
+                Ok(msg) => msg,
+                Err(TransportError::Timeout) if !ignored.is_empty() => {
+                    return Err(TransportError::Rejected(format!(
+                        "no diagnostic answer within {} ms; gateway sent only {}",
+                        self.read_timeout.as_millis(),
+                        describe_control_words(&ignored),
+                    )));
+                }
+                Err(e) => return Err(e),
+            };
+            if let Some(reason) = zgw_rejection_reason(ctrl) {
+                return Err(TransportError::Rejected(format!(
+                    "target 0x{target:02X}: {reason} (control 0x{ctrl:04X})"
+                )));
+            }
             if ctrl == CTRL_ACK {
                 continue; // gateway ack of our own message
             }
             if ctrl != CTRL_DIAG || data.len() < 3 {
-                continue; // keep-alive or unrelated
+                if !ignored.contains(&ctrl) {
+                    ignored.push(ctrl);
+                }
+                continue;
             }
             let uds = &data[2..];
             // UDS responsePending (7F xx 78): keep waiting
@@ -367,5 +468,188 @@ mod tests {
     #[test]
     fn resolve_addr_errors_when_empty_and_not_auto() {
         assert!(resolve_addr("", false).is_err());
+    }
+
+    /* -------- issue #248: a ZGW rejection must not look like silence -------- */
+
+    /// Scripted HSFZ gateway on loopback: accepts one connection, drains the
+    /// request frame, writes each `(ctrl, data)` reply in order, then holds
+    /// the socket open for `hold` so the client sees quiet rather than EOF.
+    fn scripted_gateway(replies: Vec<(u16, Vec<u8>)>, hold: Duration) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            // drain one request frame: [len u32 BE][ctrl u16 BE][data...]
+            let mut hdr = [0u8; 6];
+            if std::io::Read::read_exact(&mut stream, &mut hdr).is_err() {
+                return;
+            }
+            let len = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]) as usize;
+            let mut body = vec![0u8; len];
+            let _ = std::io::Read::read_exact(&mut stream, &mut body);
+            for (ctrl, data) in replies {
+                let mut frame = (data.len() as u32).to_be_bytes().to_vec();
+                frame.extend_from_slice(&ctrl.to_be_bytes());
+                frame.extend_from_slice(&data);
+                if std::io::Write::write_all(&mut stream, &frame).is_err() {
+                    return;
+                }
+                let _ = stream.flush();
+            }
+            std::thread::sleep(hold);
+        });
+        addr
+    }
+
+    /// A diagnostic reply body: [src, tgt, uds...] — the shape `request()`
+    /// strips two bytes from.
+    fn diag_body(uds: &[u8]) -> Vec<u8> {
+        let mut v = vec![0x12, 0xF1];
+        v.extend_from_slice(uds);
+        v
+    }
+
+    /// Short read timeout so the timeout paths cost 300 ms, not 3 s.
+    fn connect(addr: &str) -> EnetTransport {
+        EnetTransport::open_with(addr, Duration::from_millis(300)).expect("connect")
+    }
+
+    #[test]
+    fn every_documented_rejection_code_has_a_reason() {
+        for ctrl in [
+            CTRL_ERR_TESTER_ADDR,
+            CTRL_ERR_CONTROL_WORD,
+            CTRL_ERR_FORMAT,
+            CTRL_ERR_DEST_ADDR,
+            CTRL_ERR_TOO_LARGE,
+            CTRL_ERR_NOT_READY,
+            CTRL_ERR_OOM,
+        ] {
+            assert!(zgw_rejection_reason(ctrl).is_some(), "0x{ctrl:04X} unmapped");
+        }
+        // Non-rejections must stay unrecognised, or we would abort healthy
+        // sessions over ordinary traffic.
+        assert!(zgw_rejection_reason(CTRL_ALIVE_CHECK).is_none());
+        assert!(zgw_rejection_reason(CTRL_ACK).is_none());
+        assert!(zgw_rejection_reason(CTRL_DIAG).is_none());
+        assert!(zgw_rejection_reason(0x9999).is_none());
+    }
+
+    /// The reporter's case (F36/N55): the gateway refuses the destination
+    /// address. The error must name it immediately — not after the read
+    /// timeout, and not as a generic Timeout.
+    #[test]
+    fn surfaces_zgw_destination_rejection_without_waiting_for_timeout() {
+        let addr = scripted_gateway(vec![(CTRL_ERR_DEST_ADDR, vec![])], Duration::from_millis(600));
+        let mut t = connect(&addr);
+        let start = Instant::now();
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(200),
+            "must fail fast, took {elapsed:?}"
+        );
+        assert!(matches!(err, TransportError::Rejected(_)), "got {err:?}");
+        let msg = err.to_string();
+        assert!(msg.contains("0x0043"), "must name the control word: {msg}");
+        assert!(msg.contains("0x12"), "must name the target: {msg}");
+        assert!(msg.contains("destination"), "must explain why: {msg}");
+    }
+
+    #[test]
+    fn surfaces_tester_address_rejection() {
+        let addr = scripted_gateway(vec![(CTRL_ERR_TESTER_ADDR, vec![])], Duration::from_millis(600));
+        let mut t = connect(&addr);
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
+        assert!(matches!(err, TransportError::Rejected(_)), "got {err:?}");
+        let msg = err.to_string();
+        assert!(msg.contains("0x0040"), "{msg}");
+        assert!(msg.contains("tester address"), "{msg}");
+    }
+
+    /// A rejection arriving after the gateway's own ACK still surfaces.
+    #[test]
+    fn surfaces_rejection_sent_after_gateway_ack() {
+        let addr = scripted_gateway(
+            vec![(CTRL_ACK, vec![]), (CTRL_ERR_FORMAT, vec![])],
+            Duration::from_millis(600),
+        );
+        let mut t = connect(&addr);
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
+        assert!(matches!(err, TransportError::Rejected(_)), "got {err:?}");
+        assert!(err.to_string().contains("0x0042"), "{err}");
+    }
+
+    /// Happy path pinned: ACK then a diagnostic reply still returns payload.
+    #[test]
+    fn ack_then_diagnostic_reply_returns_payload() {
+        let addr = scripted_gateway(
+            vec![
+                (CTRL_ACK, vec![]),
+                (CTRL_DIAG, diag_body(&[0x62, 0xF1, 0x90, b'W', b'B', b'A'])),
+            ],
+            Duration::from_millis(600),
+        );
+        let mut t = connect(&addr);
+        let resp = t.request(0x12, &[0x22, 0xF1, 0x90]).expect("must succeed");
+        assert_eq!(resp, vec![0x62, 0xF1, 0x90, b'W', b'B', b'A']);
+    }
+
+    /// UDS responsePending is still skipped and the follow-up reply returned.
+    #[test]
+    fn waits_through_uds_response_pending() {
+        let addr = scripted_gateway(
+            vec![
+                (CTRL_DIAG, diag_body(&[0x7F, 0x22, 0x78])),
+                (CTRL_DIAG, diag_body(&[0x62, 0xF1, 0x90, 0x00])),
+            ],
+            Duration::from_millis(600),
+        );
+        let mut t = connect(&addr);
+        let resp = t.request(0x12, &[0x22, 0xF1, 0x90]).expect("must succeed");
+        assert_eq!(resp, vec![0x62, 0xF1, 0x90, 0x00]);
+    }
+
+    /// A gateway that says nothing at all stays a plain timeout: we must not
+    /// claim a rejection the car never sent.
+    #[test]
+    fn silent_gateway_stays_a_plain_timeout() {
+        let addr = scripted_gateway(vec![], Duration::from_millis(600));
+        let mut t = connect(&addr);
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
+        assert!(matches!(err, TransportError::Timeout), "got {err:?}");
+    }
+
+    /// Keep-alive traffic then silence: the timeout must name what it saw,
+    /// because "no answer" and "an answer we ignored" are different bugs.
+    #[test]
+    fn keepalive_only_then_timeout_names_the_control_word() {
+        let addr = scripted_gateway(
+            vec![(CTRL_ALIVE_CHECK, vec![]), (CTRL_ALIVE_CHECK, vec![])],
+            Duration::from_millis(1500),
+        );
+        let mut t = connect(&addr);
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
+        assert!(matches!(err, TransportError::Rejected(_)), "got {err:?}");
+        let msg = err.to_string();
+        assert!(msg.contains("0x0012"), "must name the keep-alive: {msg}");
+        assert!(msg.contains("keep-alive"), "must label it: {msg}");
+        assert!(msg.contains("300 ms"), "must state the deadline: {msg}");
+    }
+
+    /// A diagnostic frame too short to carry src+tgt+payload, then silence:
+    /// the gateway *did* answer, and the user must be told that rather than
+    /// shown a generic timeout.
+    #[test]
+    fn short_diagnostic_frame_is_named_not_silent() {
+        let addr = scripted_gateway(vec![(CTRL_DIAG, vec![0x12])], Duration::from_millis(1500));
+        let mut t = connect(&addr);
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).expect_err("must fail");
+        assert!(matches!(err, TransportError::Rejected(_)), "got {err:?}");
+        let msg = err.to_string();
+        assert!(msg.contains("too short"), "must explain the frame: {msg}");
     }
 }
