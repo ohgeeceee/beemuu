@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request) fed from the source's live cache. The four boolean flag keys were
   decoded and cached but never surfaced anywhere; gear was decoded but shown
   nowhere. Pure formatter (`liveStatusText`) + 4 tests.
+- **K+DCAN had no gear or engine-state readout** (Tier A): on the DID path the
+  backend reports those params as enum *labels* (`text`), and the bridge
+  dropped every text value — so the status line above was empty on K+DCAN
+  cars while working on CAN broadcast. The bridge now keeps labels in a
+  separate cache (`latestText()`, surfaced through the K+DCAN source), and the
+  readout prefers the label over the numeric gear when both exist. Combined
+  with the vehicle-speed mapping fix, an E-series session now reads
+  `Gear D3 · Running` instead of an em dash.
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already

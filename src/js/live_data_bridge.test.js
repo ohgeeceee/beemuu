@@ -133,15 +133,25 @@ describe("createDIDBridge", () => {
       assert.strictEqual(Object.keys(cached).length, 0);
     });
 
-    it("ignores enum params (those with text field)", () => {
+    it("keeps enum params as text without turning them into dials", () => {
       const bridge = createDIDBridge();
       const values = [
-        { id: "gear", label: "Gear", unit: "", value: 3, min: 0, max: 6, text: "D" },
+        { id: "gear", label: "Gear", unit: "", value: 3, min: 0, max: 6, text: "D3" },
+        { id: "engine_state", label: "Engine state", unit: "", value: 0, min: 0, max: 4, text: "Running" },
       ];
       bridge.applySweep(values, []);
-      const cached = bridge.latestValues();
-      // gear is not a numeric gauge, skipped.
-      assert.strictEqual(Object.keys(cached).length, 0);
+      // Not dials: latestValues() stays empty.
+      assert.deepStrictEqual(bridge.latestValues(), {});
+      // But the labels are kept for the Live Gauges status line.
+      assert.deepStrictEqual(bridge.latestText(), { gear: "D3", engine_state: "Running" });
+    });
+
+    it("latestText returns a copy, and an unmapped enum id is still kept", () => {
+      const bridge = createDIDBridge();
+      bridge.applySweep([{ id: "dpf_state", label: "DPF", unit: "", value: 1, text: "Regenerating" }], []);
+      const texts = bridge.latestText();
+      texts.dpf_state = "tampered";
+      assert.strictEqual(bridge.latestText().dpf_state, "Regenerating");
     });
 
     it("tracks peaks across sweeps", () => {
