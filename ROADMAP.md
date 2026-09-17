@@ -1027,4 +1027,21 @@ free. See `VISION.md`.
 
 ---
 
+## Phase 2 — "Never seen before" features (VISION.md)
+
+**Premise.** Ship differentiating features that benefit every BMW owner, mostly
+Tier A (pure data + UI). See `VISION.md` §3 Phase 2.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Predictive CBS Timeline | ✅ Done | A | `cbs_predict.js` prediction engine (wear models, measured-wear extrapolation, driving-profile scaling) + `cbs_ui.js` panel in Vehicle Info with snapshot persistence. 11 engine tests + Playwright browser check. |
+| Diagnostic Story Mode | 🟡 Planned | A | Plain-language guided walkthrough of a fault; builds on v0.19 beginner guides. |
+| Wiring Detective | 🟡 Planned | A | Pin-to-pin wiring lookup for common repairs; community-contributed data. |
+| Cold Start Auto-Logger | 🟡 Planned | A | One-click auto-capture of the cold-start window. |
+| Tuning Fingerprint / Adaptation Drift / Misfire / Flash Counter | 🟡 Planned | B | Forensic set; reads ECU state via the Rust protocol surface. |
+
+---
+
 ## v0.19.0 — "Report Clarity" (In Progress)

@@ -44,6 +44,8 @@
   "load_session": "Charger la session",
   "import_external": "Importer un log externe",
   "vehicle_information": "Informations véhicule",
+  "cbs_timeline": "Chronologie d'entretien (CBS prédictif)",
+  "cbs_sub": "Quand chaque élément d'entretien sera-t-il réellement dû ?",
   "share_export": "Partager / Exporter ▾",
   "read_vehicle": "Lire le véhicule",
   "export_report": "Exporter le rapport",

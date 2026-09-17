@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   features, tuning). Tests: `plugins.test.js` (9), `test_plugins_registry.py`
   (16), and the Playwright plugin browser suite extended to cover the v2
   bundle and the registry flow.
+- **Predictive CBS Timeline (Phase 2 of VISION.md)**: a new "Service timeline
+  (Predictive CBS)" panel in Vehicle Info predicts when each Condition Based
+  Service item will actually be due. `cbs_predict.js` is a pure prediction
+  engine (BMW wear models, measured-wear extrapolation from saved snapshots,
+  driving-profile scaling); `cbs_ui.js` renders inputs and a sorted timeline
+  and persists snapshots in localStorage so the estimate learns the owner's
+  real wear rate. i18n in en/de/fr. Tests: `cbs_predict.test.cjs` (11) +
+  Playwright browser check (`scripts/test-cbs-browser.cjs`).
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already

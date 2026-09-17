@@ -44,6 +44,8 @@
   "load_session": "Sitzung laden",
   "import_external": "Externes Protokoll importieren",
   "vehicle_information": "Fahrzeuginformationen",
+  "cbs_timeline": "Service-Timeline (Predictive CBS)",
+  "cbs_sub": "Wann ist jeder Servicepunkt tatsächlich fällig?",
   "share_export": "Teilen / Export ▾",
   "read_vehicle": "Fahrzeug auslesen",
   "export_report": "Bericht exportieren",

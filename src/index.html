@@ -361,6 +361,25 @@
           <p class="muted">Connect and click "Read vehicle" to read VIN, decode it, and read mileage.</p>
         </div>
         <div id="vehicle-info-options" class="muted" style="padding:8px 10px; font-size:12px"></div>
+        <div class="panel" style="margin-top:12px">
+          <div class="panel-head"><span data-i18n="cbs_timeline">Service timeline (Predictive CBS)</span><span class="muted" data-i18n="cbs_sub">When will each service item actually be due?</span></div>
+          <div id="cbs-body" style="padding:12px">
+            <p class="muted">Enter a few current readings and a rough driving profile to predict when each item will be due. Optionally save snapshots over time so the estimate learns your real wear rate.</p>
+            <div id="cbs-inputs" class="cbs-inputs"></div>
+            <div class="cbs-actions">
+              <label for="cbs-driving">Driving profile</label>
+              <select id="cbs-driving">
+                <option value="mixed">Mixed</option>
+                <option value="city">Mostly city</option>
+                <option value="highway">Mostly highway</option>
+                <option value="aggressive">Aggressive</option>
+              </select>
+              <button id="cbs-update" class="btn btn-small" type="button">Update prediction</button>
+              <button id="cbs-snapshot" class="btn btn-small" type="button">Save current readings as a snapshot</button>
+            </div>
+            <div id="cbs-results" class="cbs-results"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -795,9 +814,12 @@
   <script src="js/print_reports.js"></script>
   <script src="js/dtc_confidence.js"></script>
   <script src="js/dtc_source_lookup.js"></script>
+  <script src="js/cbs_predict.js"></script>
+  <script src="js/cbs_ui.js"></script>
   <script src="js/main.js"></script>
   <script src="js/plugins.js"></script>
   <script src="js/plugins_ui.js"></script>
   <script src="js/plugins_boot.js"></script>
+  <script src="js/cbs_boot.js"></script>
 </body>
 </html>

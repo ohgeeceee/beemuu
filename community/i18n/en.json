@@ -44,6 +44,8 @@
   "load_session": "Load session",
   "import_external": "Import external log",
   "vehicle_information": "Vehicle information",
+  "cbs_timeline": "Service timeline (Predictive CBS)",
+  "cbs_sub": "When will each service item actually be due?",
   "share_export": "Share / Export ▾",
   "read_vehicle": "Read vehicle",
   "export_report": "Export report",
