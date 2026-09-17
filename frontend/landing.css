@@ -1,0 +1,42 @@
+/* beemuu.com landing/404 shell — the stylesheet 404.html links as /landing.css.
+ *
+ * It never existed either: 404.html references /landing.css and had only a few
+ * inline styles, so its header, footer and default typography were unstyled.
+ *
+ * The shared chrome and typography live in guide.css, which is imported here
+ * rather than duplicated, so the 404 page and the guide pages cannot drift.
+ * Only what is specific to a short landing/error page goes below.
+ */
+
+@import url("/guide.css");
+
+.landing, body > main { min-height: 60vh; }
+
+/* Single-column, generous spacing: the content is a short message plus links. */
+body > main { display: block; }
+
+body > main h1 {
+  font-size: clamp(40px, 7vw, 76px);
+  font-weight: 300;
+  letter-spacing: -.045em;
+  line-height: 1.02;
+  max-width: 18ch;
+}
+
+body > main h2 { font-size: 1.05rem; margin-top: 2rem; }
+
+body > main ul {
+  list-style: none;
+  padding-left: 0;
+  font-size: 1rem;
+  line-height: 1.9;
+}
+body > main ul li { margin: 0; color: var(--muted); }
+body > main ul li strong { color: var(--text); }
+
+.legal {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 16px;
+  max-width: 70ch;
+}
