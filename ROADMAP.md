@@ -1007,3 +1007,24 @@ formatting, multi-vehicle comparison, and JSON export.
 | Guides polish | ✅ Done | A | Better rendering, CSS, icons for first-scan and beginner summary. |
 
 ---
+
+## Plugin ecosystem (Phase 1 of VISION.md)
+
+**Premise.** Turn the bundled plugin system into a shareable ecosystem: a
+package format authors can build on, and a registry others can install from for
+free. See `VISION.md`.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Package API 2 (multi-file tools) | ✅ Done | A | `files` map + `entry`, compiled to the same worker `code`; v1 fully backward compatible. Loader validates + migrates. Tests in `plugins.test.js`. |
+| Community registry (`backend/plugins_registry.py`) | ✅ Done | A | Read-only list + per-id install manifest from `src/plugins/registry/`. Structural validation; desktop re-validates on install. `test_plugins_registry.py` (16 tests). |
+| Desktop "Discover from the community registry" | ✅ Done | A | Fetches registry, stages a package for review before install. `BEEMUU_PLUGIN_REGISTRY_URL` override. Browser regression extended (real worker + shipping CSP). |
+| Package signing + verification | 🟡 Planned | B | Trust boundary for a public download ecosystem; needs author-key model + verification in the Rust command surface. |
+| Granular host-permission model | 🟡 Planned | B | Opt-in read/write permissions; requires the Rust command surface. |
+| Registry community contribution flow | 🟡 Planned | A/C | submit → review → publish per COMMUNITY_FRAMEWORK.md. |
+
+---
+
+## v0.19.0 — "Report Clarity" (In Progress)

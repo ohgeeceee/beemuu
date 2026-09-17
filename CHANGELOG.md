@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A (analysis, data, a11y)
 
+- **Plugin ecosystem (Phase 1 of VISION.md)**: package API 2 (multi-file
+  tools via a `files` map + `entry`, backward compatible with v1 and compiled
+  to the same sandboxed worker code), a read-only community plugin registry
+  (`backend/plugins_registry.py` + `/api/plugins` endpoints serving reviewed
+  packages from `src/plugins/registry/`), and a desktop "Discover from the
+  community registry" section that stages a package for review before install.
+  Added `VISION.md` (three-pillar strategy: ecosystem, differentiating
+  features, tuning). Tests: `plugins.test.js` (9), `test_plugins_registry.py`
+  (16), and the Playwright plugin browser suite extended to cover the v2
+  bundle and the registry flow.
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already
