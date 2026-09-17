@@ -1037,8 +1037,8 @@ Tier A (pure data + UI). See `VISION.md` §3 Phase 2.
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
 | Predictive CBS Timeline | ✅ Done | A | `cbs_predict.js` prediction engine (wear models, measured-wear extrapolation, driving-profile scaling) + `cbs_ui.js` panel in Vehicle Info with snapshot persistence. 11 engine tests + Playwright browser check. |
-| Diagnostic Story Mode | 🟡 Planned | A | Plain-language guided walkthrough of a fault; builds on v0.19 beginner guides. |
-| Wiring Detective | 🟡 Planned | A | Pin-to-pin wiring lookup for common repairs; community-contributed data. |
+| Wiring Detective | ✅ Done | A | `wiring_detect.js` circuit lookup (fuse → ECU pin → component → ground) + expandable card under each fault row. Community data in `community/wiring/*.toml`. 9 tests + Playwright browser check. |
+| Diagnostic Story Mode | ✅ Done (pre-existing) | B | Already shipped: `story.rs` rule-based engine + `generate_story` command + modal renderer. |
 | Cold Start Auto-Logger | 🟡 Planned | A | One-click auto-capture of the cold-start window. |
 | Tuning Fingerprint / Adaptation Drift / Misfire / Flash Counter | 🟡 Planned | B | Forensic set; reads ECU state via the Rust protocol surface. |
 

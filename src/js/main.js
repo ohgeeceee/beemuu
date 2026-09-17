@@ -616,6 +616,21 @@ async function readFaults() {
     });
   }
 
+  // Wiring Detective: if the code has a known circuit, append an expandable
+  // card row under the fault row. Pure lookup; no-op when unknown.
+  function appendWiringCard(tr, code) {
+    if (!window.beeemuuWiringDetective) return;
+    const html = window.beeemuuWiringDetective.cardHtml(code);
+    if (!html) return;
+    const cardRow = document.createElement("tr");
+    cardRow.className = "wiring-row";
+    const cell = document.createElement("td");
+    cell.colSpan = 3;
+    cell.innerHTML = html;
+    cardRow.appendChild(cell);
+    tr.after(cardRow);
+  }
+
   // In session replay, faults are already in the module data.
   if (sessionReplay) {
     const m = modules.find((x) => x.address === selectedAddress);
@@ -637,6 +652,7 @@ async function readFaults() {
         `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
       enrichRowWithSource(tr, d.code);
+      appendWiringCard(tr, d.code);
       tbody.appendChild(tr);
     }
     return;
@@ -681,6 +697,7 @@ async function readFaults() {
         `<td class="muted">${escapeHtml(d.status_text)}</td>`;
       tr.addEventListener("click", () => showFreezeFrame(d.code));
       enrichRowWithSource(tr, d.code);
+      appendWiringCard(tr, d.code);
       tbody.appendChild(tr);
     }
     // v0.12.0 Fault Memory (slice 5): if the local history has

@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and persists snapshots in localStorage so the estimate learns the owner's
   real wear rate. i18n in en/de/fr. Tests: `cbs_predict.test.cjs` (11) +
   Playwright browser check (`scripts/test-cbs-browser.cjs`).
+- **Wiring Detective (Phase 2 of VISION.md)**: for fault codes tied to a
+  sensor/actuator, an expandable card under the fault row shows the affected
+  circuit as a readable chain (fuse → ECU pin → component → ground) plus
+  common failure points. `wiring_detect.js` is a pure, dependency-free lookup
+  (mirrors `dtc_confidence.js`); community data lives in
+  `community/wiring/*.toml`. Tests: `wiring_detect.test.cjs` (9) + Playwright
+  browser check (`scripts/test-wiring-browser.cjs`).
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already

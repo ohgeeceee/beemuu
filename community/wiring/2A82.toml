@@ -1,0 +1,16 @@
+# Wiring Detective — circuit for DTC 2A82 (VANOS intake control).
+# Canonical source; the desktop ships an offline snapshot in
+# src/js/wiring_detect.js. Keep the two in sync.
+
+[[circuit]]
+dtc = "2A82"
+component = "VANOS intake solenoid"
+ecu_pin = "X60001.12"
+component_pin = "1"
+power_fuse = "F02 (30A)"
+ground_point = "G102"
+common_failures = [
+  "Solenoid clogged with oil sludge (clean before replacing)",
+  "Connector corrosion at the solenoid",
+  "Wiring chafed near the valve cover",
+]
