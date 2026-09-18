@@ -11,9 +11,20 @@
   <main class="shell">
     <section class="hero">
       <p class="eyebrow">BeeEmUu Pages</p>
-      <h1>BMW diagnostics, with real-time live gauges</h1>
-      <p>Open-source desktop app with a static project site. The six gauges below show what your car looks like in real time — the same Live CAN module that ships in the desktop build, mirrored here as a JS-side demo so visitors can see live data without installing anything.</p>
+      <h1>BMW diagnostics, reloaded</h1>
+      <p>BeeEmUu v2.0.0 is here: ENET/HSFZ gateway refusal diagnostics, CAN broadcast decoder parity across 15 frames, and a mobile-responsive UI in DE/EN/FR. The open-source Tauri 2 + Rust desktop app that turns your OBD cable into a real-time diagnostic surface.</p>
       <button id="refresh" type="button">Refresh dashboard</button>
+    </section>
+
+    <section class="banner" id="v2-banner">
+      <div class="banner-inner">
+        <span class="banner-tag">v2.0.0</span>
+        <div>
+          <h2>What's new in BeeEmUu 2.0</h2>
+          <p>Gateway refusal diagnostics, snapshot compare v2, log interoperability, BMW-FAST FMT transport fix, DTC/vehicle DB growth, and a full accessibility sweep. See the <a href="/changelog.html">changelog</a> for details.</p>
+        </div>
+        <a class="banner-cta" href="https://github.com/ohgeeceee/beemuu/releases/tag/v2.0.0">Download v2.0.0</a>
+      </div>
     </section>
 
     <section id="status" class="grid" aria-live="polite">
