@@ -987,23 +987,26 @@ formatting, multi-vehicle comparison, and JSON export.
 | CSV export improvements | ✅ Done | A | Delimiter (,/;), full metadata (VIN/profile/date/tag), selectedOnly channels. |
 | Native Beemuu CSV import (v0.21) | ✅ Done | A | Dedicated parser log_import_beemuu.js restores tags/bookmarks/series for replay; roundtrip + tests. UI scrub/markers now refresh on import. |
 
-## v0.19.0 — "Report Clarity" (Done)
+## v2.0.0 — "Next Generation" (Shipped 2026-09-18)
 
-**Premise.** Health reports, snapshot comparison, freeze-frame context, and analysis polish.
+**Premise.** A major version bump consolidating the v0.14–v0.19 feature cycles, the ENET/HSFZ transport fix, and the full can-decoder parity work into a stable, well-tested release.
 
 ### Slices
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Snapshot compare v2 | ✅ Done | A | Nice table renderer, library support, metadata in reports. Log snippet summary. |
-| Health report + freeze frame | ✅ Done | A | Richer freeze snippets + snapshot source note in reports. |
-| Additional CAN decoders | ✅ Done | A | +7 total new (intake, load, cruise, fuel rail, MAP, oil press, ext temp) + sim + tests. + fuelLevel, lambda + exposure. |
-| Beginner guides | ✅ Done | A | First-scan + plain-language fault summary (pure + wired). |
-| DTC / Vehicle DB | ✅ Done | A | +5 DTCs + 3 VIN prefixes. |
-| A11y | ✅ Done (sweep) | A | More ARIA labels/roles/switch on theme, guides, controls. |
-| Log CSV import metadata | ✅ Done | A | Native Beemuu CSV import now restores sessionTag + bookmarks. |
-| Snapshot log restore | ✅ Done | A | Full tags/markers/series restore + UI rebuild on snapshot load. |
-| Snapshot library compare | ✅ Done | A | Left/Right buttons on cards + auto compare using import + render. |
-| Guides polish | ✅ Done | A | Better rendering, CSS, icons for first-scan and beginner summary. |
+| ENET/HSFZ gateway refusal diagnostics | ✅ Done | B | Surface HSFZ error control words instead of bare Timeout (issue #248) |
+| CAN broadcast decoder parity (15 frames) | ✅ Done | A | +15 CAN IDs decoded + simulator parity |
+| Frontend simulator parity | ✅ Done | A | `frontend/live_gauges.js` emits full 25-frame contract |
+| Health report clarity | ✅ Done | A | Freeze-frame context + snapshot source note |
+| Snapshot compare v2 | ✅ Done | A | Visual diff table + library compare |
+| Log interoperability | ✅ Done | A | Native Beemuu CSV import with full tag/bookmark/series restore |
+| Accessibility sweep | ✅ Done | A | ARIA roles/labels on all major surfaces |
+| Mobile-responsive CSS | ✅ Done | A | Header/tab wrapping + stacked panels |
+| Multi-language UI | ✅ Done | A | DE/EN/FR i18n (54 keys) |
+| BMW-FAST FMT transport fix | ✅ Done | B | Verified on 2006 E90 330i |
+| DTC/vehicle DB growth | ✅ Done | A | +15 DTCs, +20 E-series VIN prefixes |
+| Test stability | ✅ Done | A | TOML parse gates, test hang fix, flaky test fix |
+| CI green | ✅ Done | A | All workflows pass (JS 424, Python 219, Rust 13 enet tests) |
 
 ---
