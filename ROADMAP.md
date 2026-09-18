@@ -987,7 +987,7 @@ formatting, multi-vehicle comparison, and JSON export.
 | CSV export improvements | ✅ Done | A | Delimiter (,/;), full metadata (VIN/profile/date/tag), selectedOnly channels. |
 | Native Beemuu CSV import (v0.21) | ✅ Done | A | Dedicated parser log_import_beemuu.js restores tags/bookmarks/series for replay; roundtrip + tests. UI scrub/markers now refresh on import. |
 
-## v0.19.0 — "Report Clarity" (In Progress)
+## v0.19.0 — "Report Clarity" (Done)
 
 **Premise.** Health reports, snapshot comparison, freeze-frame context, and analysis polish.
 

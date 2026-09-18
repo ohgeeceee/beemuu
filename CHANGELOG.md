@@ -78,6 +78,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prefix. Unit tests pin the on-wire shape. Verified 2026-08-28 on a
   2006 E90 330i (DME answered in ~15 ms; vehicle test found 9
   control units).
+
+### Fixed — Tier B (ENET/HSFZ transport)
+
+- **HSFZ gateway refusals are surfaced, not swallowed** (Tier B, issue
+  #248): `EnetTransport::request` silently discarded every non-`0x0001`
+  frame, so when the ZGW answered a probe with an HSFZ *error* control
+  word (0x0040 incorrect tester address, 0x0043 incorrect destination
+  address, 0x0044 message too large, …) the app waited out the 3 s read
+  deadline and reported a bare `Timeout` — the F36/N55 report's "0 Control
+  Units Found" with no explanation. The transport now maps error control
+  words to a new `TransportError::GatewayRejected` carrying the gateway's
+  stated reason (including the expected/received tester address for 0x40
+  and source/target for 0x43), and a timeout after unrelated frames names
+  what the gateway did send. `scan_modules` now returns that reason when
+  every probe fails instead of a silent all-absent tree. Control-word
+  table sourced from Wireshark `packet-hsfz.c` and Scapy `hsfz.py`; 4 new
+  loopback-TCP tests (13 enet tests total) pin the on-wire behaviour.
+  Discovery error text now notes that F-series cars do not answer DoIP
+  discovery (UDP 13400) — they speak HSFZ on TCP 6801 only.
 ### Planned — Tier A (read-only research, not a v0.15.1 slice)
 
 - **E90 FRM coding dump** (Tier A): a read-only card on the Service
