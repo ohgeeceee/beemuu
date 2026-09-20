@@ -42,6 +42,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verification badge reads as a status tag. Badge markup is unchanged.
   Verified: new test asserts no inline tree styles remain and the DTC
   chip / title classes are present; JS suite green.
+- **Public-site version surface → v2.2.0** (`feat/snapshot-v2-json-export`):
+  the beemuu.com hero banner, download CTA, and press page still framed
+  v2.0.0 as the latest release (they'd rotted through the v2.1.0 patch).
+  Updated `frontend/index.html` and `frontend/press.html` to v2.2.0
+  (banner tag, hero copy, download links, press highlights), keeping
+  v2.0.0 only as a historical "milestone" mention. Added
+  `frontend/version_surface.test.js` — a regression test pinning the
+  banner/CTA/press to the current release so a future release that
+  forgets to bump the site fails CI instead of shipping a stale
+  "Download vX" link. Teeth-checked: fails with a wrong release version.
 - **ROADMAP corrections** (`feat/snapshot-v2-json-export`): the
   "Ready to Claim" and v0.13.0 tables still listed the KWP2000
   slow-module timeout fix as open, but it shipped in v0.13.0
