@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-09-20
+
+### Added — Tier A (Snapshot v2 completion)
+
+- **Walkthrough JSON export** (`feat/snapshot-v2-json-export`): the
+  "Share walkthrough" button previously exported only a self-contained
+  HTML file. A new **Export JSON** button next to it emits the same
+  snapshot as machine-readable JSON via the existing
+  `buildSnapshotJson` (plan, walk answers, freeze-frame context, log
+  snippet, meta). The output is directly consumable by the Snapshot
+  Compare tool, so a user can hand an exported walkthrough straight to
+  the compare panel or a script. Wired in `main.js` (`btn-walk-json`),
+  enabled/disabled in lockstep with the HTML share button, and
+  localized (EN/DE/FR `export_json` key). Verified: new round-trip test
+  proves `buildSnapshotJson` output feeds `compareSnapshots`; JS suite
+  green.
+
 ## [2.1.0] — 2026-09-20
 
 ### Fixed — Tier A (community data)
