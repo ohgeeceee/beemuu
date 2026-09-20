@@ -1045,5 +1045,6 @@ the self-contained HTML template with a dark-mode theme.
 | i18n for the new button | ✅ Done | A | `export_json` key added to EN/DE/FR in `i18n.js` + `community/i18n/*.json` (parity test enforces all six). |
 | Round-trip test | ✅ Done | A | `buildSnapshotJson` output feeds `compareSnapshots`; freeze-frame + walk diffs asserted. |
 | Export dark-mode theme | ✅ Done | A | `prefers-color-scheme` CSS-custom-property override on the self-contained HTML export; matches the app dark palette; stays zero-external-deps. |
+| Export typography refresh | ✅ Done | A | Plan-tree inline styles moved to `.plan-step` classes (re-skins in dark mode); DTC renders as a `.dtc` code chip with `.plan-title` span. |
 
 ---

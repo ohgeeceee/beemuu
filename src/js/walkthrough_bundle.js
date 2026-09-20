@@ -66,7 +66,11 @@ function buildBundleHtml(input) {
 
   // Compose the body HTML.
   const body = [];
-  body.push(`<h1>${esc(title)} — ${esc(planTitle)}`);
+  // v2.2.0 — header typography: the DTC renders as a monospace code chip
+  // and the plan title on its own line, so the badge reads as a status
+  // tag rather than a run-on sentence. Badge markup is unchanged so the
+  // verified/needs-verification assertions still hold.
+  body.push(`<h1><code class="dtc">${esc(title)}</code> <span class="plan-title">${esc(planTitle)}</span>`);
   body.push(verified
     ? `<span class="badge badge-verified">✓ Verified</span>`
     : `<span class="badge badge-needs">NEEDS VERIFICATION</span>`);
@@ -219,18 +223,18 @@ function isConclusion(step) {
 function renderPlanTree(plan) {
   const steps = plan.steps || [];
   const parts = [];
-  parts.push(`<div style="margin-top:8px">`);
+  parts.push(`<div class="plan-tree">`);
   for (const s of steps) {
     const conc = isConclusion(s);
-    parts.push(`<div style="border-left: 2px solid #ddd; padding: 4px 0 4px 12px; margin: 6px 0;">`);
+    parts.push(`<div class="plan-step${conc ? " plan-step-conclusion" : ""}">`);
     parts.push(`<div class="step-id">${esc(s.id)}${conc ? " (conclusion)" : ""}</div>`);
-    if (s.instruction) parts.push(`<div>${esc(s.instruction)}</div>`);
-    if (s.conclusion) parts.push(`<div><i>${esc(s.conclusion)}</i></div>`);
+    if (s.instruction) parts.push(`<div class="plan-instr">${esc(s.instruction)}</div>`);
+    if (s.conclusion) parts.push(`<div class="plan-conclusion"><i>${esc(s.conclusion)}</i></div>`);
     const edges = [];
     if (s.on_pass) edges.push(`pass → ${s.on_pass}`);
     if (s.on_fail) edges.push(`fail → ${s.on_fail}`);
     if (s.next) edges.push(`next → ${s.next}`);
-    if (edges.length) parts.push(`<div class="muted">${edges.map(esc).join(" · ")}</div>`);
+    if (edges.length) parts.push(`<div class="plan-edges muted">${edges.map(esc).join(" · ")}</div>`);
     parts.push(`</div>`);
   }
   parts.push(`</div>`);
@@ -244,6 +248,8 @@ function inlineCss() {
     `  body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;`,
     `         margin:0 auto; padding:24px 16px; max-width:820px; color:var(--fg); background:#fff; line-height:1.6; font-size:15px; }`,
     `  h1 { font-size:1.35rem; margin:0 0 2px; letter-spacing:-0.2px; }`,
+    `  .dtc { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:0.95em; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:1px 7px; color:var(--accent); }`,
+    `  .plan-title { font-weight:600; }`,
     `  .meta { color:var(--muted); font-size:13px; margin-bottom:20px; }`,
     `  .badge { display:inline-block; padding:1px 7px; border-radius:999px; font-size:10px; font-weight:600; margin-left:6px; border:1px solid var(--border); }`,
     `  .badge-needs { background:#fef3c7; color:#92400e; border-color:#f59e0b; }`,
@@ -264,6 +270,14 @@ function inlineCss() {
     `  summary { cursor:pointer; font-size:13px; color:var(--muted); user-select:none; }`,
     `  .muted { color:var(--muted); font-style:italic; }`,
     `  #root > div:first-child { margin-bottom:8px; }`,
+    // v2.2.0 — plan-tree layout moved out of inline styles into classes so
+    // it re-skins in dark mode and reads as a proper indented tree.
+    `  .plan-tree { margin-top:8px; }`,
+    `  .plan-step { border-left:2px solid var(--border); padding:4px 0 4px 12px; margin:6px 0; }`,
+    `  .plan-step-conclusion { border-left-color:#10b981; }`,
+    `  .plan-instr { font-size:13px; }`,
+    `  .plan-conclusion { font-size:13px; }`,
+    `  .plan-edges { font-size:11px; }`,
     `  @media (max-width:480px) { body { padding:16px 12px; font-size:14px; } h1 { font-size:1.15rem; } .step-card { padding:10px 12px; } }`,
     `  @media print { .step-card, .chart-wrap { break-inside:avoid; } }`,
     // v2.2.0 — dark-mode support. All the surface rules below use the
@@ -286,6 +300,7 @@ function inlineCss() {
     `    details { border-color:#334155; }`,
     `    .chart-wrap svg { background:#0f172a; border-color:#334155; }`,
     `    .muted { color:#94a3b8; }`,
+    `    .plan-step-conclusion { border-left-color:#10b981; }`,
     `  }`,
     `</style>`,
   ].join("\n");

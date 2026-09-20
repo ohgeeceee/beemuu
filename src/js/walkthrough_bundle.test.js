@@ -208,6 +208,19 @@ test("buildBundleHtml: ships the v2.2.0 dark-mode theme and stays self-contained
   assert.ok(html.includes("</style>"), "style block closed");
 });
 
+test("buildBundleHtml: plan tree uses classes, not inline styles (v2.2.0 refresh)", () => {
+  const html = buildBundleHtml(baseInput());
+  // The plan tree must not carry hardcoded inline styles — they were
+  // moved to .plan-step / .plan-tree classes so the tree re-skins in
+  // dark mode and the layout is centralized in the stylesheet.
+  assert.ok(html.includes("class=\"plan-tree\""), "plan tree container class present");
+  assert.ok(html.includes("class=\"plan-step"), "plan step class present");
+  assert.ok(!/style=["']border-left: 2px solid #ddd/i.test(html), "no hardcoded inline tree border");
+  // Header typography: DTC renders as a code chip, title on its own span.
+  assert.ok(html.includes("class=\"dtc\""), "DTC code chip present");
+  assert.ok(html.includes("class=\"plan-title\""), "plan title span present");
+});
+
 test("buildBundleHtml: shows conclusion card when the path reaches a conclusion step", () => {
   // s1 -> pass -> s2 -> fail -> s5 -> next -> s4 (conclusion)
   const html = buildBundleHtml(baseInput({ walkAnswers: ["pass", "fail", "next"] }));

@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   self-contained (no external deps). Verified: new test asserts the
   dark-mode media query + tokens and re-checks the zero-external-deps
   claim; JS suite green.
+- **Walkthrough export typography refresh** (`feat/snapshot-v2-json-export`):
+  the plan tree's hardcoded inline styles (`border-left: 2px solid #ddd`)
+  were moved into `.plan-tree` / `.plan-step` CSS classes, so the tree
+  now re-skins in dark mode and the layout is centralized in the
+  stylesheet. The header also renders the DTC as a monospace code chip
+  (`.dtc`) with the plan title on its own `.plan-title` span, so the
+  verification badge reads as a status tag. Badge markup is unchanged.
+  Verified: new test asserts no inline tree styles remain and the DTC
+  chip / title classes are present; JS suite green.
 
 ## [2.1.0] — 2026-09-20
 
