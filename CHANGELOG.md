@@ -17,6 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tomllib` parses the file (288 DTC entries), JS suite 424 pass, Python 219
   pass.
 
+### Fixed — Tier A (public site)
+
+- **Missing `guide.css` / `landing.css`** (`fix/dtc-texts-duplicate-keys`):
+  15 guide pages + `404.html` referenced `/guide.css` and `/landing.css`,
+  which never existed in the repo, so the live site served them unstyled.
+  Added a self-contained light editorial `guide.css` (covers all 28 classes
+  the guide pages use) and `landing.css` (`@import`s guide.css, adds the 404
+  footer-link layout).
+- **Pages build test now walks shipped pages** (`fix/dtc-texts-duplicate-keys`):
+  `test-github-pages-build.cjs` previously only checked artifact structure.
+  It now walks every shipped page and fails on a missing asset
+  (css/js/image/font/json/xml), while printing (not failing on) the ~44
+  planned content pages. Verified the walker fails when an asset is removed
+  and passes with it present.
+
 ## [2.0.0] — 2026-09-18
 
 ### Added — Tier A (analysis, data, a11y)
