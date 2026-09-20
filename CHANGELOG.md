@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   localized (EN/DE/FR `export_json` key). Verified: new round-trip test
   proves `buildSnapshotJson` output feeds `compareSnapshots`; JS suite
   green.
+- **Walkthrough export dark-mode theme** (`feat/snapshot-v2-json-export`):
+  the self-contained HTML export now ships a `prefers-color-scheme`
+  dark theme via a CSS-custom-property override block, so exported
+  walkthroughs read well in dark-mode browsers and match the app's
+  `body[data-theme="dark"]` palette. Because every surface rule already
+  uses `var(--fg)` / `var(--card)` / etc., the override re-skins the
+  entire bundle without per-rule edits, and the file stays fully
+  self-contained (no external deps). Verified: new test asserts the
+  dark-mode media query + tokens and re-checks the zero-external-deps
+  claim; JS suite green.
 
 ## [2.1.0] — 2026-09-20
 

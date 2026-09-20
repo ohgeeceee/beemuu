@@ -197,6 +197,17 @@ test("buildBundleHtml: produces a balanced document with no obvious holes", () =
   assert.ok(html.includes("<style>"), "inline style present");
 });
 
+test("buildBundleHtml: ships the v2.2.0 dark-mode theme and stays self-contained", () => {
+  const html = buildBundleHtml(baseInput());
+  // Dark theme is expressed as a prefers-color-scheme override block.
+  assert.ok(html.includes("prefers-color-scheme: dark"), "dark-mode media query present");
+  assert.ok(html.includes("--fg:#e5e7eb") && html.includes("--card:#161f2e"), "surface tokens defined");
+  // The file must still open from a USB stick with zero external deps.
+  assert.ok(!/src=["']https?:\/\//i.test(html), "no external script src in dark-mode bundle");
+  assert.ok(!/<link[^>]+href=["']https?:\/\//i.test(html), "no external stylesheet in dark-mode bundle");
+  assert.ok(html.includes("</style>"), "style block closed");
+});
+
 test("buildBundleHtml: shows conclusion card when the path reaches a conclusion step", () => {
   // s1 -> pass -> s2 -> fail -> s5 -> next -> s4 (conclusion)
   const html = buildBundleHtml(baseInput({ walkAnswers: ["pass", "fail", "next"] }));

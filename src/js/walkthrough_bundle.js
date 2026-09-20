@@ -11,6 +11,10 @@
 //
 // Design notes:
 //
+//   - v2.2.0: the bundle now ships a `prefers-color-scheme` dark theme
+//     (CSS-custom-property override) so exported walkthroughs read well
+//     in dark-mode browsers, matching the app's dark palette.
+//
 //   - The output is **stateless** — it shows the snapshot as it was at
 //     export time. There are no Pass/Fail buttons to advance the walk;
 //     the breadcrumb captures the user's path so a reader can follow
@@ -262,6 +266,27 @@ function inlineCss() {
     `  #root > div:first-child { margin-bottom:8px; }`,
     `  @media (max-width:480px) { body { padding:16px 12px; font-size:14px; } h1 { font-size:1.15rem; } .step-card { padding:10px 12px; } }`,
     `  @media print { .step-card, .chart-wrap { break-inside:avoid; } }`,
+    // v2.2.0 — dark-mode support. All the surface rules below use the
+    // CSS custom properties defined in :root, so a single override block
+    // re-skins the entire bundle for readers who browse in dark mode
+    // (matches the app's body[data-theme="dark"] palette). No per-rule
+    // edits needed.
+    `  @media (prefers-color-scheme: dark) {`,
+    `    :root { --fg:#e5e7eb; --muted:#9ca3af; --card:#161f2e; --border:#334155; --accent:#60a5fa; }`,
+    `    body { background:#0f172a; }`,
+    `    .step-card { background:#161f2e; }`,
+    `    .step-current { background:#1e293b; border-color:#3b82f6; }`,
+    `    .step-conclusion { background:#0f2e1d; border-color:#10b981; }`,
+    `    .badge-needs { background:#3a2e13; color:#fbbf24; border-color:#f59e0b; }`,
+    `    .badge-verified { background:#0f2e1d; color:#34d399; border-color:#10b981; }`,
+    `    .step-measure { background:#1e293b; color:#e5e7eb; }`,
+    `    .crumb { background:#334155; color:#e5e7eb; }`,
+    `    .crumb-current { background:#3b82f6; color:#fff; }`,
+    `    .ff { background:#161f2e; color:#d1d5db; border-color:#334155; }`,
+    `    details { border-color:#334155; }`,
+    `    .chart-wrap svg { background:#0f172a; border-color:#334155; }`,
+    `    .muted { color:#94a3b8; }`,
+    `  }`,
     `</style>`,
   ].join("\n");
 }
