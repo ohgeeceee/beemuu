@@ -1,3 +1,4 @@
+yaml
 name: GitHub Pages
 
 on:
@@ -6,13 +7,8 @@ on:
       - main
     paths:
       - "frontend/**"
+      - "CNAME"
       - "scripts/build-github-pages.cjs"
-      - ".github/workflows/pages.yml"
-  pull_request:
-    paths:
-      - "frontend/**"
-      - "scripts/build-github-pages.cjs"
-      - "scripts/test-github-pages-build.cjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -36,23 +32,23 @@ jobs:
       - name: Test Pages artifact
         run: node scripts/test-github-pages-build.cjs
 
+      - name: Build Pages artifact
+        run: node scripts/build-github-pages.cjs
+
       - name: Configure Pages
-        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
   deploy:
-    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:
       pages: write
-      id-token: write
+      id-token: ***
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -60,3 +56,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
