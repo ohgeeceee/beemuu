@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Tier A (community data)
+
+- **`community/dtc_texts.toml` duplicate keys** (`fix/dtc-texts-duplicate-keys`):
+  the `[dtc]` table defined `2A9C` and `2E87` twice (once in the v0.16.0
+  block, once in the v0.19 E-series additions), which made the file invalid
+  TOML and broke the `shipped_dtc_texts_parse_and_nonempty` gate. Kept the
+  more descriptive v0.16.0 wording; dropped the v0.19 duplicates. Verified:
+  `tomllib` parses the file (288 DTC entries), JS suite 424 pass, Python 219
+  pass.
+
 ## [2.0.0] — 2026-09-18
 
 ### Added — Tier A (analysis, data, a11y)
