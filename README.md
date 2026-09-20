@@ -15,7 +15,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v2.0.0](https://img.shields.io/badge/release-v2.0.0-blue.svg)](CHANGELOG.md)
+[![v2.1.0](https://img.shields.io/badge/release-v2.1.0-blue.svg)](CHANGELOG.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core — for talking to your BMW's ECUs over OBD-II. It speaks **UDS**
@@ -117,7 +117,7 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The current release is **v2.0.0 — "Share the Trace"** (shipped
+The current release is **v2.1.0 — "Patch"** (shipped
 2026-08-31): i18n (DE/EN/FR), service manual lookup per DTC,
 walk freeze-frame lookup, bundle export with freeze-frame snippets,
 vehicle database enrichment (10 VIN prefixes), health report
@@ -160,7 +160,7 @@ PR — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) Rule 2
 - **Tuning Fingerprint Detector** — compare live-data distributions
   against a stock baseline (useful when buying used).
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v2.0.0**
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v2.1.0**
 (2026-08-31), "Share the Trace" — i18n, service manual lookup,
 walk freeze-frame lookup, bundle export, vehicle DB, reports,
 FR i18n, mobile CSS. 88 tests pass.

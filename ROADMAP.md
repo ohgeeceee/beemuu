@@ -1010,3 +1010,20 @@ formatting, multi-vehicle comparison, and JSON export.
 | CI green | ✅ Done | A | All workflows pass (JS 424, Python 219, Rust 13 enet tests) |
 
 ---
+
+## v2.1.0 — "Patch: Community Data + Public Site" (Shipped 2026-09-20)
+
+**Premise.** A patch release fixing two Tier A defects: a duplicate-key bug
+that made `community/dtc_texts.toml` invalid TOML (breaking the shipped-DTC
+parse gate), and the public site shipping unstyled because `guide.css` /
+`landing.css` never existed.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| dtc_texts duplicate keys removed | ✅ Done | A | Dropped duplicate 2A9C/2E87; tomllib parses 288 entries |
+| Missing guide.css/landing.css added | ✅ Done | A | Self-contained light theme covers all 28 guide classes |
+| Pages test asset-walker | ✅ Done | A | Fails on missing shipped asset, passes with it |
+
+---
