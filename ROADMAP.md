@@ -390,7 +390,7 @@ See [`docs/v0.13.0_plan.md`](docs/v0.13.0_plan.md) for the full cycle plan, incl
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
 | Revised cycle plan + ROADMAP v0.13.0 header (this entry) | 🔲 Open | A | Corrects the flawed first draft (PR #150). Docs-only. |
-| KWP2000 slow-module timeout fix | 🔲 Open | A + **B** | Configurable deadline + per-target override table. Touches `src-tauri/src/transport/kdcan.rs::request`. The actual change is small but the protected-path exposure is real. Single Tier B PR. |
+| KWP2000 slow-module timeout fix | ✅ Done (v0.13.0) | Per-target deadline: `default_slow_modules()` (CIC 0x01, CAS 0x40) get the 3 s `SLOW_RESPONSE_DEADLINE`, everything else 1 s. See the historical table at the top of v0.13.0. |
 | E-series CAN broadcast frame decoder (0x0AA / 0x1D0 / 0x545) | 🔲 Open | A | Pure frontend — the bytes are already on the bus. Renders as a Live Gauges panel using the existing `src/js/gauges.js` widget. |
 | `docs/validation/multi-frame.md` harness doc | 🔲 Open | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md`: what `isotp.rs` is for, why the production stack doesn't need it, how to verify against the simulator's multi-frame personality today. |
 
@@ -414,8 +414,7 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 
 | Item | Where to start | Notes |
 |------|----------------|-------|
-| KWP2000 slow-module timeout fix | `src-tauri/src/protocol/kwp2000.rs` — **protected path**, flag the PR header | Small backend fix; CIC and slow modules time out today. |
-| Freeze-frame schema coverage | `community/freeze_schemas.toml` (32 lines today) | Pure data; mirror an existing schema block per ECU you can verify. |
+| Freeze-frame schema coverage | `community/freeze/*.toml` (12 = DME, 29 = DSC, 72 = FRM today) | Pure data. Add fields only from a real-car capture — the contract test `backend/tests/test_freeze_schemas.py` pins the documented `sim.rs` bytes, so nothing may be invented. |
 
 ---
 

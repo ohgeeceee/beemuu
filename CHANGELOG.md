@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verification badge reads as a status tag. Badge markup is unchanged.
   Verified: new test asserts no inline tree styles remain and the DTC
   chip / title classes are present; JS suite green.
+- **ROADMAP corrections** (`feat/snapshot-v2-json-export`): the
+  "Ready to Claim" and v0.13.0 tables still listed the KWP2000
+  slow-module timeout fix as open, but it shipped in v0.13.0
+  (`default_slow_modules()` for CIC/CAS + per-target 3 s deadline) and
+  the code path is unchanged. Corrected both entries and updated the
+  freeze-frame row to point at `community/freeze/*.toml` with a note
+  that the new contract test forbids inventing offsets.
 - **Freeze-frame schema contract test** (`feat/snapshot-v2-json-export`):
   new `backend/tests/test_freeze_schemas.py` pins each
   `community/freeze/*.toml` schema to the documented simulator source
