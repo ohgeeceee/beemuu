@@ -42,6 +42,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verification badge reads as a status tag. Badge markup is unchanged.
   Verified: new test asserts no inline tree styles remain and the DTC
   chip / title classes are present; JS suite green.
+- **Freeze-frame schema contract test** (`feat/snapshot-v2-json-export`):
+  new `backend/tests/test_freeze_schemas.py` pins each
+  `community/freeze/*.toml` schema to the documented simulator source
+  bytes (from `sim.rs::SimTransport::new()`). It parses every schema
+  with `tomllib`, decodes the cited bytes through each field's
+  offset/width/scale/bias (mirroring `data/freeze.rs`), and asserts the
+  documented physical values (DME rpm=750/coolant=82°C, DSC 0/41°C, FRM
+  0/35°C). This catches a schema edit that breaks the documented decode
+  or a `sim.rs` drift. Verified: 3 tests / 12 subtests pass, and the
+  decode test fails when a schema's bias is corrupted (teeth-checked).
 
 ## [2.1.0] — 2026-09-20
 

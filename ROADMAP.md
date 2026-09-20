@@ -1046,5 +1046,6 @@ the self-contained HTML template with a dark-mode theme.
 | Round-trip test | ✅ Done | A | `buildSnapshotJson` output feeds `compareSnapshots`; freeze-frame + walk diffs asserted. |
 | Export dark-mode theme | ✅ Done | A | `prefers-color-scheme` CSS-custom-property override on the self-contained HTML export; matches the app dark palette; stays zero-external-deps. |
 | Export typography refresh | ✅ Done | A | Plan-tree inline styles moved to `.plan-step` classes (re-skins in dark mode); DTC renders as a `.dtc` code chip with `.plan-title` span. |
+| Freeze-frame schema contract test | ✅ Done | A | `test_freeze_schemas.py` pins each `community/freeze/*.toml` to the documented `sim.rs` source bytes via offset/width/scale/bias decode. |
 
 ---
