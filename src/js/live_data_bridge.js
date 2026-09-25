@@ -91,6 +91,7 @@ const DECODE_FN = {
 function createDIDBridge(options = {}) {
   const { decodeFn = null } = options;
   const cache = {};
+  const texts = {};
   const peaks = {};
   let lastSweepAt = null;
 
@@ -110,12 +111,18 @@ function createDIDBridge(options = {}) {
 
     for (const v of values) {
       if (!v || typeof v !== "object") continue;
+
+      // Enum params (gear, engine_state, dpf_state) arrive as a label in
+      // `text`. They are not dials, but the panel's status line shows them, so
+      // they are kept here instead of dropped. See `latestText()`.
+      if (v.text !== undefined && v.text !== null) {
+        const label = String(v.text);
+        if (label) texts[v.id] = label;
+        continue;
+      }
+
       const gaugeKey = PARAM_TO_GAUGE[v.id];
       if (!gaugeKey) continue; // Not a gauge param (e.g. "iat", "load").
-
-      // If the backend returned a `text` field (enum decode), skip
-      // — gauges are numeric only. The enum param isn't a gauge.
-      if (v.text !== undefined && v.text !== null) continue;
 
       const numeric = Number(v.value);
       if (!Number.isFinite(numeric)) continue;
@@ -182,9 +189,23 @@ function createDIDBridge(options = {}) {
     return lastSweepAt;
   }
 
+  /**
+   * Get the latest enum labels per param id (e.g. `{ gear: "D3",
+   * engine_state: "Running" }`). These are the params the backend
+   * decoded as text, so they can never be dials; the Live Gauges
+   * status line renders them. Params that stopped answering keep
+   * their last label, matching `latestValues()`.
+   *
+   * @returns {Object} — a copy, so callers cannot mutate the cache.
+   */
+  function latestText() {
+    return { ...texts };
+  }
+
   return {
     applySweep,
     latestValues,
+    latestText,
     peakFor,
     resetPeaks,
     lastSweep,

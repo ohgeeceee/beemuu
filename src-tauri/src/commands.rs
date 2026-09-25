@@ -116,6 +116,7 @@ fn start_keepalive(state: &tauri::State<'_, AppState>, target: u8) -> Result<(),
 pub async fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuInfo>, String> {
     with_transport(&state, |t| {
         let mut result = Vec::new();
+        let mut first_error: Option<String> = None;
         for def in ecus::ECUS {
             match protocol::identify(t, def.address) {
                 Ok(ident) => {
@@ -129,14 +130,28 @@ pub async fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuIn
                         fault_count,
                     });
                 }
-                Err(_) => result.push(EcuInfo {
-                    address: def.address,
-                    name: def.name.to_string(),
-                    description: def.description.to_string(),
-                    ident: None,
-                    present: false,
-                    fault_count: None,
-                }),
+                Err(e) => {
+                    if first_error.is_none() {
+                        first_error = Some(e.to_string());
+                    }
+                    result.push(EcuInfo {
+                        address: def.address,
+                        name: def.name.to_string(),
+                        description: def.description.to_string(),
+                        ident: None,
+                        present: false,
+                        fault_count: None,
+                    });
+                }
+            }
+        }
+        // A tree where nothing answered is a dead end with no clue why. If
+        // every probe failed, surface the first transport-level reason (e.g.
+        // an HSFZ gateway refusal) instead of a silent "0 control units
+        // found" (issue #248). Partial scans keep the current behaviour.
+        if result.iter().all(|m| !m.present) {
+            if let Some(reason) = first_error {
+                return Err(format!("No control units responded. First error: {reason}"));
             }
         }
         Ok(result)

@@ -231,8 +231,9 @@ pub fn resolve_addr(addr: &str, auto_discover: bool) -> Result<String> {
         }
         if addr.trim().is_empty() {
             return Err(TransportError::Io(
-                "DoIP discovery found no vehicle — check the ENET cable, \
-                 or enter the car's IP manually (typically 169.254.x.x)"
+                "DoIP discovery found no vehicle. F-series cars do not answer \
+                 DoIP discovery (UDP 13400) — they speak HSFZ on TCP 6801 \
+                 only — so enter the car's IP manually (typically 169.254.x.x)"
                     .into(),
             ));
         }
@@ -370,6 +371,11 @@ impl Transport for EnetTransport {
             }
             if ctrl == CTRL_ACK {
                 continue; // gateway ack of our own message
+            }
+            if ctrl >= CTRL_ERR_INCORRECT_TESTER_ADDRESS
+                && (ctrl <= CTRL_ERR_DIAG_APP_NOT_READY || ctrl == CTRL_ERR_OUT_OF_MEMORY)
+            {
+                return Err(TransportError::GatewayRejected(describe_error_word(ctrl, &data)));
             }
             if ctrl != CTRL_DIAG || data.len() < 3 {
                 if !ignored.contains(&ctrl) {
