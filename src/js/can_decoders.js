@@ -447,6 +447,10 @@ function decodeOilTemp2(frame) {
  * without per-ID branching at every call site. The values are
  * `[<name>, <decoderFn>]` so test failures can name the decoder.
  */
+// Single-value decoders still return a keyed map so mergeDecoded() can
+// merge by gauge key uniformly.
+const keyed = (key, value) => (value == null ? null : { [key]: value });
+
 const DECODERS = {
   [CAN_ID_RPM_THROTTLE]: { name: "rpm_throttle", decode: (frame) => ({
     rpm: decodeRpm(frame),
