@@ -1,0 +1,25 @@
+[package]
+name = "beemuu-rust-harness"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Local verification harness for the parts of the Beemuu core that form a
+# closed dependency set — protocol, data and community — plus the transport
+# modules that don't need a real serial port.
+#
+# Run:  cd rust-harness && cargo test
+#
+# It compiles the REAL src-tauri/src/{protocol,data,community}.rs and
+# src-tauri/src/transport/{mod,enet,record,sim}.rs via relative symlinks
+# (see README.md), against a stand-in `serialport` crate and stand-in
+# `kdcan`/`isotp` modules. It exists because the full crate needs Tauri's
+# Linux system libraries (glib/gtk/webkit2gtk), which aren't installable
+# without root. This harness runs most of the non-Tauri Rust logic and its
+# ~115 tests with plain `cargo` + these three crates.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+serialport = { path = "stub-serialport" }

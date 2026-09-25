@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "beemuu.scan-notes",
+  "name": "First scan notebook",
+  "version": "1.0.0",
+  "author": "Beemuu contributors",
+  "description": "A starter reference pack for recording symptoms and keeping diagnostic evidence together.",
+  "license": "GPL-3.0-or-later",
+  "kind": "data",
+  "permissions": [],
+  "content": {
+    "articles": [
+      { "title": "Record the conditions", "body": "Write down the symptom, when it occurs, and whether the engine was cold or warm. Save the fault report and available freeze-frame data before changing anything." },
+      { "title": "Keep a diagnostic notebook", "body": "A fault code is a clue, not a parts replacement instruction. Record each check and its result so you can compare evidence after a repair." }
+    ]
+  }
+}

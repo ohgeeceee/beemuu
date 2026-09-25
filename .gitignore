@@ -36,3 +36,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+
+# Local Playwright browsers + rootless Chromium lib prefix (sandbox only)
+.pw-browsers/
+.chromeprefix/

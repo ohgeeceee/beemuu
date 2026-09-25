@@ -1,0 +1,24 @@
+/* Beemuu landing theme — used by 404.html.
+   @imports guide.css so the shared header/footer chrome stays in one place;
+   adds the 404 page's footer-link layout. */
+
+@import url("/guide.css");
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 6px 10px;
+}
+.footer-links a:hover { color: var(--accent); }
+
+.legal {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}

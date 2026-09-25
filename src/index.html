@@ -74,7 +74,7 @@
     <section id="view-plugins" class="view">
       <div class="panel plugin-panel">
         <h2>Community plugins</h2>
-        <p>Add community data packs and JavaScript tools. Packages stay on this device and run only when you choose.</p>
+        <p>Add community data packs and JavaScript tools (single-file or multi-file bundles). Packages stay on this device and run only when you choose.</p>
         <p id="plugins-status" role="status" aria-live="polite"></p>
         <h3>Installed</h3>
         <div id="plugins-installed" class="plugin-grid"></div>
@@ -82,6 +82,9 @@
         <h3>Discover</h3>
         <p class="muted">Catalog included with this app version. Import a package file to try a newer community release.</p>
         <div id="plugins-catalog" class="plugin-grid">Loading catalog…</div>
+        <h3>Discover from the community registry</h3>
+        <p class="muted">Reviewed community packages hosted on the Beemuu API. Install a package to review it before enabling.</p>
+        <div id="plugins-registry" class="plugin-grid">Loading registry…</div>
         <h3>Import a package</h3>
         <label for="plugins-file">Choose a .beemuu-plugin.json file (up to 256 KiB)</label>
         <input id="plugins-file" type="file" accept=".json,application/json">
@@ -155,7 +158,7 @@
             </div>
           </div>
           <div id="walkthrough-panel" class="walkthrough-panel hidden">
-            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span><span id="walkthrough-verified" class="walkthrough-verified hidden"></span><button id="btn-walk-share" class="btn btn-small walkthrough-share-btn" disabled title="Export the current walkthrough as a self-contained HTML file">Share walkthrough</button></div>
+            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span><span id="walkthrough-verified" class="walkthrough-verified hidden"></span><button id="btn-walk-share" class="btn btn-small walkthrough-share-btn" disabled title="Export the current walkthrough as a self-contained HTML file">Share walkthrough</button><button id="btn-walk-json" class="btn btn-small walkthrough-share-btn" disabled data-i18n="export_json" title="Export the current walkthrough as machine-readable JSON">Export JSON</button></div>
             <div id="walkthrough-body" class="walkthrough-body">
               <span class="muted">Click a DTC row to start a guided test plan, where one exists.</span>
             </div>
@@ -227,7 +230,14 @@
           <div class="gauge-cell"><canvas data-live-can-gauge="throttle"></canvas><div class="gauge-label">Throttle</div><div class="gauge-peak" data-live-can-peak="throttle">—</div></div>
           <div class="gauge-cell"><canvas data-live-can-gauge="fuelLevel"></canvas><div class="gauge-label">Fuel level</div><div class="gauge-peak" data-live-can-peak="fuelLevel">—</div></div>
           <div class="gauge-cell"><canvas data-live-can-gauge="lambda"></canvas><div class="gauge-label">Lambda</div><div class="gauge-peak" data-live-can-peak="lambda">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="intakeTemp"></canvas><div class="gauge-label">Intake air temp</div><div class="gauge-peak" data-live-can-peak="intakeTemp">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="load"></canvas><div class="gauge-label">Engine load</div><div class="gauge-peak" data-live-can-peak="load">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="map_kPa"></canvas><div class="gauge-label">Manifold pressure</div><div class="gauge-peak" data-live-can-peak="map_kPa">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="oilPress_bar"></canvas><div class="gauge-label">Oil pressure</div><div class="gauge-peak" data-live-can-peak="oilPress_bar">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="extTemp"></canvas><div class="gauge-label">Outside temp</div><div class="gauge-peak" data-live-can-peak="extTemp">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="torqueNm"></canvas><div class="gauge-label">Engine torque</div><div class="gauge-peak" data-live-can-peak="torqueNm">—</div></div>
         </div>
+        <div class="live-can-status-line" data-live-can-status-line>—</div>
       </div>
     </section>
 
@@ -358,6 +368,25 @@
           <p class="muted">Connect and click "Read vehicle" to read VIN, decode it, and read mileage.</p>
         </div>
         <div id="vehicle-info-options" class="muted" style="padding:8px 10px; font-size:12px"></div>
+        <div class="panel" style="margin-top:12px">
+          <div class="panel-head"><span data-i18n="cbs_timeline">Service timeline (Predictive CBS)</span><span class="muted" data-i18n="cbs_sub">When will each service item actually be due?</span></div>
+          <div id="cbs-body" style="padding:12px">
+            <p class="muted">Enter a few current readings and a rough driving profile to predict when each item will be due. Optionally save snapshots over time so the estimate learns your real wear rate.</p>
+            <div id="cbs-inputs" class="cbs-inputs"></div>
+            <div class="cbs-actions">
+              <label for="cbs-driving">Driving profile</label>
+              <select id="cbs-driving">
+                <option value="mixed">Mixed</option>
+                <option value="city">Mostly city</option>
+                <option value="highway">Mostly highway</option>
+                <option value="aggressive">Aggressive</option>
+              </select>
+              <button id="cbs-update" class="btn btn-small" type="button">Update prediction</button>
+              <button id="cbs-snapshot" class="btn btn-small" type="button">Save current readings as a snapshot</button>
+            </div>
+            <div id="cbs-results" class="cbs-results"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -792,9 +821,13 @@
   <script src="js/print_reports.js"></script>
   <script src="js/dtc_confidence.js"></script>
   <script src="js/dtc_source_lookup.js"></script>
+  <script src="js/wiring_detect.js"></script>
+  <script src="js/cbs_predict.js"></script>
+  <script src="js/cbs_ui.js"></script>
   <script src="js/main.js"></script>
   <script src="js/plugins.js"></script>
   <script src="js/plugins_ui.js"></script>
   <script src="js/plugins_boot.js"></script>
+  <script src="js/cbs_boot.js"></script>
 </body>
 </html>

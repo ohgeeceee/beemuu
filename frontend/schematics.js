@@ -287,8 +287,15 @@
       try {
         _listCache = await apiList({});
       } catch (err) {
-        $("grid").innerHTML = '<p class="sch-error">Could not load schematic list: ' +
-          escapeText(err.message) + '</p>';
+        // This page is also published as a static mirror (beemuu.com), where
+        // there is no same-origin /api yet — the schematics catalog is served
+        // by the Beemuu API. Say that in plain language instead of showing a
+        // visitor a raw "list HTTP 404"; keep the detail for the console.
+        // eslint-disable-next-line no-console
+        console.warn("schematics list unavailable:", err.message);
+        $("grid").innerHTML = '<p class="sch-error">The schematic catalog is served by the ' +
+          'Beemuu API, which is not reachable from this page. If you are viewing the ' +
+          'static mirror, use the desktop app for schematics, or try again later.</p>';
         return;
       }
     }

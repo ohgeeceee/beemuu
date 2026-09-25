@@ -11,6 +11,7 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
   let cancelRun = () => {};
   let storage;
   let writable = false;
+  let storageError = "";
   function el(tag, text, className) {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -28,7 +29,7 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
     return b;
   }
   function commit(entries) {
-    if (!writable) throw new Error("Plugin storage is unavailable. Reload after fixing the storage error.");
+    if (!writable) throw new Error("Plugin storage is unavailable, so packages cannot be saved.");
     api.save(storage, entries);
     installed = entries;
     render();
@@ -44,6 +45,30 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
   function render() {
     const list = byId("plugins-installed");
     list.replaceChildren();
+    if (!writable) {
+      // Unreadable storage used to leave the panel with no way out: every
+      // install/remove threw and nothing could clear the bad entry. Offer an
+      // explicit, user-initiated reset instead.
+      list.append(
+        el("p", `Plugin storage cannot be read, so packages cannot be installed or changed: ${storageError}`, "muted"),
+        el("p", "Resetting deletes the stored packages and lets you install again. Anything you exported is unaffected.", "muted"),
+      );
+      if (storage && typeof storage.removeItem === "function") {
+        list.append(button("Reset plugin storage", () => {
+          try {
+            storage.removeItem(api.STORAGE_KEY);
+            installed = api.load(storage);
+            writable = true;
+            storageError = "";
+            status("Plugin storage reset. No packages are installed.");
+          } catch (e) {
+            status(`Could not reset plugin storage: ${e.message || e}`);
+          }
+          render();
+        }));
+      }
+      return;
+    }
     if (!installed.length) list.append(el("p", "No plugins installed. Choose a catalog package or import one below.", "muted"));
     for (const entry of installed) {
       const p = entry.package;
@@ -168,21 +193,46 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
     if (tab.dataset.view !== "plugins") cancelRun();
   }));
   try { storage = window.localStorage; installed = api.load(storage); writable = true; }
-  catch (e) { status(`Cannot load plugin storage: ${e.message}. Existing storage has been preserved.`); }
-  render();
-  try {
-    const response = await fetch("plugins/catalog.json");
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const raw = await response.json();
-    if (!Array.isArray(raw) || raw.length > 100) throw new Error("Invalid catalog.");
-    catalog = raw.map(api.validate);
-    if (new Set(catalog.map(p => p.id)).size !== catalog.length) throw new Error("Duplicate catalog IDs.");
-    const list = byId("plugins-catalog");
-    list.replaceChildren();
-    for (const p of catalog) {
-      const card = el("article", undefined, "plugin-card");
-      card.append(el("h3", p.name), el("p", `${p.kind === "tool" ? "Tool" : "Data pack"} · ${p.version} · ${p.author}`), el("p", p.description), button("Review package", () => stage(p)), button("Download authoring example", () => download(p)));
-      list.append(card);
-    }
-  } catch (e) { byId("plugins-catalog").textContent = `Catalog unavailable: ${e.message}. You can still import a package file.`; }
-};
+    catch (e) { status(`Cannot load plugin storage: ${e.message}. Existing storage has been preserved.`); }
+    render();
+    try {
+      const response = await fetch("plugins/catalog.json");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const raw = await response.json();
+      if (!Array.isArray(raw) || raw.length > 100) throw new Error("Invalid catalog.");
+      catalog = raw.map(api.validate);
+      if (new Set(catalog.map(p => p.id)).size !== catalog.length) throw new Error("Duplicate catalog IDs.");
+      const list = byId("plugins-catalog");
+      list.replaceChildren();
+      for (const p of catalog) {
+        const card = el("article", undefined, "plugin-card");
+        card.append(el("h3", p.name), el("p", `${p.kind === "tool" ? "Tool" : "Data pack"} · ${p.version} · ${p.author}`), el("p", p.description), button("Review package", () => stage(p)), button("Download authoring example", () => download(p)));
+        list.append(card);
+      }
+    } catch (e) { byId("plugins-catalog").textContent = `Catalog unavailable: ${e.message}. You can still import a package file.`; }
+    // Community registry — reviewed packages hosted on the Beemuu API. The
+    // registry URL is configurable (defaults to the hosted API) so the app can
+    // point at a staging registry or a local backend during development.
+    const registryUrl = (window.BEEMUU_PLUGIN_REGISTRY_URL || "https://api.beemuu.com").replace(/\/+$/, "");
+    try {
+      const response = await fetch(`${registryUrl}/api/plugins`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const body = await response.json();
+      if (!Array.isArray(body.results) || body.results.length > 200) throw new Error("Invalid registry response.");
+      const list = byId("plugins-registry");
+      list.replaceChildren();
+      if (!body.results.length) { list.append(el("p", "No community packages published yet.", "muted")); return; }
+      for (const meta of body.results) {
+        const card = el("article", undefined, "plugin-card");
+        card.append(el("h3", meta.name), el("p", `${meta.kind === "tool" ? "Tool" : "Data pack"} · ${meta.version} · ${meta.author}`), el("p", meta.description), button("Review package", async () => {
+          try {
+            const detail = await fetch(`${registryUrl}/api/plugins/${encodeURIComponent(meta.id)}`);
+            if (!detail.ok) throw new Error(`HTTP ${detail.status}`);
+            const pkg = await detail.json();
+            stage(api.validate(pkg));
+          } catch (e) { status(`Cannot load package: ${e.message}`); }
+        }));
+        list.append(card);
+      }
+    } catch (e) { byId("plugins-registry").textContent = `Registry unavailable: ${e.message}. You can still import a package file.`; }
+  };

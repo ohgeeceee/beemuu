@@ -1,0 +1,16 @@
+# Wiring Detective — circuit for DTC P0171 (MAF / mixture too lean).
+# Canonical source; the desktop ships an offline snapshot in
+# src/js/wiring_detect.js. Keep the two in sync.
+
+[[circuit]]
+dtc = "P0171"
+component = "MAF sensor"
+ecu_pin = "X60002.26"
+component_pin = "3"
+power_fuse = "F07 (5A)"
+ground_point = "G105"
+common_failures = [
+  "DISA valve vacuum line crack at elbow",
+  "Oil filler cap gasket leaking",
+  "Intake boot split after the MAF",
+]
