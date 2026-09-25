@@ -390,7 +390,7 @@ See [`docs/v0.13.0_plan.md`](docs/v0.13.0_plan.md) for the full cycle plan, incl
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
 | Revised cycle plan + ROADMAP v0.13.0 header (this entry) | 🔲 Open | A | Corrects the flawed first draft (PR #150). Docs-only. |
-| KWP2000 slow-module timeout fix | 🔲 Open | A + **B** | Configurable deadline + per-target override table. Touches `src-tauri/src/transport/kdcan.rs::request`. The actual change is small but the protected-path exposure is real. Single Tier B PR. |
+| KWP2000 slow-module timeout fix | ✅ Done (v0.13.0) | Per-target deadline: `default_slow_modules()` (CIC 0x01, CAS 0x40) get the 3 s `SLOW_RESPONSE_DEADLINE`, everything else 1 s. See the historical table at the top of v0.13.0. |
 | E-series CAN broadcast frame decoder (0x0AA / 0x1D0 / 0x545) | 🔲 Open | A | Pure frontend — the bytes are already on the bus. Renders as a Live Gauges panel using the existing `src/js/gauges.js` widget. |
 | `docs/validation/multi-frame.md` harness doc | 🔲 Open | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md`: what `isotp.rs` is for, why the production stack doesn't need it, how to verify against the simulator's multi-frame personality today. |
 
@@ -414,8 +414,7 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 
 | Item | Where to start | Notes |
 |------|----------------|-------|
-| KWP2000 slow-module timeout fix | `src-tauri/src/protocol/kwp2000.rs` — **protected path**, flag the PR header | Small backend fix; CIC and slow modules time out today. |
-| Freeze-frame schema coverage | `community/freeze_schemas.toml` (32 lines today) | Pure data; mirror an existing schema block per ECU you can verify. |
+| Freeze-frame schema coverage | `community/freeze/*.toml` (12 = DME, 29 = DSC, 72 = FRM today) | Pure data. Add fields only from a real-car capture — the contract test `backend/tests/test_freeze_schemas.py` pins the documented `sim.rs` bytes, so nothing may be invented. |
 
 ---
 
@@ -987,23 +986,65 @@ formatting, multi-vehicle comparison, and JSON export.
 | CSV export improvements | ✅ Done | A | Delimiter (,/;), full metadata (VIN/profile/date/tag), selectedOnly channels. |
 | Native Beemuu CSV import (v0.21) | ✅ Done | A | Dedicated parser log_import_beemuu.js restores tags/bookmarks/series for replay; roundtrip + tests. UI scrub/markers now refresh on import. |
 
-## v0.19.0 — "Report Clarity" (In Progress)
+## v2.0.0 — "Next Generation" (Shipped 2026-09-18)
 
-**Premise.** Health reports, snapshot comparison, freeze-frame context, and analysis polish.
+**Premise.** A major version bump consolidating the v0.14–v0.19 feature cycles, the ENET/HSFZ transport fix, and the full can-decoder parity work into a stable, well-tested release.
 
 ### Slices
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Snapshot compare v2 | ✅ Done | A | Nice table renderer, library support, metadata in reports. Log snippet summary. |
-| Health report + freeze frame | ✅ Done | A | Richer freeze snippets + snapshot source note in reports. |
-| Additional CAN decoders | ✅ Done | A | +7 total new (intake, load, cruise, fuel rail, MAP, oil press, ext temp) + sim + tests. + fuelLevel, lambda + exposure. |
-| Beginner guides | ✅ Done | A | First-scan + plain-language fault summary (pure + wired). |
-| DTC / Vehicle DB | ✅ Done | A | +5 DTCs + 3 VIN prefixes. |
-| A11y | ✅ Done (sweep) | A | More ARIA labels/roles/switch on theme, guides, controls. |
-| Log CSV import metadata | ✅ Done | A | Native Beemuu CSV import now restores sessionTag + bookmarks. |
-| Snapshot log restore | ✅ Done | A | Full tags/markers/series restore + UI rebuild on snapshot load. |
-| Snapshot library compare | ✅ Done | A | Left/Right buttons on cards + auto compare using import + render. |
-| Guides polish | ✅ Done | A | Better rendering, CSS, icons for first-scan and beginner summary. |
+| ENET/HSFZ gateway refusal diagnostics | ✅ Done | B | Surface HSFZ error control words instead of bare Timeout (issue #248) |
+| CAN broadcast decoder parity (15 frames) | ✅ Done | A | +15 CAN IDs decoded + simulator parity |
+| Frontend simulator parity | ✅ Done | A | `frontend/live_gauges.js` emits full 25-frame contract |
+| Health report clarity | ✅ Done | A | Freeze-frame context + snapshot source note |
+| Snapshot compare v2 | ✅ Done | A | Visual diff table + library compare |
+| Log interoperability | ✅ Done | A | Native Beemuu CSV import with full tag/bookmark/series restore |
+| Accessibility sweep | ✅ Done | A | ARIA roles/labels on all major surfaces |
+| Mobile-responsive CSS | ✅ Done | A | Header/tab wrapping + stacked panels |
+| Multi-language UI | ✅ Done | A | DE/EN/FR i18n (54 keys) |
+| BMW-FAST FMT transport fix | ✅ Done | B | Verified on 2006 E90 330i |
+| DTC/vehicle DB growth | ✅ Done | A | +15 DTCs, +20 E-series VIN prefixes |
+| Test stability | ✅ Done | A | TOML parse gates, test hang fix, flaky test fix |
+| CI green | ✅ Done | A | All workflows pass (JS 424, Python 219, Rust 13 enet tests) |
+
+---
+
+## v2.1.0 — "Patch: Community Data + Public Site" (Shipped 2026-09-20)
+
+**Premise.** A patch release fixing two Tier A defects: a duplicate-key bug
+that made `community/dtc_texts.toml` invalid TOML (breaking the shipped-DTC
+parse gate), and the public site shipping unstyled because `guide.css` /
+`landing.css` never existed.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| dtc_texts duplicate keys removed | ✅ Done | A | Dropped duplicate 2A9C/2E87; tomllib parses 288 entries |
+| Missing guide.css/landing.css added | ✅ Done | A | Self-contained light theme covers all 28 guide classes |
+| Pages test asset-walker | ✅ Done | A | Fails on missing shipped asset, passes with it |
+
+---
+
+## v2.2.0 — "Snapshot v2: JSON Export" (Shipped 2026-09-20)
+
+**Premise.** Close out the v0.17.2 "Snapshot v2" cycle's remaining
+Tier A slices: surface the machine-readable snapshot as a first-class
+export (the `buildSnapshotJson` helper existed and was unit-tested but
+was never wired into the UI — the walkthrough share button only emitted
+HTML), prove it round-trips into the Snapshot Compare tool, and refresh
+the self-contained HTML template with a dark-mode theme.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Walkthrough JSON export button | ✅ Done | A | `btn-walk-json` next to Share walkthrough; emits `buildSnapshotJson` via `export_text`; enabled/disabled in lockstep with the HTML share button. |
+| i18n for the new button | ✅ Done | A | `export_json` key added to EN/DE/FR in `i18n.js` + `community/i18n/*.json` (parity test enforces all six). |
+| Round-trip test | ✅ Done | A | `buildSnapshotJson` output feeds `compareSnapshots`; freeze-frame + walk diffs asserted. |
+| Export dark-mode theme | ✅ Done | A | `prefers-color-scheme` CSS-custom-property override on the self-contained HTML export; matches the app dark palette; stays zero-external-deps. |
+| Export typography refresh | ✅ Done | A | Plan-tree inline styles moved to `.plan-step` classes (re-skins in dark mode); DTC renders as a `.dtc` code chip with `.plan-title` span. |
+| Freeze-frame schema contract test | ✅ Done | A | `test_freeze_schemas.py` pins each `community/freeze/*.toml` to the documented `sim.rs` source bytes via offset/width/scale/bias decode. |
 
 ---

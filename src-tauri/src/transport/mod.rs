@@ -18,11 +18,12 @@ pub enum TransportError {
     Timeout,
     BadFrame(String),
     NotConnected,
-    /// The vehicle gateway understood the request and refused to route it
-    /// (HSFZ rejection control word, issue #248). Distinct from `Timeout`
-    /// on purpose: "the car said no, and here is why" must not look like
-    /// "the car was quiet".
-    Rejected(String),
+    /// The gateway answered, and the answer was a refusal. Carries the
+    /// transport's own wording of why (e.g. an HSFZ error control word with
+    /// the addresses the gateway objected to). Distinct from `BadFrame`,
+    /// which means *we* could not make sense of the bytes: here the bytes
+    /// were understood perfectly and the car said no.
+    GatewayRejected(String),
 }
 
 impl fmt::Display for TransportError {
@@ -32,7 +33,7 @@ impl fmt::Display for TransportError {
             TransportError::Timeout => write!(f, "Timeout waiting for ECU response"),
             TransportError::BadFrame(e) => write!(f, "Malformed frame: {e}"),
             TransportError::NotConnected => write!(f, "Not connected"),
-            TransportError::Rejected(e) => write!(f, "Gateway rejected the request: {e}"),
+            TransportError::GatewayRejected(e) => write!(f, "Gateway rejected the request: {e}"),
         }
     }
 }

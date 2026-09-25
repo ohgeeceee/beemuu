@@ -197,6 +197,30 @@ test("buildBundleHtml: produces a balanced document with no obvious holes", () =
   assert.ok(html.includes("<style>"), "inline style present");
 });
 
+test("buildBundleHtml: ships the v2.2.0 dark-mode theme and stays self-contained", () => {
+  const html = buildBundleHtml(baseInput());
+  // Dark theme is expressed as a prefers-color-scheme override block.
+  assert.ok(html.includes("prefers-color-scheme: dark"), "dark-mode media query present");
+  assert.ok(html.includes("--fg:#e5e7eb") && html.includes("--card:#161f2e"), "surface tokens defined");
+  // The file must still open from a USB stick with zero external deps.
+  assert.ok(!/src=["']https?:\/\//i.test(html), "no external script src in dark-mode bundle");
+  assert.ok(!/<link[^>]+href=["']https?:\/\//i.test(html), "no external stylesheet in dark-mode bundle");
+  assert.ok(html.includes("</style>"), "style block closed");
+});
+
+test("buildBundleHtml: plan tree uses classes, not inline styles (v2.2.0 refresh)", () => {
+  const html = buildBundleHtml(baseInput());
+  // The plan tree must not carry hardcoded inline styles — they were
+  // moved to .plan-step / .plan-tree classes so the tree re-skins in
+  // dark mode and the layout is centralized in the stylesheet.
+  assert.ok(html.includes("class=\"plan-tree\""), "plan tree container class present");
+  assert.ok(html.includes("class=\"plan-step"), "plan step class present");
+  assert.ok(!/style=["']border-left: 2px solid #ddd/i.test(html), "no hardcoded inline tree border");
+  // Header typography: DTC renders as a code chip, title on its own span.
+  assert.ok(html.includes("class=\"dtc\""), "DTC code chip present");
+  assert.ok(html.includes("class=\"plan-title\""), "plan title span present");
+});
+
 test("buildBundleHtml: shows conclusion card when the path reaches a conclusion step", () => {
   // s1 -> pass -> s2 -> fail -> s5 -> next -> s4 (conclusion)
   const html = buildBundleHtml(baseInput({ walkAnswers: ["pass", "fail", "next"] }));
@@ -258,4 +282,33 @@ test("buildSnapshotJson: produces valid JSON with expected fields", () => {
   assert.deepEqual(data.walkAnswers, ["pass"]);
   assert.equal(data.freezeFrame.length, 1);
   assert.ok(data.meta.vehicleLabel);
+});
+
+// v2.2.0 — the JSON snapshot the new "Export JSON" button emits must be
+// consumable by the Snapshot Compare tool (snapshot_compare.js), so a user
+// can hand an exported walkthrough straight to the compare panel.
+test("buildSnapshotJson output round-trips through compareSnapshots", () => {
+  const { compareSnapshots } = require("./snapshot_compare.js");
+  const left = JSON.parse(buildSnapshotJson(baseInput({
+    walkAnswers: ["pass"],
+    freezeFrame: [{ label: "RPM", value: "750" }, { label: "Coolant", value: "91" }],
+    meta: { vehicleLabel: "F30 335i", profileName: "n55" },
+  })));
+  const right = JSON.parse(buildSnapshotJson(baseInput({
+    walkAnswers: ["fail"],
+    freezeFrame: [{ label: "RPM", value: "750" }, { label: "Coolant", value: "88" }],
+    meta: { vehicleLabel: "F30 335i", profileName: "n55" },
+  })));
+  const cmp = compareSnapshots(left, right);
+  // Freeze-frame diff: RPM matches, coolant differs.
+  const rpm = cmp.freezeFrame.find((r) => r.label === "RPM");
+  const cool = cmp.freezeFrame.find((r) => r.label === "Coolant");
+  assert.equal(rpm.same, true);
+  assert.equal(cool.same, false);
+  assert.equal(cool.left, "91");
+  assert.equal(cool.right, "88");
+  // Walk diff: pass vs fail at step 1.
+  assert.equal(cmp.walk[0].same, false);
+  assert.equal(cmp.walk[0].left, "pass");
+  assert.equal(cmp.walk[0].right, "fail");
 });

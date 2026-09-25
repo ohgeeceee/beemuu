@@ -1,0 +1,254 @@
+/* Press-kit specific styles — loaded on top of app.css for press.html */
+
+.guide-hero {
+  background: rgba(16, 27, 45, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  margin-top: 18px;
+}
+
+.guide-hero h1 {
+  font-size: clamp(30px, 6vw, 56px);
+  line-height: 1;
+  margin: 0 0 14px;
+}
+
+.guide-hero .lede {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 18px;
+  margin: 0 0 18px;
+}
+
+.breadcrumbs {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.breadcrumbs a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.guide-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.guide-meta span {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  margin-top: 18px;
+}
+
+.toc {
+  position: sticky;
+  top: 18px;
+  align-self: start;
+  background: rgba(16, 27, 45, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.toc strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.toc a {
+  display: block;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.toc a:hover {
+  color: var(--accent);
+}
+
+.article {
+  background: rgba(16, 27, 45, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.article h2 {
+  margin-top: 0;
+  font-size: 22px;
+}
+
+.article h3 {
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.article p,
+.article li {
+  color: var(--muted);
+}
+
+.article ul {
+  padding-left: 20px;
+}
+
+.article code {
+  background: var(--card);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.article pre {
+  white-space: pre-wrap;
+  overflow: auto;
+  background: #060c16;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  color: #bfe6ff;
+}
+
+.code-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.code-table th,
+.code-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.code-table th {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+}
+
+.code-table td code {
+  background: transparent;
+  padding: 0;
+}
+
+.v2-highlight {
+  background: linear-gradient(135deg, #0a2540 0%, #14355c 100%);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  margin-top: 18px;
+}
+
+.v2-highlight h2 {
+  margin-top: 0;
+  font-size: 22px;
+}
+
+.v2-highlight h3 {
+  color: var(--accent);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.v2-highlight ul {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.v2-highlight li {
+  color: var(--muted);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.v2-highlight li:last-child {
+  border-bottom: 0;
+}
+
+.cta {
+  background: rgba(16, 27, 45, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.cta h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.cta p {
+  margin: 0;
+  color: var(--muted);
+  flex: 1;
+  min-width: 200px;
+}
+
+.button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #03111f;
+  font-weight: 800;
+  padding: 0 20px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.button.secondary {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.last-updated {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .guide-layout {
+    grid-template-columns: 1fr;
+  }
+  .toc {
+    position: static;
+  }
+}

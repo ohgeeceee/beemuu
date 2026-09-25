@@ -117,12 +117,12 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The current release is **v0.16.0 — "Share the Trace"** (shipped
-2026-08-31): i18n (DE/EN/FR), service manual lookup per DTC,
-walk freeze-frame lookup, bundle export with freeze-frame snippets,
-vehicle database enrichment (10 VIN prefixes), health report
-freeze-frame column, and mobile-responsive CSS. 88 tests pass.
-See [`CHANGELOG.md`](CHANGELOG.md) for the full list.
+The current release is **v2.2.0 — "Snapshot v2"** (shipped
+2026-09-20): machine-readable walkthrough JSON export, a dark-mode
+theme for shared snapshot exports, an export typography refresh, a
+freeze-frame schema contract test, and a public-site version-surface
+refresh. 429 JS + 222 Python tests pass. See
+[`CHANGELOG.md`](CHANGELOG.md) for the full list.
 
 ### What shipped in v0.15.x (2026-08-30)
 
@@ -160,7 +160,7 @@ PR — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) Rule 2
 - **Tuning Fingerprint Detector** — compare live-data distributions
   against a stock baseline (useful when buying used).
 
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v0.16.0**
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v2.2.0**
 (2026-08-31), "Share the Trace" — i18n, service manual lookup,
 walk freeze-frame lookup, bundle export, vehicle DB, reports,
 FR i18n, mobile CSS. 88 tests pass.

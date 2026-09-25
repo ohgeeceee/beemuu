@@ -50,5 +50,6 @@
   "export_snapshot": "Export snapshot",
   "service_manual": "Service manual",
   "conn_kdcan": "K+DCAN",
-  "conn_enet": "ENET"
+  "conn_enet": "ENET",
+  "export_json": "Export JSON"
 }
