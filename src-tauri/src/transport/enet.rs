@@ -305,7 +305,7 @@ impl Transport for EnetTransport {
         let mut msg = Vec::with_capacity(data_len + 6);
         msg.extend_from_slice(&(data_len as u32).to_be_bytes());
         msg.extend_from_slice(&CTRL_DIAG.to_be_bytes());
-        msg.push(self.tester);
+        msg.push(TESTER);
         msg.push(target);
         msg.extend_from_slice(payload);
         self.stream
@@ -336,11 +336,6 @@ impl Transport for EnetTransport {
             }
             if ctrl == CTRL_ACK {
                 continue; // gateway ack of our own message
-            }
-            if ctrl >= CTRL_ERR_INCORRECT_TESTER_ADDRESS
-                && (ctrl <= CTRL_ERR_DIAG_APP_NOT_READY || ctrl == CTRL_ERR_OUT_OF_MEMORY)
-            {
-                return Err(TransportError::GatewayRejected(describe_error_word(ctrl, &data)));
             }
             if ctrl != CTRL_DIAG || data.len() < 3 {
                 if !ignored.contains(&ctrl) {
