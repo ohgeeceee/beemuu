@@ -390,7 +390,7 @@ See [`docs/v0.13.0_plan.md`](docs/v0.13.0_plan.md) for the full cycle plan, incl
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
 | Revised cycle plan + ROADMAP v0.13.0 header (this entry) | 🔲 Open | A | Corrects the flawed first draft (PR #150). Docs-only. |
-| KWP2000 slow-module timeout fix | 🔲 Open | A + **B** | Configurable deadline + per-target override table. Touches `src-tauri/src/transport/kdcan.rs::request`. The actual change is small but the protected-path exposure is real. Single Tier B PR. |
+| KWP2000 slow-module timeout fix | ✅ Done (v0.13.0) | Per-target deadline: `default_slow_modules()` (CIC 0x01, CAS 0x40) get the 3 s `SLOW_RESPONSE_DEADLINE`, everything else 1 s. See the historical table at the top of v0.13.0. |
 | E-series CAN broadcast frame decoder (0x0AA / 0x1D0 / 0x545) | 🔲 Open | A | Pure frontend — the bytes are already on the bus. Renders as a Live Gauges panel using the existing `src/js/gauges.js` widget. |
 | `docs/validation/multi-frame.md` harness doc | 🔲 Open | A | Same shape as `testplans.md` / `service-functions.md` / `dtc-history.md`: what `isotp.rs` is for, why the production stack doesn't need it, how to verify against the simulator's multi-frame personality today. |
 
@@ -414,8 +414,7 @@ units + walkthrough bundle in #138 / #142; DTC history in v0.12.0
 
 | Item | Where to start | Notes |
 |------|----------------|-------|
-| KWP2000 slow-module timeout fix | `src-tauri/src/protocol/kwp2000.rs` — **protected path**, flag the PR header | Small backend fix; CIC and slow modules time out today. |
-| Freeze-frame schema coverage | `community/freeze_schemas.toml` (32 lines today) | Pure data; mirror an existing schema block per ECU you can verify. |
+| Freeze-frame schema coverage | `community/freeze/*.toml` (12 = DME, 29 = DSC, 72 = FRM today) | Pure data. Add fields only from a real-car capture — the contract test `backend/tests/test_freeze_schemas.py` pins the documented `sim.rs` bytes, so nothing may be invented. |
 
 ---
 
@@ -987,9 +986,9 @@ formatting, multi-vehicle comparison, and JSON export.
 | CSV export improvements | ✅ Done | A | Delimiter (,/;), full metadata (VIN/profile/date/tag), selectedOnly channels. |
 | Native Beemuu CSV import (v0.21) | ✅ Done | A | Dedicated parser log_import_beemuu.js restores tags/bookmarks/series for replay; roundtrip + tests. UI scrub/markers now refresh on import. |
 
-## v0.19.0 — "Report Clarity" (In Progress)
+## v2.0.0 — "Next Generation" (Shipped 2026-09-18)
 
-**Premise.** Health reports, snapshot comparison, freeze-frame context, and analysis polish.
+**Premise.** A major version bump consolidating the v0.14–v0.19 feature cycles, the ENET/HSFZ transport fix, and the full can-decoder parity work into a stable, well-tested release.
 
 ### Slices
 
@@ -1007,3 +1006,41 @@ formatting, multi-vehicle comparison, and JSON export.
 | Guides polish | ✅ Done | A | Better rendering, CSS, icons for first-scan and beginner summary. |
 
 ---
+
+## Plugin ecosystem (Phase 1 of VISION.md)
+
+**Premise.** Turn the bundled plugin system into a shareable ecosystem: a
+package format authors can build on, and a registry others can install from for
+free. See `VISION.md`.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Package API 2 (multi-file tools) | ✅ Done | A | `files` map + `entry`, compiled to the same worker `code`; v1 fully backward compatible. Loader validates + migrates. Tests in `plugins.test.js`. |
+| Community registry (`backend/plugins_registry.py`) | ✅ Done | A | Read-only list + per-id install manifest from `src/plugins/registry/`. Structural validation; desktop re-validates on install. `test_plugins_registry.py` (16 tests). |
+| Desktop "Discover from the community registry" | ✅ Done | A | Fetches registry, stages a package for review before install. `BEEMUU_PLUGIN_REGISTRY_URL` override. Browser regression extended (real worker + shipping CSP). |
+| Package signing + verification | 🟡 Planned | B | Trust boundary for a public download ecosystem; needs author-key model + verification in the Rust command surface. |
+| Granular host-permission model | 🟡 Planned | B | Opt-in read/write permissions; requires the Rust command surface. |
+| Registry community contribution flow | 🟡 Planned | A/C | submit → review → publish per COMMUNITY_FRAMEWORK.md. |
+
+---
+
+## Phase 2 — "Never seen before" features (VISION.md)
+
+**Premise.** Ship differentiating features that benefit every BMW owner, mostly
+Tier A (pure data + UI). See `VISION.md` §3 Phase 2.
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Predictive CBS Timeline | ✅ Done | A | `cbs_predict.js` prediction engine (wear models, measured-wear extrapolation, driving-profile scaling) + `cbs_ui.js` panel in Vehicle Info with snapshot persistence. 11 engine tests + Playwright browser check. |
+| Wiring Detective | ✅ Done | A | `wiring_detect.js` circuit lookup (fuse → ECU pin → component → ground) + expandable card under each fault row. Community data in `community/wiring/*.toml`. 9 tests + Playwright browser check. |
+| Diagnostic Story Mode | ✅ Done (pre-existing) | B | Already shipped: `story.rs` rule-based engine + `generate_story` command + modal renderer. |
+| Cold Start Auto-Logger | 🟡 Planned | A | One-click auto-capture of the cold-start window. |
+| Tuning Fingerprint / Adaptation Drift / Misfire / Flash Counter | 🟡 Planned | B | Forensic set; reads ECU state via the Rust protocol surface. |
+
+---
+
+## v0.19.0 — "Report Clarity" (In Progress)

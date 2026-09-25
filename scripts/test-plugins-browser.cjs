@@ -18,10 +18,20 @@ const server = http.createServer((req, res) => {
     return res.end(`<html><head><meta charset="utf-8"><link rel="stylesheet" href="css/plugins.css"></head><body><button class="tab" data-view="vehicle">Vehicle Test</button>${section}<script src="js/plugins.js"></script><script src="js/plugins_ui.js"></script><script src="test-boot.js"></script></body></html>`);
   }
   if (req.url === "/test-boot.js") {
-    res.setHeader("Content-Type", "text/javascript");
-    return res.end('window.mountBeemuuPlugins({importProfiles: async content => { window.lastProfile = content; return ["Test profile"]; }});');
-  }
-  const filename = path.resolve(root, "." + req.url.split("?")[0]);
+      res.setHeader("Content-Type", "text/javascript");
+      return res.end('window.BEEMUU_PLUGIN_REGISTRY_URL = location.origin; window.mountBeemuuPlugins({importProfiles: async content => { window.lastProfile = content; return ["Test profile"]; }});');
+    }
+    // Community registry served by the test server so the app's registry fetch
+    // (same-origin, allowed by the shipping CSP) resolves without external net.
+    if (req.url === "/api/plugins") {
+      res.setHeader("Content-Type", "application/json");
+      return res.end(JSON.stringify({ count: 1, results: [{ id: "beemuu.speed-units", name: "Speed unit converter", version: "1.0.0", author: "Beemuu contributors", kind: "tool", description: "Registry-served multi-file example.", license: "GPL-3.0-or-later", schemaVersion: 2 }] }));
+    }
+    if (req.url === "/api/plugins/beemuu.speed-units") {
+      res.setHeader("Content-Type", "application/json");
+      return res.end(JSON.stringify(catalog.find(p => p.id === "beemuu.speed-units")));
+    }
+    const filename = path.resolve(root, "." + req.url.split("?")[0]);
   if (!filename.startsWith(root + path.sep) || !fs.existsSync(filename) || !fs.statSync(filename).isFile()) {
     unexpectedRequests.push(req.url);
     res.statusCode = 404; return res.end();
@@ -50,9 +60,31 @@ const server = http.createServer((req, res) => {
     async function install(p) {
       await page.locator("#plugins-file").setInputFiles({ name: "test.beemuu-plugin.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(p)) });
       await page.locator("#plugins-install").click();
-      await page.getByRole("button", { name: "Enable", exact: true }).click();
-      await page.getByRole("button", { name: "Open", exact: true }).click();
+      const card = page.locator("#plugins-installed .plugin-card").filter({ hasText: p.name });
+      await card.getByRole("button", { name: "Enable", exact: true }).click();
+      await card.getByRole("button", { name: "Open", exact: true }).click();
     }
+    // API 2 multi-file bundle runs through the same worker: helper file is in scope.
+    const bundle = catalog.find(p => p.schemaVersion === 2);
+    assert.ok(bundle, "catalog ships an API 2 example");
+    await install(bundle);
+    await page.getByRole("button", { name: "Run tool", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector("#plugins-detail > pre").textContent !== "Running…");
+    assert.deepEqual(JSON.parse(await output.innerText()), { kph: 120, mph: 74.6 }, "bundle entry compiled from files ran with helper in scope");
+    await page.locator("#plugins-installed .plugin-card").filter({ hasText: bundle.name }).getByRole("button", { name: "Remove", exact: true }).click();
+        await page.reload();
+    // Community registry: the app fetches the list from the test server and
+    // can stage a package for review from the registry detail endpoint.
+    await page.locator("#plugins-registry .plugin-card").first().waitFor({ state: "visible" });
+    assert.match(await page.locator("#plugins-registry").innerText(), /Speed unit converter/);
+    await page.locator("#plugins-registry .plugin-card").first().getByRole("button", { name: "Review package" }).click();
+    await page.waitForFunction(() => document.querySelector("#plugins-preview").textContent.includes("Speed unit converter"));
+    assert.match(await page.locator("#plugins-preview").innerText(), /Speed unit converter/);
+    assert.ok(await page.locator("#plugins-install").isVisible(), "registry package staged for install");
+    await page.locator("#plugins-install").click();
+    assert.match(await page.locator("#plugins-installed").innerText(), /Speed unit converter/);
+    await page.locator("#plugins-installed .plugin-card").filter({ hasText: "Speed unit converter" }).getByRole("button", { name: "Remove", exact: true }).click();
+    await page.reload();
     async function execute(code) {
       await install({ ...catalog[1], code });
       await page.getByRole("button", { name: "Run tool", exact: true }).click();
@@ -79,6 +111,19 @@ const server = http.createServer((req, res) => {
     await page.getByRole("button", { name: "Remove", exact: true }).click();
     await page.reload();
     assert.match(await page.locator("#plugins-installed").innerText(), /No plugins installed/);
+    // Corrupt storage used to brick the tab: install/remove threw and nothing
+    // in the UI could clear the bad entry. There must be a way back.
+    await page.evaluate(() => localStorage.setItem("beeemuu.plugins.v1", "{corrupt-json"));
+    await page.reload();
+    assert.match(await page.locator("#plugins-installed").innerText(), /cannot be read/);
+    await page.getByRole("button", { name: "Reset plugin storage", exact: true }).click();
+    assert.equal(await page.evaluate(() => localStorage.getItem("beeemuu.plugins.v1")), null, "reset clears the unreadable entry");
+    await page.locator("#plugins-catalog .plugin-card").nth(1).getByRole("button", { name: "Review package" }).click();
+    await page.locator("#plugins-install").click();
+    assert.match(await page.locator("#plugins-installed").innerText(), /Disabled/, "install works again after a reset");
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await page.reload();
+    assert.match(await page.locator("#plugins-installed").innerText(), /No plugins installed/);
     // Exercise the actual application markup and boot order with transport stubbed.
     await page.addInitScript(() => {
       localStorage.setItem("beeemuu_accepted", "1");
@@ -94,6 +139,6 @@ const server = http.createServer((req, res) => {
     await page.locator("#plugins-catalog .plugin-card").nth(1).waitFor({ state: "visible" });
     assert.ok(await page.locator("#view-plugins").isVisible());
     if (process.env.PLUGIN_TEST_SCREENSHOT) await page.screenshot({ path: process.env.PLUGIN_TEST_SCREENSHOT, fullPage: true });
-    console.log("PASS: install, persistence, replacement, enable/disable/remove, tool execution, isolation, blocked network, timeout, literal rendering, profile bridge");
+    console.log("PASS: install, persistence, replacement, enable/disable/remove, tool execution, isolation, blocked network, timeout, literal rendering, profile bridge, storage recovery");
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => server.close());

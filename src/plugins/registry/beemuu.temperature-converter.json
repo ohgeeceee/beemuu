@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "beemuu.temperature-converter",
+  "name": "Temperature converter",
+  "version": "1.0.0",
+  "author": "Beemuu contributors",
+  "description": "Convert Celsius values from an exported log to Fahrenheit. A small executable plugin authoring example.",
+  "license": "GPL-3.0-or-later",
+  "kind": "tool",
+  "permissions": [],
+  "exampleInput": { "celsius": [0, 20, 90, 100] },
+  "code": "if (!Array.isArray(input.celsius) || input.celsius.length > 1000 || !input.celsius.every(v => typeof v === 'number' && Number.isFinite(v))) throw new Error('Expected up to 1000 numeric Celsius values');\nreturn { fahrenheit: input.celsius.map(value => Math.round((value * 9 / 5 + 32) * 10) / 10) };"
+}
