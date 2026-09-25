@@ -439,23 +439,6 @@ function decodeOilTemp2(frame) {
   return { oilTemp2: byteAt(frame, 0) + OIL_TEMP2_OFFSET_C };
 }
 
-/**
- * Wraps a decoder that returns a bare number as `{ key: value }`.
- *
- * The dispatch table's contract is "an object of gauge key -> value" —
- * that is what the live-values cache merges (see
- * `live_can_source.js::mergeDecoded`, which iterates KNOWN_GAUGE_KEYS and
- * reads `decoded[key]`). Three of the per-ID decoders return a bare
- * number instead, so oilTemp / vehicleSpeed / batteryVoltage were silently
- * dropped from the cache and three of the eight Live Gauges dials never
- * moved — on real cars as well as the simulator, because both sources share
- * the merge. `null` passes through so malformed frames still report
- * "unusable" rather than `{ key: null }`.
- */
-function keyed(key, value) {
-  return value == null ? null : { [key]: value };
-}
-
 // ---------- dispatch by CAN ID ----------
 
 /**

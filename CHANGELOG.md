@@ -211,18 +211,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dependencies.tauri: ^0.15.0` entry (an unrelated, deprecated npm
   package) with no source importing it. Reverted `package.json` and
   the `package-lock.json` churn that came with it.
-- **Three Live Gauges dials never moved** (Tier A): `can_decoders.js` returned a
-  bare number for `0x545` oil temp, `0x130` vehicle speed and `0x316` battery
-  voltage, but the live-values cache merges by reading `decoded[key]`
-  (`live_can_source.js::mergeDecoded`), so those three values were dropped on
-  every tick — on real cars as much as the simulator, since both sources share
-  the merge. The dispatch table now returns a map for all three (matching what
-  the v0.16.0 fuel-level / lambda decoders and the public-site mirror already
-  did), `KNOWN_GAUGE_KEYS` gained the two decoded keys it was missing
-  (`ambient`, `fuelRail_kPa` — the 0x1D0 and 0x0F4 values were dropped too),
-  and the cache now keeps the four boolean flag keys it declared. A simulator
-  tick fills every simulated dial; before, three of them sat at their minimum
-  forever.
+- **Plugins tab could not be recovered from inside the app** (Tier A): if the
+  stored plugin packages are unreadable (corrupted or truncated entry), every
+  install and removal threw "Plugin storage is unavailable. Reload after fixing
+  the storage error" and nothing in the UI could clear the bad entry — reloading
+  does not help, so the only way out was the webview's devtools. The panel now
+  explains the state and offers an explicit **Reset plugin storage** control
+  that deletes the stored packages and lets install work again. Covers the
+  corrupt-storage path in `scripts/test-plugins-browser.cjs`, which previously
+  had no scenario for it.
 
 ### Fixed — Tier B (K+DCAN transport)
 
