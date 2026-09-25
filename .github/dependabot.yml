@@ -50,10 +50,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # serialport and other hardware-facing crates can be sensitive —
-    # review major version bumps carefully before merging
+    # The current Tauri Linux stack resolves through gtk 0.18, which in turn
+    # requires glib ^0.18. Dependabot cannot reach the first patched glib
+    # release (0.20.0) from this dependency chain yet, so explicitly ignore the
+    # transitive security alert until the upstream Tauri/gtk stack can move.
     ignore:
-      # Ignore pre-release versions to avoid noise
+      - dependency-name: "glib"
+    # serialport and other hardware-facing crates can be sensitive —
+    # ignore semver-major bumps by default and review them manually instead
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 

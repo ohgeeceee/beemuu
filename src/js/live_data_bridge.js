@@ -35,10 +35,18 @@ const GAUGE_KEYS = Object.freeze([
 // Map profile param IDs to gauge keys. This is the core mapping
 // table — each `[[profile.param]]` entry's `id` field maps to a
 // gauge key. Unknown IDs are ignored (they're not gauge params).
+//
+// The keys are the *profile's* spelling, not the gauge's: every shipped
+// profile names the vehicle-speed param `speed` (b48/b58/n20/n52/n54/n55/
+// n57/n62/s55/s58, all `query = "obd:0D"`, label "Vehicle speed").
+// `vehicleSpeed` is kept as an alias — it is the gauge key's name and what an
+// out-of-tree profile might use — but it matched no profile, so before this
+// the speed dial never filled on the K+DCAN path while the car reported it.
 const PARAM_TO_GAUGE = Object.freeze({
   rpm: "rpm",
   coolant: "coolant",
   oil: "oilTemp",
+  speed: "vehicleSpeed",
   vehicleSpeed: "vehicleSpeed",
   volt: "batteryVoltage",
   throttle: "throttle",
