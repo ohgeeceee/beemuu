@@ -256,18 +256,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dependencies.tauri: ^0.15.0` entry (an unrelated, deprecated npm
   package) with no source importing it. Reverted `package.json` and
   the `package-lock.json` churn that came with it.
-- **Three Live Gauges dials never moved** (Tier A): `can_decoders.js` returned a
-  bare number for `0x545` oil temp, `0x130` vehicle speed and `0x316` battery
-  voltage, but the live-values cache merges by reading `decoded[key]`
-  (`live_can_source.js::mergeDecoded`), so those three values were dropped on
-  every tick — on real cars as much as the simulator, since both sources share
-  the merge. The dispatch table now returns a map for all three (matching what
-  the v0.16.0 fuel-level / lambda decoders and the public-site mirror already
-  did), `KNOWN_GAUGE_KEYS` gained the two decoded keys it was missing
-  (`ambient`, `fuelRail_kPa` — the 0x1D0 and 0x0F4 values were dropped too),
-  and the cache now keeps the four boolean flag keys it declared. A simulator
-  tick fills every simulated dial; before, three of them sat at their minimum
-  forever.
+
+### Fixed — Tier B (ENET/HSFZ transport)
+
+- **Gateway rejections no longer masquerade as silence** (issue #248): the
+  HSFZ request loop only recognised `CTRL_DIAG` and `CTRL_ACK`, so every
+  ZGW rejection control word (`0x0040`–`0x0045`, `0x00FF`) fell into the
+  same `continue` as keep-alive traffic and was discarded. A refused
+  request then sat until the 3 s read timeout and surfaced as a generic
+  `Timeout` with no reason — the reporter's "0 control units found" on an
+  F36/N55 whose gateway answered ping and TCP 6801 fine.
+  Rejections are now returned as `TransportError::Rejected` naming the
+  control word, the target ECU address, and which knob to turn (tester
+  address vs destination address vs frame size). When a read times out
+  after the gateway sent only control words the loop skips, the error
+  names those too, so "the car is quiet" and "the car answered and we
+  ignored the answer" stop looking identical. No wire format, timeout,
+  or success path changed.
 
 ### Fixed — Tier B (K+DCAN transport)
 
