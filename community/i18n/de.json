@@ -52,5 +52,6 @@
   "export_snapshot": "Snapshot exportieren",
   "service_manual": "Werkstatthandbuch",
   "conn_kdcan": "K+DCAN",
-  "conn_enet": "ENET"
+  "conn_enet": "ENET",
+  "export_json": "JSON exportieren"
 }

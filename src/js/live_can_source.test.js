@@ -36,8 +36,8 @@ test("framesAt: t=10000 (10s in) — engine is revving, coolant warming", () => 
   // Frame order (mirrors Rust broadcast_frames_at): original 6 + v0.17.0 additions.
   const rpm = decoded[0].rpm; //    0x0AA
   const coolant = decoded[2].coolant; // 0x1D0
-  const speed = decoded[3]; //      0x130
-  const battery = decoded[5]; //    0x316
+  const speed = decoded[3].vehicleSpeed; // 0x130
+  const battery = decoded[5].batteryVoltage; // 0x316
   // RPM should be in the band (750, 6750) — the cos/sin cycling.
   assert.ok(rpm > 750 && rpm < 6750, `expected rpm in (750, 6750), got ${rpm}`);
   // Coolant should have warmed up from 20°C; at t=10s it's
@@ -52,7 +52,7 @@ test("framesAt: t=10000 (10s in) — engine is revving, coolant warming", () => 
 test("framesAt: vehicle_speed clamps at 0..127.5", () => {
   const low = src.framesAt(1000, -10);
   const high = src.framesAt(1000, 200);
-  assert.equal(decoders.decodeFor(high[3].id, high[3].data), 127.5);
+  assert.equal(decoders.decodeFor(high[3].id, high[3].data).vehicleSpeed, 127.5);
   // 0 km/h → speed_raw = 0
   assert.equal(low[3].data[0], 0);
 });
@@ -239,5 +239,5 @@ test("module.exports includes the documented API surface", () => {
     const t = typeof src[key];
     assert.ok(t === "function" || t === "object", `missing or wrong-typed ${key} (got ${t})`);
   }
-  assert.deepEqual(src.KNOWN_GAUGE_KEYS, ["rpm", "coolant", "oilTemp", "vehicleSpeed", "batteryVoltage", "throttle", "gear", "torque", "steering", "brake", "intakeTemp", "load", "cruiseActive", "map_kPa", "oilPress_bar", "extTemp", "iat", "map", "torqueNm", "acOn", "fan", "coolant2", "amb", "absActive", "acRequested", "blower", "oilTemp2", "fuelLevel", "lambda"]);
+  assert.deepEqual(src.KNOWN_GAUGE_KEYS, ["rpm", "coolant", "oilTemp", "vehicleSpeed", "batteryVoltage", "throttle", "gear", "torque", "steering", "brake", "intakeTemp", "load", "cruiseActive", "map_kPa", "oilPress_bar", "extTemp", "iat", "map", "torqueNm", "acOn", "fan", "coolant2", "absActive", "acRequested", "blower", "oilTemp2", "ambient", "fuelRail_kPa", "fuelLevel", "lambda"]);
 });

@@ -5,7 +5,99 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.19.0] — 2026-09-16
+
+## [2.2.0] — 2026-09-20
+
+### Added — Tier A (Snapshot v2 completion)
+
+- **Walkthrough JSON export** (`feat/snapshot-v2-json-export`): the
+  "Share walkthrough" button previously exported only a self-contained
+  HTML file. A new **Export JSON** button next to it emits the same
+  snapshot as machine-readable JSON via the existing
+  `buildSnapshotJson` (plan, walk answers, freeze-frame context, log
+  snippet, meta). The output is directly consumable by the Snapshot
+  Compare tool, so a user can hand an exported walkthrough straight to
+  the compare panel or a script. Wired in `main.js` (`btn-walk-json`),
+  enabled/disabled in lockstep with the HTML share button, and
+  localized (EN/DE/FR `export_json` key). Verified: new round-trip test
+  proves `buildSnapshotJson` output feeds `compareSnapshots`; JS suite
+  green.
+- **Walkthrough export dark-mode theme** (`feat/snapshot-v2-json-export`):
+  the self-contained HTML export now ships a `prefers-color-scheme`
+  dark theme via a CSS-custom-property override block, so exported
+  walkthroughs read well in dark-mode browsers and match the app's
+  `body[data-theme="dark"]` palette. Because every surface rule already
+  uses `var(--fg)` / `var(--card)` / etc., the override re-skins the
+  entire bundle without per-rule edits, and the file stays fully
+  self-contained (no external deps). Verified: new test asserts the
+  dark-mode media query + tokens and re-checks the zero-external-deps
+  claim; JS suite green.
+- **Walkthrough export typography refresh** (`feat/snapshot-v2-json-export`):
+  the plan tree's hardcoded inline styles (`border-left: 2px solid #ddd`)
+  were moved into `.plan-tree` / `.plan-step` CSS classes, so the tree
+  now re-skins in dark mode and the layout is centralized in the
+  stylesheet. The header also renders the DTC as a monospace code chip
+  (`.dtc`) with the plan title on its own `.plan-title` span, so the
+  verification badge reads as a status tag. Badge markup is unchanged.
+  Verified: new test asserts no inline tree styles remain and the DTC
+  chip / title classes are present; JS suite green.
+- **Public-site version surface → v2.2.0** (`feat/snapshot-v2-json-export`):
+  the beemuu.com hero banner, download CTA, and press page still framed
+  v2.0.0 as the latest release (they'd rotted through the v2.1.0 patch).
+  Updated `frontend/index.html` and `frontend/press.html` to v2.2.0
+  (banner tag, hero copy, download links, press highlights), keeping
+  v2.0.0 only as a historical "milestone" mention. Added
+  `frontend/version_surface.test.js` — a regression test pinning the
+  banner/CTA/press to the current release so a future release that
+  forgets to bump the site fails CI instead of shipping a stale
+  "Download vX" link. Teeth-checked: fails with a wrong release version.
+- **ROADMAP corrections** (`feat/snapshot-v2-json-export`): the
+  "Ready to Claim" and v0.13.0 tables still listed the KWP2000
+  slow-module timeout fix as open, but it shipped in v0.13.0
+  (`default_slow_modules()` for CIC/CAS + per-target 3 s deadline) and
+  the code path is unchanged. Corrected both entries and updated the
+  freeze-frame row to point at `community/freeze/*.toml` with a note
+  that the new contract test forbids inventing offsets.
+- **Freeze-frame schema contract test** (`feat/snapshot-v2-json-export`):
+  new `backend/tests/test_freeze_schemas.py` pins each
+  `community/freeze/*.toml` schema to the documented simulator source
+  bytes (from `sim.rs::SimTransport::new()`). It parses every schema
+  with `tomllib`, decodes the cited bytes through each field's
+  offset/width/scale/bias (mirroring `data/freeze.rs`), and asserts the
+  documented physical values (DME rpm=750/coolant=82°C, DSC 0/41°C, FRM
+  0/35°C). This catches a schema edit that breaks the documented decode
+  or a `sim.rs` drift. Verified: 3 tests / 12 subtests pass, and the
+  decode test fails when a schema's bias is corrupted (teeth-checked).
+
+## [2.1.0] — 2026-09-20
+
+### Fixed — Tier A (community data)
+
+- **`community/dtc_texts.toml` duplicate keys** (`fix/dtc-texts-duplicate-keys`):
+  the `[dtc]` table defined `2A9C` and `2E87` twice (once in the v0.16.0
+  block, once in the v0.19 E-series additions), which made the file invalid
+  TOML and broke the `shipped_dtc_texts_parse_and_nonempty` gate. Kept the
+  more descriptive v0.16.0 wording; dropped the v0.19 duplicates. Verified:
+  `tomllib` parses the file (288 DTC entries), JS suite 424 pass, Python 219
+  pass.
+
+### Fixed — Tier A (public site)
+
+- **Missing `guide.css` / `landing.css`** (`fix/dtc-texts-duplicate-keys`):
+  15 guide pages + `404.html` referenced `/guide.css` and `/landing.css`,
+  which never existed in the repo, so the live site served them unstyled.
+  Added a self-contained light editorial `guide.css` (covers all 28 classes
+  the guide pages use) and `landing.css` (`@import`s guide.css, adds the 404
+  footer-link layout).
+- **Pages build test now walks shipped pages** (`fix/dtc-texts-duplicate-keys`):
+  `test-github-pages-build.cjs` previously only checked artifact structure.
+  It now walks every shipped page and fails on a missing asset
+  (css/js/image/font/json/xml), while printing (not failing on) the ~44
+  planned content pages. Verified the walker fails when an asset is removed
+  and passes with it present.
+
+## [2.0.0] — 2026-09-18
 
 ### Added — Tier A (analysis, data, a11y)
 
@@ -72,6 +164,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — Tier A (CI, tests, community data)
 
+- **beemuu.com — 16 guide pages shipped with no stylesheet**: every guide page
+  (`faq`, `glossary`, `protocols`, `hardware`, `community`, `press`, `oem`,
+  `verify`, `schematics`, `tools/*`, `roadmap/*`, the engine and comparison
+  pages) linked `/guide.css`, a file that has never existed anywhere in the
+  repository, and `404.html` did the same with `/landing.css`. The pages carry
+  no inline styles, so on the live site they rendered as unstyled HTML. Both
+  stylesheets now exist: `guide.css` implements the light editorial theme those
+  classes call for (hero, breadcrumbs, sticky-TOC two-column layout, code
+  tables, fact grids, FAQ accordion, callouts, steps, related-link cards,
+  responsive and print rules) following the palette 404.html already used, and
+  `landing.css` imports it so the shared chrome cannot drift. Verified in a real
+  browser: 21 pages swept, zero failed stylesheet requests, zero console
+  errors, computed styles confirm the sheets apply.
+- **beemuu.com — dead navigation and ~43 broken links**: the site links 43 local
+  targets that are not in the repository and are not generated by
+  `scripts/build-github-pages.cjs`, so every one 404s — including three of the
+  four items in the shared header nav (K+DCAN, ENET, Fault codes) on all 21
+  pages, and the footer's Status link. 215 links across 17 pages now point at
+  pages that exist, chosen per target (K+DCAN → `hardware.html`, ENET →
+  `protocols.html`, Fault codes → `tools/known-codes.html`, Status →
+  `index.html#status`, roadmap → `roadmap/index.html`, changelog/contributing →
+  the repo documents, the procedures → `compare/cbs-vs-battery.html`). Where a
+  page's own topic is its nav item, the link is kept and marked
+  `aria-current="page"`. `frontend/tools/index.html` added: `/tools/` is linked
+  from two breadcrumbs, 404'd, and its two children both exist. Links to the
+  planned per-record pages (`/dtc/<code>.html`, `/engines/<engine>.html`,
+  `/dtc/`) are left alone — retargeting them would produce self-links on the
+  pages that list them.
+- **beemuu.com — visitors shown a raw HTTP error**: `schematics.js` printed
+  "Could not load schematic list: list HTTP 404" when the catalog API is
+  unreachable from the static mirror. It now explains where schematics come
+  from and keeps the detail in the console. `tools/known-codes.html` also used
+  an HTML-escaped placeholder as a live href (`href="/api/dtc/&lt;code&gt;"`);
+  the template URL is code text now.
+- **Pages build now fails on a missing asset**: nothing checked that a page's
+  local references resolve, which is why the unstyled-pages bug shipped.
+  `scripts/test-github-pages-build.cjs` resolves every root-absolute `href`/`src`
+  in the built artifact and fails on a missing asset (css, js, images, fonts,
+  json, xml). Content-page links are reported with counts but do not fail the
+  build, so the planned per-record pages stay visible as a backlog. Verified by
+  mutation: hiding `guide.css` fails the test, naming the referencing pages.
 - **CI green — TOML parse errors** (`fix/ci-green-tomls-and-test-leaks`):
   `community/dtc_texts.toml` had 3 duplicate keys breaking the
   `shipped_dtc_texts_parse` gate. 2A98/2AAA exact duplicates removed
@@ -136,6 +269,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prefix. Unit tests pin the on-wire shape. Verified 2026-08-28 on a
   2006 E90 330i (DME answered in ~15 ms; vehicle test found 9
   control units).
+
+### Fixed — Tier B (ENET/HSFZ transport)
+
+- **HSFZ gateway refusals are surfaced, not swallowed** (Tier B, issue
+  #248): `EnetTransport::request` silently discarded every non-`0x0001`
+  frame, so when the ZGW answered a probe with an HSFZ *error* control
+  word (0x0040 incorrect tester address, 0x0043 incorrect destination
+  address, 0x0044 message too large, …) the app waited out the 3 s read
+  deadline and reported a bare `Timeout` — the F36/N55 report's "0 Control
+  Units Found" with no explanation. The transport now maps error control
+  words to a new `TransportError::GatewayRejected` carrying the gateway's
+  stated reason (including the expected/received tester address for 0x40
+  and source/target for 0x43), and a timeout after unrelated frames names
+  what the gateway did send. `scan_modules` now returns that reason when
+  every probe fails instead of a silent all-absent tree. Control-word
+  table sourced from Wireshark `packet-hsfz.c` and Scapy `hsfz.py`; 4 new
+  loopback-TCP tests (13 enet tests total) pin the on-wire behaviour.
+  Discovery error text now notes that F-series cars do not answer DoIP
+  discovery (UDP 13400) — they speak HSFZ on TCP 6801 only.
 ### Planned — Tier A (read-only research, not a v0.15.1 slice)
 
 - **E90 FRM coding dump** (Tier A): a read-only card on the Service

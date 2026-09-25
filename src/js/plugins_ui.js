@@ -11,6 +11,7 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
   let cancelRun = () => {};
   let storage;
   let writable = false;
+  let storageError = "";
   function el(tag, text, className) {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -28,7 +29,7 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
     return b;
   }
   function commit(entries) {
-    if (!writable) throw new Error("Plugin storage is unavailable. Reload after fixing the storage error.");
+    if (!writable) throw new Error("Plugin storage is unavailable, so packages cannot be saved.");
     api.save(storage, entries);
     installed = entries;
     render();
@@ -44,6 +45,30 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
   function render() {
     const list = byId("plugins-installed");
     list.replaceChildren();
+    if (!writable) {
+      // Unreadable storage used to leave the panel with no way out: every
+      // install/remove threw and nothing could clear the bad entry. Offer an
+      // explicit, user-initiated reset instead.
+      list.append(
+        el("p", `Plugin storage cannot be read, so packages cannot be installed or changed: ${storageError}`, "muted"),
+        el("p", "Resetting deletes the stored packages and lets you install again. Anything you exported is unaffected.", "muted"),
+      );
+      if (storage && typeof storage.removeItem === "function") {
+        list.append(button("Reset plugin storage", () => {
+          try {
+            storage.removeItem(api.STORAGE_KEY);
+            installed = api.load(storage);
+            writable = true;
+            storageError = "";
+            status("Plugin storage reset. No packages are installed.");
+          } catch (e) {
+            status(`Could not reset plugin storage: ${e.message || e}`);
+          }
+          render();
+        }));
+      }
+      return;
+    }
     if (!installed.length) list.append(el("p", "No plugins installed. Choose a catalog package or import one below.", "muted"));
     for (const entry of installed) {
       const p = entry.package;

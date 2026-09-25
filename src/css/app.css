@@ -296,6 +296,14 @@ body {
    0x31, 0x14 — see UNSUPPORTED_NRCS in live_data_panel.js). Cleared
    on the next sweep if the PID starts answering. */
 .gauge-cell.dimmed { opacity: 0.45; }
+.live-can-status-line {
+  margin-top: 10px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #7d92a8);
+  border-top: 1px solid var(--border);
+}
 .gauge-cell.dimmed .gauge-label::after {
   content: " (unsupported)";
   font-style: italic;

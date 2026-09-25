@@ -111,6 +111,19 @@ const server = http.createServer((req, res) => {
     await page.getByRole("button", { name: "Remove", exact: true }).click();
     await page.reload();
     assert.match(await page.locator("#plugins-installed").innerText(), /No plugins installed/);
+    // Corrupt storage used to brick the tab: install/remove threw and nothing
+    // in the UI could clear the bad entry. There must be a way back.
+    await page.evaluate(() => localStorage.setItem("beeemuu.plugins.v1", "{corrupt-json"));
+    await page.reload();
+    assert.match(await page.locator("#plugins-installed").innerText(), /cannot be read/);
+    await page.getByRole("button", { name: "Reset plugin storage", exact: true }).click();
+    assert.equal(await page.evaluate(() => localStorage.getItem("beeemuu.plugins.v1")), null, "reset clears the unreadable entry");
+    await page.locator("#plugins-catalog .plugin-card").nth(1).getByRole("button", { name: "Review package" }).click();
+    await page.locator("#plugins-install").click();
+    assert.match(await page.locator("#plugins-installed").innerText(), /Disabled/, "install works again after a reset");
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await page.reload();
+    assert.match(await page.locator("#plugins-installed").innerText(), /No plugins installed/);
     // Exercise the actual application markup and boot order with transport stubbed.
     await page.addInitScript(() => {
       localStorage.setItem("beeemuu_accepted", "1");
@@ -126,6 +139,6 @@ const server = http.createServer((req, res) => {
     await page.locator("#plugins-catalog .plugin-card").nth(1).waitFor({ state: "visible" });
     assert.ok(await page.locator("#view-plugins").isVisible());
     if (process.env.PLUGIN_TEST_SCREENSHOT) await page.screenshot({ path: process.env.PLUGIN_TEST_SCREENSHOT, fullPage: true });
-    console.log("PASS: install, persistence, replacement, enable/disable/remove, tool execution, isolation, blocked network, timeout, literal rendering, profile bridge");
+    console.log("PASS: install, persistence, replacement, enable/disable/remove, tool execution, isolation, blocked network, timeout, literal rendering, profile bridge, storage recovery");
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => server.close());

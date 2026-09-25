@@ -30,4 +30,42 @@ assert.equal(config.adminApiBaseUrl, "");
 assert.equal(config.repository, "ohgeeceee/beemuu");
 assert.equal(config.backendStatus, "pending-serverless-migration");
 
+// Walk every shipped page and fail on a missing asset (css/js/image/font/json/xml).
+// Missing content pages are printed with counts but do not fail, because the
+// site deliberately links ~28 planned per-record pages (/dtc/*, /engines/*).
+const assetExt = /\.(css|js|png|svg|jpg|jpeg|gif|ico|json|xml|woff|woff2|ttf|webmanifest)$/;
+const shipped = new Set();
+(function collect(dir, prefix) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === ".gitignore") continue;
+    const rel = prefix + entry.name;
+    if (entry.isDirectory()) collect(path.join(dir, entry.name), rel + "/");
+    else if (!/\.test\.(js|cjs|mjs)$/.test(entry.name)) shipped.add(rel);
+  }
+})(out, "");
+
+const missingAssets = [];
+const missingContent = new Set();
+for (const page of [...shipped].filter((f) => f.endsWith(".html"))) {
+  const html = fs.readFileSync(path.join(out, page), "utf8");
+  for (const m of html.matchAll(/(?:href|src)="\/([^"#?]+)"/g)) {
+    const ref = m[1];
+    if (!assetExt.test(ref)) continue;
+    if (shipped.has(ref)) continue;
+    if (shipped.has(ref + "/index.html")) continue;
+    missingAssets.push(`${page} -> /${ref}`);
+  }
+  for (const m of html.matchAll(/href="\/([^"#?]+)"/g)) {
+    const ref = m[1];
+    if (assetExt.test(ref)) continue;
+    if (shipped.has(ref) || shipped.has(ref + ".html") || shipped.has(ref + "/index.html")) continue;
+    missingContent.add(ref);
+  }
+}
+assert.deepEqual(missingAssets, [], `missing assets:\n${missingAssets.join("\n")}`);
+if (missingContent.size) {
+  console.log(`note: ${missingContent.size} planned content pages are linked but not shipped (deliberate backlog):`);
+  for (const p of [...missingContent].sort()) console.log(`  /${p}`);
+}
+
 console.log("GitHub Pages build artifact looks publishable.");
