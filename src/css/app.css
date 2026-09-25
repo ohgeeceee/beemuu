@@ -1213,3 +1213,39 @@ body[data-theme="dark"] .gauge-label { color: #9fb2c8; }
 body[data-theme="dark"] .dossier-stats strong { color: #d7e2ec; }
 body[data-theme="dark"] .dossier-stats span { color: #8496a9; }
 body[data-theme="dark"] .print-report .disclaimer { color: #8496a9; }
+
+/* Predictive CBS Timeline (Vehicle Info) */
+.cbs-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 18px; margin: 12px 0; }
+.cbs-input-row { display: flex; flex-direction: column; gap: 4px; }
+.cbs-input-row label { font-size: 12px; color: #7a8aa0; }
+.cbs-input-row input { max-width: 180px; }
+.cbs-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.cbs-actions label { font-size: 13px; }
+.cbs-results { display: grid; gap: 10px; margin-top: 12px; }
+.cbs-pred { border: 1px solid #8886; border-radius: 8px; padding: 12px 14px; }
+.cbs-pred-head { display: flex; justify-content: space-between; align-items: center; }
+.cbs-pred-head .cbs-name { font-weight: 600; }
+.cbs-status { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 8px; border-radius: 10px; }
+.cbs-ok .cbs-status { background: #2e7d3233; color: #2e7d32; }
+.cbs-due .cbs-status { background: #ed6c0233; color: #c26003; }
+.cbs-overdue .cbs-status { background: #c6282833; color: #c62828; }
+.cbs-pred-detail { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 13px; color: #66788e; }
+body[data-theme="dark"] .cbs-pred-detail { color: #9fb2c8; }
+body[data-theme="dark"] .cbs-input-row label { color: #8496a9; }
+
+/* Wiring Detective (fault-row circuit cards) */
+.wiring-row td { padding: 0 10px 10px; }
+.wiring-card { border: 1px solid #8886; border-radius: 8px; padding: 10px 12px; background: #00000008; }
+body[data-theme="dark"] .wiring-card { background: #ffffff08; }
+.wiring-head { font-size: 12px; font-weight: 600; color: #66788e; margin-bottom: 6px; }
+body[data-theme="dark"] .wiring-head { color: #9fb2c8; }
+.wiring-circuit { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+.wiring-node { padding: 3px 8px; border-radius: 6px; font-weight: 500; }
+.wiring-power { background: #ed6c0233; color: #c26003; }
+.wiring-ecu { background: #1565c033; color: #1565c0; }
+.wiring-component { background: #2e7d3233; color: #2e7d32; }
+.wiring-ground { background: #6a1b9a33; color: #6a1b9a; }
+.wiring-line { color: #8899aa; }
+.wiring-failures { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: #66788e; }
+body[data-theme="dark"] .wiring-failures { color: #9fb2c8; }
+.wiring-failures li { margin: 2px 0; }

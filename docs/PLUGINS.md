@@ -1,4 +1,4 @@
-# Community plugins (package API 1)
+# Community plugins (package API 1 & 2)
 
 The desktop **Plugins** tab supports install, explicit replacement, enable,
 disable, removal, export, and local package import. The bundled catalog works
@@ -6,10 +6,48 @@ offline. Packages are stored in this webview's local storage; clearing webview
 data may remove them. Export packages to keep a copy. Installation and replacement
 leave a package disabled. No tool runs at startup.
 
-If that storage cannot be read (a corrupted or truncated entry), the panel says
-so and offers **Reset plugin storage**. Resetting deletes the stored packages so
-you can install again; it never runs code, and exported packages are unaffected.
-Without it the tab could not be recovered from inside the app.
+## Package API 2 (multi-file tools)
+
+API 2 keeps everything from API 1 and adds **bundled tools**: instead of a single
+`code` string, a tool may ship a `files` map (filename → source) plus an `entry`
+file. The loader compiles the bundle down to the same runnable body the API 1
+runner executes, so the sandbox, permissions, and UI behavior are identical.
+
+```json
+{
+  "schemaVersion": 2,
+  "id": "author.speed-converter",
+  "name": "Speed unit converter",
+  "version": "1.0.0",
+  "author": "Author Name",
+  "description": "Converts kph to mph using a shared helper file.",
+  "license": "GPL-3.0-or-later",
+  "kind": "tool",
+  "permissions": [],
+  "exampleInput": { "kph": 120 },
+  "entry": "src/main.js",
+  "files": {
+    "src/units.js": "function kphToMph(k) { return Math.round(k * 0.621371 * 10) / 10; }",
+    "src/main.js": "if (typeof input.kph !== 'number' || !Number.isFinite(input.kph)) throw new Error('Expected a numeric kph value');\nreturn { kph: input.kph, mph: kphToMph(input.kph) };"
+  }
+}
+```
+
+Rules:
+
+- A bundled tool must declare `files` (a map, up to 50 files, each up to
+  200 000 characters) and a string `entry` naming one of the files.
+- Non-entry files are concatenated first so shared `function`/`const`
+  declarations stay in scope for the entry file, which returns the result.
+- Provide either `code` (API 1) **or** `files` + `entry` (API 2). If both are
+  present the compiled bundle must match `code`; a mismatch is rejected so a
+  stale `code` can never diverge from the shipped source.
+- API 2 packages still pass through the exact same worker sandbox: no host
+  permissions, no network, fresh worker per run, 2-second execution timer.
+- `schemaVersion: 2` is required for bundles; `schemaVersion: 1` packages
+  continue to work unchanged.
+
+See the `beemuu.speed-units` example in `src/plugins/catalog.json`.
 
 ## Author and publish
 
@@ -33,6 +71,21 @@ service, automatic updates, publisher verification, or package signatures.
 Author names are self-declared. Replacing an ID replaces the entire installed
 package, including code; inspect changes before installing.
 Limits: 256 KiB per package, 20 installed packages, 2 MiB serialized storage.
+
+## Community registry
+
+The desktop **Plugins → Discover from the community registry** section lists
+reviewed packages served by the read-only Beemuu API (`/api/plugins`). Selecting
+a package fetches its full manifest and stages it for review before install —
+the same review/install flow as a local file, so nothing runs until you enable
+it. The registry URL defaults to `https://api.beemuu.com` and can be overridden
+with `window.BEEMUU_PLUGIN_REGISTRY_URL` (useful for staging or a local backend).
+
+To publish a package to the registry, add its JSON file to
+`src/plugins/registry/` in a pull request (one file per package, named
+`<author>.<name>.json`). The backend validates it structurally before serving;
+the desktop re-validates fully on install. Registry entries are reviewed like
+catalog entries.
 
 ## Data packs
 

@@ -994,57 +994,53 @@ formatting, multi-vehicle comparison, and JSON export.
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| ENET/HSFZ gateway refusal diagnostics | ✅ Done | B | Surface HSFZ error control words instead of bare Timeout (issue #248) |
-| CAN broadcast decoder parity (15 frames) | ✅ Done | A | +15 CAN IDs decoded + simulator parity |
-| Frontend simulator parity | ✅ Done | A | `frontend/live_gauges.js` emits full 25-frame contract |
-| Health report clarity | ✅ Done | A | Freeze-frame context + snapshot source note |
-| Snapshot compare v2 | ✅ Done | A | Visual diff table + library compare |
-| Log interoperability | ✅ Done | A | Native Beemuu CSV import with full tag/bookmark/series restore |
-| Accessibility sweep | ✅ Done | A | ARIA roles/labels on all major surfaces |
-| Mobile-responsive CSS | ✅ Done | A | Header/tab wrapping + stacked panels |
-| Multi-language UI | ✅ Done | A | DE/EN/FR i18n (54 keys) |
-| BMW-FAST FMT transport fix | ✅ Done | B | Verified on 2006 E90 330i |
-| DTC/vehicle DB growth | ✅ Done | A | +15 DTCs, +20 E-series VIN prefixes |
-| Test stability | ✅ Done | A | TOML parse gates, test hang fix, flaky test fix |
-| CI green | ✅ Done | A | All workflows pass (JS 424, Python 219, Rust 13 enet tests) |
+| Snapshot compare v2 | ✅ Done | A | Nice table renderer, library support, metadata in reports. Log snippet summary. |
+| Health report + freeze frame | ✅ Done | A | Richer freeze snippets + snapshot source note in reports. |
+| Additional CAN decoders | ✅ Done | A | +7 total new (intake, load, cruise, fuel rail, MAP, oil press, ext temp) + sim + tests. + fuelLevel, lambda + exposure. |
+| Beginner guides | ✅ Done | A | First-scan + plain-language fault summary (pure + wired). |
+| DTC / Vehicle DB | ✅ Done | A | +5 DTCs + 3 VIN prefixes. |
+| A11y | ✅ Done (sweep) | A | More ARIA labels/roles/switch on theme, guides, controls. |
+| Log CSV import metadata | ✅ Done | A | Native Beemuu CSV import now restores sessionTag + bookmarks. |
+| Snapshot log restore | ✅ Done | A | Full tags/markers/series restore + UI rebuild on snapshot load. |
+| Snapshot library compare | ✅ Done | A | Left/Right buttons on cards + auto compare using import + render. |
+| Guides polish | ✅ Done | A | Better rendering, CSS, icons for first-scan and beginner summary. |
 
 ---
 
-## v2.1.0 — "Patch: Community Data + Public Site" (Shipped 2026-09-20)
+## Plugin ecosystem (Phase 1 of VISION.md)
 
-**Premise.** A patch release fixing two Tier A defects: a duplicate-key bug
-that made `community/dtc_texts.toml` invalid TOML (breaking the shipped-DTC
-parse gate), and the public site shipping unstyled because `guide.css` /
-`landing.css` never existed.
+**Premise.** Turn the bundled plugin system into a shareable ecosystem: a
+package format authors can build on, and a registry others can install from for
+free. See `VISION.md`.
 
 ### Slices
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| dtc_texts duplicate keys removed | ✅ Done | A | Dropped duplicate 2A9C/2E87; tomllib parses 288 entries |
-| Missing guide.css/landing.css added | ✅ Done | A | Self-contained light theme covers all 28 guide classes |
-| Pages test asset-walker | ✅ Done | A | Fails on missing shipped asset, passes with it |
+| Package API 2 (multi-file tools) | ✅ Done | A | `files` map + `entry`, compiled to the same worker `code`; v1 fully backward compatible. Loader validates + migrates. Tests in `plugins.test.js`. |
+| Community registry (`backend/plugins_registry.py`) | ✅ Done | A | Read-only list + per-id install manifest from `src/plugins/registry/`. Structural validation; desktop re-validates on install. `test_plugins_registry.py` (16 tests). |
+| Desktop "Discover from the community registry" | ✅ Done | A | Fetches registry, stages a package for review before install. `BEEMUU_PLUGIN_REGISTRY_URL` override. Browser regression extended (real worker + shipping CSP). |
+| Package signing + verification | 🟡 Planned | B | Trust boundary for a public download ecosystem; needs author-key model + verification in the Rust command surface. |
+| Granular host-permission model | 🟡 Planned | B | Opt-in read/write permissions; requires the Rust command surface. |
+| Registry community contribution flow | 🟡 Planned | A/C | submit → review → publish per COMMUNITY_FRAMEWORK.md. |
 
 ---
 
-## v2.2.0 — "Snapshot v2: JSON Export" (Shipped 2026-09-20)
+## Phase 2 — "Never seen before" features (VISION.md)
 
-**Premise.** Close out the v0.17.2 "Snapshot v2" cycle's remaining
-Tier A slices: surface the machine-readable snapshot as a first-class
-export (the `buildSnapshotJson` helper existed and was unit-tested but
-was never wired into the UI — the walkthrough share button only emitted
-HTML), prove it round-trips into the Snapshot Compare tool, and refresh
-the self-contained HTML template with a dark-mode theme.
+**Premise.** Ship differentiating features that benefit every BMW owner, mostly
+Tier A (pure data + UI). See `VISION.md` §3 Phase 2.
 
 ### Slices
 
 | Item | Status | Tier | Notes |
 |------|--------|------|-------|
-| Walkthrough JSON export button | ✅ Done | A | `btn-walk-json` next to Share walkthrough; emits `buildSnapshotJson` via `export_text`; enabled/disabled in lockstep with the HTML share button. |
-| i18n for the new button | ✅ Done | A | `export_json` key added to EN/DE/FR in `i18n.js` + `community/i18n/*.json` (parity test enforces all six). |
-| Round-trip test | ✅ Done | A | `buildSnapshotJson` output feeds `compareSnapshots`; freeze-frame + walk diffs asserted. |
-| Export dark-mode theme | ✅ Done | A | `prefers-color-scheme` CSS-custom-property override on the self-contained HTML export; matches the app dark palette; stays zero-external-deps. |
-| Export typography refresh | ✅ Done | A | Plan-tree inline styles moved to `.plan-step` classes (re-skins in dark mode); DTC renders as a `.dtc` code chip with `.plan-title` span. |
-| Freeze-frame schema contract test | ✅ Done | A | `test_freeze_schemas.py` pins each `community/freeze/*.toml` to the documented `sim.rs` source bytes via offset/width/scale/bias decode. |
+| Predictive CBS Timeline | ✅ Done | A | `cbs_predict.js` prediction engine (wear models, measured-wear extrapolation, driving-profile scaling) + `cbs_ui.js` panel in Vehicle Info with snapshot persistence. 11 engine tests + Playwright browser check. |
+| Wiring Detective | ✅ Done | A | `wiring_detect.js` circuit lookup (fuse → ECU pin → component → ground) + expandable card under each fault row. Community data in `community/wiring/*.toml`. 9 tests + Playwright browser check. |
+| Diagnostic Story Mode | ✅ Done (pre-existing) | B | Already shipped: `story.rs` rule-based engine + `generate_story` command + modal renderer. |
+| Cold Start Auto-Logger | 🟡 Planned | A | One-click auto-capture of the cold-start window. |
+| Tuning Fingerprint / Adaptation Drift / Misfire / Flash Counter | 🟡 Planned | B | Forensic set; reads ECU state via the Rust protocol surface. |
 
 ---
+
+## v0.19.0 — "Report Clarity" (In Progress)

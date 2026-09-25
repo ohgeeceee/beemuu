@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "beemuu.speed-units",
+  "name": "Speed unit converter",
+  "version": "1.0.0",
+  "author": "Beemuu contributors",
+  "description": "A multi-file example: converts kph to mph (and back). Demonstrates API 2 bundles with a shared helper file and an entry point.",
+  "license": "GPL-3.0-or-later",
+  "kind": "tool",
+  "permissions": [],
+  "exampleInput": { "kph": 120 },
+  "entry": "src/main.js",
+  "files": {
+    "src/units.js": "function kphToMph(k) { return Math.round(k * 0.621371 * 10) / 10; }\nfunction mphToKph(m) { return Math.round(m * 1.609344 * 10) / 10; }",
+    "src/main.js": "if (typeof input.kph !== 'number' || !Number.isFinite(input.kph)) throw new Error('Expected a numeric kph value');\nreturn { kph: input.kph, mph: kphToMph(input.kph) };"
+  }
+}

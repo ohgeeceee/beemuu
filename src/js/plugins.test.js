@@ -15,13 +15,46 @@ test("catalog packages validate, have unique identities and include both kinds",
   assert.equal(new Set(catalog.map(p => p.id)).size, catalog.length);
   assert.ok(catalog.some(p => p.kind === "data"));
   assert.ok(catalog.some(p => p.kind === "tool"));
-  for (const p of catalog) assert.deepEqual(api.parse(JSON.stringify(p)), p);
+  for (const p of catalog) assert.deepEqual(api.parse(JSON.stringify(p)), api.validate(p));
 });
 test("reject permissions, unknown fields, unsupported versions and traversal IDs", () => {
-  for (const patch of [{ permissions: ["ecu.write"] }, { schemaVersion: 2 }, { id: "../../x" }, { version: "1.2" }, { entrypoint: "https://evil.invalid/x.js" }, { kind: "native" }]) {
+  for (const patch of [{ permissions: ["ecu.write"] }, { schemaVersion: 3 }, { id: "../../x" }, { version: "1.2" }, { entrypoint: "https://evil.invalid/x.js" }, { kind: "native" }]) {
     assert.throws(() => api.validate({ ...tool(), ...patch }));
   }
   assert.throws(() => api.parse('{"__proto__": {}}'));
+});
+test("schema v2 tools compile a files bundle into a runnable code body", () => {
+  const bundled = {
+    ...tool(),
+    schemaVersion: 2,
+    code: undefined,
+    files: {
+      "helpers/units.js": "const toF = c => c * 9 / 5 + 32;",
+      "src/main.js": "return { fahrenheit: input.celsius.map(toF) };",
+    },
+    entry: "src/main.js",
+  };
+  const parsed = api.validate(bundled);
+  assert.equal(parsed.code, "const toF = c => c * 9 / 5 + 32;\nreturn { fahrenheit: input.celsius.map(toF) };");
+  // round-trips through parse() and keeps bundle identity
+  assert.deepEqual(api.parse(JSON.stringify(parsed)).code, parsed.code);
+});
+test("schema v2 bundle validation rejects malformed setups", () => {
+  const base = { ...tool(), schemaVersion: 2, code: undefined, files: { "a.js": "const x = 1;", "main.js": "return x;" }, entry: "main.js" };
+  for (const patch of [
+    { files: { "a.js": "const x = 1;" }, entry: "missing.js" },        // entry not present
+    { files: { "a.js": "" } },                                          // empty file
+    { files: {}, entry: "main.js" },                                    // no files
+    { files: { "a.js": "x" }, entry: "a.js", code: "return 1" },        // code + files
+    { files: { "a.js": "x".repeat(api.MAX_FILE_LENGTH + 1) } },         // oversized file
+    { files: Array.from({ length: api.MAX_FILES + 1 }, (_, i) => [`f${i}`, "x"]).reduce((o, [k, v]) => (o[k] = v, o), {}) }, // too many
+    { files: { "a.js": "x" }, entry: "a.js", code: "return 2" },        // code mismatches bundle
+    { code: "return 1" },                                               // plain code missing files/entry (v2 base has none)
+  ]) {
+    assert.throws(() => api.validate({ ...base, ...patch }));
+  }
+  // a v2 package with no bundle at all and no code is rejected
+  assert.throws(() => api.validate({ ...tool(), schemaVersion: 2, code: undefined, files: undefined, entry: undefined }), /files` bundle|bundle/);
 });
 test("data rejects code and malformed or empty content", () => {
   for (const patch of [{ code: "return 1" }, { content: { articles: [] } }, { content: { articles: [{ title: "a", body: "b", html: true }] } }]) {

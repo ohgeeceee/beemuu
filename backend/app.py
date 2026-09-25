@@ -19,12 +19,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import admin_api, auth, bootstrap, cross_links, db, schematics
+from . import admin_api, auth, bootstrap, cross_links, db, plugins_registry, schematics
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 ADMIN = FRONTEND / "admin"
 SHARED_LOGS = ROOT / "shared_logs"
+# Read-only community plugin registry. One reviewed package JSON file per
+# plugin; the desktop lists and installs from here.
+PLUGIN_REGISTRY = Path(
+    os.environ.get("BEEMUU_PLUGIN_REGISTRY_DIR", str(ROOT / "src" / "plugins" / "registry"))
+)
 
 # Cookie name for the admin session. Limit to safe ASCII; auth.lookup_session
 # treats anything it can't find as None, so a hostile cookie value is harmless.
@@ -417,6 +422,14 @@ class Handler(BaseHTTPRequestHandler):
                 return
             slug = tail
             self._handle_schematic_by_slug(slug)
+            return
+        # Read-only community plugin registry (list + per-id install manifest).
+        if parsed.path == "/api/plugins":
+            self._handle_plugins_list(parse_qs(parsed.query))
+            return
+        if parsed.path.startswith("/api/plugins/"):
+            plugin_id = parsed.path[len("/api/plugins/"):].strip().strip("/")
+            self._handle_plugin_by_id(plugin_id)
             return
         # Shared log viewer — read-only, no auth, id = sha256 of CSV
         if parsed.path == "/api/logs":
@@ -1032,6 +1045,38 @@ class Handler(BaseHTTPRequestHandler):
             db_path, series=series, system=system, q=q, limit=limit
         )
         self._json({"count": len(rows), "results": rows})
+
+    def _handle_plugins_list(self, query: dict) -> None:
+        def _first(key: str) -> str | None:
+            v = query.get(key)
+            return v[0] if v else None
+
+        q = _first("q")
+        kind = _first("kind")
+        if kind is not None and kind not in {"data", "tool"}:
+            self._json({"error": f"unknown kind {kind!r}"}, status=400)
+            return
+        limit_raw = _first("limit")
+        try:
+            limit = int(limit_raw) if limit_raw else 100
+        except ValueError:
+            self._json({"error": "limit must be an integer"}, status=400)
+            return
+        rows = plugins_registry.list_plugins(
+            PLUGIN_REGISTRY, q=q, kind=kind, limit=limit
+        )
+        self._json({"count": len(rows), "results": rows})
+
+    def _handle_plugin_by_id(self, plugin_id: str) -> None:
+        plugin_id = plugin_id.strip()
+        if not plugin_id:
+            self._json({"error": "plugin id is required"}, status=400)
+            return
+        result = plugins_registry.get_plugin(PLUGIN_REGISTRY, plugin_id)
+        if result is None:
+            self._json({"error": "not found", "id": plugin_id}, status=404)
+            return
+        self._json(result)
 
     def _handle_dtc_schematics(self, code: str, query: dict) -> None:
         # Cross-link lookup: given a DTC code, return every schematic that

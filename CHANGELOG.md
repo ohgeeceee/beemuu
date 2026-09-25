@@ -101,27 +101,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A (analysis, data, a11y)
 
-- **Live Gauges panel: six more dials** (intake air temp, engine load,
-  manifold pressure, oil pressure, outside temp, engine torque) — the values
-  the v0.19 CAN decoders produce but the panel never rendered. Now that the
-  data path reaches the cache, the extra broadcast values are visible instead
-  of decoded-and-hidden. Panel goes from 8 to 14 dials; the 3-column grid
-  wraps, and a test pins that the markup, the definitions and the decoders
-  agree. `gear` stays an enum (status readout, not a dial), and the public
-  beemuu.com demo keeps its six core gauges.
-- **Live Gauges panel: status readout for gear + the flag keys** — a compact
-  text line under the dial grid (Gear · Cruise on · A/C on · ABS active · A/C
-  request) fed from the source's live cache. The four boolean flag keys were
-  decoded and cached but never surfaced anywhere; gear was decoded but shown
-  nowhere. Pure formatter (`liveStatusText`) + 4 tests.
-- **K+DCAN had no gear or engine-state readout** (Tier A): on the DID path the
-  backend reports those params as enum *labels* (`text`), and the bridge
-  dropped every text value — so the status line above was empty on K+DCAN
-  cars while working on CAN broadcast. The bridge now keeps labels in a
-  separate cache (`latestText()`, surfaced through the K+DCAN source), and the
-  readout prefers the label over the numeric gear when both exist. Combined
-  with the vehicle-speed mapping fix, an E-series session now reads
-  `Gear D3 · Running` instead of an em dash.
+- **Plugin ecosystem (Phase 1 of VISION.md)**: package API 2 (multi-file
+  tools via a `files` map + `entry`, backward compatible with v1 and compiled
+  to the same sandboxed worker code), a read-only community plugin registry
+  (`backend/plugins_registry.py` + `/api/plugins` endpoints serving reviewed
+  packages from `src/plugins/registry/`), and a desktop "Discover from the
+  community registry" section that stages a package for review before install.
+  Added `VISION.md` (three-pillar strategy: ecosystem, differentiating
+  features, tuning). Tests: `plugins.test.js` (9), `test_plugins_registry.py`
+  (16), and the Playwright plugin browser suite extended to cover the v2
+  bundle and the registry flow.
+- **Predictive CBS Timeline (Phase 2 of VISION.md)**: a new "Service timeline
+  (Predictive CBS)" panel in Vehicle Info predicts when each Condition Based
+  Service item will actually be due. `cbs_predict.js` is a pure prediction
+  engine (BMW wear models, measured-wear extrapolation from saved snapshots,
+  driving-profile scaling); `cbs_ui.js` renders inputs and a sorted timeline
+  and persists snapshots in localStorage so the estimate learns the owner's
+  real wear rate. i18n in en/de/fr. Tests: `cbs_predict.test.cjs` (11) +
+  Playwright browser check (`scripts/test-cbs-browser.cjs`).
+- **Wiring Detective (Phase 2 of VISION.md)**: for fault codes tied to a
+  sensor/actuator, an expandable card under the fault row shows the affected
+  circuit as a readable chain (fuse → ECU pin → component → ground) plus
+  common failure points. `wiring_detect.js` is a pure, dependency-free lookup
+  (mirrors `dtc_confidence.js`); community data lives in
+  `community/wiring/*.toml`. Tests: `wiring_detect.test.cjs` (9) + Playwright
+  browser check (`scripts/test-wiring-browser.cjs`).
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already
