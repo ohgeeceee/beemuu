@@ -1135,7 +1135,7 @@ $("btn-walk-share").addEventListener("click", async () => {
     meta: {
       vehicleLabel: $("info-vin") ? $("info-vin").textContent || "" : "",
       profileName: $("log-profile") ? $("log-profile").value || "" : "",
-      appVersion: "2.1.0",
+      appVersion: "2.2.0",
       exportedAtIso: new Date().toISOString(),
     },
   });
