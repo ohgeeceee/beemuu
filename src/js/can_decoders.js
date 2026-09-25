@@ -503,7 +503,7 @@ const DECODERS = {
   0x0D1: { name: "torque_2", decode: (f) => ({ torqueNm: (f[0] || 0) / 2 }) },
   0x3D0: { name: "climate_status", decode: (f) => ({ acOn: ((f[0] || 0) & 0x01) !== 0 }) },
   0x2C2: { name: "coolant_2", decode: (f) => ({ coolant2: (f[0] || 0) - 48 }) },
-  0x1D2: { name: "ambient_2", decode: (f) => ({ amb: (f[0] || 0) - 40 }) },
+  0x1D2: { name: "ambient_2", decode: (f) => ({ ambient: (f[0] || 0) - 40 }) },
   0x0B4: { name: "abs_status", decode: (f) => ({ absActive: ((f[0] || 0) & 0x04) !== 0 }) },
   0x3A0: { name: "ac_request", decode: (f) => ({ acRequested: ((f[0] || 0) & 0x80) !== 0 }) },
   0x2D1: { name: "oil_temp_2", decode: (f) => ({ oilTemp2: (f[0] || 0) - 48 }) },
