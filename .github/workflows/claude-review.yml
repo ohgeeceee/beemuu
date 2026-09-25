@@ -61,4 +61,3 @@ jobs:
             the protected paths, request human review and clearly flag the timing risk.
           claude_args: |
             --max-turns 20
-            --allowedTools "Read,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
