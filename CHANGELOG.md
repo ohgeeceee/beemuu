@@ -101,6 +101,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A (analysis, data, a11y)
 
+- **Live Gauges panel: six more dials** (intake air temp, engine load,
+  manifold pressure, oil pressure, outside temp, engine torque) — the values
+  the v0.19 CAN decoders produce but the panel never rendered. Now that the
+  data path reaches the cache, the extra broadcast values are visible instead
+  of decoded-and-hidden. Panel goes from 8 to 14 dials; the 3-column grid
+  wraps, and a test pins that the markup, the definitions and the decoders
+  agree. `gear` stays an enum (status readout, not a dial), and the public
+  beemuu.com demo keeps its six core gauges.
+- **Live Gauges panel: status readout for gear + the flag keys** — a compact
+  text line under the dial grid (Gear · Cruise on · A/C on · ABS active · A/C
+  request) fed from the source's live cache. The four boolean flag keys were
+  decoded and cached but never surfaced anywhere; gear was decoded but shown
+  nowhere. Pure formatter (`liveStatusText`) + 4 tests.
+- **K+DCAN had no gear or engine-state readout** (Tier A): on the DID path the
+  backend reports those params as enum *labels* (`text`), and the bridge
+  dropped every text value — so the status line above was empty on K+DCAN
+  cars while working on CAN broadcast. The bridge now keeps labels in a
+  separate cache (`latestText()`, surfaced through the K+DCAN source), and the
+  readout prefers the label over the numeric gear when both exist. Combined
+  with the vehicle-speed mapping fix, an E-series session now reads
+  `Gear D3 · Running` instead of an em dash.
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already
@@ -157,6 +178,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `freeze::registry()` and collided on address 0x12 when run in
   parallel. Changed non-DME tests to use unique addresses (0x13, 0x14,
   0x15). Verified stable across 5 consecutive parallel runs.
+- **CI green — `dtc_texts.toml` duplicate keys (round 2)**: the v0.17.0
+  DTC expansion added `2A9C` and `2E87` to the VANOS block without
+  removing the older, shorter MISC-block entries, so the shipped file
+  was still invalid TOML and `shipped_dtc_texts_parse_and_nonempty`
+  could not parse it (`Cannot overwrite a value`). Removed the two
+  stale texts and kept the newer, richer ones. Verified with a TOML
+  1.0 parser.
+- **CI green — v0.19 CAN decoders were never registered**: the v0.19
+  slice added 15 broadcast frames to `live_can_source.js` and 17 keys
+  to `KNOWN_GAUGE_KEYS`, but `can_decoders.js` kept no `DECODERS`
+  entries for them, so `decodeFor()` returned `null` for every one of
+  them and the v0.19 decoder test failed. Registered 14 decoders
+  (intake temp 0x2C4, engine load 0x1A0, cruise 0x3B8, fuel rail
+  0x0F4, MAP 0x1D1, oil pressure 0x2D0, ext temp 0x3E0, IAT+MAP
+  0x2C0, torque 0x0D1, A/C on 0x3D0, coolant 2 0x2C2, ABS 0x0B4, A/C
+  request 0x3A0, oil temp 2 0x2D1) with named scale constants and
+  CAN-ID exports, following the existing per-ID pattern. A simulator
+  tick now populates 17 gauge keys (was 7). `0x1D2` (`amb`) plus the
+  `fan` / `blower` keys stay intentionally unmapped — no byte layout
+  we can defend without a real-car capture.
+- **CI green — simulator parity drift (round 2)**: `frontend/live_gauges.js`
+  was 15 frames behind the desktop simulator, so the three public-site
+  parity tests failed. Added the v0.19 frames byte-identically.
+- **Stale duplicate health-report test**: `print_reports.test.js` had
+  two tests for the same feature with contradictory expectations
+  (`Recurring DTCs` / `2A82 seen 3x` vs. the shipped `Recurring
+  faults` / `seen 3×`). Removed the stale one, which also called
+  `buildHealthReport` with a fifth argument the signature does not
+  take — the only production caller passes `recurring` fourth.
+- **Stray `tauri` npm dependency**: `package.json` had picked up a
+  `dependencies.tauri: ^0.15.0` entry (an unrelated, deprecated npm
+  package) with no source importing it. Reverted `package.json` and
+  the `package-lock.json` churn that came with it.
+- **Three Live Gauges dials never moved** (Tier A): `can_decoders.js` returned a
+  bare number for `0x545` oil temp, `0x130` vehicle speed and `0x316` battery
+  voltage, but the live-values cache merges by reading `decoded[key]`
+  (`live_can_source.js::mergeDecoded`), so those three values were dropped on
+  every tick — on real cars as much as the simulator, since both sources share
+  the merge. The dispatch table now returns a map for all three (matching what
+  the v0.16.0 fuel-level / lambda decoders and the public-site mirror already
+  did), `KNOWN_GAUGE_KEYS` gained the two decoded keys it was missing
+  (`ambient`, `fuelRail_kPa` — the 0x1D0 and 0x0F4 values were dropped too),
+  and the cache now keeps the four boolean flag keys it declared. A simulator
+  tick fills every simulated dial; before, three of them sat at their minimum
+  forever.
 
 ### Fixed — Tier B (K+DCAN transport)
 
