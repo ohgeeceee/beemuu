@@ -24,6 +24,45 @@ const TESTER: u8 = 0xF4;
 const CTRL_DIAG: u16 = 0x0001;
 const CTRL_ACK: u16 = 0x0002;
 
+/// HSFZ error control words (Wireshark `packet-hsfz.c`, Scapy `hsfz.py`).
+/// The gateway answers a diagnostic request with one of these instead of a
+/// `0x0001` response when it refuses the message. Each carries a payload
+/// that explains the refusal (see `describe_error_word`).
+const CTRL_ERR_INCORRECT_TESTER_ADDRESS: u16 = 0x0040;
+const CTRL_ERR_INCORRECT_CONTROL_WORD: u16 = 0x0041;
+const CTRL_ERR_INCORRECT_FORMAT: u16 = 0x0042;
+const CTRL_ERR_INCORRECT_DEST_ADDRESS: u16 = 0x0043;
+const CTRL_ERR_MESSAGE_TOO_LARGE: u16 = 0x0044;
+const CTRL_ERR_DIAG_APP_NOT_READY: u16 = 0x0045;
+const CTRL_ERR_OUT_OF_MEMORY: u16 = 0x00FF;
+
+/// Human wording for an HSFZ error control word, plus the payload bytes the
+/// gateway sent. `incorrect_tester_address` (0x40) carries
+/// `[expected, received]`; `incorrect_dest_address` (0x43) carries
+/// `[source, target]`; the rest carry no addressing.
+fn describe_error_word(ctrl: u16, data: &[u8]) -> String {
+    let name = match ctrl {
+        CTRL_ERR_INCORRECT_TESTER_ADDRESS => "incorrect tester address",
+        CTRL_ERR_INCORRECT_CONTROL_WORD => "incorrect control word",
+        CTRL_ERR_INCORRECT_FORMAT => "incorrect format",
+        CTRL_ERR_INCORRECT_DEST_ADDRESS => "incorrect destination address",
+        CTRL_ERR_MESSAGE_TOO_LARGE => "message too large",
+        CTRL_ERR_DIAG_APP_NOT_READY => "diagnostic application not ready",
+        CTRL_ERR_OUT_OF_MEMORY => "out of memory",
+        _ => "unknown error",
+    };
+    let detail = match ctrl {
+        CTRL_ERR_INCORRECT_TESTER_ADDRESS if data.len() >= 2 => {
+            format!(" (expected tester 0x{:02X}, got 0x{:02X})", data[0], data[1])
+        }
+        CTRL_ERR_INCORRECT_DEST_ADDRESS if data.len() >= 2 => {
+            format!(" (source 0x{:02X}, target 0x{:02X})", data[0], data[1])
+        }
+        _ => String::new(),
+    };
+    format!("HSFZ 0x{ctrl:04X} {name}{detail}")
+}
+
 /* ---------------- DoIP discovery (ISO 13400-2, UDP 13400) ---------------- */
 
 /// TCP port the ZGW speaks HSFZ on — what a discovered target connects to.
@@ -164,8 +203,9 @@ pub fn resolve_addr(addr: &str, auto_discover: bool) -> Result<String> {
         }
         if addr.trim().is_empty() {
             return Err(TransportError::Io(
-                "DoIP discovery found no vehicle — check the ENET cable, \
-                 or enter the car's IP manually (typically 169.254.x.x)"
+                "DoIP discovery found no vehicle. F-series cars do not answer \
+                 DoIP discovery (UDP 13400) — they speak HSFZ on TCP 6801 \
+                 only — so enter the car's IP manually (typically 169.254.x.x)"
                     .into(),
             ));
         }
@@ -233,13 +273,40 @@ impl Transport for EnetTransport {
             .write_all(&msg)
             .map_err(|e| TransportError::Io(e.to_string()))?;
 
+        // Frames we saw but that were not the ECU's diagnostic answer. If the
+        // gateway refuses the request it answers with an *error* control word
+        // (0x0040..0x00FF) — that is the reason, not a timeout, so surface it
+        // instead of silently discarding it and waiting out the 3 s deadline
+        // (issue #248: "0 Control Units Found" with no explanation).
+        let mut seen: Vec<String> = Vec::new();
         loop {
-            let (ctrl, data) = self.read_msg()?;
+            let (ctrl, data) = match self.read_msg() {
+                Ok(v) => v,
+                Err(TransportError::Timeout) => {
+                    return Err(if seen.is_empty() {
+                        TransportError::Timeout
+                    } else {
+                        TransportError::BadFrame(format!(
+                            "no diagnostic response within 3 s; gateway sent only: {}",
+                            seen.join(", ")
+                        ))
+                    });
+                }
+                Err(e) => return Err(e),
+            };
             if ctrl == CTRL_ACK {
                 continue; // gateway ack of our own message
             }
+            if ctrl >= CTRL_ERR_INCORRECT_TESTER_ADDRESS
+                && (ctrl <= CTRL_ERR_DIAG_APP_NOT_READY || ctrl == CTRL_ERR_OUT_OF_MEMORY)
+            {
+                return Err(TransportError::GatewayRejected(describe_error_word(ctrl, &data)));
+            }
             if ctrl != CTRL_DIAG || data.len() < 3 {
-                continue; // keep-alive or unrelated
+                // keep-alive, terminal-15, vehicle-ident, or an unrelated
+                // frame: remember it for the timeout diagnostic, keep waiting
+                seen.push(format!("0x{ctrl:04X}"));
+                continue;
             }
             let uds = &data[2..];
             // UDS responsePending (7F xx 78): keep waiting
@@ -367,5 +434,94 @@ mod tests {
     #[test]
     fn resolve_addr_errors_when_empty_and_not_auto() {
         assert!(resolve_addr("", false).is_err());
+    }
+
+    /// Build one HSFZ wire frame: [len:u32 BE][ctrl:u16 BE][data...].
+    fn hsfz_frame(ctrl: u16, data: &[u8]) -> Vec<u8> {
+        let mut f = Vec::with_capacity(data.len() + 6);
+        f.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        f.extend_from_slice(&ctrl.to_be_bytes());
+        f.extend_from_slice(data);
+        f
+    }
+
+    /// A fake ZGW that reads one request then writes the given frames.
+    fn fake_gateway(frames: Vec<Vec<u8>>) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut hdr = [0u8; 6];
+                let _ = stream.read_exact(&mut hdr); // request header
+                let len = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]) as usize;
+                let mut body = vec![0u8; len];
+                let _ = stream.read_exact(&mut body); // request body
+                for f in frames {
+                    let _ = stream.write_all(&f);
+                }
+                // Hold the connection open so a client that got no answer
+                // hits its read timeout (a real ZGW never closes on us).
+                std::thread::sleep(Duration::from_secs(5));
+            }
+        });
+        addr
+    }
+
+    #[test]
+    fn describe_error_word_names_and_addresses() {
+        let s = describe_error_word(CTRL_ERR_INCORRECT_DEST_ADDRESS, &[0xF4, 0x12]);
+        assert!(s.contains("incorrect destination address"), "{s}");
+        assert!(s.contains("0x12"), "{s}");
+        let s = describe_error_word(CTRL_ERR_INCORRECT_TESTER_ADDRESS, &[0xF4, 0xE0]);
+        assert!(s.contains("expected tester 0xF4"), "{s}");
+        assert!(s.contains("got 0xE0"), "{s}");
+        let s = describe_error_word(CTRL_ERR_OUT_OF_MEMORY, &[]);
+        assert!(s.contains("out of memory"), "{s}");
+    }
+
+    /// The regression for issue #248: a gateway *refusal* must surface as a
+    /// descriptive error, not be silently discarded into a 3 s timeout.
+    #[test]
+    fn gateway_error_word_is_reported_not_swallowed() {
+        // 0x0043 incorrect destination address, payload [source, target]
+        let addr = fake_gateway(vec![hsfz_frame(CTRL_ERR_INCORRECT_DEST_ADDRESS, &[0xF4, 0x12])]);
+        let mut t = EnetTransport::open(&addr).expect("connect");
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).unwrap_err();
+        match err {
+            TransportError::GatewayRejected(msg) => {
+                assert!(msg.contains("incorrect destination address"), "{msg}");
+                assert!(msg.contains("0x12"), "{msg}");
+            }
+            other => panic!("expected GatewayRejected, got {other:?}"),
+        }
+    }
+
+    /// Happy path is unchanged: an ACK (0x0002) is skipped, then the ECU's
+    /// 0x0001 response is returned with the src/tgt bytes stripped.
+    #[test]
+    fn ack_then_diag_response_returns_uds() {
+        let ack = hsfz_frame(CTRL_ACK, &[0xF4, 0x12]);
+        let resp = hsfz_frame(CTRL_DIAG, &[0x12, 0xF4, 0x62, 0xF1, 0x90, 0x57, 0x42, 0x41]);
+        let addr = fake_gateway(vec![ack, resp]);
+        let mut t = EnetTransport::open(&addr).expect("connect");
+        let uds = t.request(0x12, &[0x22, 0xF1, 0x90]).expect("response");
+        assert_eq!(uds, vec![0x62, 0xF1, 0x90, 0x57, 0x42, 0x41]);
+    }
+
+    /// An unrelated frame (alive-check 0x0012) is no longer *silently*
+    /// discarded: if the real answer never comes, the timeout names what the
+    /// gateway did send instead of a bare "Timeout".
+    #[test]
+    fn unrelated_frame_then_timeout_names_it() {
+        let addr = fake_gateway(vec![hsfz_frame(0x0012, &[0x12, 0xF4])]);
+        let mut t = EnetTransport::open(&addr).expect("connect");
+        let err = t.request(0x12, &[0x22, 0xF1, 0x90]).unwrap_err();
+        match err {
+            TransportError::BadFrame(msg) => {
+                assert!(msg.contains("gateway sent only"), "{msg}");
+                assert!(msg.contains("0x0012"), "{msg}");
+            }
+            other => panic!("expected BadFrame naming the frame, got {other:?}"),
+        }
     }
 }
