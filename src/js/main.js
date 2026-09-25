@@ -1118,7 +1118,7 @@ $("btn-walk-share").addEventListener("click", async () => {
     meta: {
       vehicleLabel: $("info-vin") ? $("info-vin").textContent || "" : "",
       profileName: $("log-profile") ? $("log-profile").value || "" : "",
-      appVersion: "0.16.0",
+      appVersion: "2.1.0",
       exportedAtIso: new Date().toISOString(),
     },
   });
@@ -1133,6 +1133,50 @@ $("btn-walk-share").addEventListener("click", async () => {
     log("Walkthrough saved: " + path);
   } catch (e) {
     log("Walkthrough export failed: " + e);
+  }
+});
+
+// v0.17.2 slice — JSON snapshot export. Mirrors the HTML share handler
+// above but emits the machine-readable snapshot (buildSnapshotJson) so a
+// user can hand a walkthrough to the Snapshot Compare tool or a script.
+$("btn-walk-json").addEventListener("click", async () => {
+  if (!walkPlan) { log("No walkthrough loaded yet."); return; }
+  if (!window.beeemuuWalkthroughBundle || !window.beeemuuWalkthroughBundle.buildSnapshotJson) {
+    log("Walkthrough bundle module not loaded.");
+    return;
+  }
+  let freezeFrame = [];
+  try {
+    const lookup = window.beeemuuWalkFreeze && window.beeemuuWalkFreeze.lookupFreezeFrame;
+    freezeFrame = lookup
+      ? lookup({ dtcs: lastDtcs, modules, address: selectedAddress, code: walkPlan.dtc })
+      : [];
+  } catch (_) { /* best-effort */ }
+  const json = window.beeemuuWalkthroughBundle.buildSnapshotJson({
+    plan: walkPlan,
+    walkAnswers: walkAnswers.slice(),
+    freezeFrame,
+    logSnippet: window.beeemuuWalkthroughBundle.snippetFromLogSeries
+      ? window.beeemuuWalkthroughBundle.snippetFromLogSeries(logSeries)
+      : [],
+    meta: {
+      vehicleLabel: $("info-vin") ? $("info-vin").textContent || "" : "",
+      profileName: $("log-profile") ? $("log-profile").value || "" : "",
+      appVersion: "2.2.0",
+      exportedAtIso: new Date().toISOString(),
+    },
+  });
+  if (!json) { log("Failed to build walkthrough JSON snapshot."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const safeDtc = (walkPlan.dtc || "unknown").replace(/[^A-Za-z0-9_-]/g, "_");
+  try {
+    const path = await invoke("export_text", {
+      filename: `beeemuu-walkthrough-${safeDtc}-${stamp}.json`,
+      content: json,
+    });
+    log("Walkthrough JSON saved: " + path);
+  } catch (e) {
+    log("Walkthrough JSON export failed: " + e);
   }
 });
 
@@ -1161,11 +1205,15 @@ async function loadTestPlan(code) {
       body.innerHTML = "<span class='muted'>No guided test plan curated for this DTC yet. Contribute one via docs/testplans.md.</span>";
       const share = $("btn-walk-share");
       if (share) share.disabled = true;
+      const jsonBtn = $("btn-walk-json");
+      if (jsonBtn) jsonBtn.disabled = true;
       return;
     }
     walkPlan = plan;
     const share = $("btn-walk-share");
     if (share) share.disabled = false;
+    const jsonBtn = $("btn-walk-json");
+    if (jsonBtn) jsonBtn.disabled = false;
     renderWalkStep();
   } catch (e) {
     body.innerHTML = `<span class='muted'>No guided test plan available: ${escapeHtml(String(e))}</span>`;

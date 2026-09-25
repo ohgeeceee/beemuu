@@ -155,7 +155,7 @@
             </div>
           </div>
           <div id="walkthrough-panel" class="walkthrough-panel hidden">
-            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span><span id="walkthrough-verified" class="walkthrough-verified hidden"></span><button id="btn-walk-share" class="btn btn-small walkthrough-share-btn" disabled title="Export the current walkthrough as a self-contained HTML file">Share walkthrough</button></div>
+            <div class="walkthrough-head">🧭 Guided fault finding <span id="walkthrough-code"></span><span id="walkthrough-verified" class="walkthrough-verified hidden"></span><button id="btn-walk-share" class="btn btn-small walkthrough-share-btn" disabled title="Export the current walkthrough as a self-contained HTML file">Share walkthrough</button><button id="btn-walk-json" class="btn btn-small walkthrough-share-btn" disabled data-i18n="export_json" title="Export the current walkthrough as machine-readable JSON">Export JSON</button></div>
             <div id="walkthrough-body" class="walkthrough-body">
               <span class="muted">Click a DTC row to start a guided test plan, where one exists.</span>
             </div>
@@ -227,7 +227,14 @@
           <div class="gauge-cell"><canvas data-live-can-gauge="throttle"></canvas><div class="gauge-label">Throttle</div><div class="gauge-peak" data-live-can-peak="throttle">—</div></div>
           <div class="gauge-cell"><canvas data-live-can-gauge="fuelLevel"></canvas><div class="gauge-label">Fuel level</div><div class="gauge-peak" data-live-can-peak="fuelLevel">—</div></div>
           <div class="gauge-cell"><canvas data-live-can-gauge="lambda"></canvas><div class="gauge-label">Lambda</div><div class="gauge-peak" data-live-can-peak="lambda">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="intakeTemp"></canvas><div class="gauge-label">Intake air temp</div><div class="gauge-peak" data-live-can-peak="intakeTemp">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="load"></canvas><div class="gauge-label">Engine load</div><div class="gauge-peak" data-live-can-peak="load">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="map_kPa"></canvas><div class="gauge-label">Manifold pressure</div><div class="gauge-peak" data-live-can-peak="map_kPa">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="oilPress_bar"></canvas><div class="gauge-label">Oil pressure</div><div class="gauge-peak" data-live-can-peak="oilPress_bar">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="extTemp"></canvas><div class="gauge-label">Outside temp</div><div class="gauge-peak" data-live-can-peak="extTemp">—</div></div>
+          <div class="gauge-cell"><canvas data-live-can-gauge="torqueNm"></canvas><div class="gauge-label">Engine torque</div><div class="gauge-peak" data-live-can-peak="torqueNm">—</div></div>
         </div>
+        <div class="live-can-status-line" data-live-can-status-line>—</div>
       </div>
     </section>
 

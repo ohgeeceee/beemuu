@@ -100,6 +100,7 @@ test("v0.19 additional decoders (intake, load, cruise, fuel rail + more)", () =>
   assert.ok(dec.decodeFor(0x0D1, [0x64]).torqueNm > 0);
   assert.equal(dec.decodeFor(0x3D0, [1]).acOn, true);
   assert.equal(dec.decodeFor(0x2C2, [0x60]).coolant2, 48);
+  assert.equal(dec.decodeFor(0x1D2, [0x2D]).ambient, 5);
   assert.equal(dec.decodeFor(0x0B4, [4]).absActive, true);
   assert.equal(dec.decodeFor(0x3A0, [0x80]).acRequested, true);
   assert.equal(dec.decodeFor(0x2D1, [0x50]).oilTemp2, 32);
