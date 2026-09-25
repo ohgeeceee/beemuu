@@ -44,17 +44,16 @@
       { id: 0x0D0, data: [0, 100, 0, 0, 0, 0, 0, 0] },
       { id: 0x1B4, data: [0, 0, 0, 0, 0, 0, 0, 0] },
       { id: 0x0C0, data: [0, 0, 0, 0, 0, 0, 0, 0] },
-      // v0.19/v0.20 additions. Not rendered as public-site gauges either,
-      // but the frame list must stay byte-identical to the desktop
-      // simulator or the parity test fails (and the site silently
-      // advertises a smaller data surface than the app).
-      { id: 0x2C4, data: [0, 80, 0, 0, 0, 0, 0, 0] }, // intake ~40C
-      { id: 0x1A0, data: [0, 0, 180, 0, 0, 0, 0, 0] }, // ~70% load
-      { id: 0x3B8, data: [0x08, 0, 0, 0, 0, 0, 0, 0] }, // cruise active
-      { id: 0x0F4, data: [0x12, 0x34, 0, 0, 0, 0, 0, 0] }, // fuel rail
-      { id: 0x1D1, data: [0x01, 0x90, 0, 0, 0, 0, 0, 0] }, // MAP ~40kPa
-      { id: 0x2D0, data: [0, 0x28, 0, 0, 0, 0, 0, 0] }, // oil ~2 bar
-      { id: 0x3E0, data: [0x2D, 0, 0, 0, 0, 0, 0, 0] }, // ext ~5C
+      // v0.19 expansions — same reason: desktop emits these, so the
+      // public-site simulator must emit the identical byte patterns
+      // (frontend/live_gauges.test.js pins the parity per tick).
+      { id: 0x2C4, data: [0, 80, 0, 0, 0, 0, 0, 0] },
+      { id: 0x1A0, data: [0, 0, 180, 0, 0, 0, 0, 0] },
+      { id: 0x3B8, data: [0x08, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 0x0F4, data: [0x12, 0x34, 0, 0, 0, 0, 0, 0] },
+      { id: 0x1D1, data: [0x01, 0x90, 0, 0, 0, 0, 0, 0] },
+      { id: 0x2D0, data: [0, 0x28, 0, 0, 0, 0, 0, 0] },
+      { id: 0x3E0, data: [0x2D, 0, 0, 0, 0, 0, 0, 0] },
       { id: 0x2C0, data: [0, 70, 0x01, 0x90, 0, 0, 0, 0] },
       { id: 0x0D1, data: [0x64, 0, 0x50, 0, 0, 0, 0, 0] },
       { id: 0x3D0, data: [0x01, 0x01, 0, 0, 0, 0, 0, 0] },
