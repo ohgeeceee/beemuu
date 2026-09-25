@@ -1,7 +1,7 @@
 ---
 title: ""
 author: ""
-date: YYYY-MM-DD
+date: 1970-01-01 # Replace with today's date (YYYY-MM-DD)
 tags: []
 related_dtcs: []
 config_path: ""
