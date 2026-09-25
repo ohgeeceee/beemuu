@@ -94,6 +94,16 @@ function createKdcanSource(bridge, options = {}) {
   }
 
   /**
+   * Get the latest enum labels from the bridge (e.g. `{ gear: "D3" }`).
+   * The Live Gauges status line renders these; they are never dials.
+   *
+   * @returns {Object} — `{ gear: "D3", engine_state: "Running" }`.
+   */
+  function latestText() {
+    return typeof bridge.latestText === "function" ? bridge.latestText() : {};
+  }
+
+  /**
    * Get the current frames-per-second (for the gauge header).
    *
    * @returns {number} — FPS over the last 1-second window.
@@ -113,6 +123,7 @@ function createKdcanSource(bridge, options = {}) {
     start,
     stop,
     latestValues,
+    latestText,
     framesPerSecond,
     applySweepFromTauri,
     resetPeaks,

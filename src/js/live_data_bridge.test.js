@@ -30,6 +30,33 @@ describe("createDIDBridge", () => {
       assert.strictEqual(PARAM_TO_GAUGE.volt, "batteryVoltage");
       assert.strictEqual(PARAM_TO_GAUGE.throttle, "throttle");
     });
+
+    it("accepts the profile's own spelling of the speed param", () => {
+      // Every shipped profile emits `speed` (query obd:0D), never
+      // `vehicleSpeed`. Mapping only the gauge's name left the dial empty.
+      assert.strictEqual(PARAM_TO_GAUGE.speed, "vehicleSpeed");
+    });
+
+    it("every gauge key is reachable from an id the shipped profiles use", () => {
+      // Reads the real profiles: a gauge whose only mapped ids appear in no
+      // profile can never fill, however green the unit tests look.
+      const fs = require("node:fs");
+      const path = require("node:path");
+      const dir = path.join(__dirname, "..", "..", "community", "profiles");
+      const used = new Set();
+      for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".toml"))) {
+        const text = fs.readFileSync(path.join(dir, f), "utf8");
+        for (const block of text.split("[[profile.param]]").slice(1)) {
+          const m = block.match(/^\s*id\s*=\s*"([^"]+)"/m);
+          if (m) used.add(m[1]);
+        }
+      }
+      assert.ok(used.size > 20, "profile scan found too few params to be meaningful");
+      const unreachable = GAUGE_KEYS.filter(
+        (gauge) => !Object.entries(PARAM_TO_GAUGE).some(([id, g]) => g === gauge && used.has(id)),
+      );
+      assert.deepStrictEqual(unreachable, [], "gauge keys no shipped profile can ever fill");
+    });
   });
 
   describe("bridge instance", () => {
@@ -83,6 +110,16 @@ describe("createDIDBridge", () => {
       assert.strictEqual(cached.oilTemp, 98);
     });
 
+    it("fills the speed gauge from a sweep spelled the way profiles spell it", () => {
+      const bridge = createDIDBridge();
+      bridge.applySweep(
+        [{ id: "speed", label: "Vehicle speed", unit: "km/h", value: 88, min: 0, max: 300 }],
+        [],
+      );
+      assert.strictEqual(bridge.latestValues().vehicleSpeed, 88);
+      assert.strictEqual(bridge.peakFor("vehicleSpeed"), 88);
+    });
+
     it("ignores non-gauge params (e.g. iat, load)", () => {
       const bridge = createDIDBridge();
       const values = [
@@ -96,15 +133,25 @@ describe("createDIDBridge", () => {
       assert.strictEqual(Object.keys(cached).length, 0);
     });
 
-    it("ignores enum params (those with text field)", () => {
+    it("keeps enum params as text without turning them into dials", () => {
       const bridge = createDIDBridge();
       const values = [
-        { id: "gear", label: "Gear", unit: "", value: 3, min: 0, max: 6, text: "D" },
+        { id: "gear", label: "Gear", unit: "", value: 3, min: 0, max: 6, text: "D3" },
+        { id: "engine_state", label: "Engine state", unit: "", value: 0, min: 0, max: 4, text: "Running" },
       ];
       bridge.applySweep(values, []);
-      const cached = bridge.latestValues();
-      // gear is not a numeric gauge, skipped.
-      assert.strictEqual(Object.keys(cached).length, 0);
+      // Not dials: latestValues() stays empty.
+      assert.deepStrictEqual(bridge.latestValues(), {});
+      // But the labels are kept for the Live Gauges status line.
+      assert.deepStrictEqual(bridge.latestText(), { gear: "D3", engine_state: "Running" });
+    });
+
+    it("latestText returns a copy, and an unmapped enum id is still kept", () => {
+      const bridge = createDIDBridge();
+      bridge.applySweep([{ id: "dpf_state", label: "DPF", unit: "", value: 1, text: "Regenerating" }], []);
+      const texts = bridge.latestText();
+      texts.dpf_state = "tampered";
+      assert.strictEqual(bridge.latestText().dpf_state, "Regenerating");
     });
 
     it("tracks peaks across sweeps", () => {

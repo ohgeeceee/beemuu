@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A (analysis, data, a11y)
 
+- **Live Gauges panel: six more dials** (intake air temp, engine load,
+  manifold pressure, oil pressure, outside temp, engine torque) — the values
+  the v0.19 CAN decoders produce but the panel never rendered. Now that the
+  data path reaches the cache, the extra broadcast values are visible instead
+  of decoded-and-hidden. Panel goes from 8 to 14 dials; the 3-column grid
+  wraps, and a test pins that the markup, the definitions and the decoders
+  agree. `gear` stays an enum (status readout, not a dial), and the public
+  beemuu.com demo keeps its six core gauges.
+- **Live Gauges panel: status readout for gear + the flag keys** — a compact
+  text line under the dial grid (Gear · Cruise on · A/C on · ABS active · A/C
+  request) fed from the source's live cache. The four boolean flag keys were
+  decoded and cached but never surfaced anywhere; gear was decoded but shown
+  nowhere. Pure formatter (`liveStatusText`) + 4 tests.
+- **K+DCAN had no gear or engine-state readout** (Tier A): on the DID path the
+  backend reports those params as enum *labels* (`text`), and the bridge
+  dropped every text value — so the status line above was empty on K+DCAN
+  cars while working on CAN broadcast. The bridge now keeps labels in a
+  separate cache (`latestText()`, surfaced through the K+DCAN source), and the
+  readout prefers the label over the numeric gear when both exist. Combined
+  with the vehicle-speed mapping fix, an E-series session now reads
+  `Gear D3 · Running` instead of an em dash.
 - **Live Gauges panel: fuel level + lambda** (`feat/live-gauges-fuel-lambda`):
   wired two additional CAN broadcast values (0x2A0 fuel level, 0x3C0
   lambda) into the desktop Live Gauges panel. Both values were already
