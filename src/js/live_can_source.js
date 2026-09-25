@@ -54,7 +54,12 @@ const KNOWN_GAUGE_KEYS = Object.freeze([
   "map_kPa",
   "oilPress_bar",
   "extTemp",
-  "iat", "map", "torqueNm", "acOn", "fan",   "coolant2", "amb", "absActive", "acRequested", "blower", "oilTemp2",
+  "iat", "map", "torqueNm", "acOn", "fan",   "coolant2", "absActive", "acRequested", "blower", "oilTemp2",
+  // Decoded keys that were missing from this list, so the merge dropped
+  // them: the 0x1D0 ambient byte decodes as `ambient` (pinned by
+  // can_decoders.test.js:182 and mirrored in frontend/live_gauges.js), and
+  // 0x0F4 decodes as `fuelRail_kPa` (pinned by can_decoders.test.cjs:96).
+  "ambient", "fuelRail_kPa",
   "fuelLevel", "lambda"
 ]);
 
@@ -116,11 +121,16 @@ function framesAt(t_ms, vehicle_speed_kmh) {
 
 // Decode a single frame and merge its decoded values into the cache.
 // Only known gauge keys are kept, so a decoder that emits `{ rpm, foo }`
-// doesn't pollute the cache with `foo` keys.
+// doesn't pollute the cache with `foo` keys. Numbers feed the dials;
+// booleans are the flag keys (cruiseActive, acOn, absActive,
+// acRequested) — declared gauge keys that must reach the cache too, or
+// the declaration is decorative. NaN, null, strings and nested objects
+// stay out.
 function mergeDecoded(cache, decoded) {
   if (decoded == null || typeof decoded !== "object") return;
   for (const key of KNOWN_GAUGE_KEYS) {
-    if (Number.isFinite(decoded[key])) cache[key] = decoded[key];
+    const value = decoded[key];
+    if (Number.isFinite(value) || typeof value === "boolean") cache[key] = value;
   }
 }
 

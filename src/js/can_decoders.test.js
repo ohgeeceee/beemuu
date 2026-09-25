@@ -182,10 +182,18 @@ test("decodeFor: returns object for multi-value frames (0x0AA, 0x1D0)", () => {
   assert.ok("ambient" in coolantDecoded);
 });
 
-test("decodeFor: returns primitive for single-value frames", () => {
-  assert.equal(d.decodeFor(d.CAN_ID_OIL_TEMP, [0x00, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 88);
-  assert.equal(d.decodeFor(d.CAN_ID_VEHICLE_SPEED, [100, 0, 0, 0, 0, 0, 0, 0]), 50);
-  assert.equal(d.decodeFor(d.CAN_ID_BATTERY, [80, 0, 0, 0, 0, 0, 0, 0]), 14.0);
+test("decodeFor: single-value frames return a one-key map", () => {
+  // The map shape is the dispatch contract: the live-values cache merges by
+  // reading `decoded[key]` (live_can_source.js::mergeDecoded), so a bare
+  // number here is silently dropped and that dial never moves. The v0.16.0
+  // fuel-level / lambda decoders below already returned maps for
+  // single-value frames; these three had not caught up.
+  // Guarded by src/js/test/can_data_surface.test.cjs.
+  assert.deepEqual(d.decodeFor(d.CAN_ID_OIL_TEMP, [0x00, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), { oilTemp: 88 });
+  assert.deepEqual(d.decodeFor(d.CAN_ID_VEHICLE_SPEED, [100, 0, 0, 0, 0, 0, 0, 0]), { vehicleSpeed: 50 });
+  assert.deepEqual(d.decodeFor(d.CAN_ID_BATTERY, [80, 0, 0, 0, 0, 0, 0, 0]), { batteryVoltage: 14.0 });
+  // Wheel speeds stay an array on purpose: KNOWN_GAUGE_KEYS declares no
+  // wheel keys, so there is nothing for the cache to merge.
   assert.deepEqual(d.decodeFor(d.CAN_ID_WHEEL_SPEEDS, [0, 0, 0, 0, 0, 0, 0, 0]), [0, 0, 0, 0]);
 });
 

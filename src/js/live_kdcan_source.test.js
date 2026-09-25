@@ -16,9 +16,29 @@ describe("createKdcanSource", () => {
     assert.strictEqual(typeof source.start, "function");
     assert.strictEqual(typeof source.stop, "function");
     assert.strictEqual(typeof source.latestValues, "function");
+    assert.strictEqual(typeof source.latestText, "function");
     assert.strictEqual(typeof source.framesPerSecond, "function");
     assert.strictEqual(typeof source.applySweepFromTauri, "function");
     assert.strictEqual(typeof source.resetPeaks, "function");
+  });
+
+  it("passes through the enum labels the DID path reports as text", () => {
+    const bridge = createDIDBridge();
+    const source = createKdcanSource(bridge);
+    source.start();
+    source.applySweepFromTauri([
+      { id: "rpm", label: "RPM", unit: "rpm", value: 750, min: 0, max: 8000 },
+      { id: "gear", label: "Gear", unit: "", value: 0, min: 0, max: 6, text: "D3" },
+    ], []);
+    // Numeric cache holds dials only; the label comes through latestText().
+    assert.strictEqual(source.latestValues().rpm, 750);
+    assert.deepStrictEqual(source.latestText(), { gear: "D3" });
+    source.stop();
+  });
+
+  it("latestText degrades to empty when the bridge has no text cache", () => {
+    const source = createKdcanSource({ latestValues: () => ({}), resetPeaks() {} });
+    assert.deepStrictEqual(source.latestText(), {});
   });
 
   it("starts stopped", () => {
