@@ -1,19 +1,33 @@
-/* Beemuu guide theme — light editorial styles for the guide pages.
-   Self-contained: guide pages load ONLY this file (no app.css), so it
-   defines its own palette, base styles, header, footer and layout.
-   landing.css @imports this file to keep the shared chrome in one place. */
+/* beemuu.com guide pages — the stylesheet 16 pages link as /guide.css.
+ *
+ * Those pages had no stylesheet in the repository at all: they reference
+ * /guide.css, the file never existed, and every one of them ships markup with
+ * no inline styles, so on the live site they rendered as unstyled HTML.
+ *
+ * The palette and type scale follow the ones already used inline on 404.html
+ * (accent #1c69d4, body #60646c, light weights, clamp() headings) so the guide
+ * pages and the landing/404 page read as one site. app.css remains the dark
+ * theme for the app-style pages (index.html, dashboard, tools that use it).
+ */
 
 :root {
   color-scheme: light;
-  --bg: #f7f9fc;
-  --panel: #ffffff;
-  --card: #eef2f7;
-  --text: #1a2332;
-  --muted: #5b6b82;
-  --line: #dbe3ee;
-  --accent: #0b6bcb;
-  --accent-ink: #ffffff;
-  --radius: 18px;
+  --bg: #ffffff;
+  --text: #14161a;
+  --muted: #60646c;
+  --line: #e6e8ec;
+  --line-strong: #d3d7de;
+  --accent: #1c69d4;
+  --accent-ink: #14509f;
+  --accent-soft: #eaf1fd;
+  --surface: #f7f9fc;
+  --code-bg: #f4f6f9;
+  --warn: #b26a00;
+  --warn-soft: #fff6e6;
+  --radius: 12px;
+  --wrap: min(1100px, 100%);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -24,6 +38,43 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3, h4 { color: var(--text); line-height: 1.2; }
+h1 { font-weight: 300; letter-spacing: -.03em; }
+h2 { font-size: 1.5rem; margin: 2.5rem 0 .75rem; }
+h3 { font-size: 1.15rem; margin: 1.75rem 0 .5rem; }
+
+p { margin: 0 0 1rem; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.25rem; }
+li { margin: .4rem 0; }
+
+code, pre, kbd, samp { font-family: var(--mono); font-size: .92em; }
+code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: .1em .35em; }
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+pre code { background: none; border: 0; padding: 0; }
+
+hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+
+img, svg { max-width: 100%; height: auto; }
+
+/* ---------- shared chrome: header, footer, skip link ---------- */
+
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.6;
 }
@@ -36,98 +87,110 @@ a { color: var(--accent); }
   left: -9999px;
   top: 0;
   background: var(--accent);
-  color: var(--accent-ink);
-  padding: 8px 16px;
-  border-radius: 0 0 8px 0;
-  text-decoration: none;
-  z-index: 100;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 0 0 var(--radius) 0;
+  z-index: 20;
 }
 .skip-link:focus { left: 0; }
 
-/* Header */
-.site-header {
+.site-header, header.site-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 16px 24px;
-  background: var(--panel);
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px clamp(18px, 4vw, 40px);
   border-bottom: 1px solid var(--line);
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  background: var(--bg);
 }
-.site-header .brand {
+
+.brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  gap: 10px;
   color: var(--text);
-  text-decoration: none;
-  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  font-size: .82rem;
+  text-transform: uppercase;
 }
+.brand:hover { text-decoration: none; color: var(--accent-ink); }
 .brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   background: var(--accent);
-  color: var(--accent-ink);
+  color: #fff;
+  font-size: .8rem;
   font-weight: 800;
+  letter-spacing: 0;
 }
-.site-header nav {
+
+.site-header nav, footer nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 18px;
+  font-size: .85rem;
 }
-.site-header nav a {
+.site-header nav a { color: var(--muted); font-weight: 600; }
+.site-header nav a:hover { color: var(--accent); }
+
+footer {
+  margin-top: 64px;
+  border-top: 1px solid var(--line);
+  padding: 28px clamp(18px, 4vw, 40px);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
   color: var(--muted);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 999px;
+  font-size: .85rem;
 }
-.site-header nav a:hover { color: var(--accent); background: var(--card); }
+footer p { margin: 6px 0 0; max-width: 46ch; }
+footer nav a { color: var(--muted); }
+footer nav a:hover { color: var(--accent); }
+.footer-links { display: flex; flex-wrap: wrap; gap: 16px; }
+.legal { margin: 0; color: var(--muted); font-size: .78rem; }
 
-/* Main shell */
-main { max-width: 1080px; margin: 0 auto; padding: 24px 20px 48px; }
+/* ---------- guide hero ---------- */
 
-/* Hero */
 .guide-hero {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 28px;
-  margin-bottom: 18px;
-}
-.guide-hero h1 {
-  font-size: clamp(28px, 5vw, 44px);
-  line-height: 1.1;
-  margin: 0 0 12px;
-}
-.guide-hero .lede {
-  max-width: 720px;
-  color: var(--muted);
-  font-size: 17px;
-  margin: 0 0 16px;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: clamp(36px, 7vw, 76px) clamp(18px, 4vw, 40px) 8px;
 }
 .breadcrumbs {
-  margin: 0 0 10px;
-  font-size: 13px;
   color: var(--muted);
+  font-size: .8rem;
+  margin: 0 0 14px;
 }
-.breadcrumbs a { color: var(--accent); text-decoration: none; }
+.breadcrumbs a { color: var(--muted); }
+.breadcrumbs a:hover { color: var(--accent); }
+
 .eyebrow {
+  margin: 0 0 10px;
   color: var(--accent);
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-weight: 700;
+  letter-spacing: .18em;
   text-transform: uppercase;
-  font-size: 12px;
-  margin: 0 0 8px;
+  font-size: .72rem;
+}
+
+.guide-hero h1 {
+  font-size: clamp(34px, 5.5vw, 62px);
+  margin: 0 0 18px;
+  max-width: 20ch;
+}
+.lede {
+  font-size: 1.15rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 70ch;
+  margin: 0 0 20px;
 }
 .guide-meta {
   display: flex;

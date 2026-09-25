@@ -1,0 +1,1 @@
+../../../src-tauri/src/data/vin.rs

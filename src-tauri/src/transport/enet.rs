@@ -14,15 +14,82 @@
 //! reassembled diagnostic payload (u32 length field). No FF/CF/FC machinery
 //! is needed here; it lives in `transport::isotp` for raw CAN-class
 //! transports.
+//!
+//! Rejection handling (issue #248, real-car F36/N55 report): the gateway
+//! answers a request it will *not* route with a rejection control word
+//! (0x0040..0x0045, 0x00FF) rather than a diagnostic message. Those frames
+//! used to fall into the same `continue` as keep-alive traffic and were
+//! discarded, so a refused request surfaced only as a generic 3 s
+//! `TransportError::Timeout` with no reason — the reporter's "0 control
+//! units found" on a car that answered ping and TCP 6801 fine.
+//!
+//! This module now names rejections (`TransportError::Rejected`) and, when a
+//! read times out after the gateway sent *only* control words it ignores,
+//! says which ones it saw. The change is deliberately one-directional: it
+//! never alters a success path and never changes what is written to the
+//! socket, so a session that works today cannot start failing because of it.
 
 use super::{Result, Transport, TransportError};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
+/// Tester (diagnostic tool) address we present to the gateway.
 const TESTER: u8 = 0xF4;
 const CTRL_DIAG: u16 = 0x0001;
 const CTRL_ACK: u16 = 0x0002;
+/// Gateway keep-alive. Benign; expected interleaved with a live session.
+const CTRL_ALIVE_CHECK: u16 = 0x0012;
+
+/// ZGW rejection control words (HSFZ). Each tells the user which knob to
+/// turn, which is the whole point of surfacing them.
+const CTRL_ERR_TESTER_ADDR: u16 = 0x0040;
+const CTRL_ERR_CONTROL_WORD: u16 = 0x0041;
+const CTRL_ERR_FORMAT: u16 = 0x0042;
+const CTRL_ERR_DEST_ADDR: u16 = 0x0043;
+const CTRL_ERR_TOO_LARGE: u16 = 0x0044;
+const CTRL_ERR_NOT_READY: u16 = 0x0045;
+const CTRL_ERR_OOM: u16 = 0x00FF;
+
+/// Production read timeout for one HSFZ frame.
+const DEFAULT_READ_TIMEOUT: Duration = Duration::from_millis(3000);
+
+/// Human-readable reason for a gateway rejection control word, or `None`
+/// when the control word is not a rejection.
+fn zgw_rejection_reason(ctrl: u16) -> Option<&'static str> {
+    Some(match ctrl {
+        CTRL_ERR_TESTER_ADDR => "incorrect tester address (this gateway refuses 0xF4)",
+        CTRL_ERR_CONTROL_WORD => "unknown control word",
+        CTRL_ERR_FORMAT => "malformed frame (check the HSFZ length field)",
+        CTRL_ERR_DEST_ADDR => "destination ECU address not reachable on this car",
+        CTRL_ERR_TOO_LARGE => "message too large for the gateway",
+        CTRL_ERR_NOT_READY => "gateway not ready (retry once the car is awake)",
+        CTRL_ERR_OOM => "gateway out of memory",
+        _ => return None,
+    })
+}
+
+/// "control word 0x0012 (keep-alive)" / "control words 0x0012 (keep-alive),
+/// 0x0005" — used to explain a timeout that was not really silence.
+fn describe_control_words(ctrls: &[u16]) -> String {
+    let list = ctrls
+        .iter()
+        .map(|c| match *c {
+            CTRL_ALIVE_CHECK => "0x0012 (keep-alive)".to_string(),
+            // Reached when a diagnostic frame was too short to carry
+            // src+tgt+payload: worth naming, because it means the gateway
+            // answered and we could not use the answer.
+            CTRL_DIAG => "0x0001 (diagnostic frame too short)".to_string(),
+            other => format!("0x{other:04X}"),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    if ctrls.len() == 1 {
+        format!("control word {list}")
+    } else {
+        format!("control words {list}")
+    }
+}
 
 /// HSFZ error control words (Wireshark `packet-hsfz.c`, Scapy `hsfz.py`).
 /// The gateway answers a diagnostic request with one of these instead of a
@@ -220,17 +287,56 @@ pub fn resolve_addr(addr: &str, auto_discover: bool) -> Result<String> {
 
 pub struct EnetTransport {
     stream: TcpStream,
+    read_timeout: Duration,
+    /// Tester address carried in the `src` byte of every frame we send.
+    /// Starts at the standard value and steps to `0xF5` once if the gateway
+    /// refuses `0xF4` (issue #248: some F-series ZGWs want the alternate).
+    tester: u8,
 }
 
 impl EnetTransport {
     pub fn open(addr: &str) -> Result<Self> {
+        Self::open_with(addr, DEFAULT_READ_TIMEOUT)
+    }
+
+    /// Connect with an explicit per-frame read timeout. Split out from
+    /// `open` so tests can drive a scripted gateway without waiting out the
+    /// production deadline.
+    fn open_with(addr: &str, read_timeout: Duration) -> Result<Self> {
         let stream = TcpStream::connect(addr)
             .map_err(|e| TransportError::Io(format!("connect {addr}: {e}")))?;
         stream
-            .set_read_timeout(Some(Duration::from_millis(3000)))
+            .set_read_timeout(Some(read_timeout))
             .map_err(|e| TransportError::Io(e.to_string()))?;
         stream.set_nodelay(true).ok();
-        Ok(Self { stream })
+        let mut transport = Self {
+            stream,
+            read_timeout,
+            tester: TESTER,
+        };
+        transport.send_wakeup()?;
+        Ok(transport)
+    }
+
+    /// Send an ALIVE_CHECK (0x0012) wake-up right after connecting.
+    ///
+    /// Experimental (issue #248): some F-series ZGWs won't route diagnostic
+    /// frames to the CAN side until they have seen one, per the issue's
+    /// attached draft. This is its own commit because it adds a frame to the
+    /// wire on *every* connect — a success-path change — unlike the rest of
+    /// the #248 work, which only turns opaque failures into explained ones.
+    /// Not verified on hardware. Deliberately no sleep after the write: TCP
+    /// preserves order, and the first request already carries its own read
+    /// timeout; if the F36 needs a pause here, add it when we have evidence.
+    fn send_wakeup(&mut self) -> Result<()> {
+        let mut msg = Vec::with_capacity(8);
+        msg.extend_from_slice(&2u32.to_be_bytes()); // len = src + tgt
+        msg.extend_from_slice(&CTRL_ALIVE_CHECK.to_be_bytes());
+        msg.push(self.tester);
+        msg.push(0x00); // gateway
+        self.stream
+            .write_all(&msg)
+            .map_err(|e| TransportError::Io(e.to_string()))
     }
 
     fn read_msg(&mut self) -> Result<(u16, Vec<u8>)> {
@@ -266,7 +372,7 @@ impl Transport for EnetTransport {
         let mut msg = Vec::with_capacity(data_len + 6);
         msg.extend_from_slice(&(data_len as u32).to_be_bytes());
         msg.extend_from_slice(&CTRL_DIAG.to_be_bytes());
-        msg.push(TESTER);
+        msg.push(self.tester);
         msg.push(target);
         msg.extend_from_slice(payload);
         self.stream
