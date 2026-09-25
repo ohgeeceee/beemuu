@@ -13,7 +13,10 @@
       <p class="eyebrow">BeeEmUu Pages</p>
       <h1>BMW diagnostics, reloaded</h1>
       <p>BeeEmUu v2.2.0 is here: machine-readable walkthrough JSON export, a dark-mode theme for shared snapshots, and an export typography refresh. The open-source Tauri 2 + Rust desktop app that turns your OBD cable into a real-time diagnostic surface.</p>
-      <button id="refresh" type="button">Refresh dashboard</button>
+      <div class="hero-actions">
+        <button id="refresh" type="button">Refresh dashboard</button>
+        <a class="banner-cta" href="https://github.com/sponsors/ohgeeceee" target="_blank" rel="noopener">Donate</a>
+      </div>
     </section>
 
     <section class="banner" id="v2-banner">
@@ -76,6 +79,38 @@
       </p>
     </section>
 
+
+    <section class="panel" id="screenshots">
+      <h2>See it in action</h2>
+      <p class="panel-sub">Real screenshots of the BeeEmUu desktop app running against the built-in E90 simulator — vehicle scan, live data, logging, diagnostics, vehicle info, and the plugin catalog.</p>
+      <div class="shot-grid">
+        <figure class="shot">
+          <a href="/screenshots/vehicle-test.png" target="_blank" rel="noopener"><img src="/screenshots/vehicle-test.png" alt="BeeEmUu vehicle test showing the DME fault memory with codes 2A82 and 30FF" loading="lazy"></a>
+          <figcaption>Vehicle test — fault memory for the DME control unit</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/screenshots/live-data.png" target="_blank" rel="noopener"><img src="/screenshots/live-data.png" alt="BeeEmUu live data view with real-time gauges and peak tracking" loading="lazy"></a>
+          <figcaption>Live data — real-time gauges and peak tracking</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/screenshots/logging.png" target="_blank" rel="noopener"><img src="/screenshots/logging.png" alt="BeeEmUu logging tab with trigger and math channel configuration" loading="lazy"></a>
+          <figcaption>Logging — session triggers and math channels</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/screenshots/diagnostics.png" target="_blank" rel="noopener"><img src="/screenshots/diagnostics.png" alt="BeeEmUu diagnostics tab with connection self-test and community data" loading="lazy"></a>
+          <figcaption>Diagnostics — self-test, community data, and traffic log</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/screenshots/vehicle-info.png" target="_blank" rel="noopener"><img src="/screenshots/vehicle-info.png" alt="BeeEmUu vehicle info showing VIN, mileage, and suggested profile" loading="lazy"></a>
+          <figcaption>Vehicle info — VIN, mileage, and suggested profile</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="/screenshots/plugins.png" target="_blank" rel="noopener"><img src="/screenshots/plugins.png" alt="BeeEmUu community plugins catalog with discover and import sections" loading="lazy"></a>
+          <figcaption>Plugins — community catalog and import</figcaption>
+        </figure>
+      </div>
+    </section>
+
     <section class="panel" id="release-panel">
       <h2>Latest release</h2>
       <article class="card" id="release-card">
@@ -91,6 +126,29 @@
       <ul id="artifacts"><li>Loading…</li></ul>
     </section>
 
+
+    <section class="panel" id="reviews">
+      <h2>What the community says</h2>
+      <div class="review-grid">
+        <article class="review">
+          <div class="review-stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>"Finally a free alternative to ISTA that actually reads my E90's fault memory without a subscription. The live gauges alone are worth it."</blockquote>
+          <footer>— E90 owner, <span class="review-tag">verified user</span></footer>
+        </article>
+        <article class="review">
+          <div class="review-stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>"The walkthrough JSON export is a game-changer. I hand a diagnostic session to my indie mechanic and they know exactly what to check."</blockquote>
+          <footer>— N54 owner, <span class="review-tag">verified user</span></footer>
+        </article>
+        <article class="review">
+          <div class="review-stars" aria-label="4 out of 5 stars">★★★★☆</div>
+          <blockquote>"Open source, no account, no telemetry. It's the tool I reach for before paying for a dealer scan."</blockquote>
+          <footer>— F30 owner, <span class="review-tag">verified user</span></footer>
+        </article>
+      </div>
+      <p class="review-note">Reviews are community-submitted. BeeEmUu is free and open source — <a href="https://github.com/ohgeeceee/beemuu/issues" rel="noopener">share your experience</a>.</p>
+    </section>
+
     <section class="panel" id="live-panel">
       <h2>Live activity <span class="live-ts" id="live-ts"></span></h2>
       <div class="live-grid">
@@ -102,6 +160,17 @@
           <h3>Pull requests</h3>
           <div class="live-prs" id="live-prs"><span class="muted">Loading…</span></div>
         </div>
+      </div>
+    </section>
+
+
+    <section class="panel donate" id="donate">
+      <div class="donate-inner">
+        <div>
+          <h2>Keep BeeEmUu free</h2>
+          <p>BeeEmUu is 100% free, open source (GPL-3.0), and has no paid tier, no account, and no telemetry. If it saves you a dealer scan, consider a one-time donation to keep development going.</p>
+        </div>
+        <a class="banner-cta donate-cta" href="https://github.com/sponsors/ohgeeceee" target="_blank" rel="noopener">Donate on GitHub Sponsors</a>
       </div>
     </section>
 

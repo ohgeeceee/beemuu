@@ -2,3 +2,23 @@
 #live-panel .live-ts{font-size:12px;color:var(--muted);font-weight:500;margin-left:10px;font-family:ui-monospace,"SF Mono",Consolas,monospace}#live-panel .live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:8px}#live-panel .live-col h3{margin:0 0 10px;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;font-weight:600}#live-panel .live-commits{list-style:none;margin:0;padding:0}#live-panel .live-commits li{padding:8px 0;border-bottom:1px solid var(--line);color:var(--text);font-size:13px}#live-panel .live-commits li:last-child{border-bottom:0}#live-panel .live-commits .live-sha{font-family:ui-monospace,"SF Mono",Consolas,monospace;color:var(--accent);margin-right:8px;font-size:12px}#live-panel .live-commits .live-author{color:var(--muted);font-size:11px;margin-left:8px}#live-panel .live-prs .live-pr{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--text)}#live-panel .live-prs .live-pr:last-child{border-bottom:0}#live-panel .live-prs .live-pr-num{font-family:ui-monospace,"SF Mono",Consolas,monospace;color:var(--accent);min-width:54px;font-size:12px}#live-panel .live-prs .live-pr-meta{color:var(--muted);font-size:11px;margin-top:2px}#live-panel .live-prs .live-pr-state{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:3px;background:var(--card);border:1px solid var(--line);color:var(--accent);font-weight:700;margin-right:6px}#live-panel .live-prs .live-pr-state.live-pr-merged{color:#3ddc84;border-color:#1a4d2e;background:#0f1f15}#live-panel .live-prs .muted,.live-empty{color:var(--muted);font-style:italic;padding:8px 0}
 
 .banner{margin-top:18px;background:linear-gradient(135deg,#0a2540 0%,#14355c 100%);border:1px solid var(--line);border-radius:24px;padding:24px}.banner-inner{display:flex;flex-wrap:wrap;align-items:center;gap:18px}.banner-tag{flex-shrink:0;background:var(--accent);color:#03111f;font-weight:800;font-size:14px;letter-spacing:.08em;padding:6px 14px;border-radius:999px;text-transform:uppercase}.banner-inner h2{margin:0 0 6px;font-size:20px}.banner-inner p{margin:0;color:var(--muted);font-size:15px;max-width:600px}.banner-inner p a{color:var(--accent);text-decoration:underline}.banner-cta{margin-left:auto;flex-shrink:0;min-height:44px;border:0;border-radius:999px;background:var(--accent);color:#03111f;font-weight:800;padding:0 20px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.panel-sub{color:var(--muted);font-size:15px;max-width:720px;margin:0 0 18px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+.shot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.shot{margin:0;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.shot a{display:block;line-height:0}
+.shot img{width:100%;height:auto;display:block;border-bottom:1px solid var(--line)}
+.shot figcaption{padding:10px 14px;font-size:13px;color:var(--muted)}
+.review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.review{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.review-stars{color:#ffd166;letter-spacing:.12em;font-size:16px}
+.review blockquote{margin:0;color:var(--text);font-size:15px;line-height:1.5;font-style:italic}
+.review footer{color:var(--muted);font-size:13px;margin-top:auto}
+.review-tag{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.review-note{color:var(--muted);font-size:13px;margin:16px 0 0}
+.review-note a{color:var(--accent);text-decoration:underline}
+.donate{margin-top:18px;background:linear-gradient(135deg,#0a2540 0%,#14355c 100%);border:1px solid var(--line);border-radius:24px;padding:24px}
+.donate-inner{display:flex;flex-wrap:wrap;align-items:center;gap:18px}
+.donate-inner h2{margin:0 0 6px;font-size:22px}
+.donate-inner p{margin:0;color:var(--muted);font-size:15px;max-width:640px}
+.donate-cta{margin-left:auto;flex-shrink:0}
