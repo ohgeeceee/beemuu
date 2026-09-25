@@ -252,51 +252,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dependencies.tauri: ^0.15.0` entry (an unrelated, deprecated npm
   package) with no source importing it. Reverted `package.json` and
   the `package-lock.json` churn that came with it.
-- **Three Live Gauges dials never moved** (Tier A): `can_decoders.js` returned a
-  bare number for `0x545` oil temp, `0x130` vehicle speed and `0x316` battery
-  voltage, but the live-values cache merges by reading `decoded[key]`
-  (`live_can_source.js::mergeDecoded`), so those three values were dropped on
-  every tick — on real cars as much as the simulator, since both sources share
-  the merge. The dispatch table now returns a map for all three (matching what
-  the v0.16.0 fuel-level / lambda decoders and the public-site mirror already
-  did), `KNOWN_GAUGE_KEYS` gained the two decoded keys it was missing
-  (`ambient`, `fuelRail_kPa` — the 0x1D0 and 0x0F4 values were dropped too),
-  and the cache now keeps the four boolean flag keys it declared. A simulator
-  tick fills every simulated dial; before, three of them sat at their minimum
-  forever.
-- **Vehicle speed dial never filled on the K+DCAN path** (Tier A): the
-  DID-projection bridge maps profile param IDs to gauge keys, and it mapped
-  `vehicleSpeed` — a spelling no profile uses. Every shipped profile calls that
-  param `speed` (`query = "obd:0D"`, label "Vehicle speed"), so `applySweep`
-  dropped it as "not a gauge param" and the dial stayed empty on real K+DCAN
-  cars while the car was reporting the value. `speed` is now mapped (the
-  `vehicleSpeed` alias stays for out-of-tree profiles), and the bridge's tests
-  now read `community/profiles/*.toml`, so a gauge key no shipped profile can
-  ever fill fails loudly instead of looking like a wiring choice.
-- **The CI gate ran a subset of the JS suite** (Tier A): `ci.yml`'s
-  `test-frontend` job — the one `auto-merge` waits on — ran
-  `node --test src/js/*.test.js`, which misses every
-  `src/js/test/*.test.cjs` (the CAN decoder, snapshot, log-import and
-  vehicle-db suites) and all of `frontend/**` (the public-site simulator
-  parity tests). Both were red on main while that job stayed green, so a
-  Tier A PR could auto-merge over them. It now runs the same command as
-  `test.yml`, on Node 24 (quoted globs need >= 22).
-- **Local Rust verification harness** (`rust-harness/`, Tier A tooling):
-  `cargo test` on the full crate needs Tauri v2's Linux system libraries
-  (glib/gtk/webkit2gtk), which are not installable without root — and when CI
-  is down there is no other gate. The harness compiles the real `protocol`,
-  `data`, `community` and transport modules through relative symlinks against
-  documented stand-ins, and runs ~104 of their tests with plain `cargo`. Runs
-  from a fresh clone; see `rust-harness/README.md`.
-- **Plugins tab could not be recovered from inside the app** (Tier A): if the
-  stored plugin packages are unreadable (corrupted or truncated entry), every
-  install and removal threw "Plugin storage is unavailable. Reload after fixing
-  the storage error" and nothing in the UI could clear the bad entry — reloading
-  does not help, so the only way out was the webview's devtools. The panel now
-  explains the state and offers an explicit **Reset plugin storage** control
-  that deletes the stored packages and lets install work again. Covers the
-  corrupt-storage path in `scripts/test-plugins-browser.cjs`, which previously
-  had no scenario for it.
 
 ### Fixed — Tier B (ENET/HSFZ transport)
 
