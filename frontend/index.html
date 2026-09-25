@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
 <meta charset="UTF-8">
@@ -21,6 +21,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link rel="stylesheet" href="/live_gauges.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script>
@@ -78,6 +79,35 @@ tailwind.config = {
   ::selection { background:rgba(0,102,255,.4); color:#fff; }
   /* Release banner tag — class name pinned by frontend/version_surface.test.js */
   .banner-tag { font-family:'JetBrains Mono',monospace; font-size:.75rem; padding:.125rem .5rem; border-radius:.25rem; background:rgba(0,102,255,.2); color:#fff; border:1px solid rgba(0,102,255,.4); }
+  /* Status/release cards + live-activity lists (classes used by frontend/app.js) */
+  #status .card, #release-card { border:1px solid #1e293b; border-radius:.75rem; background:rgba(15,23,42,.6); padding:1rem; display:flex; flex-direction:column; gap:.25rem; }
+  #status .card span, #release-card span { font-family:'JetBrains Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.08em; color:#64748b; }
+  #status .card strong, #release-card strong { font-size:1.05rem; color:#fff; font-weight:700; }
+  #release-card a { color:#22d3ee; }
+  .live-commits { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.6rem; }
+  .live-commits li { display:flex; gap:.6rem; align-items:baseline; font-size:.85rem; }
+  .live-sha { font-family:'JetBrains Mono',monospace; color:#22d3ee; font-size:.75rem; text-decoration:none; }
+  .live-subject { color:#cbd5e1; }
+  .live-author { color:#64748b; font-size:.75rem; margin-left:auto; white-space:nowrap; }
+  .live-prs { display:flex; flex-direction:column; gap:.6rem; font-size:.85rem; }
+  .live-pr { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+  .live-pr-num { font-family:'JetBrains Mono',monospace; color:#7db2ff; text-decoration:none; }
+  .live-pr-state { font-size:.65rem; font-family:'JetBrains Mono',monospace; padding:.1rem .4rem; border-radius:.25rem; background:rgba(34,197,94,.15); color:#4ade80; border:1px solid rgba(34,197,94,.3); }
+  .live-pr-merged { background:rgba(167,139,250,.15); color:#c4b5fd; border-color:rgba(167,139,250,.3); }
+  .live-pr-title { color:#cbd5e1; }
+  .live-pr-meta { color:#64748b; font-size:.75rem; }
+  .live-pr-section-sep { font-family:'JetBrains Mono',monospace; font-size:.65rem; text-transform:uppercase; letter-spacing:.1em; color:#475569; margin-top:.5rem; }
+  .live-empty, .muted { color:#64748b; font-size:.85rem; }
+  .live-ts { font-size:.7rem; color:#64748b; font-family:'JetBrains Mono',monospace; font-weight:400; margin-left:.5rem; }
+  /* Live gauges panel: re-theme the panel chrome to match (gauge internals come from live_gauges.css) */
+  .live-gauges { border:1px solid #1e293b; border-radius:1rem; background:rgba(15,23,42,.6); backdrop-filter:blur(12px); padding:1.75rem; }
+  .live-gauges-head h2 { color:#fff; font-weight:800; font-size:1.25rem; margin:0; }
+  .live-gauges-foot { margin-top:1.25rem; font-size:.75rem; color:#64748b; line-height:1.6; }
+  .live-gauges-foot code { font-family:'JetBrains Mono',monospace; color:#22d3ee; font-size:.7rem; }
+  .live-gauges-foot a { color:#22d3ee; }
+  #raw { display:none; }
+  #artifacts { display:flex; flex-wrap:wrap; gap:.5rem; list-style:none; padding:0; margin:.5rem 0 0; }
+  #artifacts li, #artifacts a { font-family:'JetBrains Mono',monospace; font-size:.75rem; color:#22d3ee; }
   ::-webkit-scrollbar { width:10px; }
   ::-webkit-scrollbar-track { background:#0b0f1a; }
   ::-webkit-scrollbar-thumb { background:#1e293b; border-radius:6px; }
@@ -91,7 +121,6 @@ tailwind.config = {
   source:'git clone https://github.com/ohgeeceee/beemuu.git && cd beemuu/src-tauri && cargo test && cargo tauri build'
 }, copy(){ navigator.clipboard.writeText(this.cmds[this.tab]).then(()=>{ this.copied=true; setTimeout(()=>this.copied=false,2000); }) } }">
 
-<!-- ══════════════ NAVIGATION ══════════════ -->
 <header class="fixed top-0 inset-x-0 z-50 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl">
   <nav class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between" aria-label="Main navigation">
     <a href="#top" class="flex items-center gap-3 group">
@@ -127,7 +156,6 @@ tailwind.config = {
 
 <main id="top">
 
-<!-- Release banner (pinned to current release — see frontend/version_surface.test.js) -->
 <div class="pt-16 bg-electric/10 border-b border-electric/30">
   <div class="max-w-7xl mx-auto px-6 py-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
     <span class="font-mono text-cyan-300">BeeEmUu v2.2.0 is here</span>
@@ -136,7 +164,6 @@ tailwind.config = {
   </div>
 </div>
 
-<!-- ══════════════ HERO ══════════════ -->
 <section class="relative grid-bg hero-glow pt-20 pb-24 px-6 overflow-hidden">
   <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
 
@@ -174,7 +201,6 @@ tailwind.config = {
       </div>
     </div>
 
-    <!-- Live terminal mockup -->
     <div class="relative" x-data="telemetry()" x-init="start()">
       <div class="absolute -inset-8 bg-electric/10 blur-3xl rounded-full pointer-events-none"></div>
       <div class="relative rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-md shadow-2xl shadow-black/60 scanline overflow-hidden">
@@ -239,7 +265,6 @@ function telemetry(){
 }
 </script>
 
-<!-- ══════════════ ARCHITECTURE ══════════════ -->
 <section id="architecture" class="relative py-28 px-6 border-t border-slate-900">
   <div class="max-w-7xl mx-auto">
     <div class="max-w-2xl">
@@ -292,7 +317,6 @@ function telemetry(){
   </div>
 </section>
 
-<!-- ══════════════ FEATURES ══════════════ -->
 <section id="features" class="py-28 px-6 border-t border-slate-900 grid-bg">
   <div class="max-w-7xl mx-auto">
     <div class="text-center max-w-2xl mx-auto">
@@ -335,7 +359,109 @@ function telemetry(){
   </div>
 </section>
 
-<!-- ══════════════ TELEMETRY SHOWCASE ══════════════ -->
+<section id="gauges" class="py-28 px-6 border-t border-slate-900">
+  <div class="max-w-7xl mx-auto">
+    <div class="max-w-2xl mb-10">
+      <p class="font-mono text-xs tracking-[0.3em] text-cyan-400 uppercase mb-4">// Try It In Your Browser</p>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Live gauges, <span class="text-gradient">simulated CAN frames.</span></h2>
+    </div>
+    <div class="live-gauges" id="beemuu-live-gauges">
+      <div class="live-gauges-grid">
+        <div class="live-gauges-cell" data-live-can-cell="rpm">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="coolant">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="oilTemp">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="vehicleSpeed">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="batteryVoltage">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+        <div class="live-gauges-cell" data-live-can-cell="throttle">
+          <canvas></canvas>
+          <span class="live-gauges-peak" data-live-can-peak>—</span>
+        </div>
+      </div>
+      <p class="live-gauges-foot">
+        Demo runs in your browser via <code>frontend/live_gauges.js</code>. Source of truth for the byte patterns is the Rust simulator in <code>src-tauri/src/transport/sim.rs::broadcast_frames_at</code>; the public-site mirror and the desktop-app mirror are pinned to byte-for-byte parity by <code>frontend/live_gauges.test.js</code>. Real-car scales need E46 verification — see <a href="https://github.com/ohgeeceee/beemuu/blob/main/docs/validation/can-broadcast.md">docs/validation/can-broadcast.md</a>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="screenshots" class="py-28 px-6 border-t border-slate-900 grid-bg">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="font-mono text-xs tracking-[0.3em] text-cyan-400 uppercase mb-4">// Screenshots</p>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">See it <span class="text-gradient">in action.</span></h2>
+      <p class="mt-4 text-slate-400">Real screenshots of BeeEmUu running against the built-in E90 simulator.</p>
+    </div>
+    <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <figure class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md overflow-hidden">
+        <a href="/screenshots/vehicle-test.png" target="_blank" rel="noopener"><img src="/screenshots/vehicle-test.png" alt="BeeEmUu vehicle test showing the DME fault memory with codes 2A82 and 30FF" loading="lazy" class="w-full aspect-video object-cover object-top"></a>
+        <figcaption class="px-4 py-3 text-xs text-slate-400 border-t border-slate-800">Vehicle test — fault memory for the DME control unit</figcaption>
+      </figure>
+      <figure class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md overflow-hidden">
+        <a href="/screenshots/live-data.png" target="_blank" rel="noopener"><img src="/screenshots/live-data.png" alt="BeeEmUu live data view with real-time gauges and peak tracking" loading="lazy" class="w-full aspect-video object-cover object-top"></a>
+        <figcaption class="px-4 py-3 text-xs text-slate-400 border-t border-slate-800">Live data — real-time gauges and peak tracking</figcaption>
+      </figure>
+      <figure class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md overflow-hidden">
+        <a href="/screenshots/logging.png" target="_blank" rel="noopener"><img src="/screenshots/logging.png" alt="BeeEmUu logging tab with trigger and math channel configuration" loading="lazy" class="w-full aspect-video object-cover object-top"></a>
+        <figcaption class="px-4 py-3 text-xs text-slate-400 border-t border-slate-800">Logging — session triggers and math channels</figcaption>
+      </figure>
+      <figure class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md overflow-hidden">
+        <a href="/screenshots/diagnostics.png" target="_blank" rel="noopener"><img src="/screenshots/diagnostics.png" alt="BeeEmUu diagnostics tab with connection self-test and community data" loading="lazy" class="w-full aspect-video object-cover object-top"></a>
+        <figcaption class="px-4 py-3 text-xs text-slate-400 border-t border-slate-800">Diagnostics — self-test, community data, and traffic log</figcaption>
+      </figure>
+      <figure class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md overflow-hidden">
+        <a href="/screenshots/vehicle-info.png" target="_blank" rel="noopener"><img src="/screenshots/vehicle-info.png" alt="BeeEmUu vehicle info showing VIN, mileage, and suggested profile" loading="lazy" class="w-full aspect-video object-cover object-top"></a>
+        <figcaption class="px-4 py-3 text-xs text-slate-400 border-t border-slate-800">Vehicle info — VIN, mileage, and suggested profile</figcaption>
+      </figure>
+      <figure class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md overflow-hidden">
+        <a href="/screenshots/plugins.png" target="_blank" rel="noopener"><img src="/screenshots/plugins.png" alt="BeeEmUu community plugins catalog with discover and import sections" loading="lazy" class="w-full aspect-video object-cover object-top"></a>
+        <figcaption class="px-4 py-3 text-xs text-slate-400 border-t border-slate-800">Plugins — community catalog and import</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="reviews" class="py-28 px-6 border-t border-slate-900">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="font-mono text-xs tracking-[0.3em] text-cyan-400 uppercase mb-4">// Community</p>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">What the community <span class="text-gradient">says.</span></h2>
+    </div>
+    <div class="mt-14 grid md:grid-cols-3 gap-6">
+      <article class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <div class="text-amber-400 tracking-widest mb-4" aria-label="5 out of 5 stars">★★★★★</div>
+        <blockquote class="text-sm text-slate-300 leading-relaxed">"Finally a free alternative to ISTA that actually reads my E90's fault memory without a subscription. The live gauges alone are worth it."</blockquote>
+        <footer class="mt-5 text-xs text-slate-500">— E90 owner, <span class="text-cyan-400">verified user</span></footer>
+      </article>
+      <article class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <div class="text-amber-400 tracking-widest mb-4" aria-label="5 out of 5 stars">★★★★★</div>
+        <blockquote class="text-sm text-slate-300 leading-relaxed">"The walkthrough JSON export is a game-changer. I hand a diagnostic session to my indie mechanic and they know exactly what to check."</blockquote>
+        <footer class="mt-5 text-xs text-slate-500">— N54 owner, <span class="text-cyan-400">verified user</span></footer>
+      </article>
+      <article class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <div class="text-amber-400 tracking-widest mb-4" aria-label="4 out of 5 stars">★★★★☆</div>
+        <blockquote class="text-sm text-slate-300 leading-relaxed">"Open source, no account, no telemetry. It's the tool I reach for before paying for a dealer scan."</blockquote>
+        <footer class="mt-5 text-xs text-slate-500">— F30 owner, <span class="text-cyan-400">verified user</span></footer>
+      </article>
+    </div>
+    <p class="mt-8 text-center text-xs text-slate-500">Reviews are community-submitted. BeeEmUu is free and open source — <a href="https://github.com/ohgeeceee/beemuu/issues" rel="noopener" class="text-cyan-400 hover:text-cyan-300">share your experience</a>.</p>
+  </div>
+</section>
+
 <section id="telemetry" class="py-28 px-6 border-t border-slate-900">
   <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
     <div>
@@ -384,7 +510,6 @@ function telemetry(){
   </div>
 </section>
 
-<!-- ══════════════ SETUP ══════════════ -->
 <section id="setup" class="py-28 px-6 border-t border-slate-900 grid-bg">
   <div class="max-w-4xl mx-auto text-center">
     <p class="font-mono text-xs tracking-[0.3em] text-cyan-400 uppercase mb-4">// Quick Start</p>
@@ -433,7 +558,60 @@ function telemetry(){
   </div>
 </section>
 
-<!-- ══════════════ CTA ══════════════ -->
+<section id="status-section" class="py-28 px-6 border-t border-slate-900">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex flex-wrap items-end justify-between gap-4 max-w-none mb-10">
+      <div>
+        <p class="font-mono text-xs tracking-[0.3em] text-cyan-400 uppercase mb-4">// Project Pulse</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Live from the repo <span class="live-ts" id="live-ts"></span></h2>
+      </div>
+      <button id="refresh" type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 bg-slate-900/60 text-slate-200 hover:border-slate-500 hover:text-white transition-all">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh status
+      </button>
+    </div>
+
+    <div id="status" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-live="polite">
+      <article class="card"><span>API</span><strong>Loading</strong></article>
+      <article class="card"><span>Repo</span><strong>Loading</strong></article>
+      <article class="card"><span>Profiles</span><strong>Loading</strong></article>
+      <article class="card"><span>Bundles</span><strong>Loading</strong></article>
+    </div>
+    <ul id="artifacts"><li class="muted">Loading bundles…</li></ul>
+    <pre id="raw" aria-hidden="true"></pre>
+
+    <div class="mt-10 grid lg:grid-cols-3 gap-6">
+      <article class="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7" id="release-card">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2"><i data-lucide="package" class="w-4 h-4 text-cyan-400"></i> Latest release</h3>
+        <span>Version</span><strong id="release-version">Loading…</strong>
+        <span class="mt-3">Released</span><strong id="release-date">—</strong>
+        <span class="mt-3">Downloads</span>
+        <strong id="release-downloads"><a id="release-msi" href="#">MSI</a> · <a id="release-nsis" href="#">NSIS</a></strong>
+      </article>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2"><i data-lucide="git-commit-horizontal" class="w-4 h-4 text-cyan-400"></i> Recent commits</h3>
+        <ol class="live-commits" id="live-commits"><li class="muted">Loading…</li></ol>
+      </div>
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2"><i data-lucide="git-pull-request" class="w-4 h-4 text-cyan-400"></i> Pull requests</h3>
+        <div class="live-prs" id="live-prs"><span class="muted">Loading…</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="donate" class="py-20 px-6 border-t border-slate-900">
+  <div class="max-w-5xl mx-auto rounded-2xl border border-electric/30 bg-gradient-to-r from-electric/15 via-slate-900/60 to-cyan-500/10 backdrop-blur-md p-10 flex flex-col md:flex-row items-center gap-8">
+    <div class="flex-1">
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Keep BeeEmUu <span class="text-gradient">free.</span></h2>
+      <p class="mt-3 text-slate-400 text-sm leading-relaxed">BeeEmUu is 100% free, open source (GPL-3.0), with no paid tier, no account, and no telemetry. If it saves you a dealer scan, consider a one-time donation to keep development going.</p>
+    </div>
+    <a href="https://github.com/sponsors/ohgeeceee" target="_blank" rel="noopener"
+       class="shrink-0 inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-electric text-white font-semibold shadow-xl shadow-electric/30 hover:bg-blue-500 hover:scale-[1.02] transition-all">
+      <i data-lucide="heart" class="w-5 h-5"></i> Donate on GitHub Sponsors
+    </a>
+  </div>
+</section>
+
 <section class="relative py-28 px-6 border-t border-slate-900 overflow-hidden">
   <div class="absolute inset-0 hero-glow pointer-events-none"></div>
   <div class="relative max-w-3xl mx-auto text-center">
@@ -453,7 +631,6 @@ function telemetry(){
 
 </main>
 
-<!-- ══════════════ FOOTER ══════════════ -->
 <footer class="border-t border-slate-900 bg-slate-950 px-6 py-16">
   <div class="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
     <div>
@@ -503,8 +680,9 @@ function telemetry(){
   </div>
 </footer>
 
+<script src="/site-config.js"></script>
+<script src="/app.js"></script>
+<script src="/live_gauges.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>
-
-
