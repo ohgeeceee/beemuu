@@ -3,51 +3,70 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BeeEmUu — BMW diagnostics, with real-time live gauges</title>
+  <title>BeeEmUu — free, open-source BMW diagnostics</title>
+  <meta name="description" content="BeeEmUu is a free, open-source BMW diagnostic tool for Windows. Read fault memory, live data, and run service functions over K+DCAN (E-series) and ENET/DoIP (F/G-series) — no account, no telemetry, no paid tier.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="BeeEmUu">
+  <meta property="og:title" content="BeeEmUu — free, open-source BMW diagnostics">
+  <meta property="og:description" content="Read fault memory, live data, and run service functions on your BMW with a free, open-source tool. No account, no telemetry, no paid tier.">
+  <meta property="og:url" content="https://beemuu.com/">
+  <meta property="og:image" content="https://beemuu.com/og-image-download.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://beemuu.com/og-image-download.png">
+  <link rel="canonical" href="https://beemuu.com/">
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/live_gauges.css">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"BeeEmUu","applicationCategory":"DeveloperApplication","operatingSystem":"Windows","description":"Free, open-source BMW diagnostics: read fault memory, live data, and service functions over K+DCAN and ENET/DoIP.","license":"https://www.gnu.org/licenses/gpl-3.0.html","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"isAccessibleForFree":true,"sourceOrganization":{"@type":"Organization","name":"BeeEmUu contributors","url":"https://beemuu.com/"}}
+  </script>
 </head>
 <body>
-  <main class="shell">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-nav">
+    <a class="brand" href="/"><span class="brand-mark">B</span>BeeEmUu</a>
+    <nav aria-label="Primary">
+      <a href="#gauges">Live gauges</a>
+      <a href="#features">Features</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="/hardware.html">Hardware</a>
+      <a href="/protocols.html">Protocols</a>
+      <a href="/faq.html">FAQ</a>
+      <a class="nav-cta" href="https://github.com/ohgeeceee/beemuu/releases" rel="noopener">Download</a>
+    </nav>
+  </header>
+
+  <main id="main" class="shell">
     <section class="hero">
-      <p class="eyebrow">BeeEmUu Pages</p>
-      <h1>BMW diagnostics, reloaded</h1>
-      <p>BeeEmUu v2.2.0 is here: machine-readable walkthrough JSON export, a dark-mode theme for shared snapshots, and an export typography refresh. The open-source Tauri 2 + Rust desktop app that turns your OBD cable into a real-time diagnostic surface.</p>
-      <div class="hero-actions">
-        <button id="refresh" type="button">Refresh dashboard</button>
-        <a class="banner-cta" href="https://github.com/sponsors/ohgeeceee" target="_blank" rel="noopener">Donate</a>
-      </div>
-    </section>
-
-    <section class="banner" id="v2-banner">
-      <div class="banner-inner">
+      <p class="eyebrow">Free · Open source · GPL-3.0</p>
+      <div class="hero-tag">
         <span class="banner-tag">v2.2.0</span>
-        <div>
-          <h2>What's new in BeeEmUu 2.2</h2>
-          <p>Walkthrough JSON export, a dark-mode theme for shared snapshots, an export typography refresh, and a freeze-frame schema contract test. See the <a href="/changelog.html">changelog</a> for details.</p>
-        </div>
-        <a class="banner-cta" href="https://github.com/ohgeeceee/beemuu/releases/tag/v2.2.0">Download v2.2.0</a>
+        <span>BeeEmUu v2.2.0 is here — walkthrough JSON export, dark-mode snapshots, and more.</span>
       </div>
-    </section>
-
-    <section id="status" class="grid" aria-live="polite">
-      <article class="card"><span>API</span><strong>Loading</strong></article>
-      <article class="card"><span>Repo</span><strong>Loading</strong></article>
-      <article class="card"><span>Profiles</span><strong>Loading</strong></article>
-      <article class="card"><span>Bundles</span><strong>Loading</strong></article>
+      <h1>BMW diagnostics,<br>on your terms.</h1>
+      <p>BeeEmUu is the open-source alternative to dealer tools. Read fault memory, stream live data, and run service functions on E-series (K+DCAN) and F/G-series (ENET/DoIP) BMWs — with no account required, no telemetry, and no paid tier.</p>
+      <div class="hero-actions">
+        <a class="banner-cta" href="https://github.com/ohgeeceee/beemuu/releases/tag/v2.2.0" rel="noopener">Download v2.2.0</a>
+        <button id="refresh" class="secondary" type="button">Refresh status</button>
+      </div>
+      <div id="status" class="grid stats" aria-live="polite">
+        <article class="card"><span>API</span><strong>Loading</strong></article>
+        <article class="card"><span>Repo</span><strong>Loading</strong></article>
+        <article class="card"><span>Profiles</span><strong>Loading</strong></article>
+        <article class="card"><span>Bundles</span><strong>Loading</strong></article>
+      </div>
     </section>
 
     <section class="panel live-gauges" id="beemuu-live-gauges">
       <div class="live-gauges-head">
         <div>
           <h2>Live Gauges</h2>
-          <p class="live-gauges-tagline">Simulated BMW E-series CAN broadcast frames, decoded live. The desktop app reads these same IDs (0x0AA / 0x1D0 / 0x545 / 0x0CE / 0x130 / 0x316) from the OBDLink SX cable on a real E46.</p>
-        </div>
-        <span class="live-gauges-status" data-live-can-status>
-          <span data-live-can-status-text>Starting…</span>
-          <span class="fps" data-live-can-fps></span>
-        </span>
-      </div>
+          <pThe paste keeps getting truncated because the file is large. Let me finish delivering it — I'll continue index.html from where it cut off, then give you app.css in the next message. Keep pasting into the GitHub web editor.
+
+Continuing frontend/index.html (paste this after the part you already have):
+
+
       <div class="live-gauges-grid">
         <div class="live-gauges-cell" data-live-can-cell="rpm">
           <canvas></canvas>
@@ -79,10 +98,46 @@
       </p>
     </section>
 
+    <section class="panel" id="features">
+      <h2>Everything a dealer tool does — free</h2>
+      <p class="panel-sub">BeeEmUu replaces the most-used diagnostic operations of closed-source dealer software. No subscription, no cloud account, no telemetry — the tool runs entirely on your machine.</p>
+      <div class="feature-grid">
+        <article class="feature">
+          <span class="feature-ico">🔎</span>
+          <h3>Fault memory</h3>
+          <p>Read DME, EGS, DSC, KOMBI and other modules. Freeze frames preserved before you clear anything, with 440+ decoded BMW and SAE codes.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-ico">📈</span>
+          <h3>Live data</h3>
+          <p>Stream real-time CAN broadcast frames with gauges and peak tracking — RPM, coolant and oil temp, vehicle speed, battery voltage, throttle.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-ico">🧰</span>
+          <h3>Service functions</h3>
+          <p>CBS reset, battery registration, steering-angle calibration, DPF regeneration, Valvetronic and EGS adaptation — documented and honest about coverage.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-ico">🔌</span>
+          <h3>K+DCAN &amp; ENET</h3>
+          <p>E-series over K+DCAN (FTDI) and F/G-series over ENET/DoIP. ISO-TP multi-frame reassembly and Tester Present keep-alive handled for you.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-ico">📤</span>
+          <h3>Walkthrough export</h3>
+          <p>Machine-readable JSON export of a diagnostic session, with a dark-mode theme for shared snapshots. Hand a session to a mechanic that reads exactly.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-ico">⚖️</span>
+          <h3>Open source</h3>
+          <p>GPL-3.0. Tauri 2 + Rust core, vanilla-JS UI. Audit every byte of the protocol layer or contribute a community profile on GitHub.</p>
+        </article>
+      </div>
+    </section>
 
     <section class="panel" id="screenshots">
       <h2>See it in action</h2>
-      <p class="panel-sub">Real screenshots of the BeeEmUu desktop app running against the built-in E90 simulator — vehicle scan, live data, logging, diagnostics, vehicle info, and the plugin catalog.</p>
+      <p class="panel-sub">Real screenshots of BeeEmUu running against the built-in E90 simulator — vehicle scan, live data, logging, diagnostics, vehicle info, and the plugin catalog.</p>
       <div class="shot-grid">
         <figure class="shot">
           <a href="/screenshots/vehicle-test.png" target="_blank" rel="noopener"><img src="/screenshots/vehicle-test.png" alt="BeeEmUu vehicle test showing the DME fault memory with codes 2A82 and 30FF" loading="lazy"></a>
@@ -121,12 +176,6 @@
       </article>
     </section>
 
-    <section class="panel">
-      <h2>Build artifacts</h2>
-      <ul id="artifacts"><li>Loading…</li></ul>
-    </section>
-
-
     <section class="panel" id="reviews">
       <h2>What the community says</h2>
       <div class="review-grid">
@@ -149,6 +198,16 @@
       <p class="review-note">Reviews are community-submitted. BeeEmUu is free and open source — <a href="https://github.com/ohgeeceee/beemuu/issues" rel="noopener">share your experience</a>.</p>
     </section>
 
+    <section class="panel donate" id="donate">
+      <div class="donate-inner">
+        <div>
+          <h2>Keep BeeEmUu free</h2>
+          <p>BeeEmUu is 100% free, open source (GPL-3.0), with no paid tier, no account, and no telemetry. If it saves you a dealer scan, consider a one-time donation to keep development going.</p>
+        </div>
+        <a class="banner-cta donate-cta" href="https://github.com/sponsors/ohgeeceee" target="_blank" rel="noopener">Donate on GitHub Sponsors</a>
+      </div>
+    </section>
+
     <section class="panel" id="live-panel">
       <h2>Live activity <span class="live-ts" id="live-ts"></span></h2>
       <div class="live-grid">
@@ -163,15 +222,9 @@
       </div>
     </section>
 
-
-    <section class="panel donate" id="donate">
-      <div class="donate-inner">
-        <div>
-          <h2>Keep BeeEmUu free</h2>
-          <p>BeeEmUu is 100% free, open source (GPL-3.0), and has no paid tier, no account, and no telemetry. If it saves you a dealer scan, consider a one-time donation to keep development going.</p>
-        </div>
-        <a class="banner-cta donate-cta" href="https://github.com/sponsors/ohgeeceee" target="_blank" rel="noopener">Donate on GitHub Sponsors</a>
-      </div>
+    <section class="panel">
+      <h2>Build artifacts</h2>
+      <ul id="artifacts"><li>Loading…</li></ul>
     </section>
 
     <section class="panel">
@@ -179,8 +232,29 @@
       <pre id="raw">Loading…</pre>
     </section>
   </main>
+
+  <footer class="site-footer">
+    <div>
+      <a class="brand" href="/"><span class="brand-mark">B</span>BeeEmUu</a>
+      <p>Independent, free and open-source BMW diagnostic software. Not affiliated with or endorsed by BMW AG.</p>
+    </div>
+    <nav aria-label="Footer">
+      <a href="/hardware.html">Hardware</a>
+      <a href="/protocols.html">Protocols</a>
+      <a href="/faq.html">FAQ</a>
+      <a href="/glossary.html">Glossary</a>
+      <a href="/schematics.html">Schematics</a>
+      <a href="/roadmap/">Roadmap</a>
+      <a href="/oem.html">vs OEM</a>
+      <a href="/community.html">Community</a>
+      <a href="/press.html">Press</a>
+      <a href="https://github.com/ohgeeceee/beemuu" rel="noopener">GitHub</a>
+    </nav>
+  </footer>
+
   <script src="/site-config.js"></script>
   <script src="/app.js"></script>
   <script src="/live_gauges.js"></script>
 </body>
 </html>
+
