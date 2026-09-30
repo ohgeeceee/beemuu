@@ -103,6 +103,13 @@ package.json also exposes narrower scripts: npm run test:histogram
 
 Community TOML/JSON data lint: node scripts/lint-toml.js.
 
+package.json also exposes narrower scripts: `npm run test:histogram`
+(`node --test src/js/*.test.js`) and `npm run test:js`
+(`node --test src/js/test/*.test.cjs`), plus `npm run dev` / `npm run build`
+(wrapping `tauri dev` / `tauri build`).
+
+Community TOML/JSON data lint: `node scripts/lint-toml.js`.
+
 On Linux (CI and bare machines) you must install Tauri system dependencies
 before cargo test:
 
