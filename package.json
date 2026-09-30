@@ -12,6 +12,6 @@
     "test:js": "node --test src/js/test/*.test.cjs"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0"
+    "@tauri-apps/cli": "^2.11.5"
   }
 }
