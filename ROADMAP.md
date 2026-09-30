@@ -1043,4 +1043,34 @@ Tier A (pure data + UI). See `VISION.md` §3 Phase 2.
 
 ---
 
-## v0.19.0 — "Report Clarity" (In Progress)
+## v0.19.0 — \"Report Clarity\" (Superseded)
+
+**Note:** This cycle was never started. The project jumped from v0.14.x to v2.0.0 "Next Generation" (2026-09-18), bypassing the v0.15–v0.19 cycle numbers. The v0.19.0 header is retained for historical reference only.
+
+---
+
+## v2.3.0 — "Plugins & Docs" (In Progress)
+
+**Premise.** Three small, well-scoped Tier A changes that have already landed on `main`:
+
+1. **Plugins nav link on beemuu.com** — new `Plugins` entry in the public-site header pointing to `plugins.beemuu.com`, matching the existing nav pattern.
+2. **AGENTS.md refresh** — complete repo layout (added `scripts/`, `rust-harness/`, `ops/` to the tree), CI-exact test commands matching `.github/workflows/test.yml`, `npm` script notes, `lint-toml.js` note, fixed Claude Cowork clone URL, removed stale `(line 18)` reference.
+3. **CNAME apex-domain fix** — `CNAME` was `www.beemuu.com`, now `beemuu.com` (apex domain, no www redirect needed).
+
+### Slices
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Plugins nav link on beemuu.com | ✅ Done | A | `frontend/index.html` — one-line nav addition. |
+| AGENTS.md refresh | ✅ Done | A | Complete layout, CI-matched test commands, fixed clone URL. |
+| CNAME apex-domain fix | ✅ Done | A | `CNAME`: `www.beemuu.com` → `beemuu.com`. |
+| Version surfaces → 2.3.0 | 🔲 Open | A | `package.json`, `Cargo.toml`, `tauri.conf.json`, `package-lock.json`, `README.md`, `frontend/index.html`, `frontend/press.html`, `src/js/main.js`, `frontend/version_surface.test.js`. |
+| CHANGELOG + ROADMAP update | 🔲 Open | A | `CHANGELOG.md` `## [2.3.0]` section + ROADMAP `v2.3.0` cycle block + close stale `v0.19.0` header. |
+
+### What this cycle does NOT ship
+
+- No `transport/**`, `protocol/**`, or `commands.rs` changes.
+- No new crates, no new Tauri commands.
+- No new community data (DTCs, profiles, freeze schemas).
+
+Slices dispatch as PRs when the work completes — no Discussion gate (`COMMUNITY_FRAMEWORK.md` Rule 2).

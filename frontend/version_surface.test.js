@@ -17,7 +17,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
-const CURRENT_RELEASE = process.env.BEEMUU_TEST_RELEASE || "v2.2.0";
+const CURRENT_RELEASE = process.env.BEEMUU_TEST_RELEASE || "v2.3.0";
 const TAG = `releases/tag/${CURRENT_RELEASE}`;
 
 function read(rel) {

@@ -5,6 +5,17 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] — 2026-09-30
+
+### Added — Tier A (Plugins nav link, AGENTS.md refresh)
+
+- **`frontend/index.html`**: added Plugins nav link (`<a href="https://plugins.beemuu.com" target="_blank" rel="noopener">Plugins</a>`) to the `beemuu.com` header, matching the existing nav pattern.
+- **`AGENTS.md`**: refreshed with complete repo layout (added `scripts/`, `rust-harness/`, `ops/` to the tree), CI-exact test commands (Python: `python -m pytest backend/tests/ -q` from repo root; JS: explicit globs for the mixed `.test.js` / `.test.cjs` layout), `npm run test:histogram` / `test:js` / `lint-toml.js` notes, fixed the Claude Cowork clone URL from `your-username/beeemuu` to `ohgeeceee/beemuu`, and removed stale `(line 18)` reference.
+
+### Changed — Tier A (version surfaces)
+
+- Bumped all version surfaces to `2.3.0`: `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `package-lock.json`, `README.md` release badge + current-release text, `frontend/index.html` download links + hero banner, `frontend/press.html` release highlights + last-updated date, `src/js/main.js` `appVersion`, `frontend/version_surface.test.js` `CURRENT_RELEASE` default.
+
 ## [2.2.0] — 2026-09-20
 
 ### Added — Tier A (Snapshot v2 completion)
