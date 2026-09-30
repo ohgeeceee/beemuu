@@ -29,6 +29,9 @@ beemuu/
 ├── frontend/             # Static landing page (beemuu.com)
 ├── data/                 # Bundled data (schematics, etc.)
 ├── docs/                 # Project documentation
+├── scripts/              # Repo tooling: lint-toml.js, GH Pages build, browser smoke tests
+├── rust-harness/         # Rust test harness / tooling
+├── ops/                  # VPS ops — TIER C, never auto-deploy
 └── .github/workflows/    # CI, auto-merge, release, CodeQL
 ```
 
@@ -77,18 +80,28 @@ Applies to:
 
 ## Running tests
 
-Always run tests before opening a PR.
+Always run tests before opening a PR. These match CI exactly
+(`.github/workflows/test.yml`).
 
 ```bash
 # Rust core
 cd src-tauri && cargo test
 
-# Python backend
-pytest backend/tests/
+# Python backend (stdlib-only; pytest is the only install; run from repo root
+# because tests do `from backend import ...`)
+python -m pytest backend/tests/ -q
 
-# Frontend JS
+# Frontend JS (node --test; explicit globs — `node --test <dir>` mis-handles
+# the mixed .test.js / .test.cjs layout under src/js/)
 node --test "src/js/**/*.test.js" "src/js/**/*.test.cjs" "frontend/**/*.test.js"
 ```
+
+package.json also exposes narrower scripts: `npm run test:histogram`
+(`node --test src/js/*.test.js`) and `npm run test:js`
+(`node --test src/js/test/*.test.cjs`), plus `npm run dev` / `npm run build`
+(wrapping `tauri dev` / `tauri build`).
+
+Community TOML/JSON data lint: `node scripts/lint-toml.js`.
 
 On Linux (CI and bare machines) you must install Tauri system dependencies
 before `cargo test`:
@@ -152,7 +165,7 @@ for state.
 5. **Never widen a PR's scope after opening.** New findings → new issues.
 6. **Keep the version surface in sync.** Every release PR must ship a
    `## [X.Y.Z]` section in `CHANGELOG.md` and bump the release badge in
-   `README.md` (line 18).
+   `README.md`.
 
 ---
 
@@ -210,5 +223,6 @@ If you are using a K+DCAN cable on Windows:
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/your-username/beeemuu.git](https://github.com/your-username/beeemuu.git)
-   cd beeemuu
+   git clone https://github.com/ohgeeceee/beemuu.git
+   cd beemuu
+   ```
