@@ -148,9 +148,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A sample with no timestamp declines to act: the monitor holds no clock of
     its own, so a replayed log produces the same decisions as the live one.
 
-All five engines so far are pure (`require()`-able, no DOM, no Tauri, no
-transport) and carry 103 new tests across the five modules. Each was
-mutation-checked across twenty-six separate behaviour breaks.
+- **Parameter Hunt** (`src/js/parameter_hunt.js`): the E-series data desert is a
+  labour problem. `research/bmw_diag_dim07_local_ids.md` records an exhaustive
+  search finding no published KWP2000 table, and every table that exists was
+  built by somebody in a parking lot watching which bytes move. This turns that
+  work into a sport, on top of the existing `explorer.js` volatility engine.
+  - The design problem is integrity, not fun: a leaderboard that scores guesses
+    produces a table full of wrong answers, and a community table built from
+    wrong answers is worse than no table.
+  - **Nothing scores unattributed.** A finding needs an engine and a module, or
+    it is recorded for the contributor's own record and counted at zero — nobody
+    else can check a fact that is not tied to a car.
+  - **An unverified claim is worth at most half** its kind's value and never
+    more than 50, so no unverified finding can outrank a confirmed one.
+  - **Verification is a strict boolean `true`**, settable only from a merge
+    record. A truthy form field must not be able to promote a self-report.
+  - **Points are awarded once per (kind, engine, module, identifier)**, and a
+    confirming resubmission still scores zero — otherwise "confirm everything
+    twice" is an exploit.
+  - **Challenge progress counts unique findings**, both across repeated probes
+    and across hunters: two people confirming the same identifier is one fact
+    about that identifier, though both are credited as contributors.
+  - The leaderboard tiebreaks on confirmed evidence, and flags a hunter whose
+    entire record is unconfirmed rather than presenting it as a proven lead.
+
+All six engines so far are pure (`require()`-able, no DOM, no Tauri, no
+transport) and carry 124 new tests across the six modules. Each was
+mutation-checked across thirty-two separate behaviour breaks.
 
 ## [2.2.0] — 2026-09-20
 
