@@ -9,6 +9,8 @@ Public API:
   list_plugins(registry_dir, q=..., kind=..., limit=...) -> list[dict]
   get_plugin(registry_dir, plugin_id)                  -> dict | None
   validate_package(pkg)                                -> dict  (structural only)
+  package_digest(pkg)                                  -> str   (sha256, hex)
+  verify_digest(pkg, expected)                         -> bool
 
 Design notes
 ------------
@@ -24,9 +26,24 @@ List responses are summary-only (id, name, version, author, kind,
 description, license) — they deliberately omit ``code``/``files`` so the
 catalog stays small. The full manifest, including code, is returned only
 by ``get_plugin`` for the specific package a client chose to install.
+
+Integrity
+---------
+A download ecosystem is only as good as its integrity story, so every
+package carries a sha256 of its canonical serialisation. ``_load`` checks
+each entry against a sidecar ``<name>.sha256`` when one exists and *skips*
+the package on mismatch — a corrupted or tampered file must never be served,
+and silently serving it "with a warning" is the same as serving it.
+
+The digest covers the canonical JSON (sorted keys, no insignificant
+whitespace), so it is stable across key reordering and reformatting while
+still changing if any byte of any value changes. It is an *integrity*
+digest, not a signature: it detects corruption and casual tampering, and it
+does not prove authorship. Author signing is still the open Tier B item.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -129,6 +146,82 @@ def validate_package(pkg: object) -> dict:
     return pkg
 
 
+def package_digest(pkg: object) -> str:
+    """Return the sha256 of a package's canonical serialisation, as hex.
+
+    Canonical means sorted keys, no insignificant whitespace, and numbers
+    rendered in JavaScript's form. The number detail is load-bearing and is the
+    whole reason this function exists rather than a one-liner:
+
+    JSON does not distinguish 1 from 1.0 — ``json.loads("1")`` gives an
+    ``int`` and ``json.loads("1.0")`` gives a ``float``, and ``json.dumps``
+    writes each back the way it arrived. JavaScript has no such distinction:
+    ``JSON.parse("1")`` and ``JSON.parse("1.0")`` are the same Number, and
+    ``JSON.stringify`` writes back whatever form it chooses. So a manifest
+    containing ``min = -40.0`` — which the community profiles are full of —
+    would hash differently on the two sides and every install would fail.
+
+    The fix is to normalise on this side, to the form the client can actually
+    reproduce. The int/float distinction is **lost**, not preserved: once the
+    manifest reaches JavaScript it is gone, so a digest that depended on it
+    could never be verified by the only party that needs to verify it. Whole
+    floats are therefore written as integers. See ``canonicalNumber`` in
+    ``src/js/plugins_registry_client.js``, which mirrors this exactly.
+    """
+    canonical = _canonical_json(pkg)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _canonical_json(value: object) -> str:
+    """Serialise to canonical JSON, in the form JavaScript reproduces exactly."""
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return "null"
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, int):
+        # bool is an int subclass; handled above.
+        return str(value)
+    if isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            # NaN/Infinity are not valid JSON and JS would render them as null,
+            # which would silently change the digest. Refuse instead.
+            raise ValueError("Cannot canonicalise a non-finite number.")
+        if value.is_integer() and abs(value) < 1e21:
+            # A whole float loses its ".0" so it matches what the client emits.
+            # -0.0 is normalised to 0, again matching JSON.stringify.
+            return str(int(value))
+        return repr(value)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_canonical_json(v) for v in value) + "]"
+    if isinstance(value, dict):
+        parts = []
+        for key in sorted(value):
+            # Keys are always str here because they came from json.loads.
+            parts.append(json.dumps(key, ensure_ascii=False) + ":" +
+                         _canonical_json(value[key]))
+        return "{" + ",".join(parts) + "}"
+    raise ValueError(f"Cannot canonicalise value of type {type(value).__name__}.")
+
+
+def verify_digest(pkg: object, expected: str | None) -> bool:
+    """Check a package against a recorded digest.
+
+    A missing expected digest is *not* a pass: an entry with no sidecar has
+    nothing to verify against, and treating that as verified would let anyone
+    add a package by simply omitting the file. Callers that want the permissive
+    behaviour must ask for it explicitly (see `_load`).
+    """
+    if not isinstance(expected, str) or not expected.strip():
+        return False
+    # Compare case-insensitively and ignore surrounding whitespace: sidecars are
+    # hand-written and `shasum` output format varies.
+    return package_digest(pkg).lower() == expected.strip().lower()
+
+
 def _summary(pkg: dict) -> dict:
     """Compact metadata card for list responses (no code/files)."""
     return {
@@ -140,27 +233,58 @@ def _summary(pkg: dict) -> dict:
         "description": pkg["description"],
         "license": pkg["license"],
         "schemaVersion": pkg.get("schemaVersion"),
+        # The digest travels with the summary so a client can show what it
+        # would download before deciding to download it.
+        "sha256": package_digest(pkg),
     }
 
 
-def _load(registry_dir: Path) -> list[dict]:
-    """Load, validate and return every package in the registry dir.
+def _load(registry_dir: Path) -> tuple[list[dict], dict[str, str]]:
+    """Load, validate and digest-check every package in the registry dir.
 
-    Malformed or unreadable entries are skipped (the registry never 500s
-    because one file is broken) but the filename is returned in an
-    ``errors`` mapping that callers may surface. Each entry is annotated
-    with the source filename.
+    Returns ``(packages, errors)``. A malformed entry, an unreadable file or a
+    **digest mismatch** all cause the package to be skipped — a corrupted or
+    tampered file must never be served, and serving it with a warning is the
+    same as serving it. The filename is recorded in ``errors`` so a caller can
+    surface exactly what was rejected and why, rather than the registry simply
+    appearing to have fewer packages than expected.
     """
     if not registry_dir.is_dir():
-        return []
-    packages = []
+        return [], {}
+    packages: list[dict] = []
+    errors: dict[str, str] = {}
     for path in sorted(registry_dir.glob("*.json")):
         try:
             pkg = json.loads(path.read_text(encoding="utf-8"))
-            packages.append(validate_package(pkg))
-        except (OSError, json.JSONDecodeError, ValueError):
+        except (OSError, json.JSONDecodeError) as exc:
+            errors[path.name] = f"unreadable: {exc}"
             continue
-    return packages
+        try:
+            validate_package(pkg)
+        except ValueError as exc:
+            errors[path.name] = f"invalid: {exc}"
+            continue
+
+        # A sidecar is optional for the existing shipped packages, so a missing
+        # one is not a rejection — but a *present and wrong* one always is.
+        # `verify_digest` treats a missing expectation as a failure, so the
+        # presence check happens here and the failure check is delegated.
+        sidecar = path.with_suffix(".sha256")
+        if sidecar.exists():
+            try:
+                expected = sidecar.read_text(encoding="utf-8").strip()
+            except OSError as exc:
+                errors[path.name] = f"unreadable digest: {exc}"
+                continue
+            if not verify_digest(pkg, expected):
+                errors[path.name] = (
+                    f"sha256 mismatch: manifest is {package_digest(pkg)[:12]}…, "
+                    f"recorded {expected[:12] if expected else '(empty)'}…"
+                )
+                continue
+
+        packages.append(pkg)
+    return packages, errors
 
 
 def list_plugins(
@@ -178,7 +302,8 @@ def list_plugins(
     limit = max(1, min(200, int(limit)))
     results = []
     needle = (q or "").strip().lower()
-    for pkg in _load(registry_dir):
+    packages, _errors = _load(registry_dir)
+    for pkg in packages:
         if kind and pkg["kind"] != kind:
             continue
         if needle:
@@ -191,12 +316,25 @@ def list_plugins(
     return results
 
 
+def registry_errors(registry_dir: Path) -> dict[str, str]:
+    """Return ``{filename: reason}`` for every entry `_load` rejected.
+
+    A tampered or corrupt package is not served *and* not silently dropped:
+    without this the registry just appears to have fewer packages, and a
+    contributor whose manifest was edited in place would have no idea why it
+    vanished.
+    """
+    _packages, errors = _load(registry_dir)
+    return errors
+
+
 def get_plugin(registry_dir: Path, plugin_id: str) -> dict | None:
     """Return the full package (including code) for one id, or None."""
     plugin_id = (plugin_id or "").strip()
     if not plugin_id or not _ID_RE.match(plugin_id):
         return None
-    for pkg in _load(registry_dir):
+    packages, _errors = _load(registry_dir)
+    for pkg in packages:
         if pkg["id"] == plugin_id:
             return pkg
     return None

@@ -251,9 +251,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     caught during testing, because the field name collided and the redactor was
     removing the ECU address that `flash_audit.js` keys on.
 
-All nine engines so far are pure (`require()`-able, no DOM, no Tauri, no
-transport) and carry 195 new tests across the nine modules. Each was
-mutation-checked across fifty separate behaviour breaks.
+- **Registry integrity + search** (`backend/plugins_registry.py`,
+  `src/js/plugins_registry_client.js`): a download ecosystem is only as good
+  as its integrity story. Every package carries a sha256; the registry skips
+  any file whose digest does not match, and the client verifies before the
+  package is parsed.
+  - **A tampered or corrupt package is never served**, and
+    `registry_errors()` reports *why* rather than letting it vanish silently —
+    otherwise a contributor whose manifest was edited in place has no idea why
+    their package disappeared.
+  - **Verification happens before parsing**, because parsing is what compiles
+    tool code for the worker. `gateInstall` verifies, and only then hands the
+    manifest to the parser. A test asserts the parser is never called on an
+    unverified manifest.
+  - **A missing digest is a refusal, not a pass** — otherwise anyone could add
+    a package by omitting the sidecar.
+  - **The digest is canonical over sorted keys and no insignificant
+    whitespace**, so a contributor reformatting their JSON does not invalidate
+    it, while changing one character of tool code does.
+  - **No result ever says `trusted`.** A digest detects corruption and casual
+    tampering; it does not prove authorship, and an attacker who can edit the
+    manifest can edit its digest. Author signing remains the open Tier B item,
+    and the client refuses rather than implying otherwise. Where WebCrypto is
+    unavailable the client refuses to install at all instead of claiming a
+    weaker check succeeded.
+
+  **Fixed during testing — a cross-language digest bug that would have broken
+  every install.** JSON does not distinguish 1 from 1.0: Python's
+  `json.dumps(-40.0)` writes `-40.0`, JavaScript's `JSON.stringify(-40.0)`
+  writes `-40`. The community profiles are full of `min = -40.0` /
+  `max = 7000.0`, so every real package would have hashed differently on the two
+  sides and every install would have failed with a bogus mismatch. The
+  int/float distinction is *lost* rather than preserved — once the manifest
+  reaches JavaScript it is gone, so a digest depending on it could never be
+  verified by the only party that needs to. `backend/tests/test_digest_parity.py`
+  and the client test each hard-code the same expected digest, so either side
+  drifting turns both suites red.
+
+All ten engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
+carry 211 new tests across ten modules, plus 26 backend tests. Each was
+mutation-checked across sixty separate behaviour breaks.
 
 ## [2.2.0] — 2026-09-20
 

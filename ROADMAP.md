@@ -1028,7 +1028,22 @@ TOML. No new transport, no ECU writes, no human merge required.
 | 7 | Symptom Index | ✅ Done | A | `src/js/symptom_index.js` — free-text symptom → ranked candidate codes, components and checks. Specificity-weighted ranking, `is_diagnosis: false` always, and unresolvable circuits flagged `circuit: false` rather than invented. 19 tests. |
 | 8 | Signal Library | ✅ Done | A | `src/js/signal_library.js` — all 40 distinct signals across 12 community profiles in one searchable index, graded verified / community / unverified. Split verdicts stay split (`oil` is verified on diesels, `local:10` unverified on the N55). Tested against the real TOML. 30 tests. |
 | 9 | Vehicle Passport | ✅ Done | A | `src/js/vehicle_passport.js` — one portable file per car. VIN never included and not optional; salted fingerprint instead, ident strings dropped not hashed, every redaction reported. 22 tests. |
-| 10 | Registry integrity + search | 🟡 Planned | A | sha256 on install, real search/filter, capability names surfaced. Independent of 1-9. |
+| 10 | Registry integrity + search | ✅ Done | A | `plugins_registry.py` + `plugins_registry_client.js` — sha256 per package, mismatch never served and reported via `registry_errors()`, verification before parsing, missing digest is a refusal. Cross-language canonicalisation pinned by a parity suite. 16 JS + 26 backend tests. |
+
+**Cycle complete — all ten shipped.** 683 JS tests and 262 backend tests pass
+(472 JS / 16 registry at the start of the cycle). Nothing here touches
+`src-tauri/src/transport/`, `protocol/` or `commands.rs`, so the whole cycle is
+Tier A and no human merge is required.
+
+**Not built — panels.** These ten are engines plus their datasets. Wiring them
+into `src/index.html` and `main.js` is the next slice of work; each engine was
+built to be a thin-shim target, the same shape `cbs_predict.js` / `cbs_ui.js`
+already use.
+
+**Deferred, and worth flagging:** the plugin capability bridge and engine
+profile packs still sit on unlanded branches. Feature 10's registry changes
+touch `backend/plugins_registry.py`, which the capability branch also edits —
+those two will need resolving together rather than one at a time.
 
 **Out of scope for v3.** Any ECU write (no coding, no flashing, no `ecu-flash`
 capability); the `network` and `filesystem` plugin capabilities; a frontend
