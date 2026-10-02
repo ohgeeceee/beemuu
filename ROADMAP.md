@@ -1007,6 +1007,36 @@ formatting, multi-vehicle comparison, and JSON export.
 
 ---
 
+## v3.0.0 — "The Car Remembers" (In Progress)
+
+**Premise.** v2.x taught the app to ask a module a question once and render
+the answer. v3 is about the *history*: what the ECU learned, what it keeps
+re-learning wrongly, what it counts. Plan and ordering rationale in
+[`docs/v3_plan.md`](docs/v3_plan.md).
+
+All ten slices are Tier A — pure analysis over logs, snapshots and community
+TOML. No new transport, no ECU writes, no human merge required.
+
+| # | Item | Status | Tier | Module |
+|---|------|--------|------|--------|
+| 1 | Misfire Pattern Recognition | ✅ Done | A | `src/js/misfire_patterns.js` — per-cylinder misfires correlated with the RPM/load/temp/knock values true at that instant; dominance-gated rule classification with confidence and evidence. 21 tests. |
+| 2 | Adaptation Drift Tracker | ✅ Done | A | `src/js/adaptation_drift.js` — least-squares trend across sessions, threshold proximity, projected crossing. Refuses to call 2 readings "stable". 22 tests. |
+| 3 | Tuning Fingerprint Detector | 🟡 Planned | A | Read-only evidence only (DMF correlation, boost vs target, lambda signature). Analysis, never a map browser and never a write. |
+| 4 | Flash Counter & History Auditor | 🟡 Planned | A | Reconstruct flash history from snapshots the user already saved. |
+| 5 | Cold Start Auto-Logger | 🟡 Planned | A | Arm it, drive away, the log is there in the morning. |
+| 6 | Parameter Hunt | 🟡 Planned | A | Scoring is pure and local; the leaderboard ships as data. |
+| 7 | Symptom Index | 🟡 Planned | A | "Cold start stumble" → the codes and components that cause it. |
+| 8 | Signal Library | 🟡 Planned | A | Every decodable signal in one searchable catalog — the front door to the Parameter Explorer. |
+| 9 | Vehicle Passport | 🟡 Planned | A | One portable anonymizable file per car. Depends on 2 and 4 for stable shapes. |
+| 10 | Registry integrity + search | 🟡 Planned | A | sha256 on install, real search/filter, capability names surfaced. Independent of 1-9. |
+
+**Out of scope for v3.** Any ECU write (no coding, no flashing, no `ecu-flash`
+capability); the `network` and `filesystem` plugin capabilities; a frontend
+framework rewrite; the `ui` plugin capability, which is still structurally
+blocked because a Worker has no safe DOM surface.
+
+---
+
 ## Plugin ecosystem (Phase 1 of VISION.md)
 
 **Premise.** Turn the bundled plugin system into a shareable ecosystem: a

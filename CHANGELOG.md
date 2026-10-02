@@ -5,6 +5,69 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — Tier A (v3.0.0 cycle: "The Car Remembers")
+
+- **v3 plan** (`docs/v3_plan.md`): the next ten features, and the reasoning
+  behind the order. The cycle's thesis is that the app is already good at
+  asking a module a question once; v3 is about the *history* — what the ECU
+  learned, keeps re-learning wrongly, or counts. That makes almost the whole
+  cycle pure analysis over logs, snapshots and community TOML: no new transport,
+  no ECU writes, nothing that can brick a car.
+  - The plan also corrects `VISION.md`, which claims "14 designed, mostly
+    unbuilt" and does not know about the seven features that did ship
+    (Predictive CBS, Wiring Detective, Story Mode, Oracle, Second Opinion,
+    Secure Share, beginner guides).
+- **Misfire Pattern Recognition** (`src/js/misfire_patterns.js`): a DME tells you
+  *how many* times cylinder 3 misfired and never *when* — and the "when" is the
+  diagnosis. This correlates each misfire with the RPM, load, coolant, oil, IAT
+  and knock-retard values that were true at that instant, histograms them per
+  cylinder, and classifies the pattern: knock-detonation, cold-start injector
+  leak-down, heat-related coil breakdown, high-load ignition, or all-cylinder
+  vacuum/fuel-pressure.
+  - `collectEvents()` derives events from a log session by watching each
+    per-cylinder counter's rises. A cumulative counter and a boolean flag both
+    read correctly without the caller knowing which ECU produced it, and a
+    counter *reset* is re-seeded rather than reported as a negative event.
+  - Live values are joined to events by time, not by index: log channels are
+    sampled independently, so the most recent sample at or before the event is
+    used, within a caller-set tolerance. Past the tolerance the value is
+    dropped rather than attributed to the event as if it were current.
+  - **A rule must own 70% of a cylinder's events to claim the diagnosis.**
+    Below that the honest answer is "pattern unclear", and the per-rule evidence
+    is still returned so the user can see why nothing was claimed. Confidence
+    scales with how lopsided the match is, so a rule that barely clears the bar
+    reports less certainty than one that owns every event.
+  - Under 8 events, no diagnosis is offered at all. A pattern from three
+    misfires is noise, and naming a part on it costs the user money.
+- **Adaptation Drift Tracker** (`src/js/adaptation_drift.js`): long-term fuel
+  trims and idle learnings start moving months before a code is ever set. This
+  trends recorded adaptation values across sessions (least-squares over
+  time), and reports slope, correlation, distance from the community threshold,
+  and a projected crossing date.
+  - **A series with fewer than 3 readings is `insufficient_data`, not "stable".**
+    Flat because you measured it twice is a different claim from flat because it
+    is flat, and the panel must not let a user read one as the other.
+  - A projected date requires both a strong enough correlation *and* real
+    history behind it. A crossing that already happened is not printed as a
+    future date, and a projection centuries out is withheld rather than shown.
+  - A parameter with no published community threshold can never escalate past
+    `watch` — we do not know what "bad" means for it. Conversely, a value
+    settling back down toward normal with a known limit is `ok`: that is the ECU
+    recovering, not a problem.
+  - The fit centers time internally. Uncentered least squares on epoch
+    milliseconds squares to ~1e24 and loses the slope to rounding.
+  - `recordObservation()` replaces a same-timestamp reading rather than
+    appending: re-recording one session must not duplicate a point, which would
+    flatter the correlation and invent a trend that did not happen.
+
+Both engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
+carry 43 new tests. Each was mutation-checked: weakening the dominance gate,
+the minimum-sample gate, the correlation gate, the crossing-date gate, the
+counter-reset handling, the out-of-range handling, the time-centering, and the
+`insufficient_data` sort order each turn the suite red.
+
 ## [2.2.0] — 2026-09-20
 
 ### Added — Tier A (Snapshot v2 completion)
