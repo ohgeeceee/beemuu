@@ -225,9 +225,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty; and the bare `did:` prefix — used by 101 of the shipped params — was
   unclassified and collapsed into "unverified".
 
-All eight engines so far are pure (`require()`-able, no DOM, no Tauri, no
-transport) and carry 173 new tests across the eight modules. Each was
-mutation-checked across forty-three separate behaviour breaks.
+- **Vehicle Passport** (`src/js/vehicle_passport.js`): everything the app knows
+  about one car in one portable file. A BMW's knowledge is scattered across
+  six places — profile, DID map, DTC database, wiring table, CBS history,
+  adaptation history — none of them much use alone and all of them hard to
+  move. A car changes hands and the owner re-learns what they knew last winter.
+  - **The VIN is never included, and there is no option to include it.** An
+    option is an invitation, and the one time somebody needs it is the one time
+    they will share the file. A test asserts that passing `include_vin: true`
+    changes nothing.
+  - What ships instead is a **salted fingerprint**, so an owner can recognise
+    their own car across passports while two independently-created files cannot
+    be linked by hash comparison. `isSameCar` requires the salt to match as well
+    as the fingerprint, with a forged-passport test pinning exactly that.
+  - **Module `ident` strings are dropped, not hashed** — they frequently embed
+    VIN-derived material, and keeping even a hash leaks its structure. This
+    matches the intent `TECH_SPECS.md` §13.3 states for the Rust anonymizer.
+  - **Every redaction is reported** in `privacy.removed_fields`, so the UI can
+    tell the user what is about to leave the machine rather than implying the
+    file is clean by assertion.
+  - The privacy note says **"obfuscation, not anonymity"** and that a 17-character
+    VIN space is brute-forceable. "Anonymized" on its own is a promise this file
+    cannot keep against someone holding a list of VINs.
+  - A module's ECU `address` is kept while an owner's `address` is dropped —
+    caught during testing, because the field name collided and the redactor was
+    removing the ECU address that `flash_audit.js` keys on.
+
+All nine engines so far are pure (`require()`-able, no DOM, no Tauri, no
+transport) and carry 195 new tests across the nine modules. Each was
+mutation-checked across fifty separate behaviour breaks.
 
 ## [2.2.0] — 2026-09-20
 

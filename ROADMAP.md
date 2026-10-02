@@ -1027,7 +1027,7 @@ TOML. No new transport, no ECU writes, no human merge required.
 | 6 | Parameter Hunt | ✅ Done | A | `src/js/parameter_hunt.js` — scoring, challenges and a local leaderboard for E-series reverse engineering. Nothing scores unattributed; unverified claims are capped at half value; points awarded once per finding; challenge progress counts unique findings. 21 tests. |
 | 7 | Symptom Index | ✅ Done | A | `src/js/symptom_index.js` — free-text symptom → ranked candidate codes, components and checks. Specificity-weighted ranking, `is_diagnosis: false` always, and unresolvable circuits flagged `circuit: false` rather than invented. 19 tests. |
 | 8 | Signal Library | ✅ Done | A | `src/js/signal_library.js` — all 40 distinct signals across 12 community profiles in one searchable index, graded verified / community / unverified. Split verdicts stay split (`oil` is verified on diesels, `local:10` unverified on the N55). Tested against the real TOML. 30 tests. |
-| 9 | Vehicle Passport | 🟡 Planned | A | One portable anonymizable file per car. Depends on 2 and 4 for stable shapes. |
+| 9 | Vehicle Passport | ✅ Done | A | `src/js/vehicle_passport.js` — one portable file per car. VIN never included and not optional; salted fingerprint instead, ident strings dropped not hashed, every redaction reported. 22 tests. |
 | 10 | Registry integrity + search | 🟡 Planned | A | sha256 on install, real search/filter, capability names surfaced. Independent of 1-9. |
 
 **Out of scope for v3.** Any ECU write (no coding, no flashing, no `ecu-flash`
