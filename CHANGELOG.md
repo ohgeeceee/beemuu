@@ -172,9 +172,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The leaderboard tiebreaks on confirmed evidence, and flags a hunter whose
     entire record is unconfirmed rather than presenting it as a proven lead.
 
-All six engines so far are pure (`require()`-able, no DOM, no Tauri, no
-transport) and carry 124 new tests across the six modules. Each was
-mutation-checked across thirty-two separate behaviour breaks.
+- **Symptom Index** (`src/js/symptom_index.js`): owners do not arrive with fault
+  codes, they arrive with "it stumbles when it's cold". Every tool in this space
+  is organised around codes, so the hardest part of the job — turning a sentence
+  into a shortlist — is the part nobody had built. This is that front door.
+  - **It does not diagnose.** `is_diagnosis: false` is explicit and load-bearing;
+    it shortlists candidates and says what to test.
+  - **Ranking is by specificity, not keyword count.** "cold" is a weak signal
+    (half the index involves temperature) while "cold start" is the whole
+    diagnosis. A long-phrase bonus rewards that, capped so one phrase cannot
+    outrank a genuine multi-term match.
+  - **A score floor** keeps weak single terms out of the shortlist entirely: a
+    list of everything is the same as no list.
+  - A code's confidence takes the **strongest** claim made about it, never an
+    average or last-write-wins, and never a downgrade from a second weaker
+    sighting. `mergeSightings` is exported and tested directly because no code
+    in the shipped index happens to have a community/verified split, which would
+    otherwise leave the rule untested and a regression there shipping silently.
+  - **A code without a published circuit says so** with `circuit: false`. DISA
+    (`2A98`) is a real cold-start culprit with no `community/wiring/` entry, and
+    inventing a pin number is not an option — the test enforces that a code is
+    either resolvable by `wiring_detect.js` or explicitly flagged.
+  - The overheating entry carries a hard safety note about never opening a hot
+    cooling system, pinned by a test.
+
+All seven engines so far are pure (`require()`-able, no DOM, no Tauri, no
+transport) and carry 143 new tests across the seven modules. Each was
+mutation-checked across thirty-eight separate behaviour breaks.
 
 ## [2.2.0] — 2026-09-20
 

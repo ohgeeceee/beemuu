@@ -1025,7 +1025,7 @@ TOML. No new transport, no ECU writes, no human merge required.
 | 4 | Flash Counter & History Auditor | ✅ Done | A | `src/js/flash_audit.js` — reconstructs programming history from snapshots already saved; no new DID mappings, no live session. Null counters stay null, sessions are never counted as programming, sub-hour gaps are one visit. 24 tests. |
 | 5 | Cold Start Auto-Logger | ✅ Done | A | `src/js/cold_start.js` — arms on a cold engine left off, opens the capture on the start transition, closes on warm-up or the 5-min window. Refuses to arm on a warm engine, a 60-second stop-start, or a missing coolant read. 16 tests. |
 | 6 | Parameter Hunt | ✅ Done | A | `src/js/parameter_hunt.js` — scoring, challenges and a local leaderboard for E-series reverse engineering. Nothing scores unattributed; unverified claims are capped at half value; points awarded once per finding; challenge progress counts unique findings. 21 tests. |
-| 7 | Symptom Index | 🟡 Planned | A | "Cold start stumble" → the codes and components that cause it. |
+| 7 | Symptom Index | ✅ Done | A | `src/js/symptom_index.js` — free-text symptom → ranked candidate codes, components and checks. Specificity-weighted ranking, `is_diagnosis: false` always, and unresolvable circuits flagged `circuit: false` rather than invented. 19 tests. |
 | 8 | Signal Library | 🟡 Planned | A | Every decodable signal in one searchable catalog — the front door to the Parameter Explorer. |
 | 9 | Vehicle Passport | 🟡 Planned | A | One portable anonymizable file per car. Depends on 2 and 4 for stable shapes. |
 | 10 | Registry integrity + search | 🟡 Planned | A | sha256 on install, real search/filter, capability names surfaced. Independent of 1-9. |
