@@ -62,11 +62,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     appending: re-recording one session must not duplicate a point, which would
     flatter the correlation and invent a trend that did not happen.
 
-Both engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
-carry 43 new tests. Each was mutation-checked: weakening the dominance gate,
-the minimum-sample gate, the correlation gate, the crossing-date gate, the
-counter-reset handling, the out-of-range handling, the time-centering, and the
-`insufficient_data` sort order each turn the suite red.
+- **Tuning Fingerprint Detector** (`src/js/tuning_fingerprint.js`): answers one
+  question read-only — has this calibration been changed from stock? A log is
+  binned into the (rpm x load) cells a community-published stock baseline
+  describes, and each cell's mean is compared to the stock mean in
+  standard-deviation units. Past 2 sigma is a real deviation.
+  - **The headline is the most deviant cell, not the mean across cells.** A
+    calibration retuned hard in one region of the map has been changed, and
+    averaging that away against fifteen cells that matched stock would hide the
+    only thing the user needs to know.
+  - **A cell needs 8 samples before it counts.** One reading in a cell has a
+    mean, and against a stock sigma of 1 that turns any offset into a "confirmed
+    stage 2" verdict. Below-floor cells are counted as skipped so the coverage
+    figure stays honest rather than quietly excluded.
+  - Below 40% overall confidence the report refuses to say `is_tuned` at all: a
+    log that covered a tenth of the operating range cannot speak for the
+    calibration, and "we cannot tell" is the honest answer.
+  - Samples outside the baseline's range are dropped, never clamped into an edge
+    cell. Clamping would pile full-throttle pulls into a cell the stock grid
+    never sampled and produce a z-score that is an artifact of the binning.
+  - A stock cell with zero variance is floored before dividing, so a
+    never-varying baseline cannot manufacture an unbounded z-score — while a
+    genuine 6-degree offset is still caught.
+  - **It never names a tuning platform.** `suspected_platform` is always null.
+    The data supports "this deviated", not "who did it", and a wrong accusation
+    aimed at a seller is a real harm.
+  - It is not a map browser and never reads or writes calibration data.
+  - Caught one real bug during review: a `deverged` typo meant every report
+    silently returned `is_tuned: false`. The tests now cover both the
+    diverged and stock paths end to end.
+
+All three engines so far are pure (`require()`-able, no DOM, no Tauri, no
+transport) and carry 63 new tests across the three modules. Each was
+mutation-checked: weakening the dominance gate, the minimum-sample gate, the
+correlation gate, the crossing-date gate, the counter-reset handling, the
+out-of-range handling, the time-centering, the `insufficient_data` sort order,
+the cell sample floor, the low-coverage guard, the worst-cell selection, the
+empty-baseline cell count, the sigma floor and the range clamping each turn
+the suite red.
 
 ## [2.2.0] — 2026-09-20
 

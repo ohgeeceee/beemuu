@@ -1021,7 +1021,7 @@ TOML. No new transport, no ECU writes, no human merge required.
 |---|------|--------|------|--------|
 | 1 | Misfire Pattern Recognition | ✅ Done | A | `src/js/misfire_patterns.js` — per-cylinder misfires correlated with the RPM/load/temp/knock values true at that instant; dominance-gated rule classification with confidence and evidence. 21 tests. |
 | 2 | Adaptation Drift Tracker | ✅ Done | A | `src/js/adaptation_drift.js` — least-squares trend across sessions, threshold proximity, projected crossing. Refuses to call 2 readings "stable". 22 tests. |
-| 3 | Tuning Fingerprint Detector | 🟡 Planned | A | Read-only evidence only (DMF correlation, boost vs target, lambda signature). Analysis, never a map browser and never a write. |
+| 3 | Tuning Fingerprint Detector | ✅ Done | A | `src/js/tuning_fingerprint.js` — read-only stock-baseline comparison per (rpm x load) cell. Reports the *most* deviant cell, floors sparse cells at 8 samples, refuses a verdict under 40% coverage, never names a tuning platform. 20 tests. |
 | 4 | Flash Counter & History Auditor | 🟡 Planned | A | Reconstruct flash history from snapshots the user already saved. |
 | 5 | Cold Start Auto-Logger | 🟡 Planned | A | Arm it, drive away, the log is there in the morning. |
 | 6 | Parameter Hunt | 🟡 Planned | A | Scoring is pure and local; the leaderboard ships as data. |
