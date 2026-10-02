@@ -196,9 +196,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The overheating entry carries a hard safety note about never opening a hot
     cooling system, pinned by a test.
 
-All seven engines so far are pure (`require()`-able, no DOM, no Tauri, no
-transport) and carry 143 new tests across the seven modules. Each was
-mutation-checked across thirty-eight separate behaviour breaks.
+- **Signal Library** (`src/js/signal_library.js`): the Parameter Explorer is a
+  wall of identifiers — the right tool if you know what you are looking for,
+  the wrong front door if you do not. 40 distinct signals were scattered across
+  12 community TOML files, and the only way to find oil temperature was to
+  already know it was in n55.toml. This indexes them all, searchable, with the
+  engines that support each one.
+  - **Confidence grading is the point.** A library that flattened the caveats
+    would let someone trust a number nobody has confirmed, which on a car means
+    chasing a nonexistent fault. OBD-II standard PIDs are verified by design
+    (every compliant ECU implements them); UDS DIDs and the 101 bare `did:`
+    entries are community-sourced; anything on a `local:` identifier is
+    unverified; and an explicit `[needs verification]` note in the label
+    outranks all of it.
+  - **A split verdict stays split.** The real profiles are full of it: `oil` is
+    `obd:5C` (standard, verified) on the diesels and `local:10` — explicitly
+    labelled an unverified placeholder — on the N55, N57, S55 and S58. A flat
+    "verified" on that row would send an N55 owner chasing a number the
+    profile itself says not to trust. Rows carry `unverified_on` and
+    `partially_verified`, and `verifiedOnly` drops a signal that is unverified
+    on the engine currently in view.
+  - Tested against the **real** `community/profiles/*.toml` as well as fixtures,
+    so a PID or prefix added to a profile that the classifier grades wrongly
+    turns the suite red. This is what caught the two bugs below.
+
+  Fixed during testing: `obd:0C` was normalised to `C` by stripping leading
+  zeros, so no standard PID ever matched and the entire verified tier was
+  empty; and the bare `did:` prefix — used by 101 of the shipped params — was
+  unclassified and collapsed into "unverified".
+
+All eight engines so far are pure (`require()`-able, no DOM, no Tauri, no
+transport) and carry 173 new tests across the eight modules. Each was
+mutation-checked across forty-three separate behaviour breaks.
 
 ## [2.2.0] — 2026-09-20
 
