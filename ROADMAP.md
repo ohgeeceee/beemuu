@@ -1023,7 +1023,7 @@ TOML. No new transport, no ECU writes, no human merge required.
 | 2 | Adaptation Drift Tracker | ✅ Done | A | `src/js/adaptation_drift.js` — least-squares trend across sessions, threshold proximity, projected crossing. Refuses to call 2 readings "stable". 22 tests. |
 | 3 | Tuning Fingerprint Detector | ✅ Done | A | `src/js/tuning_fingerprint.js` — read-only stock-baseline comparison per (rpm x load) cell. Reports the *most* deviant cell, floors sparse cells at 8 samples, refuses a verdict under 40% coverage, never names a tuning platform. 20 tests. |
 | 4 | Flash Counter & History Auditor | ✅ Done | A | `src/js/flash_audit.js` — reconstructs programming history from snapshots already saved; no new DID mappings, no live session. Null counters stay null, sessions are never counted as programming, sub-hour gaps are one visit. 24 tests. |
-| 5 | Cold Start Auto-Logger | 🟡 Planned | A | Arm it, drive away, the log is there in the morning. |
+| 5 | Cold Start Auto-Logger | ✅ Done | A | `src/js/cold_start.js` — arms on a cold engine left off, opens the capture on the start transition, closes on warm-up or the 5-min window. Refuses to arm on a warm engine, a 60-second stop-start, or a missing coolant read. 16 tests. |
 | 6 | Parameter Hunt | 🟡 Planned | A | Scoring is pure and local; the leaderboard ships as data. |
 | 7 | Symptom Index | 🟡 Planned | A | "Cold start stumble" → the codes and components that cause it. |
 | 8 | Signal Library | 🟡 Planned | A | Every decodable signal in one searchable catalog — the front door to the Parameter Explorer. |

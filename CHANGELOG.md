@@ -124,13 +124,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ME18), not patch differences within one series — ME17.2.42 and ME17.2.40
     are matched modules, and flagging them would cry wolf on every car.
 
-All four engines so far are pure (`require()`-able, no DOM, no Tauri, no
-transport) and carry 87 new tests across the four modules. Each was
-mutation-checked across twenty separate behaviour breaks: the dominance,
-minimum-sample, correlation, crossing-date, counter-reset, out-of-range,
-time-centering, `insufficient_data` sort, cell-sample-floor, low-coverage,
-worst-cell, empty-baseline, sigma, range-clamping, same-visit, reset-vs-flash,
-newly-appeared, null-counter and empty-string gates all turn the suite red.
+- **Cold Start Auto-Logger** (`src/js/cold_start.js`): the intermittent cold-start
+  fault happens on the drive to work, and by the time the car is on a lift it is
+  warm and it never happens again. Arm the logger before leaving, drive away,
+  and the log is already there. A monitor watches coolant temperature and
+  engine state and opens the capture window itself.
+  - The hard part is arming discipline, not the trigger. Arming requires a
+    **cold engine, not running** observation — the only state that legitimately
+    precedes a cold start. Arming on a warm engine promises a capture the car
+    will not produce, and arming on a **missing** coolant read would arm on
+    every E46 whose DID 0x1008 read fails. The only safe default for an unknown
+    temperature is *do not arm*.
+  - The engine must be off at least **60 seconds** before a stop counts as a
+    cold soak, so a stop-start at a junction is never logged as a cold start.
+  - A cold start with **no prior cold observation is never claimed** — we were
+    not watching, so we cannot say we saw one.
+  - The capture closes on full temperature *or* the 5-minute window, whichever
+    comes first, and **disarms** — without which the monitor would produce
+    exactly one capture in the life of a car.
+  - A mid-capture stop **restarts the soak clock**. Leaving the pre-start
+    value in place re-arms five seconds after a stall in traffic, which is the
+    exact mislabelling the feature exists to prevent. Caught during review.
+  - A sample with no timestamp declines to act: the monitor holds no clock of
+    its own, so a replayed log produces the same decisions as the live one.
+
+All five engines so far are pure (`require()`-able, no DOM, no Tauri, no
+transport) and carry 103 new tests across the five modules. Each was
+mutation-checked across twenty-six separate behaviour breaks.
 
 ## [2.2.0] — 2026-09-20
 
