@@ -92,14 +92,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     silently returned `is_tuned: false`. The tests now cover both the
     diverged and stock paths end to end.
 
-All three engines so far are pure (`require()`-able, no DOM, no Tauri, no
-transport) and carry 63 new tests across the three modules. Each was
-mutation-checked: weakening the dominance gate, the minimum-sample gate, the
-correlation gate, the crossing-date gate, the counter-reset handling, the
-out-of-range handling, the time-centering, the `insufficient_data` sort order,
-the cell sample floor, the low-coverage guard, the worst-cell selection, the
-empty-baseline cell count, the sigma floor and the range clamping each turn
-the suite red.
+- **Flash Counter & History Auditor** (`src/js/flash_audit.js`): reconstructs each
+  module's programming history from snapshots the user *already saved*, so it
+  needs no new DID mappings and no live session. Every claim is derived from two
+  readings the user took themselves. The most valuable diagnostic data on a
+  used car is the one nobody shows you.
+  - **It does not read flash counters from the ECU.** `TECH_SPECS.md` §14.3
+    sketches DID 0xF199 and admits `flash_count: None, // requires BMW-specific
+    DID`. Inventing a byte layout for an identifier no capture pins is how this
+    project ends up confidently displaying the wrong date on someone's car, so
+    the module parses counters the caller supplies and stays silent otherwise.
+  - An **active diagnostic session is tracked but never counted as
+    programming** — UDS DID 0xF184 is the current session, and a naive reader
+    would report it as the last programming date.
+  - A counter that **appeared** where there was none before is a coverage
+    difference, not a flash. Conflating the two would invent history.
+  - A **falling** counter is reported as `counter_reset`, never a flash:
+    counters do not go down, so either the module was replaced or the scale
+    changed.
+  - Two readings **less than an hour apart** are one visit, not two flashes.
+  - A single snapshot reports "one reading only" rather than implying the car
+    was never flashed. Several snapshots where only one carried a counter get
+    different wording: the counter is unreadable on that module, not the
+    library too thin.
+  - **An absent counter is null, never 0** — including an explicit
+    `flash_count: null`, an empty string, or a non-numeric value. `Number(null)`
+    and `Number("")` are both 0, and rendering that as "programmed zero times"
+    states something about the car's history that no reading supports. Caught
+    during review; both coercions are now guarded and pinned.
+  - Version comparison flags modules on **different series** (an ME17 beside an
+    ME18), not patch differences within one series — ME17.2.42 and ME17.2.40
+    are matched modules, and flagging them would cry wolf on every car.
+
+All four engines so far are pure (`require()`-able, no DOM, no Tauri, no
+transport) and carry 87 new tests across the four modules. Each was
+mutation-checked across twenty separate behaviour breaks: the dominance,
+minimum-sample, correlation, crossing-date, counter-reset, out-of-range,
+time-centering, `insufficient_data` sort, cell-sample-floor, low-coverage,
+worst-cell, empty-baseline, sigma, range-clamping, same-visit, reset-vs-flash,
+newly-appeared, null-counter and empty-string gates all turn the suite red.
 
 ## [2.2.0] — 2026-09-20
 
