@@ -333,6 +333,24 @@ written, but **CI must run `cargo test` before this lands.** That check also
 runs for the first time in this cycle, so treat the first red CI run as
 possibly pre-existing.
 
+**Fixed — 28 panel tests were silently absent from CI.** The v3 DOM panel
+tests need `jsdom`, which was installed in the working tree but never declared
+in `package.json`, and the CI `js` job ran `node --test` with no `npm install`
+on the assumption that "tests require only repo files + node builtins". Node's
+runner reports a skipped test as a pass and exits 0, so every green CI run
+since the panels landed skipped all 28 of them — the DOM layer, including the
+`textContent`-not-`innerHTML` privacy guard, had no coverage at all and nothing
+reported it.
+
+`jsdom` is now a declared devDependency, CI installs it, and
+`v3_ui.test.cjs` throws instead of skipping, so a missing dependency becomes a
+red build rather than a quiet hole. Verified in a clean extraction with no
+`node_modules`: it fails with a named error rather than skipping.
+
+**Found while proving the delivery bundle**, not by a test — a fresh clone of
+the bundle ran 733 passing where the working tree ran 761. The 28-test gap was
+the whole story.
+
 All five engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
 carry 211 new tests across ten modules, plus 26 backend tests. Each was
 mutation-checked across sixty separate behaviour breaks.

@@ -74,7 +74,21 @@ const ENGINES = [
   "v3_signal_index.js",
 ];
 
-const withDom = (name, fn) => test(name, { skip: !JSDOM && "jsdom not installed" }, fn);
+// jsdom is a hard requirement for this file, not an optional extra. Silently
+// skipping looked green in CI while the panels went untested: node's runner
+// reports a skip as a pass and exits 0, so a missing dependency removed 28
+// tests from the gate and nothing said so. It is now declared in
+// devDependencies and installed by CI, and the guard below fails loudly
+// rather than skipping.
+if (!JSDOM) {
+  throw new Error(
+    "jsdom is required by v3_ui.test.cjs — run `npm install` first. " +
+    "These panel tests must not be skipped; a skip here removes the only " +
+    "coverage of the DOM layer."
+  );
+}
+
+const withDom = (name, fn) => test(name, fn);
 
 withDom("every v3 panel mount point exists in index.html", () => {
   const { doc } = boot({ engines: ENGINES });

@@ -72,9 +72,15 @@ jobs:
       - run: node scripts/test-plugins-browser.cjs
 
   # ─── Frontend JS unit tests (node --test, builtin runner) ───
-  # Tests require only repo files + node builtins, so no npm ci is needed.
   # Explicit globs: `node --test <dir>` mis-handles the mixed
   # .test.js / .test.cjs layout under src/js/ (verified locally on node 24).
+  #
+  # `npm install` is required. Most tests need only repo files and node
+  # builtins, but the v3 panel tests need jsdom — and node's runner treats a
+  # skipped test as a pass and exits 0, so when jsdom was absent those 28 tests
+  # silently left the gate and CI stayed green. v3_ui.test.cjs now throws
+  # instead of skipping, which turns a missing dependency into a red build
+  # rather than a quiet hole in coverage.
   js:
     runs-on: ubuntu-latest
     steps:
@@ -83,6 +89,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+
+      - name: Install test dependencies
+        run: npm install --no-save --package-lock=false --ignore-scripts
 
       - name: node --test
         run: node --test "src/js/**/*.test.js" "src/js/**/*.test.cjs" "frontend/**/*.test.js"
