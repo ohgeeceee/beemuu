@@ -19,10 +19,12 @@ Grounded in the tree, not the marketing:
   `ghost.rs`, `drift.rs`, `misfire.rs`, `hunt.rs`, `dyno.rs`, `cold_start.rs`,
   `flash_counter.rs` do not exist. `VISION.md` is stale here: it claims "14
   designed, mostly unbuilt" and does not know about the seven that *did* ship.
-- **Unlanded elsewhere:** the plugin capability bridge
-  (`feat/plugin-capability-bridge`) and engine profile packs
-  (`feat/engine-profile-packs`) sit on branches, not on `main`. v3 does not
-  depend on either; where they overlap, v3 works from `origin/main`.
+- **Not built, and not on a branch:** the plugin capability bridge and engine
+  profile packs are unbuilt. The `feat/plugin-capability-bridge` and
+  `feat/engine-profile-packs` branches named here previously do not exist on
+  `origin` — verified with `git ls-remote --heads origin`. v3 does not depend on
+  either; the bridge's design of record is
+  `docs/plugin_capability_bridge_plan.md`, which is on `main`.
 
 ## The v3 thesis
 

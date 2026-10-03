@@ -1035,8 +1035,8 @@ TOML. No new transport, no ECU writes, no human merge required.
 `src-tauri/src/transport/`, `protocol/` or `commands.rs`, so the whole cycle is
 Tier A and no human merge is required.
 
-**Not built — panels.** These ten are engines plus their datasets. Wiring them
-into `src/index.html` and `main.js` is the next slice of work; each engine was
+**Panels were the next slice, and have since shipped** — see "Done since (v3.1
+groundwork)" below. These ten are engines plus their datasets; each engine was
 built to be a thin-shim target, the same shape `cbs_predict.js` / `cbs_ui.js`
 already use.
 
@@ -1051,10 +1051,17 @@ already use.
 - **Landing-page differentiators section**, with content tests that check every
   marketing claim against the source.
 
-**Deferred, and worth flagging:** the plugin capability bridge and engine
-profile packs still sit on unlanded branches. Feature 10's registry changes
-touch `backend/plugins_registry.py`, which the capability branch also edits —
-those two will need resolving together rather than one at a time.
+**Deferred, and worth flagging:** the plugin capability bridge is **not built**.
+The `feat/plugin-capability-bridge` and `feat/engine-profile-packs` branches
+named in earlier revisions of this file do not exist on `origin` — verified with
+`git ls-remote --heads origin`. They were never pushed, so there is no branch
+work to reconcile. The bridge's design of record is
+`docs/plugin_capability_bridge_plan.md`, which is on `main`; the bridge is
+unbuilt work, not deferred work.
+
+Feature 10's registry changes touch `backend/plugins_registry.py`, which any
+future capability work will also edit — those two will need resolving together
+rather than one at a time.
 
 **Out of scope for v3.** Any ECU write (no coding, no flashing, no `ecu-flash`
 capability); the `network` and `filesystem` plugin capabilities; a frontend
@@ -1094,9 +1101,24 @@ Tier A (pure data + UI). See `VISION.md` §3 Phase 2.
 | Predictive CBS Timeline | ✅ Done | A | `cbs_predict.js` prediction engine (wear models, measured-wear extrapolation, driving-profile scaling) + `cbs_ui.js` panel in Vehicle Info with snapshot persistence. 11 engine tests + Playwright browser check. |
 | Wiring Detective | ✅ Done | A | `wiring_detect.js` circuit lookup (fuse → ECU pin → component → ground) + expandable card under each fault row. Community data in `community/wiring/*.toml`. 9 tests + Playwright browser check. |
 | Diagnostic Story Mode | ✅ Done (pre-existing) | B | Already shipped: `story.rs` rule-based engine + `generate_story` command + modal renderer. |
-| Cold Start Auto-Logger | 🟡 Planned | A | One-click auto-capture of the cold-start window. |
-| Tuning Fingerprint / Adaptation Drift / Misfire / Flash Counter | 🟡 Planned | B | Forensic set; reads ECU state via the Rust protocol surface. |
+| Cold Start Auto-Logger | ✅ Done (v3.0.0) | A | `src/js/cold_start.js` + `src/js/test/cold_start.test.cjs` (16 tests). Arms on a cold engine left off, opens the capture on the start transition. Shipped as v3 slice 5. |
+| Tuning Fingerprint Detector | ✅ Done (v3.0.0) | A | `src/js/tuning_fingerprint.js` + `src/js/test/tuning_fingerprint.test.cjs` (20 tests). Read-only stock-baseline comparison per (rpm x load) cell. |
+| Adaptation Drift Tracker | ✅ Done (v3.0.0) | A | `src/js/adaptation_drift.js` + `src/js/test/adaptation_drift.test.cjs` (23 tests). Least-squares trend across sessions. |
+| Misfire Pattern Recognition | ✅ Done (v3.0.0) | A | `src/js/misfire_patterns.js` + `src/js/test/misfire_patterns.test.cjs` (21 tests). Correlates each misfire with the values true at that instant. |
+| Flash Counter & History Auditor | ✅ Done (v3.0.0) | A | `src/js/flash_audit.js` + `src/js/test/flash_audit.test.cjs` (26 tests). Reconstructs programming history from snapshots already saved. |
+
+**Note on the forensic set.** This table previously listed the four forensic
+features as `🟡 Planned, Tier B`, on the premise that they would "read ECU state
+via the Rust protocol surface". The v3.0.0 cycle overtook that premise: all four
+shipped as pure analysis over logs, snapshots and community TOML, with no new
+transport and no ECU reads, so they are Tier A. See the v3.0.0 table above.
 
 ---
 
 ## v0.19.0 — "Report Clarity" (In Progress)
+
+This section is a placeholder and has no content of its own. The v0.19.0 to
+v0.30.0 plan lives in
+[`docs/v0.19_to_v0.30_roadmap.md`](docs/v0.19_to_v0.30_roadmap.md): v0.19.0 is
+"Report clarity" — completing the health-report and snapshot reading flow,
+including freeze-frame context and print/export review (Tier A).
