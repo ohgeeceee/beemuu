@@ -27,6 +27,45 @@ let workspaceSaveTimer = null; // debounce handle for workspace.json writes
 // reads through it instead of the simulator mirror.
 let kdcanDataSource = null;
 
+/* ---------------- v3 analysis bridge ----------------
+ * The v3 engines (misfire_patterns, adaptation_drift, tuning_fingerprint,
+ * flash_audit, symptom_index, signal_library, parameter_hunt, cold_start) are
+ * pure and know nothing about the DOM. They still need data that lives in this
+ * file's closure, so rather than let them guess or duplicate the plumbing, one
+ * read-only bridge is published here.
+ *
+ * Deliberately narrow: getters only, no setters, and every field is read at
+ * call time. A panel cannot mutate app state through this, so a v3 feature
+ * cannot accidentally corrupt a live diagnostic session. Anything that needs to
+ * *feed* an engine goes through that engine's own module-level API instead. */
+window.beeemuuV3 = {
+  /* Live log series in the shape csv_log_export.js already produces:
+   * Map<id, {label, unit, data:[{x, y}]}>. The misfire and cold-start engines
+   * derive their events from exactly this, so nothing is converted here. */
+  logSeries: () => logSeries,
+  /* Cached DTCs from the last fault-memory read. */
+  dtcs: () => lastDtcs,
+  /* Modules from the last vehicle test. */
+  vehicleModules: () => modules,
+  vehicleAddress: () => selectedAddress,
+  isConnected: () => connected,
+  /* True while a loaded snapshot is being viewed rather than a live car.
+   * Several panels must not present historical data as a current reading. */
+  isReplay: () => sessionReplay,
+  /* Change hooks, so main.js can tell a panel its data moved instead of the
+   * panel polling. A throwing listener is isolated: one broken panel must not
+   * take down a diagnostic session. */
+  _listeners: [],
+  onData(fn) {
+    if (typeof fn === "function") this._listeners.push(fn);
+  },
+  _notify() {
+    for (const fn of this._listeners) {
+      try { fn(); } catch (_) { /* ignore */ }
+    }
+  },
+};
+
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
   $("status-text").textContent = text;
@@ -466,6 +505,7 @@ $("btn-connect").addEventListener("click", async () => {
     refreshFrmCodingCard();
     renderFirstScanGuide();
     renderBeginnerFaultSummary();
+    window.beeemuuV3._notify();
     return;
   }
   if (sessionReplay) {
@@ -475,6 +515,7 @@ $("btn-connect").addEventListener("click", async () => {
     lastVehicleInfo = null;
     lastTraffic = [];
     faultMemoryRead = false;
+    window.beeemuuV3._notify();
     $("ecu-tree").innerHTML = "<li class='tree-empty'>Connect and run a vehicle test to identify control units.</li>";
     $("fault-rows").innerHTML = "<tr><td colspan='3' class='muted'>Select a control unit.</td></tr>";
     $("info-body").innerHTML = "<p class='muted'>Connect and click 'Read vehicle' to read VIN, decode it, and read mileage.</p>";
@@ -535,6 +576,7 @@ $("btn-scan").addEventListener("click", async () => {
     renderTree();
     fillExplorerEcus();
     fillSecurityEcus();
+    window.beeemuuV3._notify();
     const found = modules.filter((m) => m.present).length;
     faultMemoryRead = false;
     setStatus(`Vehicle test complete — ${found} control units found`);
@@ -581,6 +623,7 @@ async function selectModule(address) {
   faultMemoryRead = false;
   renderTree();
   renderBeginnerFaultSummary();
+  window.beeemuuV3._notify();
   const m = modules.find((x) => x.address === address);
   $("detail-title").textContent = `Fault memory — ${m.name}`;
   const identEl = $("ecu-ident");
@@ -637,6 +680,7 @@ async function readFaults() {
     const dtcs = m?.dtcs || [];
     lastDtcs = dtcs;
     faultMemoryRead = true;
+    window.beeemuuV3._notify();
     if (dtcs.length === 0) {
       tbody.innerHTML = `<tr><td colspan='3' class='fault-ok'>No faults stored. <span class="muted">This module's fault memory is clear — a useful baseline. Try scanning other modules (DME, EGS, DSC) to confirm the vehicle's overall health.</span></td></tr>`;
       return;
@@ -662,6 +706,7 @@ async function readFaults() {
     const dtcs = await invoke("read_faults", { address: selectedAddress });
     lastDtcs = dtcs;
     faultMemoryRead = true;
+    window.beeemuuV3._notify();
     // v0.12.0 Fault Memory: record this read to the local history if the
     // user opted in. Best-effort — a recording failure (e.g. home dir not
     // writable, slice 2 PR #144 not yet merged) should not break the
@@ -1581,6 +1626,36 @@ function updateSnapshotButton() {
   btn.disabled = gauges.size === 0;
 }
 
+/* v3 Cold Start Auto-Logger — feed one live-data sweep to the armed monitor.
+ *
+ * The monitor is deliberately fed here rather than from a timer of its own: it
+ * needs to see the same coolant and engine state the rest of the app sees, and
+ * a second sampling loop would be a second thing that can disagree with the
+ * first. No-op when the panel has not been mounted or the user has not armed
+ * it, which is the overwhelmingly common case. */
+function feedColdStartMonitor(values) {
+  const panel = window.beeemuuV3ColdPanel;
+  if (!panel || typeof panel.observe !== "function") return;
+  if (!panel.monitor || !panel.monitor()) return;
+
+  let coolant = null;
+  let rpm = null;
+  for (const v of values || []) {
+    if (!v) continue;
+    if (v.id === "coolant" && Number.isFinite(v.value)) coolant = v.value;
+    else if (v.id === "rpm" && Number.isFinite(v.value)) rpm = v.value;
+  }
+  // Engine state is inferred from RPM: the sweep only runs while a session is
+  // live, and a cranking or idling engine has a non-zero speed. No RPM and no
+  // coolant means we cannot tell whether the engine is even turning, and the
+  // monitor declines to act on a missing timestamp anyway.
+  panel.observe({
+    t: Date.now(),
+    running: rpm != null && rpm > 0,
+    coolant,
+  });
+}
+
 async function pollOnce() {
   let result = { values: [], errors: [] };
   try {
@@ -1602,6 +1677,10 @@ async function pollOnce() {
     if (kdcanDataSource) {
       kdcanDataSource.applySweep(result.values || [], result.errors || []);
     }
+    // v3 Cold Start Auto-Logger: feed each sweep to the monitor if the user
+    // armed it. The monitor needs coolant and engine-running state, both of
+    // which the sweep already carries, so this costs nothing extra.
+    feedColdStartMonitor(result.values || []);
   } catch (e) {
     // Systemic failure (no transport, unknown profile, poisoned state
     // lock) — `read_live_data` returns `Err(_)` for these. Same
@@ -4088,6 +4167,10 @@ function loadSnapshot(data) {
   }
 
   log("Loaded session snapshot.");
+  // A snapshot changes every input the v3 panels read — log series, modules,
+  // DTCs, and the replay flag — so notify once at the end rather than at each
+  // assignment.
+  window.beeemuuV3._notify();
 }
 
 $("session-load-file").addEventListener("change", async (e) => {

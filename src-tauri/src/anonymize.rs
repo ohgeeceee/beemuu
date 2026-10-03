@@ -62,6 +62,32 @@ pub fn hash_vin(vin: &str) -> String {
     format!("{:016x}", hasher.finish())
 }
 
+/// Strip the car-unique serial from an ECU identification string.
+///
+/// BMW identification responses routinely append a serial to the software
+/// part — `MEVD17.2.42-S0000123`, `DME_8.4.1-0123456789`. The software part
+/// is diagnostically useful (it tells you what calibration the module runs and
+/// is what makes a snapshot worth sharing); the serial identifies *this
+/// module in this car* and, on several ECUs, is derived from the VIN. Keeping
+/// it in a file whose entire purpose is to be shareable defeats the redaction.
+///
+/// So the software prefix survives and the serial does not. When no serial is
+/// present the string is returned unchanged, which is the common case for a
+/// short software-only ident.
+///
+/// Split on the first `-`: everything before it is the calibration, everything
+/// after is the serial. A `DME_8.4.1-0123456789` therefore becomes
+/// `DME_8.4.1`.
+pub fn redact_ident(ident: &str) -> String {
+    let trimmed = ident.trim();
+    match trimmed.split_once('-') {
+        Some((software, serial)) if !software.is_empty() && !serial.is_empty() => {
+            software.to_string()
+        }
+        _ => trimmed.to_string(),
+    }
+}
+
 /// Anonymize a full SessionSnapshot.
 pub fn anonymize(snapshot: &crate::commands::SessionSnapshot) -> AnonymizedSnapshot {
     let vin = snapshot
@@ -89,7 +115,10 @@ pub fn anonymize(snapshot: &crate::commands::SessionSnapshot) -> AnonymizedSnaps
             text: d.text.clone(),
             freeze_frame: d.freeze_frame.clone(),
         }).collect(),
-        ident: m.ident.clone(),
+        ident: m
+            .ident
+            .as_ref()
+            .map(|i| redact_ident(i)),
         live_data: Vec::new(),
     }).collect();
 
@@ -345,6 +374,63 @@ mod tests {
         let s = snapshot_with_vin(Some("WBAJB1C50JB084923"), Some("n55"));
         let anon = anonymize(&s);
         assert!(anon.modules.iter().all(|m| m.live_data.is_empty()));
+    }
+
+    // -----------------------------------------------------------------
+    // redact_ident — the car-unique serial must not survive
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn redact_ident_strips_the_module_serial() {
+        // The software part is what makes a snapshot worth sharing; the serial
+        // identifies this module in this car and, on several ECUs, is derived
+        // from the VIN.
+        assert_eq!(redact_ident("MEVD17.2.42-S0000123"), "MEVD17.2.42");
+        assert_eq!(redact_ident("DME_8.4.1-0123456789"), "DME_8.4.1");
+        assert_eq!(redact_ident("MEVD17.2.42-12345678"), "MEVD17.2.42");
+    }
+
+    #[test]
+    fn redact_ident_leaves_a_software_only_ident_alone() {
+        // The common case: no serial, nothing to strip.
+        assert_eq!(redact_ident("MEVD17.2"), "MEVD17.2");
+        assert_eq!(redact_ident("DSC_8.4.1"), "DSC_8.4.1");
+    }
+
+    #[test]
+    fn redact_ident_is_not_confused_by_a_dangling_or_leading_dash() {
+        assert_eq!(redact_ident("-S0000123"), "-S0000123");
+        assert_eq!(redact_ident("MEVD17.2-"), "MEVD17.2-");
+        assert_eq!(redact_ident("  MEVD17.2.42-S1  "), "MEVD17.2.42");
+        assert_eq!(redact_ident(""), "");
+    }
+
+    #[test]
+    fn redact_ident_splits_on_the_first_dash() {
+        // Documented rule: everything before the first `-` is the calibration.
+        // Real BMW idents carry exactly one dash (`MEVD17.2.42-S0000123`,
+        // `DME_8.4.1-0123456789`), so this is unambiguous in practice. Pinned
+        // here so the behaviour is stated rather than incidental: a
+        // hypothetical `SW-1.2-A-S9` keeps only `SW`.
+        assert_eq!(redact_ident("SW-1.2-A-S9"), "SW");
+    }
+
+    #[test]
+    fn anonymize_redacts_the_module_serial_end_to_end() {
+        // The invariant that matters: no module serial survives anonymization,
+        // and the software part — the diagnostically useful half — does.
+        let mut s = snapshot_with_vin(Some("WBAJB1C50JB084923"), Some("n55"));
+        s.modules[0].ident = Some("MEVD17.2.42-S0000123".to_string());
+        let anon = anonymize(&s);
+        let m = &anon.modules[0];
+        assert_eq!(m.ident.as_deref(), Some("MEVD17.2.42"));
+        let json = export_json(&s);
+        assert!(
+            !json.contains("S0000123"),
+            "the module serial survived into the exported JSON: {}",
+            json
+        );
+        assert!(json.contains("MEVD17.2.42"), "the software part was lost");
     }
 
     // -----------------------------------------------------------------

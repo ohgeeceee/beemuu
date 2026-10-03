@@ -1007,6 +1007,62 @@ formatting, multi-vehicle comparison, and JSON export.
 
 ---
 
+## v3.0.0 — "The Car Remembers" (In Progress)
+
+**Premise.** v2.x taught the app to ask a module a question once and render
+the answer. v3 is about the *history*: what the ECU learned, what it keeps
+re-learning wrongly, what it counts. Plan and ordering rationale in
+[`docs/v3_plan.md`](docs/v3_plan.md).
+
+All ten slices are Tier A — pure analysis over logs, snapshots and community
+TOML. No new transport, no ECU writes, no human merge required.
+
+| # | Item | Status | Tier | Module |
+|---|------|--------|------|--------|
+| 1 | Misfire Pattern Recognition | ✅ Done | A | `src/js/misfire_patterns.js` — per-cylinder misfires correlated with the RPM/load/temp/knock values true at that instant; dominance-gated rule classification with confidence and evidence. 21 tests. |
+| 2 | Adaptation Drift Tracker | ✅ Done | A | `src/js/adaptation_drift.js` — least-squares trend across sessions, threshold proximity, projected crossing. Refuses to call 2 readings "stable". 22 tests. |
+| 3 | Tuning Fingerprint Detector | ✅ Done | A | `src/js/tuning_fingerprint.js` — read-only stock-baseline comparison per (rpm x load) cell. Reports the *most* deviant cell, floors sparse cells at 8 samples, refuses a verdict under 40% coverage, never names a tuning platform. 20 tests. |
+| 4 | Flash Counter & History Auditor | ✅ Done | A | `src/js/flash_audit.js` — reconstructs programming history from snapshots already saved; no new DID mappings, no live session. Null counters stay null, sessions are never counted as programming, sub-hour gaps are one visit. 24 tests. |
+| 5 | Cold Start Auto-Logger | ✅ Done | A | `src/js/cold_start.js` — arms on a cold engine left off, opens the capture on the start transition, closes on warm-up or the 5-min window. Refuses to arm on a warm engine, a 60-second stop-start, or a missing coolant read. 16 tests. |
+| 6 | Parameter Hunt | ✅ Done | A | `src/js/parameter_hunt.js` — scoring, challenges and a local leaderboard for E-series reverse engineering. Nothing scores unattributed; unverified claims are capped at half value; points awarded once per finding; challenge progress counts unique findings. 21 tests. |
+| 7 | Symptom Index | ✅ Done | A | `src/js/symptom_index.js` — free-text symptom → ranked candidate codes, components and checks. Specificity-weighted ranking, `is_diagnosis: false` always, and unresolvable circuits flagged `circuit: false` rather than invented. 19 tests. |
+| 8 | Signal Library | ✅ Done | A | `src/js/signal_library.js` — all 40 distinct signals across 12 community profiles in one searchable index, graded verified / community / unverified. Split verdicts stay split (`oil` is verified on diesels, `local:10` unverified on the N55). Tested against the real TOML. 30 tests. |
+| 9 | Vehicle Passport | ✅ Done | A | `src/js/vehicle_passport.js` — one portable file per car. VIN never included and not optional; salted fingerprint instead, ident strings dropped not hashed, every redaction reported. 22 tests. |
+| 10 | Registry integrity + search | ✅ Done | A | `plugins_registry.py` + `plugins_registry_client.js` — sha256 per package, mismatch never served and reported via `registry_errors()`, verification before parsing, missing digest is a refusal. Cross-language canonicalisation pinned by a parity suite. 16 JS + 26 backend tests. |
+
+**Cycle complete — all ten shipped.** 683 JS tests and 262 backend tests pass
+(472 JS / 16 registry at the start of the cycle). Nothing here touches
+`src-tauri/src/transport/`, `protocol/` or `commands.rs`, so the whole cycle is
+Tier A and no human merge is required.
+
+**Not built — panels.** These ten are engines plus their datasets. Wiring them
+into `src/index.html` and `main.js` is the next slice of work; each engine was
+built to be a thin-shim target, the same shape `cbs_predict.js` / `cbs_ui.js`
+already use.
+
+**Done since (v3.1 groundwork).**
+
+- **Panels shipped** (`src/js/v3_ui.js`): nine panels in the Diagnostics view,
+  over a read-only `window.beeemuuV3` bridge. `textContent` throughout, with a
+  test that fails on any `innerHTML` assignment.
+- **Demo scenarios** (`src/js/demo_scenarios.js`): five scenarios with known
+  ground truth, so the engines can be exercised and demonstrated without a car.
+  Each asserts the answer it was built to find.
+- **Landing-page differentiators section**, with content tests that check every
+  marketing claim against the source.
+
+**Deferred, and worth flagging:** the plugin capability bridge and engine
+profile packs still sit on unlanded branches. Feature 10's registry changes
+touch `backend/plugins_registry.py`, which the capability branch also edits —
+those two will need resolving together rather than one at a time.
+
+**Out of scope for v3.** Any ECU write (no coding, no flashing, no `ecu-flash`
+capability); the `network` and `filesystem` plugin capabilities; a frontend
+framework rewrite; the `ui` plugin capability, which is still structurally
+blocked because a Worker has no safe DOM surface.
+
+---
+
 ## Plugin ecosystem (Phase 1 of VISION.md)
 
 **Premise.** Turn the bundled plugin system into a shareable ecosystem: a

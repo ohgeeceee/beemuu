@@ -5,6 +5,356 @@ All notable changes to BeeEmUu are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — Tier A (v3.0.0 cycle: "The Car Remembers")
+
+- **v3 plan** (`docs/v3_plan.md`): the next ten features, and the reasoning
+  behind the order. The cycle's thesis is that the app is already good at
+  asking a module a question once; v3 is about the *history* — what the ECU
+  learned, keeps re-learning wrongly, or counts. That makes almost the whole
+  cycle pure analysis over logs, snapshots and community TOML: no new transport,
+  no ECU writes, nothing that can brick a car.
+  - The plan also corrects `VISION.md`, which claims "14 designed, mostly
+    unbuilt" and does not know about the seven features that did ship
+    (Predictive CBS, Wiring Detective, Story Mode, Oracle, Second Opinion,
+    Secure Share, beginner guides).
+- **Misfire Pattern Recognition** (`src/js/misfire_patterns.js`): a DME tells you
+  *how many* times cylinder 3 misfired and never *when* — and the "when" is the
+  diagnosis. This correlates each misfire with the RPM, load, coolant, oil, IAT
+  and knock-retard values that were true at that instant, histograms them per
+  cylinder, and classifies the pattern: knock-detonation, cold-start injector
+  leak-down, heat-related coil breakdown, high-load ignition, or all-cylinder
+  vacuum/fuel-pressure.
+  - `collectEvents()` derives events from a log session by watching each
+    per-cylinder counter's rises. A cumulative counter and a boolean flag both
+    read correctly without the caller knowing which ECU produced it, and a
+    counter *reset* is re-seeded rather than reported as a negative event.
+  - Live values are joined to events by time, not by index: log channels are
+    sampled independently, so the most recent sample at or before the event is
+    used, within a caller-set tolerance. Past the tolerance the value is
+    dropped rather than attributed to the event as if it were current.
+  - **A rule must own 70% of a cylinder's events to claim the diagnosis.**
+    Below that the honest answer is "pattern unclear", and the per-rule evidence
+    is still returned so the user can see why nothing was claimed. Confidence
+    scales with how lopsided the match is, so a rule that barely clears the bar
+    reports less certainty than one that owns every event.
+  - Under 8 events, no diagnosis is offered at all. A pattern from three
+    misfires is noise, and naming a part on it costs the user money.
+- **Adaptation Drift Tracker** (`src/js/adaptation_drift.js`): long-term fuel
+  trims and idle learnings start moving months before a code is ever set. This
+  trends recorded adaptation values across sessions (least-squares over
+  time), and reports slope, correlation, distance from the community threshold,
+  and a projected crossing date.
+  - **A series with fewer than 3 readings is `insufficient_data`, not "stable".**
+    Flat because you measured it twice is a different claim from flat because it
+    is flat, and the panel must not let a user read one as the other.
+  - A projected date requires both a strong enough correlation *and* real
+    history behind it. A crossing that already happened is not printed as a
+    future date, and a projection centuries out is withheld rather than shown.
+  - A parameter with no published community threshold can never escalate past
+    `watch` — we do not know what "bad" means for it. Conversely, a value
+    settling back down toward normal with a known limit is `ok`: that is the ECU
+    recovering, not a problem.
+  - The fit centers time internally. Uncentered least squares on epoch
+    milliseconds squares to ~1e24 and loses the slope to rounding.
+  - `recordObservation()` replaces a same-timestamp reading rather than
+    appending: re-recording one session must not duplicate a point, which would
+    flatter the correlation and invent a trend that did not happen.
+
+- **Tuning Fingerprint Detector** (`src/js/tuning_fingerprint.js`): answers one
+  question read-only — has this calibration been changed from stock? A log is
+  binned into the (rpm x load) cells a community-published stock baseline
+  describes, and each cell's mean is compared to the stock mean in
+  standard-deviation units. Past 2 sigma is a real deviation.
+  - **The headline is the most deviant cell, not the mean across cells.** A
+    calibration retuned hard in one region of the map has been changed, and
+    averaging that away against fifteen cells that matched stock would hide the
+    only thing the user needs to know.
+  - **A cell needs 8 samples before it counts.** One reading in a cell has a
+    mean, and against a stock sigma of 1 that turns any offset into a "confirmed
+    stage 2" verdict. Below-floor cells are counted as skipped so the coverage
+    figure stays honest rather than quietly excluded.
+  - Below 40% overall confidence the report refuses to say `is_tuned` at all: a
+    log that covered a tenth of the operating range cannot speak for the
+    calibration, and "we cannot tell" is the honest answer.
+  - Samples outside the baseline's range are dropped, never clamped into an edge
+    cell. Clamping would pile full-throttle pulls into a cell the stock grid
+    never sampled and produce a z-score that is an artifact of the binning.
+  - A stock cell with zero variance is floored before dividing, so a
+    never-varying baseline cannot manufacture an unbounded z-score — while a
+    genuine 6-degree offset is still caught.
+  - **It never names a tuning platform.** `suspected_platform` is always null.
+    The data supports "this deviated", not "who did it", and a wrong accusation
+    aimed at a seller is a real harm.
+  - It is not a map browser and never reads or writes calibration data.
+  - Caught one real bug during review: a `deverged` typo meant every report
+    silently returned `is_tuned: false`. The tests now cover both the
+    diverged and stock paths end to end.
+
+- **Flash Counter & History Auditor** (`src/js/flash_audit.js`): reconstructs each
+  module's programming history from snapshots the user *already saved*, so it
+  needs no new DID mappings and no live session. Every claim is derived from two
+  readings the user took themselves. The most valuable diagnostic data on a
+  used car is the one nobody shows you.
+  - **It does not read flash counters from the ECU.** `TECH_SPECS.md` §14.3
+    sketches DID 0xF199 and admits `flash_count: None, // requires BMW-specific
+    DID`. Inventing a byte layout for an identifier no capture pins is how this
+    project ends up confidently displaying the wrong date on someone's car, so
+    the module parses counters the caller supplies and stays silent otherwise.
+  - An **active diagnostic session is tracked but never counted as
+    programming** — UDS DID 0xF184 is the current session, and a naive reader
+    would report it as the last programming date.
+  - A counter that **appeared** where there was none before is a coverage
+    difference, not a flash. Conflating the two would invent history.
+  - A **falling** counter is reported as `counter_reset`, never a flash:
+    counters do not go down, so either the module was replaced or the scale
+    changed.
+  - Two readings **less than an hour apart** are one visit, not two flashes.
+  - A single snapshot reports "one reading only" rather than implying the car
+    was never flashed. Several snapshots where only one carried a counter get
+    different wording: the counter is unreadable on that module, not the
+    library too thin.
+  - **An absent counter is null, never 0** — including an explicit
+    `flash_count: null`, an empty string, or a non-numeric value. `Number(null)`
+    and `Number("")` are both 0, and rendering that as "programmed zero times"
+    states something about the car's history that no reading supports. Caught
+    during review; both coercions are now guarded and pinned.
+  - Version comparison flags modules on **different series** (an ME17 beside an
+    ME18), not patch differences within one series — ME17.2.42 and ME17.2.40
+    are matched modules, and flagging them would cry wolf on every car.
+
+- **Cold Start Auto-Logger** (`src/js/cold_start.js`): the intermittent cold-start
+  fault happens on the drive to work, and by the time the car is on a lift it is
+  warm and it never happens again. Arm the logger before leaving, drive away,
+  and the log is already there. A monitor watches coolant temperature and
+  engine state and opens the capture window itself.
+  - The hard part is arming discipline, not the trigger. Arming requires a
+    **cold engine, not running** observation — the only state that legitimately
+    precedes a cold start. Arming on a warm engine promises a capture the car
+    will not produce, and arming on a **missing** coolant read would arm on
+    every E46 whose DID 0x1008 read fails. The only safe default for an unknown
+    temperature is *do not arm*.
+  - The engine must be off at least **60 seconds** before a stop counts as a
+    cold soak, so a stop-start at a junction is never logged as a cold start.
+  - A cold start with **no prior cold observation is never claimed** — we were
+    not watching, so we cannot say we saw one.
+  - The capture closes on full temperature *or* the 5-minute window, whichever
+    comes first, and **disarms** — without which the monitor would produce
+    exactly one capture in the life of a car.
+  - A mid-capture stop **restarts the soak clock**. Leaving the pre-start
+    value in place re-arms five seconds after a stall in traffic, which is the
+    exact mislabelling the feature exists to prevent. Caught during review.
+  - A sample with no timestamp declines to act: the monitor holds no clock of
+    its own, so a replayed log produces the same decisions as the live one.
+
+- **Parameter Hunt** (`src/js/parameter_hunt.js`): the E-series data desert is a
+  labour problem. `research/bmw_diag_dim07_local_ids.md` records an exhaustive
+  search finding no published KWP2000 table, and every table that exists was
+  built by somebody in a parking lot watching which bytes move. This turns that
+  work into a sport, on top of the existing `explorer.js` volatility engine.
+  - The design problem is integrity, not fun: a leaderboard that scores guesses
+    produces a table full of wrong answers, and a community table built from
+    wrong answers is worse than no table.
+  - **Nothing scores unattributed.** A finding needs an engine and a module, or
+    it is recorded for the contributor's own record and counted at zero — nobody
+    else can check a fact that is not tied to a car.
+  - **An unverified claim is worth at most half** its kind's value and never
+    more than 50, so no unverified finding can outrank a confirmed one.
+  - **Verification is a strict boolean `true`**, settable only from a merge
+    record. A truthy form field must not be able to promote a self-report.
+  - **Points are awarded once per (kind, engine, module, identifier)**, and a
+    confirming resubmission still scores zero — otherwise "confirm everything
+    twice" is an exploit.
+  - **Challenge progress counts unique findings**, both across repeated probes
+    and across hunters: two people confirming the same identifier is one fact
+    about that identifier, though both are credited as contributors.
+  - The leaderboard tiebreaks on confirmed evidence, and flags a hunter whose
+    entire record is unconfirmed rather than presenting it as a proven lead.
+
+- **Symptom Index** (`src/js/symptom_index.js`): owners do not arrive with fault
+  codes, they arrive with "it stumbles when it's cold". Every tool in this space
+  is organised around codes, so the hardest part of the job — turning a sentence
+  into a shortlist — is the part nobody had built. This is that front door.
+  - **It does not diagnose.** `is_diagnosis: false` is explicit and load-bearing;
+    it shortlists candidates and says what to test.
+  - **Ranking is by specificity, not keyword count.** "cold" is a weak signal
+    (half the index involves temperature) while "cold start" is the whole
+    diagnosis. A long-phrase bonus rewards that, capped so one phrase cannot
+    outrank a genuine multi-term match.
+  - **A score floor** keeps weak single terms out of the shortlist entirely: a
+    list of everything is the same as no list.
+  - A code's confidence takes the **strongest** claim made about it, never an
+    average or last-write-wins, and never a downgrade from a second weaker
+    sighting. `mergeSightings` is exported and tested directly because no code
+    in the shipped index happens to have a community/verified split, which would
+    otherwise leave the rule untested and a regression there shipping silently.
+  - **A code without a published circuit says so** with `circuit: false`. DISA
+    (`2A98`) is a real cold-start culprit with no `community/wiring/` entry, and
+    inventing a pin number is not an option — the test enforces that a code is
+    either resolvable by `wiring_detect.js` or explicitly flagged.
+  - The overheating entry carries a hard safety note about never opening a hot
+    cooling system, pinned by a test.
+
+- **Signal Library** (`src/js/signal_library.js`): the Parameter Explorer is a
+  wall of identifiers — the right tool if you know what you are looking for,
+  the wrong front door if you do not. 40 distinct signals were scattered across
+  12 community TOML files, and the only way to find oil temperature was to
+  already know it was in n55.toml. This indexes them all, searchable, with the
+  engines that support each one.
+  - **Confidence grading is the point.** A library that flattened the caveats
+    would let someone trust a number nobody has confirmed, which on a car means
+    chasing a nonexistent fault. OBD-II standard PIDs are verified by design
+    (every compliant ECU implements them); UDS DIDs and the 101 bare `did:`
+    entries are community-sourced; anything on a `local:` identifier is
+    unverified; and an explicit `[needs verification]` note in the label
+    outranks all of it.
+  - **A split verdict stays split.** The real profiles are full of it: `oil` is
+    `obd:5C` (standard, verified) on the diesels and `local:10` — explicitly
+    labelled an unverified placeholder — on the N55, N57, S55 and S58. A flat
+    "verified" on that row would send an N55 owner chasing a number the
+    profile itself says not to trust. Rows carry `unverified_on` and
+    `partially_verified`, and `verifiedOnly` drops a signal that is unverified
+    on the engine currently in view.
+  - Tested against the **real** `community/profiles/*.toml` as well as fixtures,
+    so a PID or prefix added to a profile that the classifier grades wrongly
+    turns the suite red. This is what caught the two bugs below.
+
+  Fixed during testing: `obd:0C` was normalised to `C` by stripping leading
+  zeros, so no standard PID ever matched and the entire verified tier was
+  empty; and the bare `did:` prefix — used by 101 of the shipped params — was
+  unclassified and collapsed into "unverified".
+
+- **Vehicle Passport** (`src/js/vehicle_passport.js`): everything the app knows
+  about one car in one portable file. A BMW's knowledge is scattered across
+  six places — profile, DID map, DTC database, wiring table, CBS history,
+  adaptation history — none of them much use alone and all of them hard to
+  move. A car changes hands and the owner re-learns what they knew last winter.
+  - **The VIN is never included, and there is no option to include it.** An
+    option is an invitation, and the one time somebody needs it is the one time
+    they will share the file. A test asserts that passing `include_vin: true`
+    changes nothing.
+  - What ships instead is a **salted fingerprint**, so an owner can recognise
+    their own car across passports while two independently-created files cannot
+    be linked by hash comparison. `isSameCar` requires the salt to match as well
+    as the fingerprint, with a forged-passport test pinning exactly that.
+  - **Module `ident` strings are dropped, not hashed** — they frequently embed
+    VIN-derived material, and keeping even a hash leaks its structure. This
+    matches the intent `TECH_SPECS.md` §13.3 states for the Rust anonymizer.
+  - **Every redaction is reported** in `privacy.removed_fields`, so the UI can
+    tell the user what is about to leave the machine rather than implying the
+    file is clean by assertion.
+  - The privacy note says **"obfuscation, not anonymity"** and that a 17-character
+    VIN space is brute-forceable. "Anonymized" on its own is a promise this file
+    cannot keep against someone holding a list of VINs.
+  - A module's ECU `address` is kept while an owner's `address` is dropped —
+    caught during testing, because the field name collided and the redactor was
+    removing the ECU address that `flash_audit.js` keys on.
+
+- **Registry integrity + search** (`backend/plugins_registry.py`,
+  `src/js/plugins_registry_client.js`): a download ecosystem is only as good
+  as its integrity story. Every package carries a sha256; the registry skips
+  any file whose digest does not match, and the client verifies before the
+  package is parsed.
+  - **A tampered or corrupt package is never served**, and
+    `registry_errors()` reports *why* rather than letting it vanish silently —
+    otherwise a contributor whose manifest was edited in place has no idea why
+    their package disappeared.
+  - **Verification happens before parsing**, because parsing is what compiles
+    tool code for the worker. `gateInstall` verifies, and only then hands the
+    manifest to the parser. A test asserts the parser is never called on an
+    unverified manifest.
+  - **A missing digest is a refusal, not a pass** — otherwise anyone could add
+    a package by omitting the sidecar.
+  - **The digest is canonical over sorted keys and no insignificant
+    whitespace**, so a contributor reformatting their JSON does not invalidate
+    it, while changing one character of tool code does.
+  - **No result ever says `trusted`.** A digest detects corruption and casual
+    tampering; it does not prove authorship, and an attacker who can edit the
+    manifest can edit its digest. Author signing remains the open Tier B item,
+    and the client refuses rather than implying otherwise. Where WebCrypto is
+    unavailable the client refuses to install at all instead of claiming a
+    weaker check succeeded.
+
+  **Fixed during testing — a cross-language digest bug that would have broken
+  every install.** JSON does not distinguish 1 from 1.0: Python's
+  `json.dumps(-40.0)` writes `-40.0`, JavaScript's `JSON.stringify(-40.0)`
+  writes `-40`. The community profiles are full of `min = -40.0` /
+  `max = 7000.0`, so every real package would have hashed differently on the two
+  sides and every install would have failed with a bogus mismatch. The
+  int/float distinction is *lost* rather than preserved — once the manifest
+  reaches JavaScript it is gone, so a digest depending on it could never be
+  verified by the only party that needs to. `backend/tests/test_digest_parity.py`
+  and the client test each hard-code the same expected digest, so either side
+  drifting turns both suites red.
+
+- **Demo Scenarios** (`src/js/demo_scenarios.js`): five scenarios with known
+  ground truth — a high-load misfire, a stock engine, a drifting fuel trim, a
+  reflashed DME, a cold start. The engines all need a log to work on, and
+  without these a contributor cannot tell whether a change did anything and a
+  reviewer cannot evaluate a feature without reimplementing it by hand.
+  - **Every scenario asserts the answer it exists to find.** The misfire
+    scenario must classify as `high_load_ignition`; the drift scenario must
+    project a crossing date. An engine that quietly stops detecting its own
+    pattern fails the test. A demo that merely produces plausible numbers
+    proves nothing.
+  - The data is **deliberately imperfect**: channels sampled at different
+    rates, noise, and dropouts. A missing sample is absent from the array, not
+    a zero, because an engine that reads a comms error as 0 °C invents a fault.
+  - Seeded and deterministic, so a failure reproduces from the seed alone.
+  - Mutation-checked across ten separate scenario breaks
+    (`scripts/mutate-demo-scenarios.sh`) — misfires moved to idle, the cold
+    soak shortened below the monitor's own minimum, the trim no longer
+    drifting, the flash counter running backwards, dropouts disabled, channels
+    resampled to a uniform rate.
+
+  **Fixed a real engine bug this surfaced.** `flash_audit.js` resolved a
+  module's DID map through `m.dids || m.ident || m.reads || m`, but `ident` is
+  the ECU identification *string*, which won the chain — so a flat
+  `flash_count` alongside it was read from a string and came back null. A
+  reflashed DME was reported as having **no programming history at all**. Every
+  existing unit-test fixture nested its counter inside a `dids` object, so only
+  data shaped like a real snapshot caught it. The fallback is now gated on the
+  value being an object, with regression tests covering both directions.
+
+**Fixed — VIN-derived identifiers no longer survive a shared snapshot**
+(`src-tauri/src/anonymize.rs`). The anonymizer stripped the VIN and hashed the
+plate but copied each module's `ident` verbatim, and BMW identification
+responses routinely append a car-unique serial to the software part —
+`MEVD17.2.42-S0000123`, `DME_8.4.1-0123456789`. On several ECUs that serial is
+derived from the VIN, so a file whose entire purpose is to be shareable was
+carrying the one thing it promised to remove. The software part now survives
+(that is what makes a snapshot worth sharing) and the serial does not.
+
+**Not compiled or tested here — this environment has no Rust toolchain.** The
+algorithm was verified by transcribing it and running the same ten assertions
+(`scripts/verify_redact_ident.py`, all passing), and five Rust tests are
+written, but **CI must run `cargo test` before this lands.** That check also
+runs for the first time in this cycle, so treat the first red CI run as
+possibly pre-existing.
+
+**Fixed — 28 panel tests were silently absent from CI.** The v3 DOM panel
+tests need `jsdom`, which was installed in the working tree but never declared
+in `package.json`, and the CI `js` job ran `node --test` with no `npm install`
+on the assumption that "tests require only repo files + node builtins". Node's
+runner reports a skipped test as a pass and exits 0, so every green CI run
+since the panels landed skipped all 28 of them — the DOM layer, including the
+`textContent`-not-`innerHTML` privacy guard, had no coverage at all and nothing
+reported it.
+
+`jsdom` is now a declared devDependency, CI installs it, and
+`v3_ui.test.cjs` throws instead of skipping, so a missing dependency becomes a
+red build rather than a quiet hole. Verified in a clean extraction with no
+`node_modules`: it fails with a named error rather than skipping.
+
+**Found while proving the delivery bundle**, not by a test — a fresh clone of
+the bundle ran 733 passing where the working tree ran 761. The 28-test gap was
+the whole story.
+
+All five engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
+carry 211 new tests across ten modules, plus 26 backend tests. Each was
+mutation-checked across sixty separate behaviour breaks.
+
 ## [2.2.0] — 2026-09-20
 
 ### Added — Tier A (Snapshot v2 completion)

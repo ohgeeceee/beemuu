@@ -1,5 +1,6 @@
 "use strict";
 
+(function () {
 // v0.14.0 slice 7 — live CAN source.
 //
 // The Live Gauges panel (live_gauges.js) needs fresh decoded values
@@ -306,3 +307,4 @@ if (typeof module !== "undefined" && module.exports) {
 if (typeof window !== "undefined") {
   window.beeemuuLiveCanSource = api;
 }
+})();

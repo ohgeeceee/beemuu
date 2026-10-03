@@ -568,6 +568,134 @@
           </div>
         </div>
       </div>
+
+      <!-- ============ v3 ANALYSIS ============ -->
+      <!-- Ten engines shipped in v3.0.0; these panels are thin shims over them.
+           Every mount degrades to "absent" if its engine failed to load, so a
+           missing script never breaks the window. -->
+      <div class="v3-panels">
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Describe the symptom</span>
+            <span class="muted">Owners describe symptoms, not codes — this shortlists what to test</span>
+          </div>
+          <div class="v3-body">
+            <div class="v3-input-row">
+              <input id="v3-symptom-input" type="text" maxlength="200"
+                     placeholder="e.g. it stumbles badly on a cold start in the morning"
+                     aria-label="Describe what the car is doing" />
+              <button id="v3-symptom-run" class="btn btn-small" type="button">Search</button>
+            </div>
+            <div id="v3-symptom-body"><p class="muted">Describe what the car is doing in your own words.</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Misfire pattern</span>
+            <span><button id="v3-misfire-run" class="btn btn-small btn-primary" type="button">Analyse log</button></span>
+          </div>
+          <div id="v3-misfire-body" class="v3-body"><p class="muted">Run after recording a drive that includes per-cylinder misfire counters.</p></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Adaptation drift</span>
+            <span class="muted">Fuel trims move months before a code is set</span>
+          </div>
+          <div class="v3-body">
+            <div class="v3-input-row">
+              <input id="v3-drift-param" type="text" maxlength="60" placeholder="Parameter (e.g. ltft)" aria-label="Parameter id" />
+              <input id="v3-drift-value" type="number" step="any" placeholder="Value" aria-label="Current value" />
+              <input id="v3-drift-threshold" type="number" step="any" placeholder="Limit (optional)" aria-label="Community threshold" />
+              <button id="v3-drift-add" class="btn btn-small" type="button">Record</button>
+            </div>
+            <div id="v3-drift-body"><p class="muted">Record a reading after each service. Three readings on the same parameter is the minimum before the tracker will call a trend.</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Tuning fingerprint</span>
+            <span><button id="v3-fingerprint-run" class="btn btn-small" type="button">Compare to stock</button></span>
+          </div>
+          <div id="v3-fingerprint-body" class="v3-body"><p class="muted">Run after recording a full pull from idle to redline.</p></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Flash history</span>
+            <span><button id="v3-flash-refresh" class="btn btn-small" type="button">Scan snapshots</button></span>
+          </div>
+          <div id="v3-flash-body" class="v3-body"><p class="muted">Reads the snapshots already in your exports folder — no live session needed.</p></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Cold start auto-logger</span>
+            <span class="muted" id="v3-cold-count"></span>
+          </div>
+          <div class="v3-body">
+            <div class="v3-input-row">
+              <button id="v3-cold-arm" class="btn btn-small btn-primary" type="button">Arm before leaving</button>
+              <button id="v3-cold-disarm" class="btn btn-small" type="button">Disarm</button>
+            </div>
+            <div id="v3-cold-status"><p class="muted">Not armed. Arm it before you leave: the logger opens the capture window itself when it sees a cold start.</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Signal library</span>
+            <span class="muted">Every decodable signal, and how far to trust it</span>
+          </div>
+          <div class="v3-body">
+            <div class="v3-input-row">
+              <input id="v3-signal-input" type="search" maxlength="80" placeholder="Search signals…" aria-label="Search signals" />
+              <select id="v3-signal-engine" aria-label="Engine"></select>
+              <label class="chk"><input type="checkbox" id="v3-signal-verified" /> Verified only</label>
+            </div>
+            <div id="v3-signal-body"><p class="muted">Loading signal index…</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Vehicle passport</span>
+            <span>
+              <button id="v3-passport-build" class="btn btn-small" type="button">Build</button>
+              <button id="v3-passport-save" class="btn btn-small" type="button">Save JSON</button>
+            </span>
+          </div>
+          <div id="v3-passport-body" class="v3-body"><p class="muted">Build a portable record of this car. The VIN is never included and there is no option to include it.</p></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span>Parameter hunt</span>
+            <span class="muted">Turn the E-series data desert into a community sport</span>
+          </div>
+          <div class="v3-body">
+            <div class="v3-input-row">
+              <select id="v3-hunt-kind" aria-label="Finding kind">
+                <option value="discovery">Responding identifier discovered</option>
+                <option value="byte_mapping">Byte mapped to a known value</option>
+                <option value="freeze_schema">Freeze frame schema</option>
+                <option value="bug_fix">Decoder or simulator bug fixed</option>
+                <option value="dtc_story">DTC story entry</option>
+              </select>
+              <input id="v3-hunt-engine" type="text" maxlength="30" placeholder="Engine (n54)" aria-label="Engine" />
+              <input id="v3-hunt-module" type="text" maxlength="40" placeholder="Module (DME)" aria-label="Module" />
+              <input id="v3-hunt-ident" type="text" maxlength="30" placeholder="Ident (0x0C)" aria-label="Identifier" />
+              <button id="v3-hunt-add" class="btn btn-small" type="button">Record finding</button>
+            </div>
+            <p id="v3-hunt-note" class="muted v3-note"></p>
+            <div id="v3-hunt-body"></div>
+          </div>
+        </div>
+
+      </div>
     </section>
 
     <!-- ============ SERVICE FUNCTIONS ============ -->
@@ -824,7 +952,26 @@
   <script src="js/wiring_detect.js"></script>
   <script src="js/cbs_predict.js"></script>
   <script src="js/cbs_ui.js"></script>
+  <!-- v3.0.0 engines. Order matters only in that v3_signal_index.js needs
+       signal_library.js, and v3_ui.js needs every engine it mounts. A missing
+       engine degrades that one panel to "absent", never to a broken window. -->
+  <script src="js/misfire_patterns.js"></script>
+  <script src="js/adaptation_drift.js"></script>
+  <script src="js/tuning_fingerprint.js"></script>
+  <script src="js/flash_audit.js"></script>
+  <script src="js/cold_start.js"></script>
+  <script src="js/parameter_hunt.js"></script>
+  <script src="js/symptom_index.js"></script>
+  <script src="js/signal_library.js"></script>
+  <script src="js/vehicle_passport.js"></script>
+  <script src="js/plugins_registry_client.js"></script>
+  <!-- Generated from community/profiles/*.toml by scripts/gen_signal_index.py.
+       Inlined as a data global because the Tauri webview cannot fetch a
+       relative asset path; v3_signal_index.js turns it into the index. -->
+  <script src="js/signal_index_data.js"></script>
+  <script src="js/v3_signal_index.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/v3_ui.js"></script>
   <script src="js/plugins.js"></script>
   <script src="js/plugins_ui.js"></script>
   <script src="js/plugins_boot.js"></script>

@@ -142,6 +142,7 @@ tailwind.config = {
     </a>
     <div class="hidden md:flex items-center gap-8 text-sm font-medium">
       <a href="#features" class="hover:text-white transition-colors">Features</a>
+      <a href="#different" class="hover:text-white transition-colors text-amber-300">Why BeeEmUu</a>
       <a href="#architecture" class="hover:text-white transition-colors">Architecture</a>
       <a href="#telemetry" class="hover:text-white transition-colors">Telemetry</a>
       <a href="#setup" class="hover:text-white transition-colors">Setup</a>
@@ -365,6 +366,166 @@ function telemetry(){
         <i data-lucide="users" class="w-7 h-7 text-cyan-300 mb-5"></i>
         <h3 class="font-bold text-white">Transparent &amp; Community-Driven</h3>
         <p class="mt-2 text-sm text-slate-400 leading-relaxed">Fully open source — built with independent shops and BMW enthusiasts, auditable line by line.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     Differentiators. The section above competes with every other
+     diagnostic app on the same generic ground. This one does not:
+     each card below is a thing the app does that no other BMW tool
+     does, and every one of them ships in v2.x or v3.0.
+
+     Deliberately honest — "shows you", not "diagnoses" — because a
+     used-car buyer who is told a tool diagnoses will believe it, and
+     the first time it is wrong they stop trusting the whole project.
+     ============================================================ -->
+<section id="different" class="py-28 px-6 border-t border-slate-900">
+  <div class="max-w-7xl mx-auto">
+    <div class="max-w-3xl mx-auto text-center">
+      <p class="font-mono text-xs tracking-[0.3em] text-amber-300 uppercase mb-4">// What No Other Tool Does</p>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+        Every other scanner asks a module a question once.
+        <span class="text-gradient">BeeEmUu keeps the answers.</span>
+      </h2>
+      <p class="mt-5 text-slate-400 leading-relaxed">
+        A DME will tell you how many times cylinder&nbsp;3 misfired. It will
+        never tell you <em class="text-slate-300 not-italic">when</em> — and
+        the &ldquo;when&rdquo; is the diagnosis. These are the features built
+        around that idea. Read-only, open source, and honest about their
+        confidence.
+      </p>
+    </div>
+
+    <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="flame" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Misfire Pattern Recognition</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          Correlates every misfire with the RPM, load, temperature and knock
+          values that were true at that instant — then tells you whether the
+          pattern points at ignition, injection, detonation or a vacuum leak.
+          Under eight events it declines to guess.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · read-only</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="git-compare-arrows" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Adaptation Drift Tracker</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          Long-term fuel trims and idle learnings start moving months before a
+          code is ever set. This trends them across sessions and projects when a
+          value will cross its limit. Two readings are reported as
+          <em class="text-slate-300 not-italic">not enough</em>, not as
+          &ldquo;stable&rdquo;.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · read-only</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="fingerprint" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Tuning Fingerprint Detector</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          Detects a non-stock calibration from read-only evidence, comparing each
+          engine region against a community-published stock baseline. It reports
+          <em class="text-slate-300 not-italic">what</em> deviated and by how
+          many standard deviations — it never names a tuning platform, because
+          that is a claim the data cannot support.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · read-only</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="history" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Flash History Auditor</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          A flash counter that moved between two of your own snapshots is proof.
+          This reconstructs each module&rsquo;s programming history from the
+          snapshots you already saved — the most valuable diagnostic data on a
+          used car, and the one nobody shows you.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · no live session</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="search" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Symptom Index</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          Owners describe symptoms, not codes. Type
+          &ldquo;it stumbles when it&rsquo;s cold&rdquo; and get the shortlist of
+          codes and components that actually cause it, plus what to check first.
+          It shortlists; it does not diagnose.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · offline</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="snowflake" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Cold Start Auto-Logger</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          The intermittent cold-start fault happens on the drive to work, and by
+          the time the car is on a lift it never happens again. Arm it before you
+          leave; the capture window opens itself and the log is there in the
+          morning.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · automatic</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="book-open" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Signal Library</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          Every decodable signal across every supported engine, in one searchable
+          index — with an honest grade for each. Standard OBD-II PIDs are verified
+          by design; anything on an unpublished local identifier is labelled
+          unverified, because trusting it blindly means chasing a fault that
+          isn&rsquo;t there.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · 40+ signals</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="id-card" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Vehicle Passport</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          One portable file per car: profile, DID map, fault data, wiring, service
+          and adaptation history. The VIN is <em class="text-slate-300 not-italic">never</em>
+          included, and there is no option to include it — only a salted
+          fingerprint so you can recognise your own car.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · privacy-first</p>
+      </div>
+
+      <div class="glow-card rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-md p-7">
+        <i data-lucide="trophy" class="w-7 h-7 text-amber-300 mb-5"></i>
+        <h3 class="font-bold text-white">Parameter Hunt</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          No open-source KWP2000 identifier table exists for any E-series DME;
+          every table in existence was built by somebody in a parking lot watching
+          which bytes move. This turns that work into a community sport — and
+          nothing scores unless you say which car it was on.
+        </p>
+        <p class="mt-4 font-mono text-xs text-slate-500">v3.0 · community</p>
+      </div>
+
+    </div>
+
+    <!-- The safety position, stated plainly. A tool that talks about
+         writing to ECUs has to be unambiguous about not doing it, and
+         this is the section where a technical buyer is deciding. -->
+    <div class="mt-12 rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-7 flex flex-col sm:flex-row gap-5 sm:items-center">
+      <i data-lucide="shield-check" class="w-8 h-8 text-emerald-400 shrink-0"></i>
+      <div>
+        <h3 class="font-bold text-white">Nothing here writes to your ECU.</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+          Every feature above is read-only analysis. Coding, flashing and
+          calibration writes are not built and are not planned for this release —
+          they are safety-critical and legally sensitive, and a tool that quietly
+          ships them is a tool you cannot trust with the rest.
+        </p>
       </div>
     </div>
   </div>
@@ -662,6 +823,7 @@ function telemetry(){
       <h4 class="text-white font-semibold text-sm mb-4 font-mono uppercase tracking-wider">Project</h4>
       <ul class="space-y-2.5 text-sm text-slate-500">
         <li><a href="#features" class="hover:text-cyan-300 transition-colors">Features</a></li>
+        <li><a href="#different" class="hover:text-cyan-300 transition-colors">Why BeeEmUu</a></li>
         <li><a href="#architecture" class="hover:text-cyan-300 transition-colors">Architecture</a></li>
         <li><a href="/roadmap/" class="hover:text-cyan-300 transition-colors">Roadmap</a></li>
         <li><a href="https://github.com/ohgeeceee/beemuu/releases" class="hover:text-cyan-300 transition-colors">Release Notes</a></li>
