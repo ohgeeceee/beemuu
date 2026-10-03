@@ -317,6 +317,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   data shaped like a real snapshot caught it. The fallback is now gated on the
   value being an object, with regression tests covering both directions.
 
+**Fixed — VIN-derived identifiers no longer survive a shared snapshot**
+(`src-tauri/src/anonymize.rs`). The anonymizer stripped the VIN and hashed the
+plate but copied each module's `ident` verbatim, and BMW identification
+responses routinely append a car-unique serial to the software part —
+`MEVD17.2.42-S0000123`, `DME_8.4.1-0123456789`. On several ECUs that serial is
+derived from the VIN, so a file whose entire purpose is to be shareable was
+carrying the one thing it promised to remove. The software part now survives
+(that is what makes a snapshot worth sharing) and the serial does not.
+
+**Not compiled or tested here — this environment has no Rust toolchain.** The
+algorithm was verified by transcribing it and running the same ten assertions
+(`scripts/verify_redact_ident.py`, all passing), and five Rust tests are
+written, but **CI must run `cargo test` before this lands.** That check also
+runs for the first time in this cycle, so treat the first red CI run as
+possibly pre-existing.
+
 All five engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
 carry 211 new tests across ten modules, plus 26 backend tests. Each was
 mutation-checked across sixty separate behaviour breaks.
