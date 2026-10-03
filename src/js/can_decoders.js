@@ -1,5 +1,6 @@
 "use strict";
 
+(function () {
 // CAN bus broadcast decoders (v0.14.0 "Live CAN", slice 2).
 //
 // BMW ECUs broadcast many parameters on the raw CAN bus without
@@ -613,3 +614,4 @@ if (typeof module !== "undefined" && module.exports) {
 if (typeof window !== "undefined") {
   window.beeemuuCanDecoders = api;
 }
+})();

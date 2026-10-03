@@ -1,3 +1,10 @@
+
+
+/* v3 IIFE wrapper — see scripts/wrap_v3_iife.py. Every classic
+ * tag shares one global lexical scope, so a bare top-level `const` in
+ * one file is a redeclaration error in the next. */
+(function () {
+"use strict";
 "use strict";
 
 /* Adaptation Drift Tracker — v3.0.0 feature 2.
@@ -128,7 +135,11 @@ function analyzeSeries(observations, opts) {
   const id = o.id || "";
   const label = o.label || id || "parameter";
   const unit = o.unit || "";
-  const points = (observations || []).map(normalizePoint).filter(Boolean)
+  // Anything that is not a list of observations is not a series. `analyzeAll`
+  // is public and a caller can hand it a map by mistake; a TypeError here
+  // would blank a panel rather than degrade it.
+  const points = (Array.isArray(observations) ? observations : [])
+    .map(normalizePoint).filter(Boolean)
     .sort((a, b) => a.t - b.t);
 
   const base = {
@@ -325,3 +336,4 @@ const api = {
 
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 if (typeof window !== "undefined") window.beeemuuAdaptationDrift = api;
+})();

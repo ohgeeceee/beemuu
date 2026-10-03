@@ -221,6 +221,23 @@ test("analyzeAll accepts a Map and tolerates no metadata at all", () => {
   assert.deepEqual(d.analyzeAll(undefined).summary.total, 0);
 });
 
+test("a non-array series degrades to insufficient data rather than throwing", () => {
+  // Found by the panel layer: a caller passing its whole history object handed
+  // the engine a map where a list was expected, and `.map` blew up — blanking
+  // the panel instead of degrading it.
+  for (const junk of [{ a: 1 }, "nope", 42, true]) {
+    const r = d.analyzeSeries(junk, { id: "x" });
+    assert.equal(r.status, "insufficient_data", JSON.stringify(junk));
+    assert.equal(r.current, null);
+    assert.equal(r.slope_per_day, null);
+  }
+  // ...and through analyzeAll, which is the public entry point.
+  const { reports, summary } = d.analyzeAll({ x: { a: 1 }, y: ramp(1, 5) }, {});
+  assert.equal(summary.total, 2);
+  assert.equal(reports.find(r => r.id === "x").status, "insufficient_data");
+  assert.equal(reports.find(r => r.id === "y").status, "ok");
+});
+
 test("labels fall back to the id so a report is never blank", () => {
   const r = d.analyzeSeries(ramp(0, 5, 3), { id: "idle_target" });
   assert.equal(r.label, "idle_target");

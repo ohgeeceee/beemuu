@@ -1249,3 +1249,68 @@ body[data-theme="dark"] .wiring-head { color: #9fb2c8; }
 .wiring-failures { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: #66788e; }
 body[data-theme="dark"] .wiring-failures { color: #9fb2c8; }
 .wiring-failures li { margin: 2px 0; }
+
+/* ============ v3 analysis panels (v3.0.0) ============
+ * Ten engines, one panel group. The colours map to the engines' own severity
+ * vocabulary — `ok` / `watch` / `danger` / `info` / `none` — so a pill means
+ * the same thing everywhere it appears, and an unknown value renders as `none`
+ * rather than as an optimistic green. */
+.v3-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; margin-top: 12px; }
+.v3-body { padding: 12px; }
+.v3-note { font-size: 12px; margin: 6px 0; }
+.v3-note-warn { color: #c26003; }
+body[data-theme="dark"] .v3-note-warn { color: #f0a04b; }
+
+.v3-input-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.v3-input-row input[type="text"], .v3-input-row input[type="search"], .v3-input-row input[type="number"] { flex: 1 1 120px; min-width: 100px; }
+.v3-input-row select { max-width: 220px; }
+
+/* Cards: the shared result shape every analysis renders into. */
+.v3-card { border: 1px solid #8886; border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+.v3-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.v3-card-title { font-weight: 600; }
+.v3-card-body { margin: 6px 0 0; font-size: 13px; }
+.v3-card-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font-size: 12px; color: #66788e; }
+body[data-theme="dark"] .v3-card-meta { color: #9fb2c8; }
+.v3-muted-card { opacity: 0.8; }
+
+/* Severity is carried by a border tint as well as the pill, so the panels stay
+ * readable for a colour-blind user or in a high-contrast theme. */
+.v3-ok { border-left: 3px solid #2e7d32; }
+.v3-info { border-left: 3px solid #1565c0; }
+.v3-warn { border-left: 3px solid #ed6c02; }
+.v3-danger { border-left: 3px solid #c62828; }
+
+.v3-pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; font-weight: 600; }
+.v3-pill-ok { background: #2e7d3222; color: #2e7d32; }
+.v3-pill-info { background: #1565c022; color: #1565c0; }
+.v3-pill-warn { background: #ed6c0222; color: #c26003; }
+.v3-pill-danger { background: #c6282822; color: #c62828; }
+.v3-pill-none { background: #8886; color: #66788e; }
+body[data-theme="dark"] .v3-pill-ok { color: #7bc67b; }
+body[data-theme="dark"] .v3-pill-info { color: #7fb3f0; }
+body[data-theme="dark"] .v3-pill-warn { color: #f0a04b; }
+body[data-theme="dark"] .v3-pill-danger { color: #ef7d7d; }
+body[data-theme="dark"] .v3-pill-none { color: #9fb2c8; }
+
+.v3-list { margin-top: 12px; }
+.v3-list h4 { margin: 10px 0 6px; font-size: 13px; }
+.v3-list-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #8883; font-size: 13px; }
+.v3-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+.v3-tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #8883; color: #66788e; }
+.v3-tag-warn { background: #ed6c0222; color: #c26003; }
+
+.v3-board { display: grid; gap: 4px; margin-top: 8px; }
+.v3-board-row { display: flex; gap: 10px; align-items: baseline; font-size: 13px; }
+.v3-board-points { font-weight: 700; min-width: 34px; }
+
+.v3-signal-list { display: grid; gap: 2px; max-height: 420px; overflow-y: auto; margin-top: 8px; }
+.v3-signal-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding: 5px 4px; border-bottom: 1px solid #8883; font-size: 13px; }
+.v3-signal-name { flex: 1 1 200px; }
+.v3-signal-query { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #66788e; }
+body[data-theme="dark"] .v3-signal-query { color: #9fb2c8; }
+
+.v3-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: #00000010; border-radius: 6px; padding: 10px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+body[data-theme="dark"] .v3-code { background: #ffffff10; }
+
+.v3-cold-line { display: flex; gap: 8px; align-items: baseline; margin: 0; font-size: 13px; }

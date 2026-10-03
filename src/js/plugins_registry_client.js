@@ -1,3 +1,10 @@
+
+
+/* v3 IIFE wrapper — see scripts/wrap_v3_iife.py. Every classic
+ * tag shares one global lexical scope, so a bare top-level `const` in
+ * one file is a redeclaration error in the next. */
+(function () {
+"use strict";
 "use strict";
 
 /* Registry client — v3.0.0 feature 10, client half.
@@ -221,3 +228,4 @@ const api = {
 };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 if (typeof window !== "undefined") window.beeemuuRegistryClient = api;
+})();
