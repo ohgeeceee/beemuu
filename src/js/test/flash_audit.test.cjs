@@ -97,6 +97,48 @@ test("a null counter is a coverage gap, not a flash event", () => {
   assert.match(a.modules[0].note, /only one carried a flash counter/);
 });
 
+test("a flat module record with an ident string still yields its counter", () => {
+  // The bug this pins: `extractModules` resolved the DID map through
+  // `m.dids || m.ident || m.reads || m`. A module record carrying an `ident`
+  // *string* (the ECU identification response) alongside a flat `flash_count`
+  // made `m.ident` win, so the counter was read from a string and came back
+  // null — and a reflashed DME was reported as having no history at all.
+  // Found by the demo-scenario suite, not by the unit tests: every existing
+  // fixture put the counter inside a nested `dids` object.
+  const snap = (when, count, version) => ({
+    taken_at: new Date(Date.UTC(2026, 0, 1) + when * 86400000).toISOString(),
+    modules: [{
+      address: 0x12, name: "DME", flash_count: count,
+      software_version: version, ident: "MEVD17.2.42-S0000000",
+    }],
+  });
+  const mods = f.extractModules(snap(0, 1, "MEVD17.2.40"));
+  assert.equal(mods.get(0x12).flash_count, 1,
+    "the flat counter was lost to the ident string");
+  // The ident is still recognised as identifying data for the redaction report.
+  assert.equal(mods.get(0x12).name, "DME");
+
+  const result = f.audit([snap(0, 1, "A"), snap(40, 2, "B")]);
+  const dme = result.modules.find(m => m.address === 0x12);
+  assert.equal(result.summary.flashed, 1);
+  assert.equal(dme.current_count, 2);
+  assert.equal(dme.events.find(e => e.kind === "flash").from, 1);
+});
+
+test("a nested dids map still takes precedence over the module record", () => {
+  // The other direction: the fix must not break the shape it was written for.
+  const snap = (when, count) => ({
+    taken_at: new Date(Date.UTC(2026, 0, 1) + when * 86400000).toISOString(),
+    modules: [{
+      address: 0x12, name: "DME",
+      flash_count: 99,                     // decoy at the top level
+      dids: { flash_count: count },
+      ident: "SOMETHING",
+    }],
+  });
+  assert.equal(f.extractModules(snap(0, 3)).get(0x12).flash_count, 3);
+});
+
 test("a counter that appears where there was none is not a flash", () => {
   const a = f.audit([
     snap(0, [[0x12, "DME", { software_version: "ME17.2.42" }]]),

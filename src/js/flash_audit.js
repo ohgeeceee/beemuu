@@ -126,7 +126,15 @@ function extractModules(snapshot) {
   if (Array.isArray(snapshot.modules)) {
     for (const m of snapshot.modules) {
       if (!m || typeof m !== "object") continue;
-      add(m.address, m.name, m.dids || m.ident || m.reads || m);
+      // Order matters and `ident` must NOT be in this chain. A module record
+      // can carry a DID map under `dids` or `reads`, but it can also carry an
+      // `ident` *string* (the ECU identification response) alongside a flat
+      // `flash_count` at the same level. Preferring `m.ident` there resolved to
+      // that string, and every counter read as absent — so a reflashed DME was
+      // reported as having no programming history at all. A DID map is an
+      // object; an ident string is not, so the fallback is gated on the type.
+      const nested = [m.dids, m.reads].find(v => v && typeof v === "object" && !Array.isArray(v));
+      add(m.address, m.name, nested || m);
     }
   }
 

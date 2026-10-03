@@ -288,7 +288,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the client test each hard-code the same expected digest, so either side
   drifting turns both suites red.
 
-All ten engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
+- **Demo Scenarios** (`src/js/demo_scenarios.js`): five scenarios with known
+  ground truth — a high-load misfire, a stock engine, a drifting fuel trim, a
+  reflashed DME, a cold start. The engines all need a log to work on, and
+  without these a contributor cannot tell whether a change did anything and a
+  reviewer cannot evaluate a feature without reimplementing it by hand.
+  - **Every scenario asserts the answer it exists to find.** The misfire
+    scenario must classify as `high_load_ignition`; the drift scenario must
+    project a crossing date. An engine that quietly stops detecting its own
+    pattern fails the test. A demo that merely produces plausible numbers
+    proves nothing.
+  - The data is **deliberately imperfect**: channels sampled at different
+    rates, noise, and dropouts. A missing sample is absent from the array, not
+    a zero, because an engine that reads a comms error as 0 °C invents a fault.
+  - Seeded and deterministic, so a failure reproduces from the seed alone.
+  - Mutation-checked across ten separate scenario breaks
+    (`scripts/mutate-demo-scenarios.sh`) — misfires moved to idle, the cold
+    soak shortened below the monitor's own minimum, the trim no longer
+    drifting, the flash counter running backwards, dropouts disabled, channels
+    resampled to a uniform rate.
+
+  **Fixed a real engine bug this surfaced.** `flash_audit.js` resolved a
+  module's DID map through `m.dids || m.ident || m.reads || m`, but `ident` is
+  the ECU identification *string*, which won the chain — so a flat
+  `flash_count` alongside it was read from a string and came back null. A
+  reflashed DME was reported as having **no programming history at all**. Every
+  existing unit-test fixture nested its counter inside a `dids` object, so only
+  data shaped like a real snapshot caught it. The fallback is now gated on the
+  value being an object, with regression tests covering both directions.
+
+All five engines are pure (`require()`-able, no DOM, no Tauri, no transport) and
 carry 211 new tests across ten modules, plus 26 backend tests. Each was
 mutation-checked across sixty separate behaviour breaks.
 

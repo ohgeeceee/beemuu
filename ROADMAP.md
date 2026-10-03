@@ -1040,6 +1040,17 @@ into `src/index.html` and `main.js` is the next slice of work; each engine was
 built to be a thin-shim target, the same shape `cbs_predict.js` / `cbs_ui.js`
 already use.
 
+**Done since (v3.1 groundwork).**
+
+- **Panels shipped** (`src/js/v3_ui.js`): nine panels in the Diagnostics view,
+  over a read-only `window.beeemuuV3` bridge. `textContent` throughout, with a
+  test that fails on any `innerHTML` assignment.
+- **Demo scenarios** (`src/js/demo_scenarios.js`): five scenarios with known
+  ground truth, so the engines can be exercised and demonstrated without a car.
+  Each asserts the answer it was built to find.
+- **Landing-page differentiators section**, with content tests that check every
+  marketing claim against the source.
+
 **Deferred, and worth flagging:** the plugin capability bridge and engine
 profile packs still sit on unlanded branches. Feature 10's registry changes
 touch `backend/plugins_registry.py`, which the capability branch also edits —
