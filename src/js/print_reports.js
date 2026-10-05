@@ -116,9 +116,16 @@
     const work = Array.isArray(dossier?.work) ? dossier.work : [];
     const sorted = work.slice().sort((a, b) => safeText(b.date, "").localeCompare(safeText(a.date, "")));
     const categoryCounts = {};
+    const yearTotals = {};
     for (const entry of work) {
       const category = safeText(entry.category, "Other");
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+      const year = /^\d{4}-\d{2}-\d{2}$/.test(String(entry.date || "")) ? entry.date.slice(0, 4) : "";
+      if (year) {
+        yearTotals[year] ||= { year, jobs: 0, total_cost: 0 };
+        yearTotals[year].jobs += 1;
+        yearTotals[year].total_cost += moneyValue(entry.parts_cost) + moneyValue(entry.labor_cost);
+      }
     }
     return {
       jobs: work.length,
@@ -127,6 +134,7 @@
       latest_date: sorted[0]?.date || "",
       latest_mileage_km: Number(sorted[0]?.mileage_km) || null,
       category_counts: Object.fromEntries(Object.entries(categoryCounts).sort(([a], [b]) => a.localeCompare(b))),
+      yearly_spend: Object.values(yearTotals).sort((a, b) => b.year.localeCompare(a.year)),
     };
   }
 
@@ -201,6 +209,9 @@
     const upcoming = dossier?.upcoming || [];
     const summary = summarizeDossier(dossier);
     const categories = Object.entries(summary.category_counts).map(([name, count]) => `${escapeHtml(name)}: ${count}`).join(" · ") || "No categories recorded";
+    const yearlySpendRows = summary.yearly_spend.length
+      ? summary.yearly_spend.map((item) => `<tr><td>${escapeHtml(item.year)}</td><td>${item.jobs}</td><td>${formatMoney(item.total_cost)}</td></tr>`).join("")
+      : `<tr><td colspan="3">No dated service costs recorded.</td></tr>`;
     const workCards = work.length ? work.map((entry) => {
       const total = moneyValue(entry.parts_cost) + moneyValue(entry.labor_cost);
       return `<section class="dossier-work"><div class="dossier-work-head"><strong>${escapeHtml(entry.date)} · ${escapeHtml(entry.category)}</strong><span>${escapeHtml(entry.mileage_km)}${entry.mileage_km ? " km" : ""}</span></div>
@@ -222,6 +233,7 @@
       <dl class="vehicle-grid"><div><dt>Model</dt><dd>${escapeHtml(profile.model)}</dd></div><div><dt>Chassis</dt><dd>${escapeHtml(profile.chassis)}</dd></div><div><dt>Ownership since</dt><dd>${escapeHtml(profile.ownership_start)}</dd></div><div><dt>Recorded jobs</dt><dd>${summary.jobs}</dd></div></dl>
       ${profile.seller_notes ? `<section class="dossier-overview"><h2>Owner's overview</h2><p>${escapeHtml(profile.seller_notes)}</p></section>` : ""}
       <section><h2>Documented history summary</h2><div class="dossier-stats"><div><strong>${summary.jobs}</strong><span>jobs recorded</span></div><div><strong>${summary.cbs_linked_jobs}</strong><span>linked to a CBS timeline item</span></div><div><strong>${formatMoney(summary.total_cost)}</strong><span>documented spend</span></div><div><strong>${escapeHtml(summary.latest_date)}</strong><span>latest service</span></div><div><strong>${summary.latest_mileage_km ? escapeHtml(summary.latest_mileage_km) + " km" : "—"}</strong><span>latest service mileage</span></div></div><p>${categories}</p><p class="muted">CBS links are owner-entered associations, not ECU-confirmed service resets.</p></section>
+      <section><h2>Documented spend by year</h2><p class="muted">Totals use owner-entered parts and labor costs, grouped by the service date.</p><table><thead><tr><th>Year</th><th>Recorded jobs</th><th>Documented spend</th></tr></thead><tbody>${yearlySpendRows}</tbody></table></section>
       <section><h2>Completed maintenance and repairs</h2>${workCards}</section>
       <section><h2>Upcoming maintenance</h2><table><thead><tr><th>Priority</th><th>Work</th><th>Due date</th><th>Due mileage</th><th>Estimate</th><th>Notes</th></tr></thead><tbody>${upcomingRows}</tbody></table></section>
       <section><h2>Receipt and attachment index</h2><p>${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"} stored as local file references.</p><ul class="receipt-list">${receiptRows}</ul></section>
