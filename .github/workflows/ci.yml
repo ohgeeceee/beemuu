@@ -83,6 +83,9 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install test dependencies
+        run: npm install --no-save --package-lock=false --ignore-scripts
+
       # Full JS suite, and the same command as .github/workflows/test.yml::js.
       # This job gates auto-merge, and it used to run only
       # `node --test src/js/*.test.js` — which misses every
