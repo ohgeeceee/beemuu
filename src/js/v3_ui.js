@@ -678,13 +678,64 @@ function mountPassport() {
 }
 
 /* ================================================================== *
+ * Fault history — recorded reads for the selected local vehicle
+ * ================================================================== */
+function mountFaultTimeline() {
+  const body = $("v3-fault-history-body");
+  const button = $("v3-fault-history-refresh");
+  const timeline = window.BeemuuFaultTimeline;
+  const history = window.beeemuuDtcHistory;
+  if (!body || !button || !timeline || !history) return;
+
+  async function refresh() {
+    clear(body);
+    body.append(el("p", "Loading recorded fault history…", "muted"));
+    try {
+      const garage = window.BeemuuGarage;
+      const state = garage && typeof garage.read === "function" ? garage.read(localStorage) : null;
+      const vehicle = state && state.vehicles.find(item => item.id === state.activeId);
+      if (!vehicle || !vehicle.vin) {
+        muted(body, "Select a vehicle with a known VIN in the garage to view its recorded fault history.");
+        return;
+      }
+      const summary = await history.queryDtcHistory(vehicle.vin, null);
+      const rows = timeline.buildTimeline(summary && summary.entries);
+      clear(body);
+      if (!rows.length) {
+        muted(body, "No recorded fault reads were found for this vehicle. Enable Record history when reading faults to build a timeline.");
+        return;
+      }
+      body.append(el("p", `${rows.length} recorded fault entr${rows.length === 1 ? "y" : "ies"}. These entries show prior reads and do not indicate current faults.`, "muted v3-note"));
+      for (const row of rows) {
+        const card = el("div", undefined, "v3-card v3-muted-card");
+        const head = el("div", undefined, "v3-card-head");
+        head.append(el("span", row.code, "v3-card-title v3-code"));
+        head.append(pill("info", `${row.occurrences} read${row.occurrences === 1 ? "" : "s"}`));
+        card.append(head);
+        card.append(el("p", row.text || row.statusText || "Recorded fault", "v3-card-body"));
+        const meta = el("div", undefined, "v3-card-meta");
+        meta.append(el("span", `Module 0x${row.address.toString(16).toUpperCase()}`));
+        meta.append(el("span", `First ${new Date(row.firstSeen).toLocaleDateString()}`));
+        meta.append(el("span", `Last ${new Date(row.lastSeen).toLocaleDateString()}`));
+        card.append(meta);
+        body.append(card);
+      }
+    } catch (_) {
+      muted(body, "Could not load fault history. Run Beemuu in the desktop app and try again.");
+    }
+  }
+  button.addEventListener("click", refresh);
+  window.beeemuuV3FaultTimeline = { refresh };
+}
+
+/* ================================================================== *
  * Boot
  * ================================================================== */
 /* Each mount is isolated: a panel that throws must not stop the others, and
  * must certainly not break the app shell. */
 function mountAll() {
   const mounts = [
-    mountMisfire, mountDrift, mountFingerprint, mountFlashAudit, mountColdStart,
+    mountMisfire, mountDrift, mountFingerprint, mountFlashAudit, mountFaultTimeline, mountColdStart,
     mountHunt, mountSymptom, mountSignalLibrary, mountPassport,
   ];
   for (const m of mounts) {

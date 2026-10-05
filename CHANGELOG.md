@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-10-05
+
+### Added — Tier A
+
+- **Per-vehicle fault history timeline** (`src/js/fault_timeline.js`, PR pending): review previously recorded DTC reads for the selected garage vehicle, including first and latest read dates and occurrence counts. The view labels records as historical and never presents them as a live scan or diagnosis.
+
 ## [3.0.0] — 2026-10-05
 
 ### Added — Tier A (v3.0.0 cycle: "The Car Remembers")

@@ -64,6 +64,7 @@ const ENGINES = [
   "adaptation_drift.js",
   "tuning_fingerprint.js",
   "flash_audit.js",
+  "fault_timeline.js",
   "cold_start.js",
   "parameter_hunt.js",
   "symptom_index.js",
@@ -97,6 +98,7 @@ withDom("every v3 panel mount point exists in index.html", () => {
     "v3-misfire-run", "v3-misfire-body",
     "v3-drift-param", "v3-drift-value", "v3-drift-threshold", "v3-drift-add", "v3-drift-body",
     "v3-fingerprint-run", "v3-fingerprint-body",
+    "v3-fault-history-refresh", "v3-fault-history-body",
     "v3-flash-refresh", "v3-flash-body",
     "v3-cold-arm", "v3-cold-disarm", "v3-cold-status", "v3-cold-count",
     "v3-signal-input", "v3-signal-engine", "v3-signal-verified", "v3-signal-body",
@@ -113,7 +115,7 @@ withDom("index.html loads every v3 script it declares", () => {
   const declared = [...HTML.matchAll(/<script src="(js\/[^"]+)"><\/script>/g)].map(m => m[1]);
   const required = [
     "js/misfire_patterns.js", "js/adaptation_drift.js", "js/tuning_fingerprint.js",
-    "js/flash_audit.js", "js/cold_start.js", "js/parameter_hunt.js",
+    "js/flash_audit.js", "js/fault_timeline.js", "js/cold_start.js", "js/parameter_hunt.js",
     "js/symptom_index.js", "js/signal_library.js", "js/vehicle_passport.js",
     "js/plugins_registry_client.js", "js/signal_index_data.js",
     "js/v3_signal_index.js", "js/v3_ui.js",
@@ -449,6 +451,22 @@ withDom("corrupt localStorage does not stop the drift or hunt panels", () => {
   assert.doesNotThrow(() => window.mountV3Panels());
   assert.ok(doc.getElementById("v3-drift-body").textContent.includes("Record a reading"));
   assert.ok(doc.getElementById("v3-hunt-body").textContent.includes("0 points"));
+});
+
+withDom("fault history panel labels stored reads as historical and escapes source text", async () => {
+  const { window, doc } = boot({ engines: ENGINES });
+  window.BeemuuGarage = { read: () => ({ activeId: "car-1", vehicles: [{ id: "car-1", vin: "WBA00000000000000" }] }) };
+  window.beeemuuDtcHistory = { queryDtcHistory: async () => ({ entries: [{
+    code: "P0301", address: 17, text: "<img src=x onerror=alert(1)>", status_text: "stored",
+    first_seen_iso: "2025-01-01T00:00:00Z", last_seen_iso: "2025-02-01T00:00:00Z", occurrences: 2,
+  }] }) };
+  window.eval(fs.readFileSync(path.join(ROOT, "src/js/v3_ui.js"), "utf8"));
+  window.mountV3Panels();
+  await window.beeemuuV3FaultTimeline.refresh();
+  const body = doc.getElementById("v3-fault-history-body");
+  assert.match(body.textContent, /prior reads/);
+  assert.match(body.textContent, /<img src=x/);
+  assert.equal(body.querySelector("img"), null, "untrusted DTC text became markup");
 });
 
 withDom("every panel body uses textContent and never innerHTML", () => {
