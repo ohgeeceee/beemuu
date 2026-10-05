@@ -253,6 +253,8 @@ withDom("the drift panel refuses to call a trend from one reading", () => {
 
 withDom("the drift panel surfaces an over-threshold reading", () => {
   const { window, doc } = boot({ engines: ENGINES });
+  let timestamp = Date.now();
+  window.Date.now = () => ++timestamp;
   window.eval(fs.readFileSync(path.join(ROOT, "src/js/v3_ui.js"), "utf8"));
   window.mountV3Panels();
   for (const v of [10, 20, 30, 45]) {
