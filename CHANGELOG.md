@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A
 
-- **Service dossiers for manual garage vehicles**: record, export, import, and print local maintenance histories for saved vehicles without reading or storing a VIN. Each manual vehicle keeps a separate dossier. (PR pending)
+- **Service dossiers for manual garage vehicles**: record, export, import, and print local maintenance histories for saved vehicles without reading or storing a VIN. Each manual vehicle keeps a separate dossier. (#345)
 
 ## [3.2.0] — 2026-10-05
 
