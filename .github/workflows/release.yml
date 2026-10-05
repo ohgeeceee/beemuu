@@ -83,6 +83,20 @@ jobs:
             Packages in this release are built from the source commit identified by the tag. Download the assets for your operating system.
 
             ⚠️ Modifying vehicle electronics carries inherent risks. Always use a battery maintainer before flashing or deep coding.
-          releaseDraft: ${{ github.event_name == 'push' }}
+          # GitHub locks published releases when immutable releases are enabled.
+          # Always upload into a draft, then publish once every platform job has
+          # finished and all assets are attached.
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  publish-release:
+    name: Publish release after assets are uploaded
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish completed release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
