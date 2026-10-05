@@ -615,6 +615,14 @@
 
         <div class="panel">
           <div class="panel-head">
+            <span>Fault history</span>
+            <span><button id="v3-fault-history-refresh" class="btn btn-small" type="button">Refresh history</button></span>
+          </div>
+          <div id="v3-fault-history-body" class="v3-body"><p class="muted">Review previously recorded faults for the selected vehicle. Entries are history, not a live fault scan.</p></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
             <span>Adaptation drift</span>
             <span class="muted">Fuel trims move months before a code is set</span>
           </div>
@@ -973,6 +981,7 @@
   <script src="js/adaptation_drift.js"></script>
   <script src="js/tuning_fingerprint.js"></script>
   <script src="js/flash_audit.js"></script>
+  <script src="js/fault_timeline.js"></script>
   <script src="js/cold_start.js"></script>
   <script src="js/parameter_hunt.js"></script>
   <script src="js/symptom_index.js"></script>
