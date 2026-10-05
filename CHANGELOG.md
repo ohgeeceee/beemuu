@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A
 
-- **Annual service-cost summary**: printed vehicle dossiers now total owner-entered parts and labor costs by service year and show the number of recorded jobs for each year. Entries without a valid service date are excluded from year totals. (PR pending)
+- **Annual service-cost summary**: printed vehicle dossiers now total owner-entered parts and labor costs by service year and show the number of recorded jobs for each year. Entries without a valid service date are excluded from year totals. (#346)
 
 ## [3.3.0] — 2026-10-05
 
