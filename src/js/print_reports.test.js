@@ -133,6 +133,22 @@ test("dossier summary totals documented spend and finds latest service", () => {
   assert.equal(summary.latest_date, "2025-06-01");
   assert.equal(summary.latest_mileage_km, 125500);
   assert.deepEqual(summary.category_counts, { Maintenance: 1, Repair: 1 });
+  assert.deepEqual(summary.yearly_spend, [
+    { year: "2025", jobs: 1, total_cost: 200.5 },
+    { year: "2024", jobs: 1, total_cost: 1300.25 },
+  ]);
+});
+
+test("yearly dossier spending ignores undated records and sorts newest first", () => {
+  const summary = reports.summarizeDossier({ work: [
+    { date: "2023-06-01", parts_cost: "100", labor_cost: "50" },
+    { date: "undated", parts_cost: "900", labor_cost: "0" },
+    { date: "2025-02-01", parts_cost: "20", labor_cost: "30" },
+  ] });
+  assert.deepEqual(summary.yearly_spend, [
+    { year: "2025", jobs: 1, total_cost: 50 },
+    { year: "2023", jobs: 1, total_cost: 150 },
+  ]);
 });
 
 test("sales dossier report includes ownership, detailed work, totals, and upcoming maintenance", () => {
@@ -158,6 +174,8 @@ test("sales dossier report includes ownership, detailed work, totals, and upcomi
   assert.match(html, /Garage kept/);
   assert.match(html, /CBS timeline item: engine_oil/);
   assert.match(html, /<strong>1<\/strong><span>linked to a CBS timeline item<\/span>/);
+  assert.match(html, /Documented spend by year/);
+  assert.match(html, /<td>2025<\/td><td>1<\/td><td>\$400\.00<\/td>/);
 });
 
 test("sales dossier prints a receipt attachment index without exposing full local paths", () => {
