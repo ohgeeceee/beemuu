@@ -5,6 +5,20 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag whose release should receive the build assets
+        required: true
+        type: string
+      target:
+        description: Which platform to build
+        required: true
+        default: linux
+        type: choice
+        options:
+          - all
+          - windows
+          - linux
 
 permissions:
   contents: write
@@ -16,9 +30,14 @@ jobs:
       matrix:
         include:
           - platform: windows-latest
+            target: windows
             args: ''
+          - platform: ubuntu-22.04
+            target: linux
+            args: '--bundles deb,appimage'
 
     runs-on: ${{ matrix.platform }}
+    if: github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == matrix.target
     steps:
       - uses: actions/checkout@v5
 
@@ -28,6 +47,15 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl file libayatana-appindicator3-dev libfuse2 \
+            librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev \
+            patchelf wget xdg-utils
 
       - name: Cache Rust build
         uses: swatinem/rust-cache@v2
@@ -42,14 +70,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'BeeEmUu ${{ github.ref_name }}'
+          tagName: ${{ inputs.release_tag || github.ref_name }}
+          releaseName: 'BeeEmUu ${{ inputs.release_tag || github.ref_name }}'
           releaseBody: |
-            Windows installers below:
+            Windows installers:
             - `.exe` — NSIS installer (recommended for most users)
             - `.msi` — MSI installer
 
+            Linux packages:
+            - `.deb` — Debian and Ubuntu package
+            - `.AppImage` — portable Linux application image
+
             ⚠️ Modifying vehicle electronics carries inherent risks. Always use a battery maintainer before flashing or deep coding.
-          releaseDraft: true
+          releaseDraft: ${{ github.event_name == 'push' }}
           prerelease: false
           args: ${{ matrix.args }}
