@@ -25,7 +25,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The AI review is advisory; upstream Claude failures must not fail PR CI.
       - uses: anthropics/claude-code-action@v1.0.240
+        continue-on-error: true
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
