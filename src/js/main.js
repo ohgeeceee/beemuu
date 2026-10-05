@@ -45,9 +45,11 @@ window.beeemuuV3 = {
   logSeries: () => logSeries,
   /* Cached DTCs from the last fault-memory read. */
   dtcs: () => lastDtcs,
+  faultMemoryRead: () => faultMemoryRead,
   /* Modules from the last vehicle test. */
   vehicleModules: () => modules,
   vehicleAddress: () => selectedAddress,
+  vehicleInfo: () => lastVehicleInfo,
   isConnected: () => connected,
   /* True while a loaded snapshot is being viewed rather than a live car.
    * Several panels must not present historical data as a current reading. */
@@ -571,14 +573,16 @@ $("btn-scan").addEventListener("click", async () => {
   $("ecu-tree").innerHTML = "<li class='tree-empty'>Identifying control units…</li>";
   try {
     modules = await invoke("scan_modules");
+    faultMemoryRead = false;
+    lastDtcs = [];
     const status = await invoke("security_status");
     unlockStates = new Map(status.map((s) => [s.address, s.unlocked]));
     renderTree();
     fillExplorerEcus();
     fillSecurityEcus();
     window.beeemuuV3._notify();
+    window.dispatchEvent(new CustomEvent("beemuu:vehicle-scan"));
     const found = modules.filter((m) => m.present).length;
-    faultMemoryRead = false;
     setStatus(`Vehicle test complete — ${found} control units found`);
     refreshFrmCodingCard();
     renderFirstScanGuide();
@@ -681,6 +685,7 @@ async function readFaults() {
     lastDtcs = dtcs;
     faultMemoryRead = true;
     window.beeemuuV3._notify();
+    window.dispatchEvent(new CustomEvent("beemuu:fault-read", { detail: { address: selectedAddress, dtcs } }));
     if (dtcs.length === 0) {
       tbody.innerHTML = `<tr><td colspan='3' class='fault-ok'>No faults stored. <span class="muted">This module's fault memory is clear — a useful baseline. Try scanning other modules (DME, EGS, DSC) to confirm the vehicle's overall health.</span></td></tr>`;
       return;
@@ -707,6 +712,7 @@ async function readFaults() {
     lastDtcs = dtcs;
     faultMemoryRead = true;
     window.beeemuuV3._notify();
+    window.dispatchEvent(new CustomEvent("beemuu:fault-read", { detail: { address: selectedAddress, dtcs } }));
     // v0.12.0 Fault Memory: record this read to the local history if the
     // user opted in. Best-effort — a recording failure (e.g. home dir not
     // writable, slice 2 PR #144 not yet merged) should not break the
@@ -2803,9 +2809,12 @@ function stepTime(delta) {
 }
 
 function addMarker(time) {
-  const label = `Bookmark ${logSeries.markers.length + 1}`;
-  logSeries.markers.push({ time, label });
+  const type = $("log-annotation-type")?.value || "note";
+  const note = String($("log-annotation-note")?.value || "").trim().slice(0, 300);
+  const label = `${type.replace(/-/g, " ")} ${logSeries.markers.length + 1}`;
+  logSeries.markers.push({ time, label, type, note });
   logSeries.markers.sort((a, b) => a.time - b.time);
+  if ($("log-annotation-note")) $("log-annotation-note").value = "";
   rebuildChart();
   renderMarkerList();
   $("btn-log-clear-markers").disabled = false;
@@ -2822,12 +2831,18 @@ function renderMarkerList() {
   list.innerHTML = "";
   logSeries.markers.forEach((m, i) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="log-marker-time">${formatTime(m.time)}</span> <span class="log-marker-label" contenteditable="true">${escapeHtml(m.label)}</span> <button class="btn btn-small log-marker-del" data-idx="${i}">×</button>`;
-    li.querySelector(".log-marker-label").addEventListener("blur", (e) => {
+    const jump = document.createElement("button"); jump.type = "button"; jump.className = "log-marker-time"; jump.textContent = formatTime(m.time); jump.title = "Jump to this point in the replay";
+    jump.addEventListener("click", () => { logSeries.paused = true; logSeries.scrubTime = m.time; updatePlayButton(); rebuildChart(); updateScrubber(); });
+    const type = document.createElement("span"); type.className = "log-marker-type"; type.textContent = String(m.type || "note").replace(/-/g, " ");
+    const label = document.createElement("span"); label.className = "log-marker-label"; label.contentEditable = "true"; label.textContent = m.label || "Bookmark"; label.setAttribute("aria-label", `Annotation ${i + 1} label`);
+    const note = document.createElement("span"); note.className = "log-marker-note"; note.textContent = m.note || "";
+    const remove = document.createElement("button"); remove.type = "button"; remove.className = "btn btn-small log-marker-del"; remove.dataset.idx = String(i); remove.textContent = "×"; remove.setAttribute("aria-label", `Remove annotation ${i + 1}`);
+    li.append(jump, type, label, note, remove);
+    label.addEventListener("blur", (e) => {
       logSeries.markers[i].label = e.target.textContent.trim() || `Bookmark ${i + 1}`;
       rebuildChart();
     });
-    li.querySelector(".log-marker-del").addEventListener("click", () => {
+    remove.addEventListener("click", () => {
       logSeries.markers.splice(i, 1);
       renderMarkerList();
       rebuildChart();
@@ -2861,11 +2876,23 @@ function sessionLabel(data) {
   return tag ? `${tag} · ${date}` : date;
 }
 
+function activeGarageVehicleId() {
+  if (!window.BeemuuGarage) return null;
+  const state = window.BeemuuGarage.read(localStorage);
+  const vehicle = state.vehicles.find(v => v.id === state.activeId);
+  if (!vehicle) return null;
+  const currentVin = window.BeemuuGarage.normalizeVin(lastVehicleInfo && lastVehicleInfo.vin);
+  const savedVin = window.BeemuuGarage.normalizeVin(vehicle.vin);
+  return currentVin === savedVin ? vehicle.id : null;
+}
+
 function autoSaveSession() {
   const payload = {
     startTime: logStart,
     timestamp: Date.now(),
     sessionTag: activeLogSessionTag,
+    vehicleId: activeGarageVehicleId(),
+    vin: lastVehicleInfo && lastVehicleInfo.vin ? lastVehicleInfo.vin : null,
     markers: logSeries.markers,
     series: [...logSeries.entries()].map(([id, s]) => ({
       id, label: s.label, unit: s.unit, color: s.color, enabled: s.enabled,
@@ -3030,6 +3057,7 @@ function buildLogCsv(opts) {
     bookmarks: logSeries.markers,
     metadata: {
       vin: lastVehicleInfo && lastVehicleInfo.vin ? lastVehicleInfo.vin : "unavailable",
+      vehicleId: activeGarageVehicleId() || "",
       profile: profile ? profile.options[profile.selectedIndex]?.text || profile.value : "unavailable",
       recordedAt: logStart || Date.now(),
     },
@@ -3683,6 +3711,7 @@ async function doReadVehicle() {
     lastVehicleInfo = info;
     renderVehicleInfo(info);
     setInfoActionsEnabled(true);
+    window.dispatchEvent(new CustomEvent("beemuu:vehicle-info", { detail: info }));
   } catch (e) {
     body.innerHTML = `<p class='muted'>Read failed: ${escapeHtml(String(e))}</p>`;
   }
@@ -3692,7 +3721,13 @@ async function doExportSnapshot() {
   if (!connected && !sessionReplay) { log("Connect first or load a session."); return; }
   try {
     setStatus("Exporting session snapshot…");
-    const json = await invoke("export_session");
+    const raw = await invoke("export_session");
+    let json = raw;
+    try {
+      const snapshot = JSON.parse(raw);
+      snapshot.garage_vehicle_id = activeGarageVehicleId();
+      json = JSON.stringify(snapshot, null, 2);
+    } catch (_) { /* preserve legacy/non-JSON exports unchanged */ }
     const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const path = await invoke("export_text", { filename: `beeemuu-session-${stamp}.json`, content: json });
     log("Snapshot saved: " + path);
@@ -3871,9 +3906,13 @@ function showServiceHistoryEditor() {
   const workRows = modal.querySelector("#dossier-work-rows");
   const upcomingRows = modal.querySelector("#dossier-upcoming-rows");
   const field = (name, value, placeholder = "", type = "text") => `<input type="${type}" data-field="${name}" value="${escapeHtml(value || "")}" placeholder="${placeholder}">`;
+  const cbsOptions = (selected) => {
+    const items = window.CbsPredict?.CBS_ITEMS || {};
+    return `<select data-field="cbs_item" aria-label="CBS timeline item"><option value="">No CBS link</option>${Object.values(items).map(item => `<option value="${escapeHtml(item.id)}"${selected === item.id ? " selected" : ""}>${escapeHtml(item.label)}</option>`).join("")}</select>`;
+  };
   const addWork = (entry = {}) => {
     const row = document.createElement("fieldset"); row.className = "dossier-entry";
-    row.innerHTML = `<legend>Work record</legend><div class="dossier-entry-grid">${field("date", entry.date, "", "date")}${field("mileage_km", entry.mileage_km, "Mileage km", "number")}<select data-field="category">${["Maintenance", "Repair", "Upgrade", "Inspection", "Recall", "Bodywork", "Other"].map((v) => `<option${entry.category === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work_performed", entry.work_performed, "Work performed")}${field("reason", entry.reason, "Reason / symptoms")}${field("provider", entry.provider, "Workshop / provider")}${field("parts", entry.parts, "Parts used")}${field("part_numbers", entry.part_numbers, "Part numbers")}${field("parts_cost", entry.parts_cost, "Parts cost", "number")}${field("labor_cost", entry.labor_cost, "Labor cost", "number")}${field("invoice_ref", entry.invoice_ref, "Invoice / receipt ref")}${field("warranty", entry.warranty, "Warranty")}</div><label class="dossier-diy"><input type="checkbox" data-field="diy"${entry.diy ? " checked" : ""}> Owner / DIY work</label><textarea data-field="notes" placeholder="Detailed notes">${escapeHtml(entry.notes || "")}</textarea><div class="dossier-attachments"><button class="btn btn-small dossier-attach" type="button">Attach receipt / invoice</button><ul class="dossier-attachment-list"></ul></div><button class="btn btn-small btn-danger dossier-remove" type="button">Remove record</button>`;
+    row.innerHTML = `<legend>Work record</legend><div class="dossier-entry-grid">${field("date", entry.date, "", "date")}${field("mileage_km", entry.mileage_km, "Mileage km", "number")}<select data-field="category">${["Maintenance", "Repair", "Upgrade", "Inspection", "Recall", "Bodywork", "Other"].map((v) => `<option${entry.category === v ? " selected" : ""}>${v}</option>`).join("")}</select>${cbsOptions(entry.cbs_item)}${field("work_performed", entry.work_performed, "Work performed")}${field("reason", entry.reason, "Reason / symptoms")}${field("provider", entry.provider, "Workshop / provider")}${field("parts", entry.parts, "Parts used")}${field("part_numbers", entry.part_numbers, "Part numbers")}${field("parts_cost", entry.parts_cost, "Parts cost", "number")}${field("labor_cost", entry.labor_cost, "Labor cost", "number")}${field("invoice_ref", entry.invoice_ref, "Invoice / receipt ref")}${field("warranty", entry.warranty, "Warranty")}</div><label class="dossier-diy"><input type="checkbox" data-field="diy"${entry.diy ? " checked" : ""}> Owner / DIY work</label><textarea data-field="notes" placeholder="Detailed notes">${escapeHtml(entry.notes || "")}</textarea><div class="dossier-attachments"><button class="btn btn-small dossier-attach" type="button">Attach receipt / invoice</button><ul class="dossier-attachment-list"></ul></div><button class="btn btn-small btn-danger dossier-remove" type="button">Remove record</button>`;
     row._attachments = Array.isArray(entry.attachments) ? entry.attachments.slice() : [];
     const renderAttachments = () => {
       const list = row.querySelector(".dossier-attachment-list");

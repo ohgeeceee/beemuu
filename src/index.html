@@ -75,6 +75,7 @@
       <div class="panel plugin-panel">
         <h2>Community plugins</h2>
         <p>Add community data packs and JavaScript tools (single-file or multi-file bundles). Packages stay on this device and run only when you choose.</p>
+        <div class="plugin-trust-center"><strong>Trust Center</strong><p>Every installed package is disabled until you enable it. Version 1 and 2 packages receive no vehicle, file, network, or page access. Publisher names are self-declared; a local digest detects package changes but does not prove who published it.</p></div>
         <p id="plugins-status" role="status" aria-live="polite"></p>
         <h3>Installed</h3>
         <div id="plugins-installed" class="plugin-grid"></div>
@@ -335,7 +336,8 @@
               <button id="btn-log-clear-session" class="btn btn-small">Clear session</button>
             </div>
             <div class="log-markers" id="log-markers">
-              <div class="log-markers-head">Bookmarks <span class="muted">(double-click chart or use Bookmark)</span></div>
+              <div class="log-markers-head">Drive annotations <span class="muted">(double-click chart or use Bookmark)</span></div>
+              <div class="log-annotation-tools"><select id="log-annotation-type" aria-label="Annotation type"><option value="note">General note</option><option value="symptom">Symptom</option><option value="repair">Repair</option><option value="road-condition">Road condition</option></select><input id="log-annotation-note" type="text" maxlength="300" placeholder="Context for the next bookmark" aria-label="Annotation note"></div>
               <ul id="log-marker-list" class="log-marker-list" role="list" aria-label="Log bookmarks"></ul>
             </div>
             <div class="log-shortcuts muted">
@@ -366,6 +368,18 @@
         </div>
         <div id="info-body" class="info-body">
           <p class="muted">Connect and click "Read vehicle" to read VIN, decode it, and read mileage.</p>
+        </div>
+        <div class="panel garage-panel" style="margin-top:12px">
+          <div class="panel-head"><span>My Garage</span><span><button id="garage-add-current" class="btn btn-small" disabled>Add current vehicle</button></span></div>
+          <div class="garage-create"><input id="garage-manual-label" type="text" maxlength="80" placeholder="Add a vehicle without a VIN" aria-label="Vehicle name"><button id="garage-add-manual" class="btn btn-small">Add</button></div>
+          <p id="garage-status" class="muted" role="status" aria-live="polite"></p>
+          <div id="garage-list" class="garage-list" role="list" aria-label="Vehicles in my garage"><p class="muted">Add a vehicle after reading its VIN, or create a manual record.</p></div>
+        </div>
+        <div class="panel repair-check-panel" style="margin-top:12px">
+          <div class="panel-head"><span>Repair verification</span><span><button id="repair-capture-baseline" class="btn btn-small" disabled>Capture baseline</button><button id="repair-capture-followup" class="btn btn-small" disabled>Capture follow-up</button></span></div>
+          <div class="repair-check-create"><input id="repair-note" type="text" maxlength="300" placeholder="What repair or change are you checking?" aria-label="Repair note"></div>
+          <div id="repair-check-status" class="muted" role="status" aria-live="polite">Read vehicle fault memory to capture a repair comparison.</div>
+          <div id="repair-check-list" class="repair-check-list" role="list" aria-label="Saved repair checks"></div>
         </div>
         <div id="vehicle-info-options" class="muted" style="padding:8px 10px; font-size:12px"></div>
         <div class="panel" style="margin-top:12px">
@@ -964,6 +978,8 @@
   <script src="js/symptom_index.js"></script>
   <script src="js/signal_library.js"></script>
   <script src="js/vehicle_passport.js"></script>
+  <script src="js/garage.js"></script>
+  <script src="js/repair_verification.js"></script>
   <script src="js/plugins_registry_client.js"></script>
   <!-- Generated from community/profiles/*.toml by scripts/gen_signal_index.py.
        Inlined as a data global because the Tauri webview cannot fetch a
@@ -971,6 +987,8 @@
   <script src="js/signal_index_data.js"></script>
   <script src="js/v3_signal_index.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/garage_boot.js"></script>
+  <script src="js/repair_verification_boot.js"></script>
   <script src="js/v3_ui.js"></script>
   <script src="js/plugins.js"></script>
   <script src="js/plugins_ui.js"></script>

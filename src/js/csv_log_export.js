@@ -73,7 +73,7 @@ function buildLogCsv(entries, opts) {
   const metadata = (opts && opts.metadata) || {};
   const metadataFields = [];
   if (sessionTag) metadataFields.push(`session_tag=${JSON.stringify(sessionTag)}`);
-  for (const [name, value] of [["vin", metadata.vin], ["profile", metadata.profile]]) {
+  for (const [name, value] of [["vin", metadata.vin], ["vehicle_id", metadata.vehicleId], ["profile", metadata.profile]]) {
     const normalized = String(value || "").replace(/[\r\n]+/g, " ").trim();
     if (normalized) metadataFields.push(`${name}=${JSON.stringify(normalized)}`);
   }
@@ -96,6 +96,9 @@ function buildLogCsv(entries, opts) {
   for (const bookmark of bookmarks) {
     const label = String(bookmark.label || "Bookmark").replace(/[\r\n]+/g, " ").trim() || "Bookmark";
     csv += `# bookmark time_s=${bookmark.time.toFixed(2)} label=${JSON.stringify(label)}\n`;
+    if (bookmark.type || bookmark.note) {
+      csv += `# annotation data=${JSON.stringify({ time: bookmark.time, label, type: String(bookmark.type || "note"), note: String(bookmark.note || "") })}\n`;
+    }
   }
   csv += "time_s" + delimiter + enabled.map(([, s]) => `${s.label} (${s.unit})`).join(delimiter) + "\n";
   // Optional units row: "units" + 1 cell per series (unit). Two-cell

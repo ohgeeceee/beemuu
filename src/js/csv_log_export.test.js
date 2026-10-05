@@ -41,6 +41,17 @@ test("buildLogCsv: adds sorted bookmark annotations before the columns", () => {
   assert.equal(lines[3], "time_s,Engine speed (rpm)");
 });
 
+test("buildLogCsv: exports typed annotations without breaking legacy bookmark readers", () => {
+  const csv = buildLogCsv([series("RPM", "rpm", [{ x: 0, y: 800 }])], {
+    bookmarks: [{ time: 4.25, label: "symptom 1", type: "symptom", note: "Cold stumble, then clears" }],
+  });
+  const lines = csv.split("\n");
+  assert.equal(lines[1], '# bookmark time_s=4.25 label="symptom 1"');
+  assert.deepEqual(JSON.parse(lines[2].slice("# annotation data=".length)), {
+    time: 4.25, label: "symptom 1", type: "symptom", note: "Cold stumble, then clears",
+  });
+});
+
 test("buildLogCsv: emits VIN, profile, and recording date metadata", () => {
   const csv = buildLogCsv([
     series("Engine speed", "rpm", [{ x: 0, y: 800 }]),

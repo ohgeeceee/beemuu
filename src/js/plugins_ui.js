@@ -34,11 +34,20 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
     installed = entries;
     render();
   }
-  function stage(p) {
+  async function digest(p) {
+    if (!globalThis.crypto?.subtle) return "Unavailable in this webview";
+    const bytes = new TextEncoder().encode(JSON.stringify(p));
+    const result = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(result), b => b.toString(16).padStart(2, "0")).join("");
+  }
+  async function stage(p) {
     pending = api.validate(p);
     byId("plugins-package-source").textContent = JSON.stringify(pending, null, 2);
     const current = installed.find(e => e.package.id === p.id);
-    byId("plugins-preview").textContent = `${p.name} · ${p.version}\nAuthor: ${p.author} · License: ${p.license}\n${p.description}\n${p.kind === "tool" ? "Executable JavaScript utility. Processes only the JSON you supply; no host permissions." : "Data pack. Reference articles and optional live-data profiles."}${current ? `\nReplaces installed version ${current.package.version}. Author names are self-declared; verify the source before replacing a package.` : "\nAuthor names are self-declared. Install packages from sources you trust."}`;
+    const nextDigest = await digest(pending);
+    const oldDigest = current ? await digest(current.package) : null;
+    const change = current ? (nextDigest === oldDigest ? "Package content digest matches the installed package." : "Package content changed. Review the source and digest before replacing it.") : "New package. Review the source before installing.";
+    byId("plugins-preview").textContent = `${p.name} · ${p.version}\nPackage ID: ${p.id}\nAuthor: ${p.author} (self-declared) · License: ${p.license}\n${p.description}\n${p.kind === "tool" ? "Executable JavaScript utility. Runs in an isolated sandbox and processes only supplied JSON." : "Data pack. Reference articles and optional live-data profiles."}\nCapabilities: none. This package schema rejects host permissions.\nSHA-256: ${nextDigest}\n${change}${current ? `\nInstalled version: ${current.package.version}\nInstalled SHA-256: ${oldDigest}` : ""}`;
     byId("plugins-install").hidden = false;
     byId("plugins-install").textContent = current ? "Replace installed package" : "Install package";
   }
@@ -139,6 +148,10 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
     const p = entry.package;
     const detail = byId("plugins-detail");
     detail.replaceChildren(el("h3", p.name));
+    const trust = document.createElement("section"); trust.className = "plugin-trust-detail";
+    trust.append(el("h4", "Trust details"), el("p", `Package ID: ${p.id}`), el("p", `Publisher: ${p.author} (self-declared; not cryptographically verified)`), el("p", "Host capabilities: none. The package format rejects all non-empty permission requests."), el("p", "Tools run in an isolated sandbox. Data packs render as text and cannot call the vehicle or host APIs."));
+    digest(p).then(hash => trust.append(el("p", `Local SHA-256: ${hash}. This detects changes to the stored package; it does not authenticate its publisher.`))).catch(() => trust.append(el("p", "Local SHA-256 unavailable in this webview.")));
+    detail.append(trust);
     if (!entry.enabled) { detail.append(el("p", "Enable this plugin to use it.")); return; }
     if (p.kind === "data") {
       for (const article of p.content.articles) detail.append(el("h4", article.title), el("p", article.body, "plugin-text"));
@@ -185,7 +198,7 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
       const file = event.target.files[0];
       if (!file) return;
       if (file.size > api.MAX_PACKAGE) throw new Error("Package exceeds 256 KiB.");
-      stage(api.parse(await file.text()));
+      await stage(api.parse(await file.text()));
     } catch (e) { status(`Cannot import: ${e.message}`); }
     finally { event.target.value = ""; }
   });
@@ -229,7 +242,7 @@ window.mountBeemuuPlugins = async function ({ importProfiles }) {
             const detail = await fetch(`${registryUrl}/api/plugins/${encodeURIComponent(meta.id)}`);
             if (!detail.ok) throw new Error(`HTTP ${detail.status}`);
             const pkg = await detail.json();
-            stage(api.validate(pkg));
+            await stage(api.validate(pkg));
           } catch (e) { status(`Cannot load package: ${e.message}`); }
         }));
         list.append(card);
