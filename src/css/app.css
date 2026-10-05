@@ -1314,3 +1314,16 @@ body[data-theme="dark"] .v3-signal-query { color: #9fb2c8; }
 body[data-theme="dark"] .v3-code { background: #ffffff10; }
 
 .v3-cold-line { display: flex; gap: 8px; align-items: baseline; margin: 0; font-size: 13px; }
+.garage-create, .repair-check-create, .log-annotation-tools { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 10px; }
+.garage-create input, .repair-check-create input, .log-annotation-tools input { min-width:180px; flex:1; }
+.garage-list, .repair-check-list { display:grid; gap:8px; padding:8px 10px 12px; }
+.garage-card, .repair-check-card { border:1px solid var(--border); border-radius:6px; padding:10px; }
+.garage-card { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.garage-card p { margin:3px auto 0 0; flex-basis:100%; }
+.garage-card.is-active { border-color:var(--accent, #4da3ff); }
+.garage-active-label, .log-marker-type { border-radius:10px; padding:2px 7px; background:var(--panel); font-size:11px; text-transform:capitalize; }
+.repair-check-card p { margin:6px 0 0; }
+.log-annotation-tools { padding:6px 0; }
+.log-marker-time { border:0; background:transparent; color:var(--accent, #4da3ff); cursor:pointer; font:inherit; text-decoration:underline; }
+.log-marker-note { color:var(--muted, #888); font-size:12px; }
+.dossier-cbs-link { color:var(--muted, #888); font-size:12px; }

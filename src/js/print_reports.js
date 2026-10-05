@@ -91,6 +91,7 @@
     }
     return {
       jobs: work.length,
+      cbs_linked_jobs: work.filter(entry => typeof entry.cbs_item === "string" && entry.cbs_item).length,
       total_cost: work.reduce((sum, entry) => sum + moneyValue(entry.parts_cost) + moneyValue(entry.labor_cost), 0),
       latest_date: sorted[0]?.date || "",
       latest_mileage_km: Number(sorted[0]?.mileage_km) || null,
@@ -170,6 +171,7 @@
       const total = moneyValue(entry.parts_cost) + moneyValue(entry.labor_cost);
       return `<section class="dossier-work"><div class="dossier-work-head"><strong>${escapeHtml(entry.date)} · ${escapeHtml(entry.category)}</strong><span>${escapeHtml(entry.mileage_km)}${entry.mileage_km ? " km" : ""}</span></div>
         <h3>${escapeHtml(entry.work_performed)}</h3>
+        ${entry.cbs_item ? `<p class="dossier-cbs-link">CBS timeline item: ${escapeHtml(entry.cbs_item)}</p>` : ""}
         <dl class="dossier-details"><div><dt>Reason / symptoms</dt><dd>${escapeHtml(entry.reason)}</dd></div><div><dt>Performed by</dt><dd>${entry.diy ? "Owner / DIY" : escapeHtml(entry.provider)}</dd></div><div><dt>Parts</dt><dd>${escapeHtml(entry.parts)}</dd></div><div><dt>Part numbers</dt><dd>${escapeHtml(entry.part_numbers)}</dd></div><div><dt>Parts cost</dt><dd>${formatMoney(entry.parts_cost)}</dd></div><div><dt>Labor cost</dt><dd>${formatMoney(entry.labor_cost)}</dd></div><div><dt>Total</dt><dd>${formatMoney(total)}</dd></div><div><dt>Invoice / receipt</dt><dd>${escapeHtml(entry.invoice_ref)}</dd></div><div><dt>Warranty</dt><dd>${escapeHtml(entry.warranty)}</dd></div></dl>
         ${entry.notes ? `<p><strong>Notes:</strong> ${escapeHtml(entry.notes)}</p>` : ""}</section>`;
     }).join("") : "<p>No completed work has been recorded.</p>";
@@ -185,7 +187,7 @@
       ${vehicleBlock(info)}
       <dl class="vehicle-grid"><div><dt>Model</dt><dd>${escapeHtml(profile.model)}</dd></div><div><dt>Chassis</dt><dd>${escapeHtml(profile.chassis)}</dd></div><div><dt>Ownership since</dt><dd>${escapeHtml(profile.ownership_start)}</dd></div><div><dt>Recorded jobs</dt><dd>${summary.jobs}</dd></div></dl>
       ${profile.seller_notes ? `<section class="dossier-overview"><h2>Owner's overview</h2><p>${escapeHtml(profile.seller_notes)}</p></section>` : ""}
-      <section><h2>Documented history summary</h2><div class="dossier-stats"><div><strong>${summary.jobs}</strong><span>jobs recorded</span></div><div><strong>${formatMoney(summary.total_cost)}</strong><span>documented spend</span></div><div><strong>${escapeHtml(summary.latest_date)}</strong><span>latest service</span></div><div><strong>${summary.latest_mileage_km ? escapeHtml(summary.latest_mileage_km) + " km" : "—"}</strong><span>latest service mileage</span></div></div><p>${categories}</p></section>
+      <section><h2>Documented history summary</h2><div class="dossier-stats"><div><strong>${summary.jobs}</strong><span>jobs recorded</span></div><div><strong>${summary.cbs_linked_jobs}</strong><span>linked to a CBS timeline item</span></div><div><strong>${formatMoney(summary.total_cost)}</strong><span>documented spend</span></div><div><strong>${escapeHtml(summary.latest_date)}</strong><span>latest service</span></div><div><strong>${summary.latest_mileage_km ? escapeHtml(summary.latest_mileage_km) + " km" : "—"}</strong><span>latest service mileage</span></div></div><p>${categories}</p><p class="muted">CBS links are owner-entered associations, not ECU-confirmed service resets.</p></section>
       <section><h2>Completed maintenance and repairs</h2>${workCards}</section>
       <section><h2>Upcoming maintenance</h2><table><thead><tr><th>Priority</th><th>Work</th><th>Due date</th><th>Due mileage</th><th>Estimate</th><th>Notes</th></tr></thead><tbody>${upcomingRows}</tbody></table></section>
       <section><h2>Receipt and attachment index</h2><p>${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"} stored as local file references.</p><ul class="receipt-list">${receiptRows}</ul></section>
@@ -248,7 +250,7 @@
   // can paste into Excel / Google Sheets without re-mapping.
   const CSV_COLUMNS = [
     "date", "mileage_km", "category", "work_performed", "reason", "parts", "part_numbers",
-    "parts_cost", "labor_cost", "provider", "diy", "invoice_ref", "warranty", "notes",
+    "parts_cost", "labor_cost", "provider", "diy", "invoice_ref", "warranty", "cbs_item", "notes",
   ];
 
   function csvField(value) {

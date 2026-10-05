@@ -83,6 +83,7 @@ test("dossier summary totals documented spend and finds latest service", () => {
     { date: "2025-06-01", mileage_km: "125500", category: "Maintenance", parts_cost: "80", labor_cost: "120.50" },
   ] });
   assert.equal(summary.jobs, 2);
+  assert.equal(summary.cbs_linked_jobs, 0);
   assert.equal(summary.total_cost, 1500.75);
   assert.equal(summary.latest_date, "2025-06-01");
   assert.equal(summary.latest_mileage_km, 125500);
@@ -97,6 +98,7 @@ test("sales dossier report includes ownership, detailed work, totals, and upcomi
       reason: "Preventive maintenance", parts: "BMW transfer case fluid", part_numbers: "83222409710",
       parts_cost: "150", labor_cost: "250", provider: "Independent BMW specialist", diy: false,
       invoice_ref: "INV-42", warranty: "12 months", notes: "No leaks found",
+      cbs_item: "engine_oil",
     }],
     upcoming: [{ due_date: "2026-06-01", due_mileage_km: "135000", priority: "Medium", work: "Brake fluid", estimated_cost: "180", notes: "Two-year interval" }],
   };
@@ -109,6 +111,8 @@ test("sales dossier report includes ownership, detailed work, totals, and upcomi
   assert.match(html, /\$400\.00/);
   assert.match(html, /Brake fluid/);
   assert.match(html, /Garage kept/);
+  assert.match(html, /CBS timeline item: engine_oil/);
+  assert.match(html, /<strong>1<\/strong><span>linked to a CBS timeline item<\/span>/);
 });
 
 test("sales dossier prints a receipt attachment index without exposing full local paths", () => {
@@ -147,6 +151,7 @@ test("dossier export/import round-trips through JSON without data loss", () => {
       reason: "Preventive", parts: "Fluid", part_numbers: "83222409710",
       parts_cost: "150", labor_cost: "250", provider: "Indie", diy: false,
       invoice_ref: "INV-42", warranty: "12 months", notes: "No leaks",
+      cbs_item: "engine_oil",
       attachments: [{ name: "invoice.pdf", path: "C:\\R\\invoice.pdf", kind: "PDF" }],
     }],
     upcoming: [{ due_date: "2026-06-01", due_mileage_km: "135000", priority: "Medium", work: "Brake fluid", estimated_cost: "180", notes: "" }],

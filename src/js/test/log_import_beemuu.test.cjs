@@ -3,6 +3,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { parseBeemuuCsv } = require("../log_import_beemuu.js");
+const { buildLogCsv } = require("../csv_log_export.js");
 
 test("parseBeemuuCsv: parses basic native log with metadata", () => {
   const csv = [
@@ -35,6 +36,14 @@ test("parseBeemuuCsv: parses bookmarks", () => {
   assert.equal(p.bookmarks.length, 2);
   assert.deepEqual(p.bookmarks[0], { time: 3, label: "Cold start" });
   assert.deepEqual(p.bookmarks[1], { time: 12.5, label: "Throttle open" });
+});
+
+test("native CSV round-trips typed annotations and note text", () => {
+  const csv = buildLogCsv([["rpm", { label: "RPM", unit: "rpm", getAllData: () => [{ x: 0, y: 800 }] }]], {
+    bookmarks: [{ time: 1.5, label: "repair 1", type: "repair", note: "Replaced coil #3" }],
+  });
+  const parsed = parseBeemuuCsv(csv);
+  assert.deepEqual(parsed.bookmarks, [{ time: 1.5, label: "repair 1", type: "repair", note: "Replaced coil #3" }]);
 });
 
 test("parseBeemuuCsv: handles units row and restores numeric data", () => {

@@ -8,3 +8,6 @@
 .plugin-detail textarea { display: block; box-sizing: border-box; width: 100%; margin: 8px 0; font-family: monospace; }
 .plugin-output, .plugin-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .plugin-output { max-height: 360px; overflow: auto; }
+.plugin-trust-center, .plugin-trust-detail { border:1px solid #8886; border-left:4px solid #4da3ff; border-radius:6px; padding:10px 14px; margin:12px 0; }
+.plugin-trust-center p, .plugin-trust-detail p { margin:5px 0; }
+.plugin-trust-detail { background:var(--panel); }

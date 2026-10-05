@@ -38,6 +38,17 @@ function parseBeemuuCsv(text) {
       }
       continue;
     }
+    if (line.startsWith("# annotation data=")) {
+      try {
+        const item = JSON.parse(line.slice("# annotation data=".length));
+        if (item && Number.isFinite(item.time)) {
+          const idx = bookmarks.findIndex(b => b.time === item.time && b.label === item.label);
+          if (idx >= 0) bookmarks[idx] = { ...bookmarks[idx], ...item };
+          else bookmarks.push(item);
+        }
+      } catch (_) { /* malformed optional annotation metadata; keep the bookmark line */ }
+      continue;
+    }
     if (!line.startsWith("#") && line.includes("time_s")) {
       headerIdx = i;
       break;
