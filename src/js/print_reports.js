@@ -76,6 +76,37 @@
     storage.setItem(DOSSIER_KEY, JSON.stringify(dossiers));
   }
 
+  function classifyUpcoming(entries, options = {}) {
+    const now = options.today instanceof Date ? options.today : new Date(options.today || Date.now());
+    const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const mileage = Number(options.mileageKm);
+    const dateLeadDays = Number.isFinite(Number(options.dateLeadDays)) ? Number(options.dateLeadDays) : 30;
+    const mileageLeadKm = Number.isFinite(Number(options.mileageLeadKm)) ? Number(options.mileageLeadKm) : 1000;
+    return (Array.isArray(entries) ? entries : []).map((entry) => {
+      const reasons = [];
+      let overdue = false;
+      let soon = false;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(entry?.due_date || ""))) {
+        const [year, month, day] = entry.due_date.split("-").map(Number);
+        const due = Date.UTC(year, month - 1, day);
+        const dueDate = new Date(due);
+        if (dueDate.getUTCFullYear() === year && dueDate.getUTCMonth() === month - 1 && dueDate.getUTCDate() === day) {
+          const days = Math.round((due - today) / 86400000);
+          if (days < 0) { overdue = true; reasons.push(`overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`); }
+          else if (days <= dateLeadDays) { soon = true; reasons.push(days === 0 ? "due today" : `due in ${days} day${days === 1 ? "" : "s"}`); }
+        }
+      }
+      const dueMileageText = String(entry?.due_mileage_km ?? "").trim();
+      const dueMileage = dueMileageText ? Number(dueMileageText) : NaN;
+      if (Number.isFinite(mileage) && mileage >= 0 && Number.isFinite(dueMileage) && dueMileage >= 0) {
+        const remaining = dueMileage - mileage;
+        if (remaining < 0) { overdue = true; reasons.push(`${Math.abs(remaining)} km past due`); }
+        else if (remaining <= mileageLeadKm) { soon = true; reasons.push(`due in ${remaining} km`); }
+      }
+      return { status: overdue ? "overdue" : soon ? "soon" : "scheduled", reasons };
+    });
+  }
+
   function moneyValue(value) {
     const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, ""));
     return Number.isFinite(parsed) ? parsed : 0;
@@ -270,7 +301,7 @@
   }
 
   return {
-    STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, summarizeDossier,
+    STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, classifyUpcoming, summarizeDossier,
     normalizeAttachments, freezeSnippet, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport,
     exportDossierJson, importDossierJson, exportDossierCsv, printHtml,
   };

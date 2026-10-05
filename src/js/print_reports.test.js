@@ -63,6 +63,29 @@ test("saving without a VIN is rejected", () => {
   assert.throws(() => reports.saveHistory(memoryStorage(), "", []), /VIN/);
 });
 
+test("upcoming maintenance is classified by date and current mileage", () => {
+  const states = reports.classifyUpcoming([
+    { due_date: "2026-06-10", due_mileage_km: "126000" },
+    { due_date: "2026-08-01", due_mileage_km: "130000" },
+    { due_date: "2026-05-01", due_mileage_km: "125000" },
+    { due_date: "not-a-date", due_mileage_km: "" },
+  ], { today: new Date("2026-06-01T12:00:00Z"), mileageKm: 125500 });
+  assert.deepEqual(states, [
+    { status: "soon", reasons: ["due in 9 days", "due in 500 km"] },
+    { status: "scheduled", reasons: [] },
+    { status: "overdue", reasons: ["overdue by 31 days", "500 km past due"] },
+    { status: "scheduled", reasons: [] },
+  ]);
+});
+
+test("upcoming maintenance uses date status when vehicle mileage is unavailable", () => {
+  assert.deepEqual(reports.classifyUpcoming([
+    { due_date: "2026-07-01", due_mileage_km: "100000" },
+  ], { today: new Date("2026-06-30T12:00:00Z") }), [
+    { status: "soon", reasons: ["due in 1 day"] },
+  ]);
+});
+
 test("legacy service entries migrate into detailed work records", () => {
   const storage = memoryStorage();
   reports.saveHistory(storage, "VIN-A", [{

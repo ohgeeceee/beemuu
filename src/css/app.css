@@ -897,6 +897,9 @@ body[data-theme="dark"] .dtc-source { color: #4da3ff; }
 .dossier-section-head { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
 .dossier-entry { border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 10px; background: var(--surface-sub); }
 .dossier-entry legend { padding: 0 5px; font-weight: 600; }
+.dossier-upcoming-status { margin: 8px 0; font-size: 0.9em; }
+.dossier-upcoming-status[data-status="overdue"] { color: var(--danger, #b42318); font-weight: 700; }
+.dossier-upcoming-status[data-status="soon"] { color: var(--warning, #9a6700); font-weight: 600; }
 .dossier-diy { display: inline-flex; gap: 6px; margin: 8px 12px 8px 0; }
 .dossier-remove { float: right; margin-top: 8px; }
 #print-report-host { display: none; }
