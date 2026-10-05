@@ -3934,8 +3934,17 @@ function showServiceHistoryEditor() {
   };
   const addUpcoming = (entry = {}) => {
     const row = document.createElement("fieldset"); row.className = "dossier-entry dossier-upcoming-entry";
-    row.innerHTML = `<legend>Upcoming item</legend><div class="dossier-entry-grid"><select data-field="priority">${["High", "Medium", "Low"].map((v) => `<option${entry.priority === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work", entry.work, "Planned work")}${field("due_date", entry.due_date, "", "date")}${field("due_mileage_km", entry.due_mileage_km, "Due mileage km", "number")}${field("estimated_cost", entry.estimated_cost, "Estimated cost", "number")}${field("notes", entry.notes, "Notes")}</div><button class="btn btn-small btn-danger dossier-remove" type="button">Remove item</button>`;
-    row.querySelector(".dossier-remove").addEventListener("click", () => row.remove()); upcomingRows.appendChild(row);
+    row.innerHTML = `<legend>Upcoming item</legend><div class="dossier-entry-grid"><select data-field="priority">${["High", "Medium", "Low"].map((v) => `<option${entry.priority === v ? " selected" : ""}>${v}</option>`).join("")}</select>${field("work", entry.work, "Planned work")}${field("due_date", entry.due_date, "", "date")}${field("due_mileage_km", entry.due_mileage_km, "Due mileage km", "number")}${field("estimated_cost", entry.estimated_cost, "Estimated cost", "number")}${field("notes", entry.notes, "Notes")}</div><p class="dossier-upcoming-status" role="status"></p><button class="btn btn-small btn-danger dossier-remove" type="button">Remove item</button>`;
+    const updateStatus = () => {
+      const values = {};
+      row.querySelectorAll("[data-field]").forEach((input) => { values[input.dataset.field] = input.value; });
+      const [state] = api.classifyUpcoming([values], { mileageKm: lastVehicleInfo?.mileage_km });
+      const status = row.querySelector(".dossier-upcoming-status");
+      status.dataset.status = state.status;
+      status.textContent = state.reasons.length ? `${state.status === "soon" ? "Due soon" : state.status === "overdue" ? "Overdue" : "Scheduled"} · ${state.reasons.join(" · ")}` : "Scheduled · Add a due date or mileage to track this item.";
+    };
+    row.querySelectorAll("[data-field]").forEach((input) => input.addEventListener("input", updateStatus));
+    row.querySelector(".dossier-remove").addEventListener("click", () => row.remove()); upcomingRows.appendChild(row); updateStatus();
   };
   dossier.work.forEach(addWork); dossier.upcoming.forEach(addUpcoming);
   if (!dossier.work.length) addWork();

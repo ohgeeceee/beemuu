@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-10-05
+
+### Added — Tier A
+
+- **Upcoming maintenance due tracking**: planned service items now show whether they are overdue, due within 30 days or 1,000 km, or scheduled, using the latest vehicle mileage available. Status is informational and updates as due date or mileage is edited. (PR pending)
+
 ## [3.1.0] — 2026-10-05
 
 ### Added — Tier A
