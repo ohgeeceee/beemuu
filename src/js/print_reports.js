@@ -52,11 +52,11 @@
     };
   }
 
-  function loadDossier(storage, vin) {
-    if (!storage || !vin) return emptyDossier();
+  function loadDossier(storage, vehicleKey) {
+    if (!storage || !vehicleKey) return emptyDossier();
     try {
       const dossiers = JSON.parse(storage.getItem(DOSSIER_KEY) || "{}");
-      const dossier = dossiers[vin];
+      const dossier = dossiers[vehicleKey];
       if (dossier && typeof dossier === "object") {
         return {
           profile: dossier.profile && typeof dossier.profile === "object" ? dossier.profile : {},
@@ -65,14 +65,14 @@
         };
       }
     } catch (_) {}
-    return { profile: {}, work: loadHistory(storage, vin).map(migrateLegacyEntry), upcoming: [] };
+    return { profile: {}, work: vehicleKey.startsWith("garage:") ? [] : loadHistory(storage, vehicleKey).map(migrateLegacyEntry), upcoming: [] };
   }
 
-  function saveDossier(storage, vin, dossier) {
-    if (!storage || !vin) throw new Error("Read the vehicle VIN before saving its dossier.");
+  function saveDossier(storage, vehicleKey, dossier) {
+    if (!storage || !vehicleKey) throw new Error("Choose a vehicle before saving its dossier.");
     let dossiers = {};
     try { dossiers = JSON.parse(storage.getItem(DOSSIER_KEY) || "{}"); } catch (_) {}
-    dossiers[vin] = dossier;
+    dossiers[vehicleKey] = dossier;
     storage.setItem(DOSSIER_KEY, JSON.stringify(dossiers));
   }
 
@@ -147,8 +147,11 @@
 
   function vehicleBlock(info) {
     const decode = info?.decode || {};
+    const vin = info?.vin || (info?.dossierKey?.startsWith("garage:") ? "Not stored (manual garage record)" : "—");
     return `<dl class="vehicle-grid">
-      <div><dt>VIN</dt><dd>${escapeHtml(info?.vin)}</dd></div>
+      <div><dt>VIN</dt><dd>${escapeHtml(vin)}</dd></div>
+      <div><dt>Model</dt><dd>${escapeHtml(decode.model || decode.model_name)}</dd></div>
+      <div><dt>Chassis</dt><dd>${escapeHtml(decode.chassis)}</dd></div>
       <div><dt>Mileage</dt><dd>${info?.mileage_km != null ? escapeHtml(info.mileage_km) + " km" : "—"}</dd></div>
       <div><dt>Manufacturer</dt><dd>${escapeHtml(decode.manufacturer)}</dd></div>
       <div><dt>Model year</dt><dd>${escapeHtml(decode.model_year)}</dd></div>

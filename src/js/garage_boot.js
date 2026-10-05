@@ -32,6 +32,12 @@
       }); card.append(rename);
       const remove = document.createElement("button"); remove.className = "btn btn-small btn-danger"; remove.type = "button"; remove.textContent = "Remove";
       remove.addEventListener("click", () => { api.remove(localStorage, vehicle.id); render(); window.dispatchEvent(new CustomEvent("beemuu:garage-change", { detail: null })); }); card.append(remove);
+      const history = document.createElement("button"); history.className = "btn btn-small"; history.type = "button"; history.textContent = "Service history";
+      history.addEventListener("click", () => window.dispatchEvent(new CustomEvent("beemuu:open-service-dossier", { detail: {
+        dossierKey: vehicle.vin || `garage:${vehicle.id}`, label: vehicle.label, vin: vehicle.vin,
+        decode: { manufacturer: "BMW", model: vehicle.model, chassis: vehicle.chassis },
+      } })));
+      card.append(history);
       list.append(card);
     }
   }

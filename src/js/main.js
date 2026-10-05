@@ -3882,16 +3882,19 @@ async function doPrintHealthReport() {
   api.printHtml(document, api.buildHealthReport(lastVehicleInfo, modules, new Date(), recurring));
 }
 
-function showServiceHistoryEditor() {
-  if (!lastVehicleInfo || !window.beeemuuPrintReports) return;
+function showServiceHistoryEditor(vehicleInfo = lastVehicleInfo) {
+  if (!vehicleInfo || !window.beeemuuPrintReports) return;
   const api = window.beeemuuPrintReports;
-  const vin = lastVehicleInfo.vin;
-  const dossier = api.loadDossier(localStorage, vin);
+  const vin = vehicleInfo.vin || "";
+  const dossierKey = vehicleInfo.dossierKey || vin;
+  if (!dossierKey) return;
+  const vehicleLabel = vehicleInfo.label || vin || "manual vehicle";
+  const dossier = api.loadDossier(localStorage, dossierKey);
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
   modal.id = "service-history-modal";
   modal.innerHTML = `<div class="modal service-history-modal"><div class="modal-head">Vehicle history & maintenance dossier</div><div class="modal-body dossier-editor">
-    <p class="muted">Build a buyer-ready record stored locally for VIN ${escapeHtml(vin || "unavailable")}.</p>
+    <p class="muted">Build a buyer-ready record stored locally for ${escapeHtml(vin ? `VIN ${vin}` : vehicleLabel)}. No VIN is required for a manual garage vehicle.</p>
     <h3>Vehicle & ownership</h3><div class="dossier-profile-grid">
       <label>Model<input data-profile="model" value="${escapeHtml(dossier.profile.model || "")}" placeholder="e.g. X5 35d"></label>
       <label>Chassis<input data-profile="chassis" value="${escapeHtml(dossier.profile.chassis || "")}" placeholder="e.g. E70"></label>
@@ -3956,7 +3959,7 @@ function showServiceHistoryEditor() {
     const profile = {}; modal.querySelectorAll("[data-profile]").forEach((input) => { profile[input.dataset.profile] = input.value.trim(); });
     return { profile, work: Array.from(workRows.children).map(collect).filter((e) => e.work_performed || e.date), upcoming: Array.from(upcomingRows.children).map(collect).filter((e) => e.work || e.due_date) };
   };
-  const save = () => { const value = gather(); api.saveDossier(localStorage, vin, value); return value; };
+  const save = () => { const value = gather(); api.saveDossier(localStorage, dossierKey, value); return value; };
   modal.querySelector("#dossier-save").addEventListener("click", () => { try { save(); log("Vehicle dossier saved locally."); } catch (e) { log("Dossier save failed: " + e); } });
 
   // Export the dossier as JSON. Uses the same `export_text` Tauri command
@@ -3968,7 +3971,7 @@ function showServiceHistoryEditor() {
       const value = save();
       const json = api.exportDossierJson(value);
       const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const filename = `beeemuu-dossier-${(lastVehicleInfo && lastVehicleInfo.vin) || "vehicle"}-${stamp}.json`;
+      const filename = `beeemuu-dossier-${vin || vehicleLabel.replace(/[^a-z0-9-]+/gi, "-")}-${stamp}.json`;
       try {
         const path = await invoke("export_text", { filename, content: json });
         log("Dossier exported: " + path);
@@ -4076,7 +4079,7 @@ $("btn-cmp-clear").addEventListener("click", () => {
       const value = save();
       const csv = api.exportDossierCsv(value);
       const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const filename = `beeemuu-dossier-${(lastVehicleInfo && lastVehicleInfo.vin) || "vehicle"}-${stamp}.csv`;
+      const filename = `beeemuu-dossier-${vin || vehicleLabel.replace(/[^a-z0-9-]+/gi, "-")}-${stamp}.csv`;
       try {
         const path = await invoke("export_text", { filename, content: csv });
         log("Dossier CSV exported: " + path);
@@ -4091,8 +4094,10 @@ $("btn-cmp-clear").addEventListener("click", () => {
       }
     } catch (e) { log("Dossier CSV export failed: " + e); }
   });
-  modal.querySelector("#service-history-print").addEventListener("click", () => { try { const value = save(); modal.remove(); api.printHtml(document, api.buildSalesDossierReport(lastVehicleInfo, value)); } catch (e) { log("Dossier save failed: " + e); } });
+  modal.querySelector("#service-history-print").addEventListener("click", () => { try { const value = save(); modal.remove(); api.printHtml(document, api.buildSalesDossierReport(vehicleInfo, value)); } catch (e) { log("Dossier save failed: " + e); } });
 }
+
+window.addEventListener("beemuu:open-service-dossier", event => showServiceHistoryEditor(event.detail));
 
 async function doExportReport() {
   if (!lastVehicleInfo) return;
