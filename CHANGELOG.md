@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-10-05
+
 ### Added — Tier A (v3.0.0 cycle: "The Car Remembers")
+
+- **My Garage and repair comparisons** (`#322`): save vehicles locally, link
+  logs to a selected VIN, and compare saved fault scans before and after work.
+  Comparisons report scan evidence only and do not claim that a repair
+  succeeded.
+- **Drive log annotations** (`#322`): tag bookmarks as notes, symptoms,
+  repairs, or road conditions; annotation types and notes survive Beemuu CSV
+  export and import.
+- **Maintenance and plugin trust details** (`#322`): associate owner-entered
+  CBS items with service records, and review plugin package identity and its
+  local SHA-256 digest before enabling it.
 
 - **v3 plan** (`docs/v3_plan.md`): the next ten features, and the reasoning
   behind the order. The cycle's thesis is that the app is already good at

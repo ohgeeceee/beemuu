@@ -9,7 +9,7 @@
 // that forgets to bump the site fails CI instead of shipping a stale
 // "Download vX" link to the homepage.
 //
-// Bump CURRENT_RELEASE when you cut a new release AND update the banner.
+// Bump CURRENT_RELEASE with each release and update both public release surfaces.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
@@ -17,7 +17,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
-const CURRENT_RELEASE = process.env.BEEMUU_TEST_RELEASE || "v2.2.0";
+const CURRENT_RELEASE = process.env.BEEMUU_TEST_RELEASE || "v3.0.0";
 const TAG = `releases/tag/${CURRENT_RELEASE}`;
 
 function read(rel) {
@@ -36,7 +36,5 @@ test("press.html frames the current release and links to its tag", () => {
   const html = read("frontend/press.html");
   assert.ok(html.includes(`BeeEmUu ${CURRENT_RELEASE} &mdash; what's new`), "press header names current release");
   assert.ok(html.includes(TAG), "press download link points at current release tag");
-  // The v2.0.0 mention may remain, but only as a historical "milestone" —
-  // it must not still be the framed/downloadable release.
-  assert.ok(!/v2\.0\.0 is the project/i.test(html), "v2.0.0 no longer framed as the latest release");
+  assert.ok(!/v2\.2\.0 is the latest release/i.test(html), "v2.2.0 no longer framed as the latest release");
 });
