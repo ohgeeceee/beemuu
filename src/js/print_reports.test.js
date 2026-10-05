@@ -100,6 +100,17 @@ test("legacy service entries migrate into detailed work records", () => {
   assert.equal(dossier.work[0].parts_cost, "");
 });
 
+test("manual garage dossiers save independently without a VIN", () => {
+  const storage = memoryStorage();
+  const first = { profile: { model: "E30 325i" }, work: [{ date: "2026-01-01", work_performed: "Oil service" }], upcoming: [] };
+  const second = { profile: { model: "E46 330i" }, work: [], upcoming: [] };
+  reports.saveDossier(storage, "garage:car-a", first);
+  reports.saveDossier(storage, "garage:car-b", second);
+  assert.deepEqual(reports.loadDossier(storage, "garage:car-a"), first);
+  assert.deepEqual(reports.loadDossier(storage, "garage:car-b"), second);
+  assert.deepEqual(reports.loadDossier(storage, "VIN-A"), { profile: {}, work: [], upcoming: [] });
+});
+
 test("dossier summary totals documented spend and finds latest service", () => {
   const summary = reports.summarizeDossier({ work: [
     { date: "2024-01-01", mileage_km: "100000", category: "Repair", parts_cost: "900.25", labor_cost: "400" },
