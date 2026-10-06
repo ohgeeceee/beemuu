@@ -83,6 +83,44 @@ doc-only, it auto-merges).
   the doc-only allowlist and merge code PRs yourself.
 - **Turn a piece off:** delete or rename its workflow file.
 
+## Troubleshooting
+
+### `Claude PR Review` shows a failed run on every PR
+
+Symptom: the `review` job fails within ~20 s with
+
+    ##[error]Claude result reported subtype success with is_error:true (run did not complete successfully)
+
+What it means: the action itself starts cleanly — it installs Claude Code and
+gets a session id — and then the model call returns `is_error: true` with
+`num_turns: 1`, `total_cost_usd: 0` and an empty `modelUsage`. A failed call
+that reports zero usage never reached the model: that is an auth / entitlement
+refusal, not a verdict on the PR being reviewed. The action mislabels it
+`subtype: success`, which is why the job summary looks contradictory.
+
+What to do: check the `ANTHROPIC_API_KEY` repository secret — that it is
+current, permitted for the model the action defaults to, and has credit. To see
+the raw error, set `show_full_output: true` on the action step, which prints the
+prompt and response into the run log; turn it back off once diagnosed.
+
+The job is advisory — it only comments, and has no merge power — so its failure
+does not gate anything. The action step carries `continue-on-error: true`, so
+the check concludes green and the failure stays in the log.
+
+### Editing a workflow file fails with "without `workflow` scope"
+
+    ! [remote rejected] ... refusing to allow an OAuth App to create or update
+    workflow `.github/workflows/foo.yml` without `workflow` scope
+
+The credential used here has `repo`, `gist` and `read:org`, but not `workflow`.
+Refresh it (`gh auth refresh -s workflow`, re-authorise the app, or mint a token
+that includes `workflow`) before touching anything under `.github/workflows/`.
+The Contents API enforces the same rule, so there is no REST workaround — a
+one-line workflow fix has to go through a credential that holds the scope.
+
+Only workflow files are affected; ordinary source, docs and test changes push
+normally.
+
 ## Beyond GitHub Actions
 
 Actions is event-driven (fires on issues/PRs/pushes). If you later want a

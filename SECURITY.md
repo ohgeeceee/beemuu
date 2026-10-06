@@ -88,6 +88,17 @@ the lockfile. Dismissals are recorded here so the reasoning is auditable.
   so the fix is unreachable until Tauri moves its Linux stack to gtk-rs 0.20.
   The alert should clear on its own at that point.
 
+  The upgrade path, checked against crates.io on 2026-10-06: `glib` 0.20+
+  exists (0.22.10 is current) and `gtk` 0.19.0 requires `glib ^0.22`, so moving
+  the GTK stack one minor version *would* clear the advisory. What blocks it is
+  `webkit2gtk` — the crate Tauri's Linux backend builds against. Its newest
+  release (2.0.2) still requires `gtk ^0.18`, and `tauri` depends on
+  `webkit2gtk = "^2.0"`, so the resolver cannot pick a GTK 0.19. The block is
+  upstream in `webkit2gtk-rs`, not in this repo: once it publishes a release on
+  gtk 0.19+, an ordinary `cargo update` resolves the alert with no code change
+  here. Until then the only alternatives are a fork or vendoring, which is not
+  worth it for a GUI-stack type the app never calls.
+
 ### Data handling
 - No telemetry, analytics, or remote logging
 - No cloud sync (unless user explicitly exports a file)
