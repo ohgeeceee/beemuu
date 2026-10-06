@@ -258,3 +258,76 @@ test("importing malformed JSON raises a clear error", () => {
   assert.throws(() => reports.importDossierJson('{"schema":"beemuu.dossier.v1"}'), /work/);
   assert.throws(() => reports.importDossierJson('{"schema":"beemuu.dossier.v1","work":"bad"}'), /work/);
 });
+
+test("dossier CSV export round-trips back through import", () => {
+  const entry = {
+    date: "2025-06-01", mileage_km: "125500", category: "Repair", work_performed: "Transfer case service",
+    reason: "Preventive", parts: "Fluid", part_numbers: "83222409710", parts_cost: "150", labor_cost: "250",
+    provider: "Indie", diy: true, invoice_ref: "INV-42", warranty: "12 months", cbs_item: "", notes: "No leaks",
+  };
+  const csv = reports.exportDossierCsv({ profile: {}, work: [entry], upcoming: [] });
+  const imported = reports.importDossierCsv(csv);
+  assert.deepEqual(imported.work, [entry]);
+  assert.deepEqual(imported.profile, {});
+  assert.deepEqual(imported.upcoming, []);
+});
+
+test("dossier CSV import parses quoted fields with commas and embedded newlines", () => {
+  const csv = 'date,work_performed,notes\r\n2025-01-02,"Oil, filter and plug","Line one\nLine two"\r\n';
+  const { work } = reports.importDossierCsv(csv);
+  assert.equal(work.length, 1);
+  assert.equal(work[0].work_performed, "Oil, filter and plug");
+  assert.equal(work[0].notes, "Line one\nLine two");
+  assert.equal(work[0].date, "2025-01-02");
+});
+
+test("dossier CSV import unescapes doubled quotes", () => {
+  const { work } = reports.importDossierCsv('work_performed\n"Say ""hi"" now"\n');
+  assert.equal(work[0].work_performed, 'Say "hi" now');
+});
+
+test("dossier CSV import matches columns by name, ignores unknown ones, and accepts synonyms", () => {
+  const csv = "notes,work_performed,mystery,Mileage,Workshop\nnote text,Oil change,ignored,120000,Indie\n";
+  const { work } = reports.importDossierCsv(csv);
+  assert.equal(work.length, 1);
+  assert.equal(work[0].work_performed, "Oil change");
+  assert.equal(work[0].notes, "note text");
+  assert.equal(work[0].mileage_km, "120000");
+  assert.equal(work[0].provider, "Indie");
+  assert.equal("mystery" in work[0], false);
+});
+
+test("dossier CSV import parses the DIY flag from common truthy spellings", () => {
+  const csv = "work_performed,diy\nA,true\nB,YES\nC,1\nD,x\nE,\nF,no\n";
+  const { work } = reports.importDossierCsv(csv);
+  assert.deepEqual(work.map((w) => w.diy), [true, true, true, true, false, false]);
+});
+
+test("dossier CSV import skips fully blank rows", () => {
+  const csv = "work_performed,date\n,\nOil change,2025-03-01\n\n";
+  const { work } = reports.importDossierCsv(csv);
+  assert.equal(work.length, 1);
+  assert.equal(work[0].work_performed, "Oil change");
+});
+
+test("dossier CSV import strips a UTF-8 BOM from the header", () => {
+  const { work } = reports.importDossierCsv("\uFEFFwork_performed\nOil change\n");
+  assert.equal(work[0].work_performed, "Oil change");
+});
+
+test("dossier CSV import keeps rows that only carry a date or a cost", () => {
+  const csv = "date,work_performed,labor_cost\n2025-04-01,,\n,\"\",100\n";
+  const { work } = reports.importDossierCsv(csv);
+  assert.equal(work.length, 2);
+  assert.equal(work[0].date, "2025-04-01");
+  assert.equal(work[1].labor_cost, "100");
+});
+
+test("dossier CSV import refuses a file with no work_performed column", () => {
+  assert.throws(() => reports.importDossierCsv("date,notes\n2025-01-01,x\n"), /work_performed/);
+});
+
+test("dossier CSV import refuses an empty file", () => {
+  assert.throws(() => reports.importDossierCsv(""), /empty/i);
+  assert.throws(() => reports.importDossierCsv("\r\n\n"), /empty/i);
+});

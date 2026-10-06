@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] — 2026-10-06
+
+### Added — Tier A
+
+- **Vehicle dossier CSV import**: a dossier can now be restored from a CSV file, the inverse of the existing "Export CSV" flow, so a maintenance history exported to a spreadsheet can be edited and read back in. Columns are matched by name (with common synonyms), quoted fields carrying commas or line breaks are parsed per RFC 4180, and unrecognised columns are dropped rather than guessed at. A CSV carries work rows only, so importing replaces the work list and leaves the profile and upcoming items untouched. A file with no work-performed column is refused with a clear error instead of importing blank records. (#347)
+
 ## [3.4.0] — 2026-10-05
 
 ### Added — Tier A
