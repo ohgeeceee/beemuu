@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Tier A
 
-- **Maintenance status in the dossier and garage**: the printed vehicle dossier now labels each upcoming item *Overdue*, *Due soon* or *Scheduled* and leads the section with the counts, and each garage vehicle card carries an overdue/due-soon badge drawn from that vehicle's own dossier. Garage cards classify by due date only — a card has no mileage reading — and the report states plainly when mileage-based items could not be assessed because no current mileage was included. (PR pending)
+- **Maintenance status in the dossier and garage**: the printed vehicle dossier now labels each upcoming item *Overdue*, *Due soon* or *Scheduled* and leads the section with the counts, and each garage vehicle card carries an overdue/due-soon badge drawn from that vehicle's own dossier. Garage cards classify by due date only — a card has no mileage reading — and the report states plainly when mileage-based items could not be assessed because no current mileage was included. (#349)
 
 ### Fixed
 
