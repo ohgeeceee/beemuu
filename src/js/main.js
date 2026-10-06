@@ -3959,7 +3959,7 @@ function showServiceHistoryEditor(vehicleInfo = lastVehicleInfo) {
     const profile = {}; modal.querySelectorAll("[data-profile]").forEach((input) => { profile[input.dataset.profile] = input.value.trim(); });
     return { profile, work: Array.from(workRows.children).map(collect).filter((e) => e.work_performed || e.date), upcoming: Array.from(upcomingRows.children).map(collect).filter((e) => e.work || e.due_date) };
   };
-  const save = () => { const value = gather(); api.saveDossier(localStorage, dossierKey, value); return value; };
+  const save = () => { const value = gather(); api.saveDossier(localStorage, dossierKey, value); window.dispatchEvent(new CustomEvent("beemuu:dossier-saved", { detail: { dossierKey } })); return value; };
   modal.querySelector("#dossier-save").addEventListener("click", () => { try { save(); log("Vehicle dossier saved locally."); } catch (e) { log("Dossier save failed: " + e); } });
 
   // Export the dossier as JSON. Uses the same `export_text` Tauri command

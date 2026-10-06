@@ -331,3 +331,80 @@ test("dossier CSV import refuses an empty file", () => {
   assert.throws(() => reports.importDossierCsv(""), /empty/i);
   assert.throws(() => reports.importDossierCsv("\r\n\n"), /empty/i);
 });
+
+test("summarizeUpcoming classifies, counts, and orders items by urgency", () => {
+  const today = new Date("2026-06-15T00:00:00Z");
+  const summary = reports.summarizeUpcoming([
+    { work: "Cabin filter", due_date: "2026-12-01" },
+    { work: "Oil service", due_date: "2026-06-20" },
+    { work: "Brake fluid", due_date: "2026-05-01" },
+  ], { today });
+  assert.equal(summary.total, 3);
+  assert.equal(summary.overdue, 1);
+  assert.equal(summary.soon, 1);
+  assert.equal(summary.scheduled, 1);
+  assert.deepEqual(summary.items.map((i) => i.work), ["Brake fluid", "Oil service", "Cabin filter"]);
+  assert.equal(summary.items[0].status, "overdue");
+  assert.equal(summary.items[1].status, "soon");
+  assert.match(summary.items[0].reasons.join(" "), /overdue by 45 days/);
+});
+
+test("summarizeUpcoming uses a mileage reading only when one is supplied", () => {
+  const withMileage = reports.summarizeUpcoming([{ work: "Diff oil", due_mileage_km: "100500" }], { today: new Date("2026-01-01T00:00:00Z"), mileageKm: 100000 });
+  assert.equal(withMileage.items[0].status, "soon");
+  assert.match(withMileage.items[0].reasons.join(" "), /due in 500 km/);
+  const withoutMileage = reports.summarizeUpcoming([{ work: "Diff oil", due_mileage_km: "100500" }], { today: new Date("2026-01-01T00:00:00Z") });
+  assert.equal(withoutMileage.items[0].status, "scheduled");
+  assert.deepEqual(withoutMileage.items[0].reasons, []);
+});
+
+test("summarizeUpcoming handles an empty or missing list", () => {
+  assert.deepEqual(reports.summarizeUpcoming(null), { total: 0, overdue: 0, soon: 0, scheduled: 0, items: [] });
+  assert.deepEqual(reports.summarizeUpcoming([]).items, []);
+});
+
+test("upcomingBadge surfaces only overdue and due-soon counts", () => {
+  assert.equal(reports.upcomingBadge({ overdue: 0, soon: 0, scheduled: 3 }), null);
+  assert.equal(reports.upcomingBadge(null), null);
+  assert.deepEqual(reports.upcomingBadge({ overdue: 2, soon: 0, scheduled: 1 }), { text: "2 overdue", status: "overdue" });
+  assert.deepEqual(reports.upcomingBadge({ overdue: 0, soon: 1, scheduled: 0 }), { text: "1 due soon", status: "soon" });
+  assert.deepEqual(reports.upcomingBadge({ overdue: 1, soon: 2, scheduled: 0 }), { text: "1 overdue · 2 due soon", status: "overdue" });
+});
+
+test("sales dossier labels each upcoming item with its maintenance status", () => {
+  const iso = (ms) => new Date(Date.now() + ms).toISOString().slice(0, 10);
+  const dossier = {
+    profile: {},
+    work: [],
+    upcoming: [
+      { priority: "High", work: "Brake fluid", due_date: iso(-40 * 86400000) },
+      { priority: "Medium", work: "Oil service", due_date: iso(10 * 86400000) },
+      { priority: "Low", work: "Cabin filter", due_date: iso(220 * 86400000) },
+    ],
+  };
+  const html = reports.buildSalesDossierReport({ vin: "WBA123", mileage_km: 120000 }, dossier);
+  assert.match(html, /<th>Status<\/th>/);
+  assert.match(html, /<strong>1<\/strong> overdue · <strong>1<\/strong> due soon · <strong>1<\/strong> scheduled/);
+  assert.match(html, /dossier-status dossier-status-overdue">Overdue</);
+  assert.match(html, /dossier-status dossier-status-soon">Due soon</);
+  assert.match(html, /dossier-status dossier-status-scheduled">Scheduled</);
+});
+
+test("sales dossier notes when mileage-based items cannot be assessed", () => {
+  const dossier = {
+    profile: {}, work: [],
+    upcoming: [{ priority: "Low", work: "Diff oil", due_date: "2099-01-01", due_mileage_km: "150000" }],
+  };
+  const noMileage = reports.buildSalesDossierReport({ vin: "WBA123", mileage_km: null }, dossier);
+  assert.match(noMileage, /Mileage-based items are not assessed here/);
+  const withMileage = reports.buildSalesDossierReport({ vin: "WBA123", mileage_km: 140000 }, dossier);
+  assert.doesNotMatch(withMileage, /Mileage-based items are not assessed here/);
+});
+
+test("upcoming maintenance does not treat a missing mileage reading as 0 km", () => {
+  for (const mileageKm of [null, undefined, ""]) {
+    assert.deepEqual(reports.classifyUpcoming([{ due_date: "", due_mileage_km: "100" }], { today: new Date("2026-01-01T00:00:00Z"), mileageKm }), [
+      { status: "scheduled", reasons: [] },
+    ]);
+  }
+});

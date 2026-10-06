@@ -900,6 +900,10 @@ body[data-theme="dark"] .dtc-source { color: #4da3ff; }
 .dossier-upcoming-status { margin: 8px 0; font-size: 0.9em; }
 .dossier-upcoming-status[data-status="overdue"] { color: var(--danger, #b42318); font-weight: 700; }
 .dossier-upcoming-status[data-status="soon"] { color: var(--warning, #9a6700); font-weight: 600; }
+.dossier-upcoming-summary { margin: 6px 0 0; font-size: 0.92em; }
+.dossier-status { white-space: nowrap; }
+.dossier-status-overdue { color: var(--danger, #b42318); font-weight: 700; }
+.dossier-status-soon { color: var(--warning, #9a6700); font-weight: 600; }
 .dossier-diy { display: inline-flex; gap: 6px; margin: 8px 12px 8px 0; }
 .dossier-remove { float: right; margin-top: 8px; }
 #print-report-host { display: none; }
@@ -1325,6 +1329,9 @@ body[data-theme="dark"] .v3-code { background: #ffffff10; }
 .garage-card p { margin:3px auto 0 0; flex-basis:100%; }
 .garage-card.is-active { border-color:var(--accent, #4da3ff); }
 .garage-active-label, .log-marker-type { border-radius:10px; padding:2px 7px; background:var(--panel); font-size:11px; text-transform:capitalize; }
+.garage-maintenance-badge { border-radius:10px; padding:2px 7px; font-size:11px; font-weight:600; }
+.garage-maintenance-badge.is-overdue { color:var(--danger, #b42318); background:#b423181f; }
+.garage-maintenance-badge.is-soon { color:var(--warning, #9a6700); background:#9a67001f; }
 .repair-check-card p { margin:6px 0 0; }
 .log-annotation-tools { padding:6px 0; }
 .log-marker-time { border:0; background:transparent; color:var(--accent, #4da3ff); cursor:pointer; font:inherit; text-decoration:underline; }
