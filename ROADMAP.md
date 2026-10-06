@@ -1059,6 +1059,20 @@ work to reconcile. The bridge's design of record is
 `docs/plugin_capability_bridge_plan.md`, which is on `main`; the bridge is
 unbuilt work, not deferred work.
 
+Two of its pieces *are* on `main`, and neither is loaded by anything yet:
+
+- `src/js/plugin_capabilities.js` (#319) — the enforcement half: which methods a
+  plugin may call, and the guards that refuse the rest.
+- `src/js/plugin_host.js` (#321) — the read-only host surface implementing the
+  three grantable methods (`readVin`, `readDtc`, `subscribeLive`) over injected
+  accessors. Pure, no DOM, no Tauri; `publish()` is deliberately outside the
+  capability table so the bridge never wraps it.
+
+Both are inert on their own. What is missing is the wiring — the runner and UI
+that decide which host object a plugin gets, and the security review in
+`docs/plugin_capability_bridge_plan.md` §8 that has to happen before a plugin
+with `network` + `read-dtc` is allowed to combine them.
+
 Feature 10's registry changes touch `backend/plugins_registry.py`, which any
 future capability work will also edit — those two will need resolving together
 rather than one at a time.
