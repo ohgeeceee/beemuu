@@ -4,6 +4,27 @@
   const list = document.getElementById("garage-list");
   if (!api || !list) return;
   const status = text => { const s = document.getElementById("garage-status"); if (s) s.textContent = text; };
+  const reports = window.beeemuuPrintReports;
+
+  // Maintenance badge for a card: the overdue / due-soon counts from this
+  // vehicle's service dossier. Classification here is date-only — a garage
+  // card has no live mileage reading — so mileage-based items are not judged
+  // rather than guessed at.
+  function maintenanceBadge(vehicle) {
+    if (!reports || typeof reports.summarizeUpcoming !== "function" || typeof reports.upcomingBadge !== "function") return null;
+    try {
+      const key = vehicle.vin || `garage:${vehicle.id}`;
+      const dossier = reports.loadDossier(localStorage, key);
+      const badge = reports.upcomingBadge(reports.summarizeUpcoming(dossier.upcoming || []));
+      if (!badge) return null;
+      const span = document.createElement("span");
+      span.className = `garage-maintenance-badge is-${badge.status}`;
+      span.setAttribute("role", "status");
+      span.textContent = badge.text;
+      span.title = "Overdue and due-soon items from this vehicle's service dossier. Mileage-based items are not assessed here.";
+      return span;
+    } catch (_) { return null; }
+  }
 
   function render() {
     const state = api.read(localStorage);
@@ -18,6 +39,8 @@
       const meta = document.createElement("p"); meta.className = "muted";
       meta.textContent = [vehicle.model, vehicle.chassis, vehicle.vin ? `VIN ${vehicle.vin}` : "Manual vehicle · no VIN stored"].filter(Boolean).join(" · ");
       card.append(heading, meta);
+      const badge = maintenanceBadge(vehicle);
+      if (badge) card.append(badge);
       if (state.activeId !== vehicle.id) {
         const use = document.createElement("button"); use.className = "btn btn-small"; use.type = "button"; use.textContent = "Select";
         use.addEventListener("click", () => { api.select(localStorage, vehicle.id); render(); window.dispatchEvent(new CustomEvent("beemuu:garage-change", { detail: vehicle })); }); card.append(use);
@@ -65,5 +88,6 @@
     const button = document.getElementById("garage-add-current");
     if (button) button.disabled = !event.detail?.vin;
   });
+  window.addEventListener("beemuu:dossier-saved", () => { try { render(); } catch (_) {} });
   try { render(); } catch (_) { list.textContent = "Garage storage is unavailable."; }
 })();

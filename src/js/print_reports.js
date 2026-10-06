@@ -76,10 +76,20 @@
     storage.setItem(DOSSIER_KEY, JSON.stringify(dossiers));
   }
 
+  // A mileage reading is only usable when it is actually present: null, "",
+  // and undefined all mean "not read", and must not be coerced to 0 km and
+  // judged as if the car were new. Anything that is not a finite,
+  // non-negative number is treated as missing.
+  function mileageValue(value) {
+    if (value === null || value === undefined || String(value).trim() === "") return NaN;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : NaN;
+  }
+
   function classifyUpcoming(entries, options = {}) {
     const now = options.today instanceof Date ? options.today : new Date(options.today || Date.now());
     const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    const mileage = Number(options.mileageKm);
+    const mileage = mileageValue(options.mileageKm);
     const dateLeadDays = Number.isFinite(Number(options.dateLeadDays)) ? Number(options.dateLeadDays) : 30;
     const mileageLeadKm = Number.isFinite(Number(options.mileageLeadKm)) ? Number(options.mileageLeadKm) : 1000;
     return (Array.isArray(entries) ? entries : []).map((entry) => {
@@ -105,6 +115,51 @@
       }
       return { status: overdue ? "overdue" : soon ? "soon" : "scheduled", reasons };
     });
+  }
+
+  const UPCOMING_LABEL = { overdue: "Overdue", soon: "Due soon", scheduled: "Scheduled" };
+
+  // Rolls a vehicle's upcoming-maintenance list through classifyUpcoming and
+  // returns the counts plus each item's status. Items are ordered by urgency
+  // (overdue, then due soon, then scheduled) and by nearest due date within a
+  // group, so the report and the garage badge agree on what is most pressing.
+  // Mileage-based status is only produced when a mileage reading is supplied;
+  // without one the classification is date-only rather than guessed.
+  function summarizeUpcoming(entries, options = {}) {
+    const list = Array.isArray(entries) ? entries : [];
+    const states = classifyUpcoming(list, options);
+    const text = (value) => String(value ?? "").trim();
+    const items = list.map((entry, index) => ({
+      status: states[index].status,
+      reasons: states[index].reasons,
+      priority: text(entry?.priority),
+      work: text(entry?.work),
+      due_date: text(entry?.due_date),
+      due_mileage_km: text(entry?.due_mileage_km),
+      estimated_cost: text(entry?.estimated_cost),
+      notes: text(entry?.notes),
+    }));
+    items.sort((a, b) => (statusRank(a.status) - statusRank(b.status)) || a.due_date.localeCompare(b.due_date));
+    const counts = { overdue: 0, soon: 0, scheduled: 0 };
+    for (const item of items) counts[item.status] += 1;
+    return { total: items.length, ...counts, items };
+  }
+
+  function statusRank(status) {
+    return status === "overdue" ? 0 : status === "soon" ? 1 : 2;
+  }
+
+  // Short badge for a garage card: the overdue / due-soon counts only, or
+  // null when nothing needs attention. "Scheduled" items are deliberately not
+  // surfaced here — a card that flags everything flags nothing.
+  function upcomingBadge(summary) {
+    const overdue = Number(summary?.overdue) || 0;
+    const soon = Number(summary?.soon) || 0;
+    if (!overdue && !soon) return null;
+    const parts = [];
+    if (overdue) parts.push(`${overdue} overdue`);
+    if (soon) parts.push(`${soon} due soon`);
+    return { text: parts.join(" · "), status: overdue ? "overdue" : "soon" };
   }
 
   function moneyValue(value) {
@@ -207,6 +262,11 @@
     const profile = dossier?.profile || {};
     const work = (dossier?.work || []).slice().sort((a, b) => safeText(a.date, "").localeCompare(safeText(b.date, "")));
     const upcoming = dossier?.upcoming || [];
+    const upcomingSummary = summarizeUpcoming(upcoming, { mileageKm: info?.mileage_km });
+    const mileageKnown = Number.isFinite(mileageValue(info?.mileage_km));
+    const mileageNote = !mileageKnown && upcomingSummary.items.some((item) => item.due_mileage_km)
+      ? `<p class="muted">Mileage-based items are not assessed here: no current mileage reading was included in this report.</p>`
+      : "";
     const summary = summarizeDossier(dossier);
     const categories = Object.entries(summary.category_counts).map(([name, count]) => `${escapeHtml(name)}: ${count}`).join(" · ") || "No categories recorded";
     const yearlySpendRows = summary.yearly_spend.length
@@ -220,7 +280,10 @@
         <dl class="dossier-details"><div><dt>Reason / symptoms</dt><dd>${escapeHtml(entry.reason)}</dd></div><div><dt>Performed by</dt><dd>${entry.diy ? "Owner / DIY" : escapeHtml(entry.provider)}</dd></div><div><dt>Parts</dt><dd>${escapeHtml(entry.parts)}</dd></div><div><dt>Part numbers</dt><dd>${escapeHtml(entry.part_numbers)}</dd></div><div><dt>Parts cost</dt><dd>${formatMoney(entry.parts_cost)}</dd></div><div><dt>Labor cost</dt><dd>${formatMoney(entry.labor_cost)}</dd></div><div><dt>Total</dt><dd>${formatMoney(total)}</dd></div><div><dt>Invoice / receipt</dt><dd>${escapeHtml(entry.invoice_ref)}</dd></div><div><dt>Warranty</dt><dd>${escapeHtml(entry.warranty)}</dd></div></dl>
         ${entry.notes ? `<p><strong>Notes:</strong> ${escapeHtml(entry.notes)}</p>` : ""}</section>`;
     }).join("") : "<p>No completed work has been recorded.</p>";
-    const upcomingRows = upcoming.length ? upcoming.map((entry) => `<tr><td>${escapeHtml(entry.priority)}</td><td>${escapeHtml(entry.work)}</td><td>${escapeHtml(entry.due_date)}</td><td>${escapeHtml(entry.due_mileage_km)}${entry.due_mileage_km ? " km" : ""}</td><td>${formatMoney(entry.estimated_cost)}</td><td>${escapeHtml(entry.notes)}</td></tr>`).join("") : `<tr><td colspan="6">No upcoming maintenance recorded.</td></tr>`;
+    const upcomingSummaryLine = upcomingSummary.total
+      ? `<p class="dossier-upcoming-summary"><strong>${upcomingSummary.overdue}</strong> overdue · <strong>${upcomingSummary.soon}</strong> due soon · <strong>${upcomingSummary.scheduled}</strong> scheduled</p>`
+      : "";
+    const upcomingRows = upcomingSummary.items.length ? upcomingSummary.items.map((item) => `<tr><td class="dossier-status dossier-status-${item.status}">${escapeHtml(UPCOMING_LABEL[item.status])}</td><td>${escapeHtml(item.priority)}</td><td>${escapeHtml(item.work)}</td><td>${escapeHtml(item.due_date)}</td><td>${escapeHtml(item.due_mileage_km)}${item.due_mileage_km ? " km" : ""}</td><td>${formatMoney(item.estimated_cost)}</td><td>${escapeHtml(item.notes)}</td></tr>`).join("") : `<tr><td colspan="7">No upcoming maintenance recorded.</td></tr>`;
     const receiptRows = work.flatMap((entry) => {
       const rows = [];
       if (entry.invoice_ref) rows.push(`<li>☐ ${escapeHtml(entry.date)} — ${escapeHtml(entry.work_performed)} — ${escapeHtml(entry.invoice_ref)}</li>`);
@@ -235,7 +298,7 @@
       <section><h2>Documented history summary</h2><div class="dossier-stats"><div><strong>${summary.jobs}</strong><span>jobs recorded</span></div><div><strong>${summary.cbs_linked_jobs}</strong><span>linked to a CBS timeline item</span></div><div><strong>${formatMoney(summary.total_cost)}</strong><span>documented spend</span></div><div><strong>${escapeHtml(summary.latest_date)}</strong><span>latest service</span></div><div><strong>${summary.latest_mileage_km ? escapeHtml(summary.latest_mileage_km) + " km" : "—"}</strong><span>latest service mileage</span></div></div><p>${categories}</p><p class="muted">CBS links are owner-entered associations, not ECU-confirmed service resets.</p></section>
       <section><h2>Documented spend by year</h2><p class="muted">Totals use owner-entered parts and labor costs, grouped by the service date.</p><table><thead><tr><th>Year</th><th>Recorded jobs</th><th>Documented spend</th></tr></thead><tbody>${yearlySpendRows}</tbody></table></section>
       <section><h2>Completed maintenance and repairs</h2>${workCards}</section>
-      <section><h2>Upcoming maintenance</h2><table><thead><tr><th>Priority</th><th>Work</th><th>Due date</th><th>Due mileage</th><th>Estimate</th><th>Notes</th></tr></thead><tbody>${upcomingRows}</tbody></table></section>
+      <section><h2>Upcoming maintenance</h2>${upcomingSummaryLine}${mileageNote}<table><thead><tr><th>Status</th><th>Priority</th><th>Work</th><th>Due date</th><th>Due mileage</th><th>Estimate</th><th>Notes</th></tr></thead><tbody>${upcomingRows}</tbody></table></section>
       <section><h2>Receipt and attachment index</h2><p>${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"} stored as local file references.</p><ul class="receipt-list">${receiptRows}</ul></section>
       <p class="disclaimer">Owner-entered record prepared for a prospective buyer. Costs, dates, and work descriptions should be verified against the referenced invoices, receipts, and workshop documentation.</p></article>`;
   }
@@ -403,7 +466,8 @@
   }
 
   return {
-    STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, classifyUpcoming, summarizeDossier,
+    STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, classifyUpcoming, summarizeUpcoming,
+    upcomingBadge, summarizeDossier,
     normalizeAttachments, freezeSnippet, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport,
     exportDossierJson, importDossierJson, exportDossierCsv, importDossierCsv, printHtml,
   };
