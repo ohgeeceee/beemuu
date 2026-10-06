@@ -71,6 +71,23 @@ try to accommodate.
 - Release binaries are built from tagged commits with reproducible steps
 - No binary blobs or precompiled dependencies checked into the repo
 
+### Dependency advisories
+
+Dependabot alerts on transitive dependencies are triaged against whether the
+affected code is reachable from this app, not just whether the crate appears in
+the lockfile. Dismissals are recorded here so the reasoning is auditable.
+
+- **GHSA-wrw7-89jp-8q8g (`glib`, medium) — dismissed, not used.** `glib`
+  0.18.5 arrives only through the Linux GUI stack (`tauri` → `gtk` 0.18 →
+  `muda` / `tao` / `webkit2gtk-rs` / `wry`); nothing under `src-tauri/src`
+  uses `glib` directly. The advisory covers unsoundness in the
+  `Iterator` / `DoubleEndedIterator` impls for `glib::VariantStrIter`, which
+  the app never constructs or iterates. The patched version is 0.20.0, but
+  `gtk` 0.18.2 requires `glib = "^0.18"` — confirmed with
+  `cargo update -p glib --precise 0.20.0`, which fails to select a version —
+  so the fix is unreachable until Tauri moves its Linux stack to gtk-rs 0.20.
+  The alert should clear on its own at that point.
+
 ### Data handling
 - No telemetry, analytics, or remote logging
 - No cloud sync (unless user explicitly exports a file)
