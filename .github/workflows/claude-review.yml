@@ -26,6 +26,7 @@ jobs:
           fetch-depth: 0
 
       - uses: anthropics/claude-code-action@v1.0.240
+        continue-on-error: true
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
