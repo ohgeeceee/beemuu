@@ -59,11 +59,67 @@ scaling the marketplace spec back down to the sandboxed worker model.
 7. **Registry bridge.** Decide whether `backend/plugins_registry.py` starts
    reading marketplace manifests directly, or whether `beemuu-plugins`
    registry entries get mirrored/validated into `src/plugins/registry/`.
-8. **Security review.** Threat-model the new bridge (a compromised or
-   malicious plugin with `network` + `read-dtc`, for example, could
-   exfiltrate vehicle data) before enabling it by default.
+8. **Security review.** Threat-model the new bridge before enabling it by
+   default. Written up in "Threat model" below.
 9. **Migration.** Existing v1/v2 `data`/`tool` packages must keep working
    unchanged throughout.
+
+## Threat model
+
+Written for the read-only bridge (`plugin_capabilities.js` + `plugin_host.js` +
+`plugin_bridge.js`). Enabling anything beyond read-only re-opens this.
+
+**Assets.** Vehicle data only: the VIN, fault memory (codes, status, freeze
+frames), and live parameter series. There is no disk access, no network, and no
+ECU write in the granted set, so the worst case is *disclosure of vehicle data*
+rather than damage to the car.
+
+**Trust boundaries.**
+
+| Component | Trust | Holds |
+|---|---|---|
+| Plugin code (Worker, blob URL) | untrusted | the `context` object generated for it |
+| Runner frame (opaque origin, `default-src 'none'`, `connect-src 'none'`) | ours, but assumed compromised | a capability-gated surface, no Tauri IPC, no host object |
+| App shell | trusted | app state, the capability table, the host object |
+
+**What each attack gets, and what stops it.**
+
+1. *Ask for a method you never declared.* The frame's surface is built by
+   `createBridge()` from the capabilities the **app** put on the run message.
+   The proxy throws on any other known host method and records the attempt, so
+   the call never reaches app code.
+2. *Lie about your capabilities in the run message.* The app re-derives them
+   from the installed package it is running and ignores the frame's copy. Two
+   independent gates, neither advisory.
+3. *Mutate what you were handed.* `plugin_host` deep-copies each DTC and freeze
+   frame and drops unknown internal fields, so holding a returned array cannot
+   reach app state.
+4. *Exhaust the app by asking for everything.* Payload caps: 200 DTCs, 40
+   series, 600 points per series, 64 KiB per answer, 32 KiB of tool input.
+5. *Smuggle behaviour across the wire.* Every value crossing is JSON-cloned; a
+   function, a cyclic object or anything over the cap becomes an error reply,
+   never a send.
+6. *Speak to the app from a page that is not the runner.* The app accepts host
+   calls only from the current run's `frame.contentWindow` with
+   `event.origin === "null"`, and only while that run is live.
+7. *Occupy the app indefinitely.* The existing budgets bound the run — 2 s in
+   the worker, 5 s for the frame — and RPC shares that budget instead of
+   extending it.
+8. *Subscribe and never release.* The frame owns the subscription table and
+   releases every outstanding subscription when the run ends, so a plugin that
+   forgets its unsubscribe cannot keep receiving after it is gone.
+9. *Treat "no VIN" as a VIN.* `readVin` returns a validated 17-character VIN or
+   `null` — never a placeholder — so a plugin cannot mistake an unavailable read
+   for a real value.
+
+**Residual risk, stated plainly.** A plugin with `read-dtc` + `live-data` can
+build a detailed profile of one vehicle while it is connected. It cannot send
+that anywhere by itself — there is no `network` capability and the frame's CSP
+denies `connect-src` — but a user can copy whatever the plugin renders. The
+plugin's own output is also plugin-authored: the UI must present it as such, and
+never re-publish it as an app finding. That is acceptable for read-only data and
+is exactly why `clear-dtc`, `coding-write`, `ecu-flash`, `filesystem`, `network`
+and `ui` stay refused until a maintainer reviews them individually.
 
 ## Open questions
 
