@@ -3904,7 +3904,7 @@ function showServiceHistoryEditor(vehicleInfo = lastVehicleInfo) {
     <div class="dossier-section-head"><h3>Completed maintenance & repairs</h3><button class="btn btn-small" id="dossier-add-work">+ Add work</button></div><div id="dossier-work-rows"></div>
     <div class="dossier-section-head"><h3>Upcoming maintenance</h3><button class="btn btn-small" id="dossier-add-upcoming">+ Add upcoming</button></div><div id="dossier-upcoming-rows"></div>
     <p class="muted">Printing tip: choose A4 and turn off browser headers and footers for the cleanest dossier.</p>
-    </div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn" id="dossier-save">Save</button><button class="btn" id="dossier-export-json">Export JSON</button><button class="btn" id="dossier-import-json">Import JSON</button><button class="btn" id="dossier-export-csv">Export CSV</button><button class="btn btn-primary" id="service-history-print">Save & print dossier</button></div></div>`;
+    </div><div class="modal-actions"><button class="btn" id="service-history-close">Close</button><button class="btn" id="dossier-save">Save</button><button class="btn" id="dossier-export-json">Export JSON</button><button class="btn" id="dossier-import-json">Import JSON</button><button class="btn" id="dossier-export-csv">Export CSV</button><button class="btn" id="dossier-import-csv">Import CSV</button><button class="btn btn-primary" id="service-history-print">Save & print dossier</button></div></div>`;
   document.body.appendChild(modal);
   const workRows = modal.querySelector("#dossier-work-rows");
   const upcomingRows = modal.querySelector("#dossier-upcoming-rows");
@@ -4093,6 +4093,46 @@ $("btn-cmp-clear").addEventListener("click", () => {
         log("Dossier CSV downloaded: " + filename);
       }
     } catch (e) { log("Dossier CSV export failed: " + e); }
+  });
+
+  // Import a dossier from a CSV file — the inverse of "Export CSV". Only the
+  // work list is replaced: a CSV carries no profile and no upcoming items, so
+  // those fields on screen are left exactly as they are.
+  modal.querySelector("#dossier-import-csv").addEventListener("click", async () => {
+    try {
+      let text = null;
+      if (window.__TAURI__ && window.__TAURI__.dialog && typeof window.__TAURI__.dialog.open === "function") {
+        const dialog = window.__TAURI__.dialog;
+        const selected = await dialog.open({ multiple: false, filters: [{ name: "Dossier CSV", extensions: ["csv"] }] });
+        if (!selected) return;
+        const path = Array.isArray(selected) ? selected[0] : selected;
+        text = await invoke("read_export_text", { filename: path.split(/[\\/]/).pop() });
+      } else {
+        const input = document.createElement("input");
+        input.type = "file"; input.accept = "text/csv,.csv";
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => applyImportedCsv(reader.result);
+          reader.readAsText(file);
+        });
+        input.click();
+        return; // applyImportedCsv runs via the FileReader callback
+      }
+      if (text !== null) applyImportedCsv(text);
+    } catch (e) { log("Dossier CSV import failed: " + e); }
+
+    function applyImportedCsv(raw) {
+      try {
+        const imported = api.importDossierCsv(String(raw));
+        workRows.innerHTML = "";
+        (imported.work || []).forEach(addWork);
+        if (!workRows.children.length) addWork();
+        const count = (imported.work || []).length;
+        log(`Imported ${count} work ${count === 1 ? "entry" : "entries"} from CSV. Press Save to persist locally.`);
+      } catch (parseErr) { log("Dossier CSV import failed: " + parseErr); }
+    }
   });
   modal.querySelector("#service-history-print").addEventListener("click", () => { try { const value = save(); modal.remove(); api.printHtml(document, api.buildSalesDossierReport(vehicleInfo, value)); } catch (e) { log("Dossier save failed: " + e); } });
 }

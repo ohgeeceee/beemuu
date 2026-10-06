@@ -315,9 +315,96 @@
     return lines.join("\r\n") + "\r\n";
   }
 
+  // CSV import: the inverse of exportDossierCsv. It accepts the header the
+  // export writes, and also a spreadsheet a user built by hand, matching
+  // columns by name. Nothing is inferred: a column it does not recognise is
+  // dropped rather than guessed at, and a file with no way to name the work
+  // performed is refused instead of imported as blank records.
+  //
+  // A CSV carries work rows only (no profile, no upcoming items, no local
+  // receipt attachments), so the caller replaces the work list and leaves
+  // the rest of the dossier untouched.
+  const CSV_HEADER_ALIASES = {
+    date: "date", service_date: "date",
+    mileage_km: "mileage_km", mileage: "mileage_km",
+    category: "category",
+    work_performed: "work_performed", work: "work_performed", service: "work_performed",
+    reason: "reason", symptoms: "reason",
+    parts: "parts",
+    part_numbers: "part_numbers",
+    parts_cost: "parts_cost",
+    labor_cost: "labor_cost", labour_cost: "labor_cost",
+    provider: "provider", workshop: "provider",
+    diy: "diy", owner_diy: "diy",
+    invoice_ref: "invoice_ref", invoice: "invoice_ref",
+    warranty: "warranty",
+    cbs_item: "cbs_item",
+    notes: "notes",
+  };
+
+  function normalizeCsvHeader(value) {
+    return String(value ?? "").replace(/^\uFEFF/, "").trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  }
+
+  // RFC 4180 field/record parser: quoted fields may hold commas, CRLF and
+  // embedded newlines, and a doubled quote inside a quoted field is a literal
+  // quote. The result is an array of rows (arrays of raw string fields).
+  function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let field = "";
+    let quoted = false;
+    const source = String(text ?? "");
+    for (let i = 0; i < source.length; i += 1) {
+      const ch = source[i];
+      if (quoted) {
+        if (ch === '"') {
+          if (source[i + 1] === '"') { field += '"'; i += 1; } else quoted = false;
+        } else field += ch;
+        continue;
+      }
+      if (ch === '"') quoted = true;
+      else if (ch === ",") { row.push(field); field = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && source[i + 1] === "\n") i += 1;
+        row.push(field); field = ""; rows.push(row); row = [];
+      } else field += ch;
+    }
+    if (field !== "" || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function importDossierCsv(text) {
+    const rows = parseCsv(text).filter((row) => row.some((cell) => String(cell).trim() !== ""));
+    if (!rows.length) throw new Error("Dossier CSV is empty");
+    const mapping = rows[0].map((name) => CSV_HEADER_ALIASES[normalizeCsvHeader(name)] || null);
+    if (!mapping.includes("work_performed")) {
+      throw new Error("Dossier CSV is missing a 'work_performed' column");
+    }
+    const work = [];
+    for (const row of rows.slice(1)) {
+      const entry = {};
+      for (const column of CSV_COLUMNS) entry[column] = "";
+      entry.diy = false;
+      let filled = false;
+      row.forEach((cell, index) => {
+        const key = mapping[index];
+        if (!key) return;
+        const value = String(cell ?? "").trim();
+        if (!value) return;
+        filled = true;
+        if (key === "diy") entry.diy = /^(1|true|yes|y|x)$/i.test(value);
+        else entry[key] = value;
+      });
+      if (filled) work.push(entry);
+    }
+    return { profile: {}, work, upcoming: [] };
+  }
+
   return {
     STORAGE_KEY, DOSSIER_KEY, loadHistory, saveHistory, loadDossier, saveDossier, classifyUpcoming, summarizeDossier,
     normalizeAttachments, freezeSnippet, buildHealthReport, buildServiceHistoryReport, buildSalesDossierReport,
-    exportDossierJson, importDossierJson, exportDossierCsv, printHtml,
+    exportDossierJson, importDossierJson, exportDossierCsv, importDossierCsv, printHtml,
   };
 });
