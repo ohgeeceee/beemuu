@@ -58,8 +58,9 @@ for (const page of [...shipped].filter((f) => f.endsWith(".html"))) {
   for (const m of html.matchAll(/href="\/([^"#?]+)"/g)) {
     const ref = m[1];
     if (assetExt.test(ref)) continue;
-    if (shipped.has(ref) || shipped.has(ref + ".html") || shipped.has(ref + "/index.html")) continue;
-    missingContent.add(ref);
+    const bare = ref.replace(/\/$/, "");
+    if (shipped.has(ref) || shipped.has(bare) || shipped.has(bare + ".html") || shipped.has(bare + "/index.html")) continue;
+    missingContent.add(bare);
   }
 }
 assert.deepEqual(missingAssets, [], `missing assets:\n${missingAssets.join("\n")}`);
