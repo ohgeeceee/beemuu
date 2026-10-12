@@ -1,5 +1,6 @@
-Contact: https://github.com/ohgeeceee/beemuu/issues
-Contact: mailto:admin@beemuu.local
-Expires: 2027-08-02T00:00:00Z
+Contact: https://github.com/ohgeeceee/beemuu/security/advisories/new
+Contact: mailto:security@beemuu.com
+Expires: 2027-10-12T00:00:00.000Z
 Preferred-Languages: en
 Canonical: https://beemuu.com/.well-known/security.txt
+Policy: https://github.com/ohgeeceee/beemuu/blob/main/SECURITY.md
