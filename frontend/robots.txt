@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://beemuu.com/sitemap.xml
