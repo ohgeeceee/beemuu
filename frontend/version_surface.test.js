@@ -25,7 +25,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
-const CURRENT_RELEASE = process.env.BEEMUU_TEST_RELEASE || "v3.7.0";
+const CURRENT_RELEASE = process.env.BEEMUU_TEST_RELEASE || "v3.8.0";
 const SEMVER = CURRENT_RELEASE.replace(/^v/, "");
 const TAG = `releases/tag/${CURRENT_RELEASE}`;
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] — 2026-10-15
+
+### Added — Tier A (v3.8.0 "Signal Integrity")
+
+- **Per-channel signal integrity** (`src/js/signal_quality.js`, 29 tests): scores each channel in a recorded log for the three ways a channel lies while still looking like data - **frozen** (one constant value for the whole log, the signature of a disconnected or default-filled sensor, penalty -55), **dropouts** (a hole longer than the expected sample interval, counted as a share of the log) and **noise** (sample-to-sample jitter relative to the channel's own span). `cleanPoints()` normalises a raw channel first and reports separately what it had to drop (unrepresentable samples) and what it collapsed (a repeated timestamp keeps its *last* read, the value a hold-last-value fallback would have produced) - a corrupted log and a coarsely timestamped one are different problems and the caller can tell them apart. The integrity pass runs **before** the interpreters, so a downstream verdict is not built on a channel that cannot be believed.
+- **Panel.** The read-only panel for this engine is part of the v3.8-v5.0 panel layer (`src/js/v4_ui.js`), which ships with v5.0.0 because its wiring tests read every engine file in the arc; `src/js/test/v4_wiring.test.cjs` pins every panel id, global and style class against the markup, so a panel bound to something that does not exist cannot ship.
+
 ## [3.7.0] — 2026-10-15
 
 ### Fixed — app-shell chrome and theme coverage (v0.20.0 "Reach" cycle)
