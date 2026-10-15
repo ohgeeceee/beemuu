@@ -94,6 +94,18 @@ fn service(t: &mut dyn Transport, target: u8, req: &[u8]) -> PResult<Vec<u8>> {
 
 /// readEcuIdentification (KWP 1A 80). Returns the raw ident string.
 pub fn identify(t: &mut dyn Transport, target: u8) -> PResult<String> {
+    // F/G-series ZGW (ENET/HSFZ) speaks UDS; some gateways (e.g. F40) drop
+    // the TCP connection on a KWP 1A request, so ask with UDS first there.
+    if t.name().starts_with("ENET") {
+        if let Ok(resp) = service(t, target, &[0x22, 0xF1, 0x8C]) {
+            if resp.first() == Some(&0x62) && resp.len() > 3 {
+                return Ok(resp[3..]
+                    .iter()
+                    .map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '.' })
+                    .collect());
+            }
+        }
+    }
     let resp = service(t, target, &[0x1A, 0x80])?;
     if resp.first() != Some(&0x5A) {
         return Err(format!("Unexpected ident response: {:02X?}", resp.first()));
