@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] — 2026-10-15
+
+### Added — Tier A (v4.0.0 "The Fleet")
+
+- **Garage-scale fleet health board** (`src/js/fleet_dashboard.js`, 33 tests): the first view in the product whose subject is the fleet rather than the vehicle. Each vehicle is graded on open fault codes and service overdue-ness, per tracked item and per vehicle, with cost totals and a cross-vehicle ranking, so an owner with three cars gets *which one needs me this week*. `now` is injected and `gradeVehicle(vehicle, now)` is byte-identical across repeated calls (epoch-days or ISO accepted interchangeably), so the board can be re-rendered or snapshotted without drifting.
+- **Nothing is invented to fill a gap**: a vehicle that is not an object, has no usable `service_history`, or has a non-finite odometer gets `score: null, grade: null, confidence: 0`; a service entry with an unparseable date is a blocker whose refusal reason **names each bad date verbatim**; an item with no positive finite interval is `unknown`, never `ok` by default. A non-monotonic, duplicated or unreadable odometer is surfaced through `odometerHealth.problems` in the recorded order (never sorted away) and costs score — the history is reported as suspicious rather than tidied up.
+- **Panel.** The read-only panel for this engine is part of the v3.8-v5.0 panel layer (`src/js/v4_ui.js`), which ships with v5.0.0 because its wiring tests read every engine file in the arc; `src/js/test/v4_wiring.test.cjs` pins every panel id, global and style class against the markup, so a panel bound to something that does not exist cannot ship.
+
 ## [3.9.0] — 2026-10-15
 
 ### Added — Tier A (v3.9.0 "Drive Cycle Analyst")
