@@ -769,7 +769,7 @@ def build_roadmap_hub() -> str:
     art = (
         '<h2 id="shipped">Where the project is</h2>'
         '<p>BeeEmUu ships in small, reviewable cycles. The desktop app is at '
-        '<strong>v3.0.0</strong>; the per-cycle pages below describe what each '
+        '<strong>v3.7.0</strong>; the per-cycle pages below describe what each '
         'cycle was in scope for and what it deferred.</p>'
         '<div class="resource-index">'
         '<a href="/roadmap/index.html"><span class="resource-code">index</span>'
@@ -826,7 +826,7 @@ def build_changelog_hub() -> str:
         '<span aria-hidden="true">↗</span></a>'
         '</div>'
         '<h2 id="current">Current release</h2>'
-        '<p>The latest release is <strong>v3.0.0</strong>. Download installers '
+        '<p>The latest release is <strong>v3.7.0</strong>. Download installers '
         'from the <a href="https://github.com/ohgeeceee/beemuu/releases/latest">'
         'latest release</a> page.</p>'
     )
@@ -836,7 +836,7 @@ def build_changelog_hub() -> str:
              "canonical CHANGELOG and GitHub releases.",
         eyebrow="Changelog", h1="What shipped, when.",
         lede="Every BeeEmUu change, newest first — one canonical file plus the GitHub releases cut from it.",
-        meta=["Updated October 2026", "v3.0.0", "GPL-3.0"],
+        meta=["Updated October 2026", "v3.7.0", "GPL-3.0"],
         crumbs=[("Beemuu", "/"), ("Changelog", "/changelog.html")],
         toc=[("sources", "Where it lives"), ("current", "Current release")],
         article=art,
@@ -845,50 +845,6 @@ def build_changelog_hub() -> str:
                  ("https://github.com/ohgeeceee/beemuu/releases", "Releases", "Download.")],
         cta_h="Grab the latest build.",
         cta_p="BeeEmUu is free and open-source — download it and go.",
-    )
-
-
-def build_dashboard_hub() -> str:
-    art = (
-        '<h2 id="status">Live project status</h2>'
-        '<p>The status board on the landing page reads public GitHub activity '
-        'directly — commits, pull requests and release state — so it is never '
-        'stale. See it on the '
-        '<a href="/index.html#status">home page</a>.</p>'
-        '<div class="resource-index">'
-        '<a href="/index.html#status"><span class="resource-code">status</span>'
-        '<span><strong>Landing-page status board</strong><small>Live from the GitHub API.</small></span>'
-        '<span aria-hidden="true">↗</span></a>'
-        '<a href="https://github.com/ohgeeceee/beemuu/actions">'
-        '<span class="resource-code">CI</span>'
-        '<span><strong>Build &amp; test runs</strong><small>Every workflow, live.</small></span>'
-        '<span aria-hidden="true">↗</span></a>'
-        '<a href="https://github.com/ohgeeceee/beemuu/graphs/contributors">'
-        '<span class="resource-code">people</span>'
-        '<span><strong>Contributors</strong><small>Who is building it.</small></span>'
-        '<span aria-hidden="true">↗</span></a>'
-        '</div>'
-        '<h2 id="api">About the hosted API</h2>'
-        '<p>The public site is static and hosted on GitHub Pages. The '
-        'read-only hosted API that used to back a live dashboard is retired; '
-        'the site now reads public GitHub activity directly. The desktop app '
-        'is unaffected and works fully offline.</p>'
-    )
-    return page(
-        url="/dashboard.html", title="Beemuu project dashboard",
-        desc="Live BeeEmUu project status: commits, pull requests, CI and "
-             "release state, read from the public GitHub API.",
-        eyebrow="Dashboard", h1="Project status.",
-        lede="A live view of the project — read straight from public GitHub activity, never cached.",
-        meta=["Live from GitHub", "v3.0.0", "GPL-3.0"],
-        crumbs=[("Beemuu", "/"), ("Dashboard", "/dashboard.html")],
-        toc=[("status", "Live status"), ("api", "Hosted API")],
-        article=art,
-        related=[("/index.html#status", "Home status board", "The live view."),
-                 ("/roadmap.html", "Roadmap", "What is next."),
-                 ("/changelog.html", "Changelog", "What shipped.")],
-        cta_h="Follow the project.",
-        cta_p="Commits, PRs and CI are all public — watch it build.",
     )
 
 
@@ -1061,7 +1017,10 @@ def main() -> None:
     # hub pages
     write("roadmap.html", build_roadmap_hub())
     write("changelog.html", build_changelog_hub())
-    write("dashboard.html", build_dashboard_hub())
+    # dashboard.html is authored by hand (frontend/dashboard.html; PR #362
+    # "site live dashboard board"). It is a live board that reads the public
+    # GitHub API at runtime, so the generator must NOT emit it — a regen would
+    # clobber the board. frontend/version_surface.test.js pins its version chip.
 
     # guide pages
     for slug, cfg in GUIDES.items():

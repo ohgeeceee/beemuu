@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — v0.20.0 (Reach)
+## [3.7.0] — 2026-10-15
+
+### Fixed — app-shell chrome and theme coverage (v0.20.0 "Reach" cycle)
+
 
 - **App-shell chrome and controls are no longer unstyled**: a rendered-DOM audit found 79 interactive elements — 43 distinct controls including the theme toggle and the profile/address/compare/import/scrubber inputs, plus their labels, `kbd` legends and `summary` chrome — and 46 classed chrome containers — the footer status bar, session bar, log annotations and shortcut legend, byte-watch grid, diagnostics columns, traffic table, self-test report, share/info/community panes, snapshot library, modals, schema builder and export results — matched by *no* rule at all, so they fell through to browser defaults and stayed light grey under the dark theme. They are now styled from the semantic token layer (`--input-bg`, `--surface-sub`, `--surface-sunken`, `--thead-bg`, `--border`, `--muted`, …), so both themes resolve from one source and the deliberately-paper print surface (`#print-report-host`) is unaffected.
 - `scripts/test-chrome-visual.cjs` guards it: every chrome surface must have an authored rule, every control must be matched by one, the dark theme must paint no visible surface near-white, and each theme-responsive surface must actually re-skin. Run it with `CHROME_PATH=/opt/google/chrome/chrome node scripts/test-chrome-visual.cjs`; on a machine without a system Chrome, `npx playwright install chromium` first.
