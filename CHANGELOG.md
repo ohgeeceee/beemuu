@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0] — 2026-10-15
+
+### Added — Tier A (v4.3.0 "Second Opinion")
+
+- **Weighted consensus over community repair opinions** (`src/js/opinion_consensus.js`, 35 tests): the registry already collects repair reports, but a list with two confident wrong answers beside one right one reads the same as a consensus. Opinions are normalised (missing fields become explicit `null`s with the problem named), weighted by source tier, mileage proximity and recency, tallied into agreement or contention, and every run is driven by an injected `now`.
+- **Quorum is refused, never fudged**: fewer than `MIN_OPINIONS` (4) opinions or fewer than `MIN_DISTINCT_SOURCES` (2) independent sources returns verdict `insufficient`, winner `null`, score `null`, confidence 0, with evidence naming what was short — ten rows from one source count as one source, so a single voice cannot manufacture agreement, and one very confident workshop opinion is never rendered as a consensus. When the top two repairs sit within `CONTENTION_MARGIN` (0.25 relative lead, inclusive) the verdict is `contested` with an explicit `{leader, challenger, margin, threshold, note}` block instead of a crowned leader. A winner's score is its weighted **share** of the tally, and every produced string is swept against `/probability|likelihood|% chance/i`.
+- **Panel.** The read-only panel for this engine is part of the v3.8-v5.0 panel layer (`src/js/v4_ui.js`), which ships with v5.0.0 because its wiring tests read every engine file in the arc; `src/js/test/v4_wiring.test.cjs` pins every panel id, global and style class against the markup, so a panel bound to something that does not exist cannot ship.
+
 ## [4.2.0] — 2026-10-15
 
 ### Added — Tier A (v4.2.0 "Cross-Check")
