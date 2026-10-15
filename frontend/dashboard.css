@@ -1,0 +1,244 @@
+/* /dashboard.css — the live project board on /dashboard.html.
+   Loaded after guide.css, so it only adds: nothing here redefines the
+   site chrome (header, hero, toc, footer) that guide.css owns. */
+
+.dash-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin: 0 0 1rem;
+  font-size: .875rem;
+  color: var(--muted, #9aa4b2);
+}
+
+.dash-refresh {
+  font: inherit;
+  font-weight: 600;
+  padding: .45rem .9rem;
+  border-radius: .5rem;
+  border: 1px solid var(--line, #2a3442);
+  background: var(--surface, #131a24);
+  color: inherit;
+  cursor: pointer;
+}
+
+.dash-refresh:hover:not(:disabled) { border-color: var(--accent, #f0b429); }
+.dash-refresh:disabled { opacity: .55; cursor: progress; }
+
+.dash-notice {
+  margin: 0 0 1.25rem;
+  padding: .7rem .9rem;
+  border-left: 3px solid var(--warn, #f0b429);
+  border-radius: .35rem;
+  background: rgba(240, 180, 41, .09);
+  font-size: .9rem;
+}
+.dash-notice[hidden] { display: none; }
+
+/* ---- stat cards ---- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: .75rem;
+  margin: 0 0 2rem;
+}
+
+.stat-grid .card {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  padding: .85rem 1rem;
+  border: 1px solid var(--line, #2a3442);
+  border-radius: .6rem;
+  background: var(--surface, #131a24);
+}
+
+.stat-grid .card span {
+  font-size: .74rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted, #9aa4b2);
+}
+
+.stat-grid .card strong {
+  font-size: 1.5rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- shared bits ---- */
+
+.dash-note {
+  margin: .25rem 0 .75rem;
+  font-size: .875rem;
+  color: var(--muted, #9aa4b2);
+}
+
+.dash-badge {
+  display: inline-block;
+  padding: .1rem .45rem;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.dash-badge-success { color: #3ddc97; }
+.dash-badge-failure { color: #ff6b6b; }
+.dash-badge-cancelled,
+.dash-badge-skipped { color: #9aa4b2; }
+.dash-badge-timed_out { color: #ffa94d; }
+.dash-badge-in_progress,
+.dash-badge-queued { color: #74c0fc; }
+.dash-badge-unknown { color: #9aa4b2; }
+.dash-badge-warn { color: #f0b429; }
+
+/* ---- build & test ---- */
+
+.dash-runs {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  display: grid;
+  gap: .4rem;
+}
+
+.dash-run {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr auto;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem .6rem;
+  border: 1px solid var(--line, #2a3442);
+  border-radius: .45rem;
+  font-size: .9rem;
+}
+
+.dash-run-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-run-meta { font-size: .78rem; color: var(--muted, #9aa4b2); }
+
+@media (max-width: 640px) {
+  .dash-run { grid-template-columns: 5.5rem 1fr; }
+  .dash-run-meta { grid-column: 2; }
+}
+
+/* ---- releases ---- */
+
+.dash-releases { margin: 0 0 2rem; }
+
+.dash-release-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .6rem;
+  padding: 1rem;
+  border: 1px solid var(--line, #2a3442);
+  border-left: 3px solid var(--accent, #f0b429);
+  border-radius: .6rem;
+  background: var(--surface, #131a24);
+}
+
+.dash-tag { font-weight: 700; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.dash-release-date,
+.dash-release-downloads { font-size: .82rem; color: var(--muted, #9aa4b2); }
+.dash-release-downloads { margin-left: auto; }
+
+.dash-assets {
+  flex-basis: 100%;
+  list-style: none;
+  margin: .5rem 0 0;
+  padding: .5rem 0 0;
+  border-top: 1px dashed var(--line, #2a3442);
+  display: grid;
+  gap: .25rem;
+  font-size: .86rem;
+}
+
+.dash-assets li { display: flex; gap: .6rem; justify-content: space-between; }
+.dash-asset-count { color: var(--muted, #9aa4b2); font-variant-numeric: tabular-nums; }
+
+/* ---- commit activity ---- */
+
+.dash-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: .35rem;
+  height: 7rem;
+  margin: 0 0 2rem;
+  padding: .5rem .25rem;
+  border-bottom: 1px solid var(--line, #2a3442);
+}
+
+.dash-week {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: .2rem;
+}
+
+.dash-week-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: .2rem .2rem 0 0;
+  background: linear-gradient(180deg, var(--accent, #f0b429), rgba(240, 180, 41, .35));
+}
+
+.dash-week-num { font-size: .68rem; color: var(--muted, #9aa4b2); font-variant-numeric: tabular-nums; }
+
+/* ---- contributors ---- */
+
+.dash-contributors {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: .4rem;
+}
+
+.dash-contributor {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .45rem .6rem;
+  border: 1px solid var(--line, #2a3442);
+  border-radius: .45rem;
+  font-size: .9rem;
+}
+
+.dash-contributions { font-size: .78rem; color: var(--muted, #9aa4b2); }
+
+/* ---- languages ---- */
+
+.dash-languages { margin: 0 0 2rem; display: grid; gap: .4rem; }
+
+.dash-lang {
+  display: grid;
+  grid-template-columns: 8rem 1fr 3.2rem;
+  align-items: center;
+  gap: .6rem;
+  font-size: .85rem;
+}
+
+.dash-lang-bar {
+  display: block;
+  height: .5rem;
+  border-radius: 999px;
+  background: var(--accent, #f0b429);
+}
+
+.dash-lang-pct { text-align: right; color: var(--muted, #9aa4b2); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .dash-lang { grid-template-columns: 6rem 1fr 3rem; }
+}
