@@ -1337,3 +1337,215 @@ body[data-theme="dark"] .v3-code { background: #ffffff10; }
 .log-marker-time { border:0; background:transparent; color:var(--accent, #4da3ff); cursor:pointer; font:inherit; text-decoration:underline; }
 .log-marker-note { color:var(--muted, #888); font-size:12px; }
 .dossier-cbs-link { color:var(--muted, #888); font-size:12px; }
+
+/* ===== v0.20.0 (Reach) — app-shell chrome that had no rules at all =====
+   Audit finding: the footer status bar, session bar, annotation markers,
+   byte-watch grid, self-test report, snapshot library, modals, schema
+   builder and share/info panes were rendered with zero CSS rules, so they
+   fell back to browser defaults and looked unstyled in BOTH themes.
+   Every colour below is a semantic token, so light/dark both work with no
+   per-panel overrides. Print surfaces (#print-report-host) stay white. */
+
+/* Footer status bar */
+.statusbar { display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  padding: 4px 14px; background: var(--blue-deep); color: #cfe0f2;
+  border-top: 1px solid var(--blue-band); font-size: 12px; }
+.status-dot { display: inline-block; flex: 0 0 auto; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--status-off); }
+.status-dot.on { background: var(--ok); box-shadow: 0 0 6px rgba(46,139,87,.8); }
+.status-dot.off { background: var(--status-off); }
+.status-right { margin-left: auto; font-size: 11.5px; color: #a7bcd2; }
+
+/* Service session form */
+.session-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px;
+  margin: 10px 12px 0; padding: 10px 12px; background: var(--surface-sub);
+  border: 1px solid var(--border); border-radius: 6px; }
+.session-bar label { display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: var(--muted); }
+.session-bar select { min-width: 150px; }
+.session-hint { margin: 10px 12px 12px; font-size: 12px; line-height: 1.55; color: var(--muted); }
+
+/* Log replay: clock readout, annotations, shortcut legend */
+.log-time { min-width: 96px; text-align: center; font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+  color: var(--heading-text); background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; }
+.log-markers { margin-top: 10px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; overflow: hidden; }
+.log-markers-head { padding: 6px 10px; font-size: 12px; font-weight: 600;
+  color: var(--heading-text); background: var(--thead-bg); border-bottom: 1px solid var(--border); }
+.log-shortcuts { margin-top: 8px; font-size: 11px; color: var(--muted); }
+.log-shortcuts kbd { display: inline-block; min-width: 18px; text-align: center;
+  font-family: var(--font); font-size: 11px; color: var(--text); background: var(--input-bg);
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; }
+.log-marker-time { font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--blue-accent);
+  background: none; border: 0; padding: 0 2px; cursor: pointer; text-decoration: underline; }
+.log-marker-type { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); background: var(--thead-bg); border-radius: 3px; padding: 1px 5px; }
+.log-marker-label { font-weight: 600; font-size: 12.5px; color: var(--text); }
+.log-marker-label:focus { outline: 2px solid var(--blue-accent); outline-offset: 1px; border-radius: 3px; }
+.log-marker-note { font-size: 12px; color: var(--muted); }
+.log-marker-del { color: var(--err); }
+.log-restore-banner { margin: 8px 12px 0; padding: 8px 10px; font-size: 12px;
+  background: var(--ok-bg); border-left: 3px solid var(--ok); border-radius: 4px; }
+.log-export-units-label { font-size: 12px; color: var(--muted); }
+
+/* Signal explorer form + byte watch */
+.explorer-form { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; }
+.explorer-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.range-row { display: flex; align-items: center; gap: 6px; }
+.range-row span { font-size: 12px; color: var(--muted); }
+.explorer-hint { font-size: 11.5px; line-height: 1.55; color: var(--muted);
+  border-left: 3px solid var(--blue-accent); padding-left: 8px; }
+.exp-add-panel { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.exp-add-head { padding: 0 2px 8px; font-size: 12px; font-weight: 600; color: var(--heading-text); }
+.exp-add-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 12px; padding: 0 2px; }
+.exp-add-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.exp-add-actions { display: flex; gap: 8px; padding: 10px 2px 2px; }
+.exp-result-item { padding: 6px 8px; margin-bottom: 4px; background: var(--input-bg);
+  border: 1px solid var(--row-border); border-radius: 4px;
+  font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.watch-bytes { display: flex; flex-wrap: wrap; gap: 8px; }
+.watch-summary { padding: 6px 10px; font-size: 12px; color: var(--heading-text);
+  background: var(--thead-bg); border-radius: 4px; }
+.watch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 6px; margin-top: 8px; }
+.watch-byte { display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 4px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; }
+.watch-byte.hot { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) inset; }
+.wb-bar { display: flex; align-items: flex-end; width: 100%; height: 26px;
+  background: var(--surface-sunken); border-radius: 3px; overflow: hidden; }
+.wb-bar span { display: block; width: 100%; }
+.wb-hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 600; }
+.wb-meta { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Diagnostics columns + traffic table */
+.diag-cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .diag-cols { grid-template-columns: minmax(0, 1fr); } }
+.diag-left { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.diag-traffic { min-width: 0; }
+.traffic-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.traffic-table { width: 100%; border-collapse: collapse; font-size: 12px;
+  font-variant-numeric: tabular-nums; }
+.traffic-table th { position: sticky; top: 0; z-index: 1; padding: 6px 8px; text-align: left;
+  font-size: 11.5px; color: var(--thead-text); background: var(--thead-bg);
+  border-bottom: 1px solid var(--border); }
+.traffic-table td { padding: 5px 8px; border-bottom: 1px solid var(--row-border); }
+.traffic-table tr:hover td { background: var(--surface-sub); }
+
+/* Self-test report */
+.selftest-body { padding: 10px 12px; display: grid; gap: 6px; }
+.selftest-step { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px;
+  align-items: baseline; padding: 6px 8px; background: var(--input-bg);
+  border: 1px solid var(--border); border-left-width: 3px; border-radius: 4px; font-size: 12.5px; }
+.selftest-step.ok { border-left-color: var(--ok); }
+.selftest-step.fail { border-left-color: var(--err); background: var(--err-bg); }
+.st-icon { font-weight: 700; }
+.selftest-step.ok .st-icon { color: var(--ok); }
+.selftest-step.fail .st-icon { color: var(--err); }
+.st-name { color: var(--text); }
+.st-ms { font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--muted); }
+
+/* Community / info / share panes */
+.community-body, .info-body, .share-body { padding: 10px 12px; display: grid; gap: 10px;
+  font-size: 13px; line-height: 1.55; }
+.share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.share-label { font-size: 12px; color: var(--muted); }
+.share-import { display: grid; gap: 6px; padding: 10px 12px; background: var(--surface-sub);
+  border: 1px solid var(--border); border-radius: 6px; }
+.share-hint { font-size: 11.5px; line-height: 1.55; color: var(--muted); }
+.walkthrough-share-btn { white-space: nowrap; }
+.garage-panel, .repair-check-panel { min-width: 0; }
+
+/* Snapshot library */
+.snapshot-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px; padding: 10px 12px 12px; }
+.snapshot-list > .muted { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted); }
+.snapshot-card { display: grid; gap: 4px; padding: 10px 12px; background: var(--input-bg);
+  border: 1px solid var(--border); border-radius: 6px; }
+.snapshot-title { font-size: 13px; font-weight: 600; color: var(--heading-text); }
+.snapshot-meta { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Modals */
+.modal-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center;
+  justify-content: center; padding: 24px; background: rgba(8,15,24,.62); backdrop-filter: blur(1.5px); }
+.modal { display: flex; flex-direction: column; width: 100%; max-width: 620px; max-height: 86vh;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 18px 48px rgba(0,0,0,.45); }
+.modal-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: linear-gradient(180deg, var(--blue-band), var(--blue-deep)); color: #fff;
+  border-radius: 8px 8px 0 0; font-size: 14px; }
+.modal-head h2, .modal-head h3 { font-size: 15px; font-weight: 600; }
+.modal-body { display: grid; gap: 10px; padding: 14px 16px; overflow: auto;
+  font-size: 13px; line-height: 1.55; }
+.modal-warn { padding: 8px 10px; background: var(--err-bg); border-left: 3px solid var(--err);
+  border-radius: 4px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px;
+  background: var(--surface-sub); border-top: 1px solid var(--border);
+  border-radius: 0 0 8px 8px; }
+
+/* Schema builder (custom PID request) */
+.schema-builder { display: grid; gap: 10px; padding: 10px 12px; }
+.schema-head { font-size: 12px; font-weight: 600; color: var(--heading-text); }
+.schema-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.schema-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 12px; }
+.schema-fields label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.schema-hex { padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; line-height: 1.5; color: var(--heading-text); background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: 4px; overflow-wrap: anywhere; }
+.schema-actions { display: flex; gap: 8px; }
+
+/* Dark-theme gaps found by the audit: three surfaces painted a near-white
+   background in dark mode because they predate the token layer. */
+body[data-theme="dark"] .fault-history-callout { background: var(--surface-sub); border-color: var(--border); }
+body[data-theme="dark"] .wt-invalid { background: var(--err-bg); border-color: var(--err); }
+body[data-theme="dark"] .dossier-overview { background: var(--surface-sub); }
+
+/* ===== v0.20.0 (Reach) — base form controls + orphaned containers =====
+   Audit finding #2: 52 interactive controls (inputs, selects, labels,
+   summary, the theme toggle) and 4 containers were matched by nothing in
+   the stylesheet, so they fell through to the user-agent defaults and
+   stayed light grey in dark mode. These rules give every control the same
+   token-driven skin in both themes. */
+button, input, select, textarea {
+  font: inherit; font-size: 13px; color: var(--text);
+  background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 5px 8px;
+}
+button { cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--blue-accent); width: auto; padding: 0; }
+input[type="range"] { accent-color: var(--blue-accent); padding: 0; background: none; border: 0; }
+input[type="file"] { padding: 4px; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue-accent); outline-offset: 1px; }
+input:disabled, select:disabled, textarea:disabled, button:disabled {
+  opacity: .5; cursor: default; background: var(--surface-sunken); }
+input::placeholder, textarea::placeholder { color: var(--muted); }
+select { min-width: 120px; }
+textarea { min-height: 64px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+label { font-size: 12px; color: var(--muted); }
+summary { cursor: pointer; color: var(--heading-text); }
+summary::marker { color: var(--blue-accent); }
+
+/* Theme toggle in the header — was completely unstyled */
+#btn-theme { padding: 4px 10px; font-size: 15px; line-height: 1;
+  background: linear-gradient(180deg, var(--btn-face-hi), var(--btn-face-lo));
+  border: 1px solid var(--border); border-radius: 4px; }
+#btn-theme:hover { background: var(--blue-light); }
+#btn-theme[aria-checked="true"] { border-color: var(--blue-accent); }
+
+/* Security / live-poll status text */
+.sec-status { font-size: 11px; font-weight: 600; color: var(--ok); }
+.sec-status.warn { color: var(--warn); }
+.sec-status.err { color: var(--err); }
+.sec-message { font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+
+/* Log marker list + schema preview */
+.log-marker-list { margin: 0; padding: 4px 6px; list-style: none; display: grid; gap: 4px; }
+.log-marker-list > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+  padding: 4px 6px; border-radius: 4px; }
+.log-marker-list > li:hover { background: var(--surface-sub); }
+.schema-preview { padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; line-height: 1.55; color: var(--heading-text); background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: 4px; overflow-wrap: anywhere; }
