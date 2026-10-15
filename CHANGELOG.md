@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] — 2026-10-15
+
+### Added — Tier A (v4.1.0 "Provenance")
+
+- **Service-history plausibility** (`src/js/service_provenance.js`, 35 tests): audits a history the fleet board and the maintenance dossier would otherwise take at face value — odometer reversals (`odometer_reversal`, with both readings named), back-dated entries, the same service billed twice, and per-item cost outliers by a robust median-absolute-deviation rule. Every check emits `{kind, severity, indices, detail}` so the UI points at the rows instead of handing back a verdict from nowhere.
+- **The strongest thing it will say is "no inconsistency detected"**: fewer than `MIN_ENTRIES` (3) entries returns verdict `insufficient` with a finding saying how many are needed, unparseable dates and missing odometers become high-severity findings naming the entry index (so such a history can never be "consistent"), and `costOutliers` with fewer than `MIN_COST_ENTRIES` (5) priced entries reports `cost_unjudged` — not the same as clean. `now` is injected, so a verdict never guesses today.
+- **Panel.** The read-only panel for this engine is part of the v3.8-v5.0 panel layer (`src/js/v4_ui.js`), which ships with v5.0.0 because its wiring tests read every engine file in the arc; `src/js/test/v4_wiring.test.cjs` pins every panel id, global and style class against the markup, so a panel bound to something that does not exist cannot ship.
+
 ## [4.0.0] — 2026-10-15
 
 ### Added — Tier A (v4.0.0 "The Fleet")
