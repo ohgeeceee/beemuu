@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] — 2026-10-15
+
+### Added — Tier A (v4.2.0 "Cross-Check")
+
+- **Physical cross-checks between sensor pairs** (`src/js/sensor_plausibility.js`, 34 tests): the v3 engines read channels one at a time, but quantities in a car are not independent — intake air and manifold pressure move with rpm, coolant and oil warm together, lambda lives near 1. Channels are resampled onto a shared grid (pairing only samples within `MAX_SKEW_S`), correlated with a zero-variance guard that returns `null` rather than leaking `NaN` into a verdict, and checked for a growing, constant or sign-flipping disagreement via `residualTrend`. It is the first feature that can say a **specific sensor is lying** rather than merely odd.
+- **Attribution only when the evidence points one way** (cold oil vs coolant -> oil; MAP measured below baro, which is physically impossible -> MAP; lambda outside [0.7, 1.3] against the fuel trim -> lambda; speed reading zero above `MOVING_RPM` in gear -> speed; voltage below `CHARGING_MIN_V` at speed -> battery). When both sides could explain it the verdict is `inconclusive` with attribution `null`, and it returns `unknown` rather than a guess when a channel is absent, flat, or short of `MIN_PAIRED_SAMPLES` (5) overlapping samples. Verdicts rank worst-first; a healthy log reports zero mismatches.
+- **Panel.** The read-only panel for this engine is part of the v3.8-v5.0 panel layer (`src/js/v4_ui.js`), which ships with v5.0.0 because its wiring tests read every engine file in the arc; `src/js/test/v4_wiring.test.cjs` pins every panel id, global and style class against the markup, so a panel bound to something that does not exist cannot ship.
+
 ## [4.1.0] — 2026-10-15
 
 ### Added — Tier A (v4.1.0 "Provenance")
