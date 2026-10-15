@@ -1504,9 +1504,11 @@ body[data-theme="dark"] .wt-invalid { background: var(--err-bg); border-color: v
 body[data-theme="dark"] .dossier-overview { background: var(--surface-sub); }
 
 /* ===== v0.20.0 (Reach) — base form controls + orphaned containers =====
-   Audit finding #2: 52 interactive controls (inputs, selects, labels,
-   summary, the theme toggle) and 4 containers were matched by nothing in
-   the stylesheet, so they fell through to the user-agent defaults and
+   Audit finding #2: 79 rendered interactive elements (43 distinct
+   controls - inputs, selects, the theme toggle - plus their labels,
+   kbd legends and summary/button chrome) and 46 classed containers were
+   matched by nothing in the stylesheet, so they fell through to the
+   user-agent defaults and
    stayed light grey in dark mode. These rules give every control the same
    token-driven skin in both themes. */
 button, input, select, textarea {
