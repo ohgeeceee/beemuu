@@ -718,6 +718,105 @@
         </div>
 
       </div>
+
+      <!-- ---------- v4: fleet & record analysis ----------
+           Everything below reads records the owner already has, or the log
+           that is open. Nothing in it talks to the car, so it stays useful
+           with the adapter unplugged — which is when an owner actually reads
+           a service history or compares community advice. -->
+      <h3 class="v4-panels">Fleet &amp; records</h3>
+      <div class="v3-panels v4-panels">
+
+        <div class="panel">
+          <div class="v3-body">
+            <h4>Signal integrity</h4>
+            <p class="v4-hint">Scores every channel in the open log for dropouts, frozen values and sensor noise, and says which channels a diagnosis can be trusted to rest on.</p>
+            <div class="v3-input-row">
+              <button id="v4-signal-run" class="btn btn-small" type="button">Check signal quality</button>
+            </div>
+            <div id="v4-signal-body"><p class="muted">Run the check with a log open to score its channels.</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="v3-body">
+            <h4>Drive cycles</h4>
+            <p class="v4-hint">Separates the log into trips and reports idle share, rpm range and warm-up time, so a cold-start or short-trip pattern is visible instead of inferred.</p>
+            <div class="v3-input-row">
+              <button id="v4-cycle-run" class="btn btn-small" type="button">Segment trips</button>
+            </div>
+            <div id="v4-cycle-body"><p class="muted">Run with a log open to segment it into trips.</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="v3-body">
+            <h4>Fleet board</h4>
+            <p class="v4-hint">Grades each vehicle on open fault codes and service overdue-ness. One vehicle per line:<br>label | odometer_km | DTCs,comma,separated | last_service_km | last_service_date</p>
+            <div class="v3-input-row">
+              <textarea id="v4-fleet-input" aria-label="Fleet vehicles" spellcheck="false"></textarea>
+            </div>
+            <div class="v3-input-row">
+              <button id="v4-fleet-run" class="btn btn-small" type="button">Grade fleet</button>
+            </div>
+            <div id="v4-fleet-body"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="v3-body">
+            <h4>Service provenance</h4>
+            <p class="v4-hint">Checks a service history for records that cannot all be true — mileage that goes backwards, dates out of order, an implausible distance between services.</p>
+            <div class="v3-input-row">
+              <textarea id="v4-prov-input" aria-label="Service records" spellcheck="false"></textarea>
+            </div>
+            <div class="v3-input-row">
+              <button id="v4-prov-run" class="btn btn-small" type="button">Check history</button>
+            </div>
+            <div id="v4-prov-body"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="v3-body">
+            <h4>Sensor cross-check</h4>
+            <p class="v4-hint">Tests relationships that must hold between channels — coolant against intake air after a cold start, throttle against load, lambda against fuel trim. A relationship that breaks points at the sensor, not the fault.</p>
+            <div class="v3-input-row">
+              <button id="v4-sensor-run" class="btn btn-small" type="button">Cross-check sensors</button>
+            </div>
+            <div id="v4-sensor-body"><p class="muted">Run with a log open; the check needs at least two related channels.</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="v3-body">
+            <h4>Second opinions</h4>
+            <p class="v4-hint">Weighs forum and workshop answers by confidence and by how many independent sources agree, and names the repair nobody supports. One opinion per line:<br>date | source | author | repair | confidence (0-1) | mileage_km</p>
+            <div class="v3-input-row">
+              <textarea id="v4-opinion-input" aria-label="Community opinions" spellcheck="false"></textarea>
+            </div>
+            <div class="v3-input-row">
+              <button id="v4-opinion-run" class="btn btn-small" type="button">Weigh opinions</button>
+            </div>
+            <div id="v4-opinion-body"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="v3-body">
+            <h4>Plugin capabilities</h4>
+            <p class="v4-hint">Reads a plugin manifest and shows exactly what it would be allowed to do — and what is refused — before anything is installed. Paste the manifest JSON.</p>
+            <div class="v3-input-row">
+              <textarea id="v4-plugin-input" aria-label="Plugin manifest JSON" spellcheck="false"></textarea>
+            </div>
+            <div class="v3-input-row">
+              <button id="v4-plugin-run" class="btn btn-small" type="button">Review capabilities</button>
+            </div>
+            <div id="v4-plugin-body"></div>
+          </div>
+        </div>
+
+      </div>
     </section>
 
     <!-- ============ SERVICE FUNCTIONS ============ -->
@@ -988,6 +1087,20 @@
   <script src="js/symptom_index.js"></script>
   <script src="js/signal_library.js"></script>
   <script src="js/vehicle_passport.js"></script>
+  <!-- v3.8 – v5.0 engines. Pure analysis: every one of them takes data that is
+       already in the app (a parsed log, a snapshot, records the owner typed)
+       and returns a plain result object. None of them scans, reads or writes
+       anything, which is why the whole v4 arc can ship as analysis without a
+       new transport. They load before main.js so the v4 panels find them
+       already defined when they mount. -->
+  <script src="js/signal_quality.js"></script>
+  <script src="js/drive_cycle.js"></script>
+  <script src="js/fleet_dashboard.js"></script>
+  <script src="js/service_provenance.js"></script>
+  <script src="js/sensor_plausibility.js"></script>
+  <script src="js/opinion_consensus.js"></script>
+  <script src="js/plugin_capabilities.js"></script>
+  <script src="js/plugin_capability_bridge.js"></script>
   <script src="js/garage.js"></script>
   <script src="js/repair_verification.js"></script>
   <script src="js/plugins_registry_client.js"></script>
@@ -1000,6 +1113,7 @@
   <script src="js/garage_boot.js"></script>
   <script src="js/repair_verification_boot.js"></script>
   <script src="js/v3_ui.js"></script>
+  <script src="js/v4_ui.js"></script>
   <script src="js/plugins.js"></script>
   <script src="js/plugins_ui.js"></script>
   <script src="js/plugins_boot.js"></script>

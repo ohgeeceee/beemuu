@@ -1317,10 +1317,39 @@ body[data-theme="dark"] .v3-pill-none { color: #9fb2c8; }
 .v3-signal-query { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #66788e; }
 body[data-theme="dark"] .v3-signal-query { color: #9fb2c8; }
 
-.v3-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: #00000010; border-radius: 6px; padding: 10px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
-body[data-theme="dark"] .v3-code { background: #ffffff10; }
+/* A block code view. Distinct from the inline `.v3-code` above: an earlier
+ * revision reused that name here, so the inline spans in the fault-code rows
+ * silently inherited `padding: 10px` and pushed every row apart. */
+.v3-code-block { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: #00000010; border-radius: 6px; padding: 10px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 6px 0 0; }
+body[data-theme="dark"] .v3-code-block { background: #ffffff10; }
 
 .v3-cold-line { display: flex; gap: 8px; align-items: baseline; margin: 0; font-size: 13px; }
+
+/* v4 panels reuse the v3 vocabulary wholesale — a second result-card shape
+ * would mean two places to fix when the card changes. What they add is the
+ * paste-a-record editor: the fleet board and the provenance/opinion/plugin
+ * panels take multi-line user input, so the textarea needs a real size and the
+ * hint above it needs to be readable at a glance. */
+.v4-panels { margin-top: 16px; }
+.v4-panels > h3 { margin: 0 0 2px; font-size: 15px; }
+.v3-input-row textarea {
+  flex: 1 1 100%;
+  min-height: 96px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px;
+  border: 1px solid #8886;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}
+body[data-theme="dark"] .v3-input-row textarea { background: #ffffff08; border-color: #ffffff33; }
+.v3-input-row textarea:focus-visible { outline: 2px solid var(--accent, #4da3ff); outline-offset: 1px; }
+.v4-hint { font-size: 12px; color: #66788e; margin: 0 0 6px; }
+body[data-theme="dark"] .v4-hint { color: #9fb2c8; }
+.v4-panels .v3-signal-list { max-height: 320px; }
 .garage-create, .repair-check-create, .log-annotation-tools { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 10px; }
 .garage-create input, .repair-check-create input, .log-annotation-tools input { min-width:180px; flex:1; }
 .garage-list, .repair-check-list { display:grid; gap:8px; padding:8px 10px 12px; }

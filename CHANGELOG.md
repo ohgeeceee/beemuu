@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] — 2026-10-15
+
+### Added — Tier A (v5.0.0 "Beemuu Platform")
+
+- **Plugin capability bridge** (`src/js/plugin_capability_bridge.js`, 40 tests): the decision layer the shipped transport (`src/js/plugin_bridge.js`, untouched) asks before it carries a call out of the sandbox — validate a manifest, classify each capability, evaluate the grants, prompt for consent and record an audit line. This is the piece `ROADMAP.md` called "unbuilt work, not deferred work", and it is the first code in the product whose job is to **say no to another piece of code**.
+- **Fail-closed, deny-by-default**: `granted` is false unless every gate passes; a missing or throwing injected `host[]` returns `{ok: false, reason: "host_unavailable"}` rather than a silent success; the write capabilities (`clear-dtc`, `coding-write`, `ecu-write`, `flash-ecu`) are recognised and classified `write` but always refused `not_permitted`, with no option that enables them; unknown and prototype/inherited names (`constructor`, `toString`) are denied as `unknown_capability` instead of falling through to allowed. Grants are re-derived from the manifest at call time, so a hand-forged `{granted: ["ecu-write"]}` still returns `not_granted`, and junk is rejected rather than coerced (non-plain-object manifests, blank ids, `__proto__`/`constructor`/`prototype` keys return `ok: false` with named errors and `manifest: null`). The module is inert: pure decision layer, no DOM, Tauri, fetch, timers or `eval`.
+- **The v3.8-v5.0 panel layer** (`src/js/v4_ui.js`, `src/index.html` markup, `src/css/app.css`, 20 + 14 tests): one read-only Diagnostics/Garage panel per engine above, all built on the shipped v3 card/row vocabulary so a result card has one definition to change. `src/js/test/v4_wiring.test.cjs` reads the markup, CSS and `main.js` as text and fails if any panel binds an id the markup lacks, calls a global no engine publishes, or leans on a style class nobody authored — the failure mode that renders an empty box which looks like "no faults found".
+- **Whole-suite state at this release**: 1130 tests via the CI glob (`src/js/**/*.test.js`, `src/js/**/*.test.cjs`, `frontend/**/*.test.js`) — 1129 pass, 1 skipped, 0 fail.
+
 ## [4.3.0] — 2026-10-15
 
 ### Added — Tier A (v4.3.0 "Second Opinion")

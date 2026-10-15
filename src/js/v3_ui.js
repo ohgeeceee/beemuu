@@ -656,7 +656,7 @@ function mountPassport() {
       ? `Removed before sharing: ${removed.join(", ")}.`
       : "Nothing identifying was found in the current session.", "muted v3-note"));
     body.append(el("p", builtPass.privacy.note, "muted v3-note"));
-    body.append(el("pre", JSON.stringify(builtPass, null, 2), "v3-code"));
+    body.append(el("pre", JSON.stringify(builtPass, null, 2), "v3-code-block"));
   }
 
   if (btn) btn.addEventListener("click", build);

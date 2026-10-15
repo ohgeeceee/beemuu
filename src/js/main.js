@@ -68,6 +68,12 @@ window.beeemuuV3 = {
   },
 };
 
+/* The v4 panels read the same data through the same narrow surface. Publishing
+ * it under a v4 name as well means a v4 panel never depends on the v3 UI
+ * existing, and either name can be retired without touching the other. Same
+ * object, so the listener list and the getters stay in one place. */
+window.beeemuuV4 = window.beeemuuV3;
+
 /* ---------------- status bar ---------------- */
 function setStatus(text, isConnected = connected) {
   $("status-text").textContent = text;

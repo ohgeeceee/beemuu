@@ -769,7 +769,7 @@ def build_roadmap_hub() -> str:
     art = (
         '<h2 id="shipped">Where the project is</h2>'
         '<p>BeeEmUu ships in small, reviewable cycles. The desktop app is at '
-        '<strong>v4.3.0</strong>; the per-cycle pages below describe what each '
+        '<strong>v5.0.0</strong>; the per-cycle pages below describe what each '
         'cycle was in scope for and what it deferred.</p>'
         '<div class="resource-index">'
         '<a href="/roadmap/index.html"><span class="resource-code">index</span>'
@@ -826,7 +826,7 @@ def build_changelog_hub() -> str:
         '<span aria-hidden="true">↗</span></a>'
         '</div>'
         '<h2 id="current">Current release</h2>'
-        '<p>The latest release is <strong>v4.3.0</strong>. Download installers '
+        '<p>The latest release is <strong>v5.0.0</strong>. Download installers '
         'from the <a href="https://github.com/ohgeeceee/beemuu/releases/latest">'
         'latest release</a> page.</p>'
     )
@@ -836,7 +836,7 @@ def build_changelog_hub() -> str:
              "canonical CHANGELOG and GitHub releases.",
         eyebrow="Changelog", h1="What shipped, when.",
         lede="Every BeeEmUu change, newest first — one canonical file plus the GitHub releases cut from it.",
-        meta=["Updated October 2026", "v4.3.0", "GPL-3.0"],
+        meta=["Updated October 2026", "v5.0.0", "GPL-3.0"],
         crumbs=[("Beemuu", "/"), ("Changelog", "/changelog.html")],
         toc=[("sources", "Where it lives"), ("current", "Current release")],
         article=art,

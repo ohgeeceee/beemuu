@@ -1084,6 +1084,74 @@ blocked because a Worker has no safe DOM surface.
 
 ---
 
+## v3.8.0 – v5.0.0 — "the forward arc" (Shipped 2026-10-15)
+
+**Premise.** The v3.0.0 forensic engines each read one channel (misfires, drift,
+cold start). The next two major bumps were defined by what that could not
+express: analysis of **relationships** between signals (integrity, drive
+cycles, physical plausibility between sensors), and the plugin **capability
+bridge** — the one remaining piece of VISION.md Phase 1, described below as
+"unbuilt work, not deferred work". The schedule of record is
+[`docs/v3.8_to_v5.0_roadmap.md`](docs/v3.8_to_v5.0_roadmap.md); each cycle has a
+`docs/vX.Y.0_plan.md`.
+
+Every cycle in this arc is **Tier A** — pure analysis over logs, snapshots and
+community data, plus webview UI and docs. No new transport, no ECU reads, no
+ECU writes; `src-tauri/**` is touched only by the release stamp. The whole arc
+therefore landed without a human merge.
+
+| Cycle | Codename | Status | Module | Tests |
+|-------|----------|--------|--------|-------|
+| v3.8.0 | Signal Integrity | ✅ Shipped | `src/js/signal_quality.js` | 29 |
+| v3.9.0 | Drive Cycle Analyst | ✅ Shipped | `src/js/drive_cycle.js` | 34 |
+| v4.0.0 | The Fleet | ✅ Shipped | `src/js/fleet_dashboard.js` | 33 |
+| v4.1.0 | Provenance | ✅ Shipped | `src/js/service_provenance.js` | 35 |
+| v4.2.0 | Cross-Check | ✅ Shipped | `src/js/sensor_plausibility.js` | 34 |
+| v4.3.0 | Second Opinion | ✅ Shipped | `src/js/opinion_consensus.js` | 35 |
+| v5.0.0 | Beemuu Platform | ✅ Shipped | `src/js/plugin_capability_bridge.js` | 40 |
+
+### Slices shipped
+
+| Item | Status | Tier | Notes |
+|------|--------|------|-------|
+| Per-channel signal integrity | ✅ Shipped (v3.8.0) | A | `src/js/signal_quality.js`. Frozen-channel, dropout and noise scoring over a recorded log; `cleanPoints()` reports what it dropped (unrepresentable) and what it collapsed (repeated timestamp → last read) separately. Runs before the interpreters so no verdict is built on a channel that cannot be believed. |
+| Drive-cycle segmentation | ✅ Shipped (v3.9.0) | A | `src/js/drive_cycle.js`. Cycles end only after rpm holds at zero for `STOP_HOLD_S`; per-cycle idle share, rpm range and warm-up time. Refuses with `no_cycles` (no `rpm` channel, <8 samples, all-zero log) instead of grading. |
+| Fleet health board | ✅ Shipped (v4.0.0) | A | `src/js/fleet_dashboard.js`. Grades every saved vehicle on faults and service overdue-ness, totals cost and ranks across the garage; `now` is injected so `gradeVehicle()` is deterministic and snapshot-safe. A vehicle without history is refused (`score: null`), and a non-monotonic odometer is surfaced, never sorted away. |
+| Service-history provenance | ✅ Shipped (v4.1.0) | A | `src/js/service_provenance.js`. Odometer reversal (both readings named), back-dating, duplicate services, and cost outliers by MAD. Refuses below `MIN_ENTRIES` (3) entries; the strongest thing it will say is "no inconsistency detected". |
+| Sensor cross-checks | ✅ Shipped (v4.2.0) | A | `src/js/sensor_plausibility.js`. Physical relationships between channel pairs (IAT/MAP/rpm, coolant/oil, lambda/fuel trim, speed/rpm, voltage) with attribution to a *specific* side only when the evidence points one way; otherwise `inconclusive`, and `unknown` rather than a guess. |
+| Repair-opinion consensus | ✅ Shipped (v4.3.0) | A | `src/js/opinion_consensus.js`. Weighted tally over community repair reports with a quorum (`MIN_OPINIONS` 4, `MIN_DISTINCT_SOURCES` 2) refused rather than fudged, and a `contested` verdict inside `CONTENTION_MARGIN` 0.25 instead of a crowned leader. Scores are shares, never probabilities. |
+| Plugin capability bridge | ✅ Shipped (v5.0.0) | A | `src/js/plugin_capability_bridge.js`. Manifest validation, capability classification, grant evaluation, consent and audit over the shipped transport (`src/js/plugin_bridge.js`, PR #354, untouched). Fail-closed and deny-by-default; the write capabilities (`clear-dtc`, `coding-write`, `ecu-write`, `flash-ecu`) are classified `write` and always refused `not_permitted`; grants are re-derived at call time and junk manifests are rejected, not coerced. |
+| v3.8–v5.0 panel layer | ✅ Shipped (v5.0.0) | A | `src/js/v4_ui.js` + `src/index.html` markup + `src/css/app.css`. One read-only Diagnostics/Garage panel per engine above, on the shipped v3 card/row vocabulary. `src/js/test/v4_wiring.test.cjs` reads the markup, CSS and `main.js` as text and fails on a panel id the markup lacks, a global no engine publishes, or a class nobody authored — the failure mode that renders an empty box looking like "no faults found". |
+
+### Test count delta
+
+| Cycle | New tests | Arc engine total |
+|-------|-----------|------------------|
+| v3.8.0 | 29 | 29 |
+| v3.9.0 | 34 | 63 |
+| v4.0.0 | 33 | 96 |
+| v4.1.0 | 35 | 131 |
+| v4.2.0 | 34 | 165 |
+| v4.3.0 | 35 | 200 |
+| v5.0.0 | 40 engines + 34 panel layer (20 `v4_ui`, 14 `v4_wiring`) | 240 engines + 34 panel = **274** |
+
+Each release was cut with the whole suite green on the CI glob
+(`src/js/**/*.test.js`, `src/js/**/*.test.cjs`, `frontend/**/*.test.js`):
+**1130 tests — 1129 pass, 1 skipped, 0 fail**, identical at every tag because
+the arc's tests all land in one working tree. The one skip is pre-existing and
+deliberate: an `it.skip` on `tracks framesPerSecond over 1-second window`
+(`src/js/live_kdcan_source.test.js`), unrelated to this arc.
+
+### Refusal behaviour is the acceptance criterion
+
+Every engine above is written to return a **named refusal** (`score: null`,
+`confidence: 0`, and a reason string that says what was missing) rather than a
+grade it cannot support, and each engine's tests pin that behaviour alongside
+its happy path. That is the property the arc was graded on: a system that says
+"not enough data to judge" is more useful than one that fills the gap.
+
+---
+
 ## Plugin ecosystem (Phase 1 of VISION.md)
 
 **Premise.** Turn the bundled plugin system into a shareable ecosystem: a
