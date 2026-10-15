@@ -131,8 +131,14 @@ pub async fn scan_modules(state: tauri::State<'_, AppState>) -> Result<Vec<EcuIn
                     });
                 }
                 Err(e) => {
+                    // The vehicle dropped the link: every further probe
+                    // would fail the same way, so stop and say why.
+                    let closed = e.contains("I/O error");
                     if first_error.is_none() {
                         first_error = Some(e.to_string());
+                    }
+                    if closed {
+                        break;
                     }
                     result.push(EcuInfo {
                         address: def.address,
