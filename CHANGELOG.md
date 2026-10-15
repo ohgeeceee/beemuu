@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.0] — 2026-10-15
+
+### Added — Tier A (v3.9.0 "Drive Cycle Analyst")
+
+- **Drive-cycle segmentation** (`src/js/drive_cycle.js`, 34 tests): splits a log into the unit a human actually reasons about — key on, driven, key off. `segment()` ends a cycle only when rpm returns to zero and **stays** there for `STOP_HOLD_S` of continuous idle (a traffic light is not the end of a trip), and reports a log that never sees rpm fall back as one open cycle rather than zero cycles. Each cycle carries idle share, rpm range and warm-up seconds (`WARM_TARGET_C`, `COLD_START_C`, `SLOW_WARMUP_S`, `LONG_IDLE_RATIO`), all traced to exported named constants.
+- **It refuses rather than guesses**: `analyze()` returns `{cycles: [], summary: {verdict: "no_cycles", score: null, confidence: 0, evidence: [reason]}}` — never a grade — when there is no `rpm` channel, when there are fewer than `MIN_SAMPLES` (8) usable rpm samples, or when an all-zero log never reaches `ENGINE_START_RPM` (500), each with the reason spelled out. `classify()` on a cycle with fewer than 8 points returns verdict `unknown`, score `null`, confidence 0.
+- **Panel.** The read-only panel for this engine is part of the v3.8-v5.0 panel layer (`src/js/v4_ui.js`), which ships with v5.0.0 because its wiring tests read every engine file in the arc; `src/js/test/v4_wiring.test.cjs` pins every panel id, global and style class against the markup, so a panel bound to something that does not exist cannot ship.
+
 ## [3.8.0] — 2026-10-15
 
 ### Added — Tier A (v3.8.0 "Signal Integrity")
