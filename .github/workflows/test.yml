@@ -71,6 +71,24 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-plugins-browser.cjs
 
+  # ─── App-shell chrome + dark-theme regression guard ───
+  # Every interactive control and chrome surface in src/index.html must be
+  # matched by at least one AUTHORED CSS rule. The v0.20.0 audit found 79
+  # rendered interactive elements and 46 classed containers falling through
+  # to user-agent defaults, which left them light grey in dark mode; this job
+  # keeps them covered.
+  chrome-visual:
+    name: App shell chrome and theme
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-chrome-visual.cjs
+
   # ─── Frontend JS unit tests (node --test, builtin runner) ───
   # Explicit globs: `node --test <dir>` mis-handles the mixed
   # .test.js / .test.cjs layout under src/js/ (verified locally on node 24).
