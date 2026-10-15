@@ -1,0 +1,139 @@
+name: Release to site
+
+# A published GitHub release is the only version the project has. When one is
+# published, stamp that version across beemuu.com (pages, generated hubs, the
+# version guard, README badge) and the app manifests, commit the result, and
+# deploy Pages in the same run -- the site can no longer lag the release the way
+# it advertised v3.0.0 for six minor versions.
+#
+# Pages is deployed here rather than by pages.yml because a commit pushed with
+# GITHUB_TOKEN does not trigger other workflows.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to stamp (defaults to the latest published release)
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.stamp.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - name: Resolve the release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          origin=""
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+            origin="release event"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+            origin="manual dispatch"
+          else
+            TAG="$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name)"
+            origin="latest release"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Stamping release $TAG (from the $origin)"
+          gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .body > "$RUNNER_TEMP/notes.md" 2>/dev/null || : > "$RUNNER_TEMP/notes.md"
+
+      - name: Stamp the version across the site and manifests
+        id: stamp
+        run: |
+          set -uo pipefail
+          python3 scripts/stamp-release.py "${{ steps.tag.outputs.tag }}" --notes-file "$RUNNER_TEMP/notes.md" > "$RUNNER_TEMP/stamp.log" 2>&1
+          code=$?
+          cat "$RUNNER_TEMP/stamp.log"
+          if [ "$code" -eq 2 ]; then
+            echo "::warning::${{ steps.tag.outputs.tag }} is not a semver release tag; the site keeps the version it has"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$code" -ne 0 ]; then
+            echo "::error::stamp-release.py refused to stamp ${{ steps.tag.outputs.tag }} (exit $code)"
+            exit "$code"
+          fi
+          version="$(grep -m1 '^VERSION=' "$RUNNER_TEMP/stamp.log" | cut -d= -f2)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify every published surface names the release
+        if: steps.stamp.outputs.skip != 'true'
+        run: node --test frontend/version_surface.test.js
+
+      - name: Commit the stamped version
+        if: steps.stamp.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "site: publish release v${{ steps.stamp.outputs.version }}"
+          git push origin HEAD:main
+
+  build:
+    needs: stamp
+    if: needs.stamp.outputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - name: Test Pages artifact
+        run: node scripts/test-github-pages-build.cjs
+
+      - name: Build Pages artifact
+        run: node scripts/build-github-pages.cjs
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
