@@ -12,28 +12,21 @@ automatically the next time it executes, and every migration uses
 
 ## What you're turning on
 
-```
-+----------------------+      +-------------------+      +---------------+
-|  Browser hits        |      |  Backend          |      |  nginx serves |
-|  /api/schematics     |  →   |  (python)         |      |  the SVG      |
-|                      |      |  returns JSON     |      |  directly     |
-|  /api/schematics/    |      |  with `url` field |      |  off disk.    |
-|    <slug>            |      |  like:            |  →   |               |
-|                      |      |  /static/         |      |  /static/     |
-|  GET /static/        |      |  schematics/      |      |  schematics/  |
-|  schematics/<slug>.  |      |  <slug>.svg       |      |  <slug>.svg   |
-|  svg                 |      |                   |      |               |
-+----------------------+      +-------------------+      +---------------+
-```
+`GET /api/schematics` returns catalog records with relative asset URLs.
+For each asset request, nginx forwards `/static/schematics/<slug>.<ext>` to
+the Python backend, which checks the catalog record and serves the file from
+`data/schematics/`.
 
 1. The Python backend's `/api/schematics*` endpoints return JSON with
    relative `url` fields.
 2. The browser then asks nginx for that URL.
-3. Nginx serves the `.svg` from disk directly.
+3. Nginx proxies the asset request to Python. The backend confirms that the
+   schematic is enabled and that the file remains under `data/schematics/`
+   before returning the image.
 
-The Python backend never serves the SVG bytes — that path bypasses
-Python entirely (single-thread HTTP server in front of the static path
-would be a bottleneck; nginx is the right tool).
+The backend serves catalog assets through its threaded HTTP server so that
+disabled records and file-path checks apply to both the admin panel and public
+site.
 
 ## Step 1 — install the new vhost
 
@@ -55,9 +48,9 @@ the file, `nginx -t` validates.
 
 If you're already past Let's Encrypt (certbot) and the `certbot --nginx`
 step mutated your vhost with an HTTPS server block, **don't blindly
-overwrite.** Instead, manually add the new `location /static/schematics/`
-block from `ops/beemuu.com.conf` into your **HTTPS** server block
-(the HTTP-to-HTTPS redirect is fine to leave alone; the static `location`
+overwrite.** Instead, manually add the `location ^~ /static/schematics/`
+proxy block from `ops/beemuu.com.conf` into your **HTTPS** server block
+(the HTTP-to-HTTPS redirect is fine to leave alone; the proxy `location`
 block needs to live in the HTTPS block because Let's Encrypt terminates
 TLS there). Then:
 

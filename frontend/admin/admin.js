@@ -341,7 +341,8 @@
       source: fd.get("source") || "admin",
       source_url: fd.get("source_url") || null,
       confidence: fd.get("confidence"),
-      verified: fd.get("confidence") === "verified",
+      verified: fd.has("verified"),
+      enabled: fd.has("enabled"),
     };
     try {
       await api("POST", "/api/admin/dtc", payload);
@@ -362,6 +363,8 @@
     for (const name of ["code", "category", "title", "severity", "description", "likely_causes", "source", "source_url", "confidence"]) {
       if (form.elements[name]) form.elements[name].value = row[name] ?? "";
     }
+    form.elements.verified.checked = Boolean(row.verified);
+    form.elements.enabled.checked = Boolean(row.enabled);
     form.elements.code.disabled = true;
     editingDtcCode = row.code;
     $("#dtc-save").textContent = `Update ${row.code}`;
@@ -399,6 +402,8 @@
       model: fd.get("model") || null,
       year_from: fd.get("year_from") ? parseInt(fd.get("year_from"), 10) : null,
       year_to: fd.get("year_to") ? parseInt(fd.get("year_to"), 10) : null,
+      width_px: fd.get("width_px") ? parseInt(fd.get("width_px"), 10) : null,
+      height_px: fd.get("height_px") ? parseInt(fd.get("height_px"), 10) : null,
       source_url: fd.get("source_url") || null,
       tags: fd.get("tags") || null,
     };

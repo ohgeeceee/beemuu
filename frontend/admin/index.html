@@ -80,13 +80,14 @@
             </select></label>
             <label><span>Title</span><input type="text" name="title" placeholder="Title" required></label>
             <label><span>Severity</span><select name="severity">
-              <option value="">Not set</option><option>info</option><option>low</option>
-              <option>medium</option><option>high</option><option>critical</option>
+              <option value="">Not set</option><option>info</option><option>warn</option><option>critical</option>
             </select></label>
             <label><span>Confidence</span><select name="confidence">
               <option value="unverified">unverified</option><option value="community">community</option>
               <option value="verified">verified</option>
             </select></label>
+            <label class="check-label"><span>Verified</span><input type="checkbox" name="verified"></label>
+            <label class="check-label"><span>Enabled / published</span><input type="checkbox" name="enabled" checked></label>
             <label><span>Source</span><input type="text" name="source" value="admin"></label>
             <label><span>Source URL</span><input type="url" name="source_url" placeholder="https://…"></label>
             <label class="wide"><span>Description</span><textarea name="description" rows="3"></textarea></label>
@@ -145,12 +146,17 @@
           <input type="text" name="series" placeholder="E-series / F-series / G-series" required>
           <input type="text" name="system" placeholder="system" required>
           <input type="text" name="file_path" placeholder="data/schematics/x.svg" required>
-          <input type="text" name="mime" placeholder="image/svg+xml" required>
+          <select name="mime" required aria-label="Image type">
+            <option value="image/svg+xml">SVG image</option><option value="image/png">PNG image</option>
+            <option value="image/jpeg">JPEG image</option><option value="image/webp">WebP image</option>
+          </select>
           <input type="text" name="license" placeholder="CC0" required>
           <input type="text" name="subsys" placeholder="Subsystem (optional)">
           <input type="text" name="model" placeholder="Model (optional)">
           <input type="number" name="year_from" placeholder="From year">
           <input type="number" name="year_to" placeholder="To year">
+          <input type="number" name="width_px" placeholder="Width in pixels (optional)" min="1">
+          <input type="number" name="height_px" placeholder="Height in pixels (optional)" min="1">
           <input type="url" name="source_url" placeholder="Source URL (optional)">
           <input type="text" name="tags" placeholder="Tags, comma separated">
           <button type="submit">Upsert</button>

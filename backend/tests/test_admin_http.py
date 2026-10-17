@@ -191,6 +191,24 @@ class TestAdminAuth(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(_as_dict(body)["ok"])
 
+    def test_password_change_rejects_wrong_current_password(self) -> None:
+        self.client.post("/api/admin/login", {"username": "admin", "password": "test-pw"})
+        status, _, body = self.client.post("/api/admin/password", {
+            "current_password": "wrong-password",
+            "new_password": "a-new-password-with-12-chars",
+        })
+        self.assertEqual(status, 400)
+        self.assertIn("current password is incorrect", _as_dict(body)["error"])
+
+    def test_password_change_requires_twelve_characters(self) -> None:
+        self.client.post("/api/admin/login", {"username": "admin", "password": "test-pw"})
+        status, _, body = self.client.post("/api/admin/password", {
+            "current_password": "test-pw",
+            "new_password": "too-short",
+        })
+        self.assertEqual(status, 400)
+        self.assertIn("at least 12 characters", _as_dict(body)["error"])
+
 
 class TestAdminStatic(unittest.TestCase):
     """Admin SPA is served from /admin/*. Verifies content-type + traversal guard."""
