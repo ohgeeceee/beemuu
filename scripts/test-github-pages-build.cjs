@@ -21,6 +21,7 @@ assert.ok(fs.existsSync(path.join(out, ".nojekyll")));
 assert.ok(fs.existsSync(path.join(out, "index.html")));
 assert.ok(fs.existsSync(path.join(out, "admin", "index.html")));
 assert.ok(fs.existsSync(path.join(out, "site-config.json")));
+assert.ok(fs.existsSync(path.join(out, "site-config.js")));
 assert.ok(!fs.existsSync(path.join(out, "app.test.js")), "test files must not ship in the Pages artifact");
 assert.ok(!fs.existsSync(path.join(out, ".gitignore")), "repo-only metadata must not ship in the Pages artifact");
 
@@ -29,6 +30,10 @@ assert.equal(config.apiBaseUrl, "");
 assert.equal(config.adminApiBaseUrl, "");
 assert.equal(config.repository, "ohgeeceee/beemuu");
 assert.equal(config.backendStatus, "pending-serverless-migration");
+const scriptConfig = fs.readFileSync(path.join(out, "site-config.js"), "utf8");
+assert.match(scriptConfig, /apiBaseUrl\":\s*\"\"/);
+assert.match(scriptConfig, /backendStatus\":\s*\"static-only\"/);
+assert.doesNotMatch(scriptConfig, /window\.location\.origin/);
 
 // Walk every shipped page and fail on a missing asset (css/js/image/font/json/xml).
 // Missing content pages are printed with counts but do not fail, because the

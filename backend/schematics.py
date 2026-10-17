@@ -1,8 +1,8 @@
 """Read-only query helpers for the schematics catalog.
 
 The catalog is populated by `backend/seed_schematics.py` at bootstrap time.
-Files are stored under `data/schematics/` and served by nginx over
-`/static/schematics/<slug>.<ext>` to avoid streaming through Python.
+Files are stored under `data/schematics/` and served by the backend over
+`/static/schematics/<slug>.<ext>` so enabled-state and path checks are applied.
 
 This module is intentionally append-only: it does not expose write endpoints.
 Ingestion happens via the seed script (idempotent upserts) and (future) the

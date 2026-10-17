@@ -44,6 +44,19 @@ writeJson(path.join(out, "site-config.json"), {
   backendStatus: "pending-serverless-migration",
 });
 
+// The landing page loads site-config.js synchronously before its app scripts.
+// Keep GitHub Pages static-only so an unset hosted API can't shadow its local
+// static fallbacks with requests to the Pages origin.
+fs.writeFileSync(
+  path.join(out, "site-config.js"),
+  `window.BEEMUU_CONFIG = ${JSON.stringify({
+    apiBaseUrl: "",
+    adminApiBaseUrl: "",
+    repository: "ohgeeceee/beemuu",
+    backendStatus: "static-only",
+  }, null, 2)};\n`,
+);
+
 const releaseTag = process.env.GITHUB_REF_TYPE === "tag"
   ? process.env.GITHUB_REF_NAME
   : "";

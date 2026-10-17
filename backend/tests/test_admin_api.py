@@ -84,6 +84,23 @@ class TestDtcUpsert(unittest.TestCase):
         })
         self.assertEqual(row["title"], "v2")
 
+    def test_edit_without_enabled_flag_preserves_disabled_state(self) -> None:
+        admin_api.upsert_dtc(self.db_path, {
+            "code": "P0171", "category": "powertrain", "title": "v1",
+        })
+        admin_api.set_dtc_enabled(self.db_path, "P0171", False)
+        row = admin_api.upsert_dtc(self.db_path, {
+            "code": "P0171", "category": "powertrain", "title": "v2",
+        })
+        self.assertFalse(row["enabled"])
+
+    def test_upsert_honors_explicit_enabled_flag(self) -> None:
+        row = admin_api.upsert_dtc(self.db_path, {
+            "code": "P0171", "category": "powertrain", "title": "x",
+            "enabled": False,
+        })
+        self.assertFalse(row["enabled"])
+
     def test_upsert_preserves_source_url_and_confidence(self) -> None:
         row = admin_api.upsert_dtc(self.db_path, {
             "code": "P0171", "category": "powertrain", "title": "System too lean",
@@ -198,6 +215,16 @@ class TestSchematics(unittest.TestCase):
                 ("n54-injectors",),
             ).fetchone()[0]
         self.assertEqual(n, 1)
+
+    def test_update_preserves_dimensions_when_omitted(self) -> None:
+        admin_api.upsert_schematic(self.db_path, self._payload(width_px=800, height_px=600))
+        row = admin_api.upsert_schematic(self.db_path, self._payload(title="Updated"))
+        self.assertEqual(row["width_px"], 800)
+        self.assertEqual(row["height_px"], 600)
+
+    def test_pdf_is_rejected_for_image_viewer(self) -> None:
+        with self.assertRaisesRegex(ValueError, "image"):
+            admin_api.upsert_schematic(self.db_path, self._payload(mime="application/pdf"))
 
     def test_link_idempotent(self) -> None:
         admin_api.upsert_schematic(self.db_path, self._payload())
