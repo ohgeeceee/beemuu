@@ -174,6 +174,23 @@ class TestAdminAuth(unittest.TestCase):
         status, _, _ = self.client.get("/api/admin/whoami")
         self.assertEqual(status, 401)
 
+    def test_password_change_revokes_session_and_accepts_new_password(self) -> None:
+        self.client.post("/api/admin/login", {"username": "admin", "password": "test-pw"})
+        status, headers, body = self.client.post("/api/admin/password", {
+            "current_password": "test-pw",
+            "new_password": "a-new-password-with-12-chars",
+        })
+        self.assertEqual(status, 200)
+        self.assertTrue(_as_dict(body)["ok"])
+        self.assertIn("Max-Age=0", headers["Set-Cookie"])
+        status, _, _ = self.client.get("/api/admin/whoami")
+        self.assertEqual(status, 401)
+        status, _, body = self.client.post("/api/admin/login", {
+            "username": "admin", "password": "a-new-password-with-12-chars",
+        })
+        self.assertEqual(status, 200)
+        self.assertTrue(_as_dict(body)["ok"])
+
 
 class TestAdminStatic(unittest.TestCase):
     """Admin SPA is served from /admin/*. Verifies content-type + traversal guard."""
@@ -227,6 +244,16 @@ class TestAdminStatic(unittest.TestCase):
         status, _, body = self._get_raw("/admin/%2e%2e/app.py")
         # Either 400 (bad path) or 404 (not found) — both are acceptable.
         self.assertIn(status, (400, 404))
+
+    def test_public_frontend_and_site_config_share_backend_origin(self) -> None:
+        status, headers, body = self._get_raw("/")
+        self.assertEqual(status, 200)
+        self.assertIn("text/html", headers["Content-Type"])
+        self.assertIn(b"BeeEmUu", body)
+        status, headers, body = self._get_raw("/site-config.js")
+        self.assertEqual(status, 200)
+        self.assertIn("javascript", headers["Content-Type"])
+        self.assertIn(b"window.location.origin", body)
 
 
 class TestAdminWrites(unittest.TestCase):
@@ -329,6 +356,35 @@ class TestAdminWrites(unittest.TestCase):
         status, _, body = self.client.get("/api/dtc/P0171/schematics")
         self.assertEqual(status, 200)
         self.assertGreaterEqual(_as_dict(body)["count"], 1)
+
+    def test_schematic_visibility_routes_hide_and_restore(self) -> None:
+        status, _, _ = self.client.post("/api/admin/schematics", {
+            "slug": "test-schematic", "title": "Test schematic",
+            "series": "E-series", "system": "DME",
+            "file_path": "data/schematics/e90-cas3-pinout.svg",
+            "mime": "image/svg+xml", "license": "CC0",
+        })
+        self.assertEqual(status, 200)
+        status, _, _ = self.client.delete("/api/admin/schematics/test-schematic/disable")
+        self.assertEqual(status, 200)
+        status, _, body = self.client.get("/api/admin/schematics?include_disabled=1")
+        self.assertEqual(status, 200)
+        self.assertFalse(next(
+            row for row in _as_dict(body)["results"] if row["slug"] == "test-schematic"
+        )["enabled"])
+        status, _, _ = self.client.get("/api/schematics/test-schematic")
+        self.assertEqual(status, 404)
+        status, _, _ = self.client.get("/static/schematics/test-schematic.svg")
+        self.assertEqual(status, 404)
+        status, _, _ = self.client.delete("/api/admin/schematics/test-schematic/enable")
+        self.assertEqual(status, 200)
+        status, _, body = self.client.get("/api/schematics/test-schematic")
+        self.assertEqual(status, 200)
+        self.assertEqual(_as_dict(body)["slug"], "test-schematic")
+        status, headers, body = self.client.get("/static/schematics/test-schematic.svg")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "image/svg+xml")
+        self.assertIn("<svg", body)
 
     def test_audit_log_records_writes(self) -> None:
         self.client.post("/api/admin/dtc", {

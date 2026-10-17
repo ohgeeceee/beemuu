@@ -1,17 +1,9 @@
 // beemuu admin SPA — vanilla, no build step.
-// API origin is configured by /site-config.js so the static UI can live on
-// GitHub Pages while the admin API moves off the VPS.
+// The admin UI and API are served by the same Beemuu application origin.
 (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const config = {
-    adminApiBaseUrl: "",
-    ...((typeof window !== "undefined" && window.BEEMUU_CONFIG) || {}),
-  };
-  const adminApiBaseUrl = String(config.adminApiBaseUrl || "").replace(/\/+$/, "");
-  const apiUrl = (path) => adminApiBaseUrl
-    ? adminApiBaseUrl + "/" + String(path).replace(/^\/+/, "")
-    : path;
+  const apiUrl = (path) => path;
   const fmtTime = (epoch) => {
     if (!epoch) return "—";
     const d = new Date(epoch * 1000);
@@ -24,7 +16,11 @@
 
   // -------- HTTP helpers --------
   async function api(method, path, body) {
-    const opts = { method, headers: { "Accept": "application/json" } };
+    const opts = {
+      method,
+      headers: { "Accept": "application/json" },
+      credentials: "same-origin",
+    };
     if (body !== undefined) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
@@ -145,6 +141,8 @@
     </li>`;
   }
 
+  let dtcEntries = [];
+  let editingDtcCode = null;
   async function loadDtc() {
     try {
       const q = $("#dtc-search").value.trim();
@@ -156,8 +154,9 @@
       const data = await api("GET", `/api/admin/dtc?${params}`);
       const tbody = $("#dtc-table tbody");
       const rows = data.results || [];
+      dtcEntries = rows;
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="muted">No DTCs match.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">No DTCs match.</td></tr>`;
         return;
       }
       tbody.innerHTML = rows.map((r) => `
@@ -165,8 +164,10 @@
           <td><code>${escapeHtml(r.code)}</code></td>
           <td>${escapeHtml(r.category)}</td>
           <td>${escapeHtml(r.title)}</td>
+          <td>${escapeHtml(r.severity || "—")}</td>
           <td>${r.enabled ? "enabled" : "disabled"}${r.verified ? " · verified" : ""}</td>
           <td>
+            <button class="ghost" data-action="edit-dtc" data-code="${escapeHtml(r.code)}">Edit</button>
             ${r.enabled
               ? `<button class="danger" data-action="disable-dtc" data-code="${escapeHtml(r.code)}">Disable</button>`
               : `<button class="ghost" data-action="enable-dtc" data-code="${escapeHtml(r.code)}">Enable</button>`}
@@ -177,12 +178,14 @@
     }
   }
 
+  let submissionEntries = [];
   async function loadSubmissions() {
     try {
       const status = $("#sub-status").value;
       const data = await api("GET", `/api/admin/submissions?status=${encodeURIComponent(status)}&limit=200`);
       const tbody = $("#sub-table tbody");
       const rows = data.results || [];
+      submissionEntries = rows;
       if (!rows.length) {
         tbody.innerHTML = `<tr><td colspan="7" class="muted">No submissions.</td></tr>`;
         return;
@@ -196,6 +199,7 @@
           <td>${escapeHtml(fmtTime(r.submitted_at))}</td>
           <td>${escapeHtml(r.status)}</td>
           <td>
+            <button class="ghost" data-action="view-sub" data-id="${r.id}">Details</button>
             ${r.status === "pending" ? `
               <button data-action="approve-sub" data-id="${r.id}">Approve</button>
               <button class="danger" data-action="reject-sub" data-id="${r.id}">Reject</button>
@@ -207,24 +211,32 @@
     }
   }
 
+  let schematicEntries = [];
+  let editingSchematicSlug = null;
   async function loadSchematics() {
     try {
       const data = await api("GET", "/api/admin/schematics?include_disabled=1");
       const tbody = $("#sch-table tbody");
       const rows = data.results || [];
+      schematicEntries = rows;
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="muted">No schematics yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">No schematics yet.</td></tr>`;
         return;
       }
       tbody.innerHTML = rows.map((r) => `
         <tr>
           <td><code>${escapeHtml(r.slug)}</code></td>
           <td>${escapeHtml(r.title)}</td>
-          <td>${escapeHtml(r.series)}</td>
+          <td>${escapeHtml(r.series)}${r.model ? ` · ${escapeHtml(r.model)}` : ""}</td>
           <td>${escapeHtml(r.system)}</td>
-          <td>${escapeHtml(r.license)}</td>
+          <td>${(r.linked_codes || []).map((code) => `<span class="linked-code"><code>${escapeHtml(code)}</code><button class="icon-button" aria-label="Unlink ${escapeHtml(code)}" data-action="unlink-sch" data-slug="${escapeHtml(r.slug)}" data-code="${escapeHtml(code)}">×</button></span>`).join("") || "—"}</td>
+          <td>${r.enabled ? "enabled" : "disabled"}</td>
           <td>
+            <button class="ghost" data-action="edit-sch" data-slug="${escapeHtml(r.slug)}">Edit</button>
             <button data-action="link-sch" data-slug="${escapeHtml(r.slug)}">Link DTC</button>
+            ${r.enabled
+              ? `<button class="danger" data-action="disable-sch" data-slug="${escapeHtml(r.slug)}">Disable</button>`
+              : `<button class="ghost" data-action="enable-sch" data-slug="${escapeHtml(r.slug)}">Enable</button>`}
           </td>
         </tr>`).join("");
     } catch (err) {
@@ -292,21 +304,80 @@
     e.preventDefault(); await logout();
   });
 
+  $("#password-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const error = $("#password-error");
+    error.hidden = true;
+    if (form.elements.new_password.value !== form.elements.confirm_password.value) {
+      error.textContent = "The new passwords do not match.";
+      error.hidden = false;
+      return;
+    }
+    try {
+      await api("POST", "/api/admin/password", {
+        current_password: form.elements.current_password.value,
+        new_password: form.elements.new_password.value,
+      });
+      form.reset();
+      toast("Password changed. Sign in again with the new password.");
+      setTimeout(() => location.reload(), 1400);
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+    }
+  });
+
   $("#dtc-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const payload = {
-      code: fd.get("code"),
+      code: editingDtcCode || fd.get("code"),
       category: fd.get("category"),
       title: fd.get("title"),
+      severity: fd.get("severity") || null,
+      description: fd.get("description") || null,
+      likely_causes: fd.get("likely_causes") || null,
+      source: fd.get("source") || "admin",
+      source_url: fd.get("source_url") || null,
+      confidence: fd.get("confidence"),
+      verified: fd.get("confidence") === "verified",
     };
     try {
       await api("POST", "/api/admin/dtc", payload);
-      toast(`Upserted ${payload.code.toUpperCase()}`);
+      toast(`${editingDtcCode ? "Updated" : "Saved"} ${payload.code.toUpperCase()}`);
       e.target.reset();
+      editingDtcCode = null;
+      e.target.elements.code.disabled = false;
+      $("#dtc-save").textContent = "Save DTC";
+      $("#dtc-cancel").hidden = true;
       loadDtc();
     } catch (err) { toast(`DTC upsert failed: ${err.message}`, "bad"); }
   });
+
+  function editDtc(code) {
+    const row = dtcEntries.find((item) => item.code === code);
+    if (!row) return;
+    const form = $("#dtc-form");
+    for (const name of ["code", "category", "title", "severity", "description", "likely_causes", "source", "source_url", "confidence"]) {
+      if (form.elements[name]) form.elements[name].value = row[name] ?? "";
+    }
+    form.elements.code.disabled = true;
+    editingDtcCode = row.code;
+    $("#dtc-save").textContent = `Update ${row.code}`;
+    $("#dtc-cancel").hidden = false;
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function resetDtcForm() {
+    const form = $("#dtc-form");
+    form.reset();
+    form.elements.code.disabled = false;
+    editingDtcCode = null;
+    $("#dtc-save").textContent = "Save DTC";
+    $("#dtc-cancel").hidden = true;
+  }
+  $("#dtc-cancel").addEventListener("click", resetDtcForm);
 
   $("#dtc-search").addEventListener("input", () => loadDtc());
   $("#dtc-category").addEventListener("change", () => loadDtc());
@@ -317,21 +388,81 @@
     e.preventDefault();
     const fd = new FormData(e.target);
     const payload = {
-      slug: fd.get("slug"),
+      slug: editingSchematicSlug || fd.get("slug"),
       title: fd.get("title"),
       series: fd.get("series"),
       system: fd.get("system"),
       file_path: fd.get("file_path"),
       mime: fd.get("mime"),
       license: fd.get("license"),
+      subsys: fd.get("subsys") || null,
+      model: fd.get("model") || null,
+      year_from: fd.get("year_from") ? parseInt(fd.get("year_from"), 10) : null,
+      year_to: fd.get("year_to") ? parseInt(fd.get("year_to"), 10) : null,
+      source_url: fd.get("source_url") || null,
+      tags: fd.get("tags") || null,
     };
     try {
       await api("POST", "/api/admin/schematics", payload);
-      toast(`Upserted ${payload.slug}`);
+      toast(`${editingSchematicSlug ? "Updated" : "Saved"} ${payload.slug}`);
       e.target.reset();
+      editingSchematicSlug = null;
+      e.target.elements.slug.disabled = false;
+      e.target.querySelector("button[type=submit]").textContent = "Save schematic";
+      $("#sch-cancel").hidden = true;
       loadSchematics();
     } catch (err) { toast(`Schematic upsert failed: ${err.message}`, "bad"); }
   });
+
+  function editSchematic(slug) {
+    const row = schematicEntries.find((item) => item.slug === slug);
+    if (!row) return;
+    const form = $("#sch-form");
+    const values = { ...row, tags: Array.isArray(row.tags) ? row.tags.join(", ") : row.tags };
+    for (const [name, value] of Object.entries(values)) {
+      if (form.elements[name]) form.elements[name].value = value ?? "";
+    }
+    form.elements.slug.disabled = true;
+    editingSchematicSlug = row.slug;
+    form.querySelector("button[type=submit]").textContent = `Update ${row.slug}`;
+    $("#sch-cancel").hidden = false;
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function resetSchematicForm() {
+    const form = $("#sch-form");
+    form.reset();
+    form.elements.slug.disabled = false;
+    editingSchematicSlug = null;
+    form.querySelector("button[type=submit]").textContent = "Save schematic";
+    $("#sch-cancel").hidden = true;
+  }
+  $("#sch-cancel").addEventListener("click", resetSchematicForm);
+
+  function showSubmission(id) {
+    const row = submissionEntries.find((item) => String(item.id) === String(id));
+    if (!row) return;
+    $("#submission-title").textContent = `${row.code || "Submission"} · #${row.id}`;
+    const details = $("#submission-details");
+    details.replaceChildren();
+    const fields = [
+      ["Status", row.status],
+      ["Submitted", fmtTime(row.submitted_at)],
+      ["Submitter", row.submitter_handle],
+      ["VIN", row.submitter_vin],
+      ["Symptoms", row.symptoms],
+      ["Proposed description", row.proposed_description],
+      ["Reviewer note", row.reviewer_note],
+    ];
+    for (const [label, value] of fields) {
+      const dt = document.createElement("dt");
+      const dd = document.createElement("dd");
+      dt.textContent = label;
+      dd.textContent = value || "—";
+      details.append(dt, dd);
+    }
+    $("#submission-dialog").showModal();
+  }
 
   // -------- Delegated clicks for table actions --------
   document.addEventListener("click", async (e) => {
@@ -340,6 +471,7 @@
     const action = t.dataset.action;
     try {
       if (action === "disable-dtc") {
+        if (!confirm(`Disable ${t.dataset.code}? This hides it from the public catalog but preserves its record.`)) return;
         await api("DELETE", `/api/admin/dtc/${encodeURIComponent(t.dataset.code)}`);
         toast(`Disabled ${t.dataset.code}`);
         loadDtc();
@@ -347,6 +479,8 @@
         await api("DELETE", `/api/admin/dtc/${encodeURIComponent(t.dataset.code)}/enable`);
         toast(`Enabled ${t.dataset.code}`);
         loadDtc();
+      } else if (action === "edit-dtc") {
+        editDtc(t.dataset.code);
       } else if (action === "approve-sub") {
         await api("POST", "/api/admin/submissions/review", { id: parseInt(t.dataset.id, 10), status: "approved" });
         toast(`Approved submission ${t.dataset.id}`);
@@ -356,11 +490,28 @@
         await api("POST", "/api/admin/submissions/review", { id: parseInt(t.dataset.id, 10), status: "rejected", note });
         toast(`Rejected submission ${t.dataset.id}`);
         loadSubmissions();
+      } else if (action === "view-sub") {
+        showSubmission(t.dataset.id);
       } else if (action === "link-sch") {
         const code = prompt("DTC code to link (e.g. P0171):");
         if (!code) return;
         await api("POST", "/api/admin/schematic-links", { slug: t.dataset.slug, code: code.toUpperCase() });
         toast(`Linked ${code.toUpperCase()} ↔ ${t.dataset.slug}`);
+        loadSchematics();
+      } else if (action === "unlink-sch") {
+        if (!confirm(`Remove the ${t.dataset.code} link from ${t.dataset.slug}?`)) return;
+        await api("DELETE", `/api/admin/schematic-links?slug=${encodeURIComponent(t.dataset.slug)}&code=${encodeURIComponent(t.dataset.code)}`);
+        toast(`Unlinked ${t.dataset.code}`);
+        loadSchematics();
+      } else if (action === "edit-sch") {
+        editSchematic(t.dataset.slug);
+      } else if (action === "disable-sch" || action === "enable-sch") {
+        const enable = action === "enable-sch";
+        if (!enable && !confirm(`Disable ${t.dataset.slug}? It will no longer appear in the public catalog.`)) return;
+        const suffix = enable ? "/enable" : "/disable";
+        await api("DELETE", `/api/admin/schematics/${encodeURIComponent(t.dataset.slug)}${suffix}`);
+        toast(`${enable ? "Enabled" : "Disabled"} ${t.dataset.slug}`);
+        loadSchematics();
       }
     } catch (err) {
       toast(`${action} failed: ${err.message}`, "bad");
@@ -369,7 +520,14 @@
 
   // -------- Boot --------
   (async function boot() {
-    if (!adminApiBaseUrl) {
+    try {
+      const health = await fetch("/api/health", {
+        headers: { "Accept": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!health.ok) throw new Error(`HTTP ${health.status}`);
+    } catch {
       showOffline();
       return;
     }

@@ -95,13 +95,13 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
 
 
 def get_schematic_by_slug(db_path: Path, slug: str) -> dict | None:
-    """Return one schematic row as a dict, or None if not found."""
+    """Return one active schematic row as a dict, or None if not found."""
     slug = slug.strip()
     if not slug:
         return None
     with db.get_conn(db_path) as conn:
         row = conn.execute(
-            "SELECT * FROM schematics WHERE slug = ?", (slug,)
+            "SELECT * FROM schematics WHERE slug = ? AND enabled = 1", (slug,)
         ).fetchone()
     if row is None:
         return None
@@ -123,7 +123,7 @@ def list_schematics(
     the allow-lists (case-insensitive on series).
     """
     limit = max(1, min(500, int(limit)))
-    where: list[str] = []
+    where: list[str] = ["enabled = 1"]
     params: list[object] = []
     if series:
         if series.lower() not in {s.lower() for s in VALID_SERIES}:

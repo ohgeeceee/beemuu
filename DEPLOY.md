@@ -8,7 +8,7 @@ production VPS. The hosted API runs at `api.beemuu.com` (nginx → systemd unit
 
 - VPS running Ubuntu 20.04+ with systemd and nginx
 - Git repo cloned to `/var/www/beemuu` (owned by the `beemuu` service user)
-- Python 3.8+ (stdlib only — no pip dependencies required)
+- Python 3.10+ (stdlib only — no pip dependencies required)
 - TLS certificates (Let's Encrypt via certbot)
 
 ## 1. Create the service user
@@ -57,6 +57,14 @@ version control) and makes rotation a one-line change.
 
 The SQLite database lives at `/var/www/beemuu/backend/data/beemuu.db` by
 default; override with `BEEMUU_DB_PATH`.
+
+For the Beemuu admin panel, serve `/admin/` from the same site origin as the
+`/api/` proxy. The repository's nginx config serves the panel files from the
+frontend directory and proxies `/api/` to this Python service. Production must
+keep the `BEEMUU_COOKIE_SECURE` default enabled and use HTTPS. Set
+`BEEMUU_COOKIE_SECURE=0` only for local HTTP development. The initial admin
+password is read only during first-time account creation; change it after
+initial sign-in from the panel's Account tab.
 
 Verify the service is up:
 

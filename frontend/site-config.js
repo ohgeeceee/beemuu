@@ -1,6 +1,5 @@
 window.BEEMUU_CONFIG = {
-  apiBaseUrl: "",
-  adminApiBaseUrl: "",
+  apiBaseUrl: window.location.origin,
   repository: "ohgeeceee/beemuu",
-  backendStatus: "pending-serverless-migration",
+  backendStatus: "self-hosted",
 };

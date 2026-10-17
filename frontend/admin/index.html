@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>beemuu — admin</title>
-  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/admin/admin.css?v=admin-1">
 </head>
 <body>
   <main id="app" class="shell">
@@ -12,7 +12,7 @@
     <section id="login-screen" class="panel hero" hidden>
       <p class="eyebrow">beemuu admin</p>
       <h1>Sign in</h1>
-      <p class="hint">Admin API required. Cookies are HttpOnly; the session is bound to your IP for 7 days.</p>
+      <p class="hint">Sign in to manage Beemuu content. Your session uses a secure, HttpOnly cookie and expires after 7 days.</p>
       <form id="login-form" class="form">
         <label>
           <span>Username</span>
@@ -29,9 +29,9 @@
 
     <section id="offline-screen" class="panel hero" hidden>
       <p class="eyebrow">beemuu admin</p>
-      <h1>Backend migration pending</h1>
-      <p class="hint">The admin interface is ready for GitHub Pages, but writes stay disabled until the replacement API, auth, database, and file storage are live.</p>
-      <p class="hint">Set <code>adminApiBaseUrl</code> in <code>/site-config.js</code> after the serverless admin API is deployed.</p>
+      <h1>Beemuu admin is offline</h1>
+      <p class="hint">The admin panel needs the Beemuu application server. It runs on the same site origin and stores its data in the app’s local SQLite database.</p>
+      <p class="hint">When the Beemuu server is available, reload this page to sign in.</p>
     </section>
 
     <!-- App shell, shown when authenticated -->
@@ -48,6 +48,7 @@
         <button type="button" class="tab" data-tab="schematics">Schematics</button>
         <button type="button" class="tab" data-tab="sessions">Diag sessions</button>
         <button type="button" class="tab" data-tab="audit">Audit log</button>
+        <button type="button" class="tab" data-tab="account">Account</button>
       </nav>
 
       <!-- overview -->
@@ -69,19 +70,31 @@
       <!-- dtc -->
       <section class="panel" id="tab-dtc" data-panel="dtc" hidden>
         <h2>DTC catalog</h2>
-        <form id="dtc-form" class="form inline">
-          <input type="text" name="code" placeholder="P0171" maxlength="8" required>
-          <select name="category">
-            <option value="powertrain">powertrain</option>
-            <option value="body">body</option>
-            <option value="chassis">chassis</option>
-            <option value="network">network</option>
-            <option value="bmw-specific">bmw-specific</option>
-          </select>
-          <input type="text" name="title" placeholder="Title" required>
-          <button type="submit">Upsert</button>
+        <form id="dtc-form" class="form">
+          <div class="form-grid">
+            <label><span>Code</span><input type="text" name="code" placeholder="P0171" maxlength="8" required></label>
+            <label><span>Category</span><select name="category">
+              <option value="powertrain">powertrain</option><option value="body">body</option>
+              <option value="chassis">chassis</option><option value="network">network</option>
+              <option value="bmw-specific">bmw-specific</option>
+            </select></label>
+            <label><span>Title</span><input type="text" name="title" placeholder="Title" required></label>
+            <label><span>Severity</span><select name="severity">
+              <option value="">Not set</option><option>info</option><option>low</option>
+              <option>medium</option><option>high</option><option>critical</option>
+            </select></label>
+            <label><span>Confidence</span><select name="confidence">
+              <option value="unverified">unverified</option><option value="community">community</option>
+              <option value="verified">verified</option>
+            </select></label>
+            <label><span>Source</span><input type="text" name="source" value="admin"></label>
+            <label><span>Source URL</span><input type="url" name="source_url" placeholder="https://…"></label>
+            <label class="wide"><span>Description</span><textarea name="description" rows="3"></textarea></label>
+            <label class="wide"><span>Likely causes</span><textarea name="likely_causes" rows="3" placeholder="One cause per line"></textarea></label>
+          </div>
+          <div class="form-actions"><button type="submit" id="dtc-save">Save DTC</button><button type="button" class="ghost" id="dtc-cancel" hidden>Cancel edit</button></div>
         </form>
-        <p class="hint">Code is uppercased. Existing codes are updated in place; new ones are inserted. Use the API for full edit (description, severity, likely_causes).</p>
+        <p class="hint">Catalog records are stored in Beemuu’s SQLite database. Disabling a code keeps its history and audit trail.</p>
         <div class="search-row">
           <input type="search" id="dtc-search" placeholder="Search code or title…">
           <select id="dtc-category">
@@ -94,8 +107,8 @@
           </select>
         </div>
         <table class="data" id="dtc-table">
-          <thead><tr><th>Code</th><th>Category</th><th>Title</th><th>Status</th><th></th></tr></thead>
-          <tbody><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+          <thead><tr><th>Code</th><th>Category</th><th>Title</th><th>Severity</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
         </table>
       </section>
 
@@ -116,6 +129,13 @@
         </table>
       </section>
 
+      <dialog id="submission-dialog" class="dialog">
+        <form method="dialog"><button class="dialog-close" aria-label="Close">×</button></form>
+        <p class="eyebrow">Community submission</p>
+        <h2 id="submission-title">Submission</h2>
+        <dl id="submission-details" class="details-list"></dl>
+      </dialog>
+
       <!-- schematics -->
       <section class="panel" id="tab-schematics" data-panel="schematics" hidden>
         <h2>Schematics catalog</h2>
@@ -124,15 +144,22 @@
           <input type="text" name="title" placeholder="Title" required>
           <input type="text" name="series" placeholder="E-series / F-series / G-series" required>
           <input type="text" name="system" placeholder="system" required>
-          <input type="text" name="file_path" placeholder="static/schematics/x.svg" required>
+          <input type="text" name="file_path" placeholder="data/schematics/x.svg" required>
           <input type="text" name="mime" placeholder="image/svg+xml" required>
           <input type="text" name="license" placeholder="CC0" required>
+          <input type="text" name="subsys" placeholder="Subsystem (optional)">
+          <input type="text" name="model" placeholder="Model (optional)">
+          <input type="number" name="year_from" placeholder="From year">
+          <input type="number" name="year_to" placeholder="To year">
+          <input type="url" name="source_url" placeholder="Source URL (optional)">
+          <input type="text" name="tags" placeholder="Tags, comma separated">
           <button type="submit">Upsert</button>
+          <button type="button" id="sch-cancel" class="ghost" hidden>Cancel edit</button>
         </form>
-        <p class="hint">file_path is repo-relative. The static URL is served by nginx at <code>/static/schematics/...</code>.</p>
+        <p class="hint">Place the asset in <code>data/schematics/</code>, use that repository-relative path, and use the same slug and file extension. Beemuu serves it locally. Disabling hides a schematic but keeps links and history.</p>
         <table class="data" id="sch-table">
-          <thead><tr><th>Slug</th><th>Title</th><th>Series</th><th>System</th><th>License</th><th></th></tr></thead>
-          <tbody><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+          <thead><tr><th>Slug</th><th>Title</th><th>Vehicle</th><th>System</th><th>DTC links</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
         </table>
       </section>
 
@@ -152,11 +179,23 @@
         <p class="hint">Every admin write is recorded with admin_id, action, target, IP, and timestamp. Login attempts (success and failure) are logged even when no admin_id is known.</p>
         <ul id="audit-list" class="audit-list"><li class="muted">Loading…</li></ul>
       </section>
+
+      <section class="panel" id="tab-account" data-panel="account" hidden>
+        <h2>Account security</h2>
+        <p class="hint">Change the password for your Beemuu admin account. Changing it signs out all sessions.</p>
+        <form id="password-form" class="form">
+          <label><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+          <label><span>New password</span><input type="password" name="new_password" autocomplete="new-password" minlength="12" required><small class="muted">Use at least 12 characters.</small></label>
+          <label><span>Confirm new password</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="12" required></label>
+          <button type="submit">Change password</button>
+          <p id="password-error" class="error" role="alert" hidden></p>
+        </form>
+      </section>
     </section>
 
     <p id="toast" class="toast" role="status" hidden></p>
   </main>
-  <script src="/site-config.js"></script>
-  <script src="/admin/admin.js"></script>
+  <script src="/site-config.js?v=admin-1"></script>
+  <script src="/admin/admin.js?v=admin-1"></script>
 </body>
 </html>
