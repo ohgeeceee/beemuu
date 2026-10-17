@@ -33,12 +33,13 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
 }
 
-test("index.html hero banner points at the current release", () => {
+test("index.html release banner and download CTA point to current release info", () => {
   const html = read("frontend/index.html");
   assert.ok(html.includes(`BeeEmUu ${CURRENT_RELEASE} is here`), "hero names current release");
   assert.ok(html.includes(`class="banner-tag">${CURRENT_RELEASE}</span>`), "banner tag = current release");
-  assert.ok(html.includes(TAG), `download CTA links to the ${CURRENT_RELEASE} tag`);
-  assert.ok(html.includes(`Download ${CURRENT_RELEASE}`), "CTA label = current release");
+  assert.ok(html.includes(TAG), `release notes link to the ${CURRENT_RELEASE} tag`);
+  assert.ok(html.includes('href="/downloads.html"'), "download CTA opens the install center");
+  assert.ok(html.includes("Choose your installer"), "CTA label describes the install center");
 });
 
 test("press.html frames the current release and links to its tag", () => {

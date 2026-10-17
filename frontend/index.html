@@ -127,7 +127,6 @@ tailwind.config = {
 <body class="bg-slate-950 text-slate-300 min-h-screen" x-data="{ tab:'linux', copied:false, cmds:{
   linux:'sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev && git clone https://github.com/ohgeeceee/beemuu.git && cd beemuu && cargo tauri dev',
   windows:'winget install beemuu',
-  macos:'brew install --cask beemuu',
   source:'git clone https://github.com/ohgeeceee/beemuu.git && cd beemuu/src-tauri && cargo test && cargo tauri build'
 }, copy(){ navigator.clipboard.writeText(this.cmds[this.tab]).then(()=>{ this.copied=true; setTimeout(()=>this.copied=false,2000); }) } }">
 
@@ -146,6 +145,7 @@ tailwind.config = {
       <a href="#architecture" class="hover:text-white transition-colors">Architecture</a>
       <a href="#telemetry" class="hover:text-white transition-colors">Telemetry</a>
       <a href="#setup" class="hover:text-white transition-colors">Setup</a>
+      <a href="/downloads.html" class="hover:text-white transition-colors">Downloads</a>
       <a href="/hardware.html" class="hover:text-white transition-colors">Hardware</a>
       <a href="/faq.html" class="hover:text-white transition-colors">FAQ</a>
       <a href="https://plugins.beemuu.com" target="_blank" rel="noopener" class="hover:text-white transition-colors">Plugins</a>
@@ -157,10 +157,10 @@ tailwind.config = {
         GitHub
         <span class="flex items-center gap-1 text-xs text-amber-400"><i data-lucide="star" class="w-3 h-3 fill-amber-400"></i>Star</span>
       </a>
-      <a href="https://github.com/ohgeeceee/beemuu/releases/tag/v5.0.0"
+      <a href="/downloads.html"
          class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-electric text-white shadow-lg shadow-electric/30 hover:bg-blue-500 hover:shadow-electric/50 transition-all">
         <i data-lucide="download" class="w-4 h-4"></i>
-        Download v5.0.0
+        Downloads
       </a>
     </div>
   </nav>
@@ -195,9 +195,9 @@ tailwind.config = {
       </p>
 
       <div class="mt-9 flex flex-wrap items-center gap-4">
-        <a href="https://github.com/ohgeeceee/beemuu/releases/tag/v5.0.0" class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-electric text-white font-semibold shadow-xl shadow-electric/30 hover:bg-blue-500 hover:scale-[1.02] transition-all">
+        <a href="/downloads.html" class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-electric text-white font-semibold shadow-xl shadow-electric/30 hover:bg-blue-500 hover:scale-[1.02] transition-all">
           <i data-lucide="download" class="w-5 h-5"></i>
-          Download v5.0.0
+          Choose your installer
         </a>
         <a href="https://github.com/ohgeeceee/beemuu" target="_blank" rel="noopener"
            class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl border border-slate-700 bg-slate-900/40 text-slate-200 font-semibold hover:border-cyan-400/60 hover:text-white transition-all">
@@ -207,7 +207,7 @@ tailwind.config = {
       </div>
 
       <div class="mt-9 flex flex-wrap gap-3 text-xs font-mono">
-        <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-800 bg-slate-900/50 text-slate-400"><i data-lucide="monitor" class="w-3.5 h-3.5 text-cyan-400"></i> Cross-Platform · Win / Mac / Linux</span>
+        <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-800 bg-slate-900/50 text-slate-400"><i data-lucide="monitor" class="w-3.5 h-3.5 text-cyan-400"></i> Desktop · Windows / Linux</span>
         <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-800 bg-slate-900/50 text-slate-400"><i data-lucide="zap" class="w-3.5 h-3.5 text-cyan-400"></i> Latency &lt;8ms</span>
         <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-800 bg-slate-900/50 text-slate-400"><i data-lucide="unlock" class="w-3.5 h-3.5 text-cyan-400"></i> 100% Open Source</span>
       </div>
@@ -689,7 +689,7 @@ function telemetry(){
 
     <div class="mt-12 text-left rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-md overflow-hidden shadow-2xl shadow-black/50">
       <div class="flex items-center border-b border-slate-800 bg-slate-950/60 px-3 pt-2 gap-1" role="tablist" aria-label="Install platform">
-        <template x-for="t in ['linux','windows','macos','source']" :key="t">
+        <template x-for="t in ['linux','windows','source']" :key="t">
           <button role="tab" :aria-selected="tab===t" @click="tab=t"
             class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors capitalize"
             :class="tab===t ? 'text-white bg-slate-900 border border-b-0 border-slate-800' : 'text-slate-500 hover:text-slate-300'"
@@ -713,10 +713,6 @@ function telemetry(){
           <div class="text-slate-500"># Windows 10/11 — grab the signed installer</div>
           <div><span class="text-cyan-300">></span> winget install beemuu</div>
           <div class="text-slate-500"># K+DCAN: install FTDI VCP drivers, set Latency Timer → 1 ms</div>
-        </div>
-        <div x-show="tab==='macos'" x-cloak>
-          <div><span class="text-cyan-300">$</span> brew install --cask beemuu</div>
-          <div class="text-slate-500"># or download the universal .dmg from Releases</div>
         </div>
         <div x-show="tab==='source'" x-cloak>
           <div class="text-slate-500"># Rust 1.78+ required</div>
@@ -790,8 +786,8 @@ function telemetry(){
     <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">Ready to upgrade your<br><span class="text-gradient">diagnostic workflow?</span></h2>
     <p class="mt-5 text-slate-400 text-lg">Free forever. Open source forever. Built for the people who actually turn the wrenches.</p>
     <div class="mt-9 flex flex-wrap justify-center gap-4">
-      <a href="https://github.com/ohgeeceee/beemuu/releases/tag/v5.0.0" class="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-electric text-white font-semibold shadow-xl shadow-electric/30 hover:bg-blue-500 hover:scale-[1.02] transition-all">
-        <i data-lucide="download" class="w-5 h-5"></i> Download v5.0.0
+      <a href="/downloads.html" class="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-electric text-white font-semibold shadow-xl shadow-electric/30 hover:bg-blue-500 hover:scale-[1.02] transition-all">
+        <i data-lucide="download" class="w-5 h-5"></i> Choose your installer
       </a>
       <a href="https://github.com/ohgeeceee/beemuu" target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-8 py-4 rounded-xl border border-slate-700 bg-slate-900/40 font-semibold text-slate-200 hover:border-amber-400/60 hover:text-white transition-all">
