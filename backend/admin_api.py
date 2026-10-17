@@ -110,8 +110,12 @@ def upsert_dtc(db_path: Path, payload: dict) -> dict:
     description = payload.get("description")
     likely_causes = payload.get("likely_causes")
     source = (payload.get("source") or "admin").strip()
+    source_url = (payload.get("source_url") or "").strip() or None
     verified = 1 if payload.get("verified") else 0
     enabled = 0 if payload.get("enabled") is False else 1
+    confidence = (payload.get("confidence") or ("verified" if verified else "unverified")).strip()
+    if confidence not in {"unverified", "community", "verified"}:
+        raise ValueError("confidence must be unverified, community, or verified")
 
     with db.get_conn(db_path) as conn:
         existing = conn.execute(
@@ -120,18 +124,18 @@ def upsert_dtc(db_path: Path, payload: dict) -> dict:
         if existing is None:
             conn.execute(
                 "INSERT INTO dtc (code, category, severity, title, description, "
-                "likely_causes, source, verified, enabled, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "likely_causes, source, source_url, verified, confidence, enabled, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (code, category, severity, title, description, likely_causes,
-                 source, verified, enabled, now, now),
+                 source, source_url, verified, confidence, enabled, now, now),
             )
         else:
             conn.execute(
                 "UPDATE dtc SET category=?, severity=?, title=?, description=?, "
-                "likely_causes=?, source=?, verified=?, enabled=?, updated_at=? "
+                "likely_causes=?, source=?, source_url=?, verified=?, confidence=?, enabled=?, updated_at=? "
                 "WHERE code=?",
                 (category, severity, title, description, likely_causes,
-                 source, verified, enabled, now, code),
+                 source, source_url, verified, confidence, enabled, now, code),
             )
         conn.commit()
         row = conn.execute("SELECT * FROM dtc WHERE code = ?", (code,)).fetchone()
@@ -159,7 +163,9 @@ def _row_to_dtc(row: dict) -> dict:
         "description": row.get("description"),
         "likely_causes": row.get("likely_causes"),
         "source": row["source"],
+        "source_url": row.get("source_url"),
         "verified": bool(row.get("verified")),
+        "confidence": row.get("confidence", "unverified"),
         "enabled": bool(row.get("enabled", 1)),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
@@ -228,6 +234,10 @@ def upsert_schematic(db_path: Path, payload: dict) -> dict:
         raise ValueError(
             "slug, title, series, system, file_path, mime, license are all required"
         )
+    if mime not in {
+        "image/svg+xml", "image/png", "image/jpeg", "image/webp", "application/pdf",
+    }:
+        raise ValueError("mime must be an SVG, PNG, JPEG, WebP, or PDF asset")
 
     now = int(time.time())
     fields = dict(
@@ -273,6 +283,20 @@ def upsert_schematic(db_path: Path, payload: dict) -> dict:
         conn.commit()
         row = conn.execute("SELECT * FROM schematics WHERE slug = ?", (slug,)).fetchone()
     return dict(row)
+
+
+def set_schematic_enabled(db_path: Path, slug: str, enabled: bool) -> bool:
+    """Hide or restore a schematic without deleting its metadata or links."""
+    slug = (slug or "").strip()
+    if not slug:
+        raise ValueError("slug is required")
+    with db.get_conn(db_path) as conn:
+        cur = conn.execute(
+            "UPDATE schematics SET enabled = ? WHERE slug = ?",
+            (1 if enabled else 0, slug),
+        )
+        conn.commit()
+    return cur.rowcount > 0
 
 
 def set_schematic_link(db_path: Path, slug: str, code: str, note: str | None = None) -> None:

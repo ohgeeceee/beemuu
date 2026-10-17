@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS schematics (
     source_url TEXT,
     license TEXT NOT NULL,
     tags TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_schematics_series ON schematics(series);
@@ -168,6 +169,13 @@ def init_db(path: Path | None = None) -> Path:
             conn.execute("ALTER TABLE dtc ADD COLUMN confidence TEXT NOT NULL DEFAULT 'unverified'")
         if "source_url" not in columns:
             conn.execute("ALTER TABLE dtc ADD COLUMN source_url TEXT")
+        schematic_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(schematics)")
+        }
+        if "enabled" not in schematic_columns:
+            conn.execute(
+                "ALTER TABLE schematics ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"
+            )
         conn.commit()
     return resolved
 

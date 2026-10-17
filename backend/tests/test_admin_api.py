@@ -84,6 +84,23 @@ class TestDtcUpsert(unittest.TestCase):
         })
         self.assertEqual(row["title"], "v2")
 
+    def test_upsert_preserves_source_url_and_confidence(self) -> None:
+        row = admin_api.upsert_dtc(self.db_path, {
+            "code": "P0171", "category": "powertrain", "title": "System too lean",
+            "source_url": "https://example.test/dtc/P0171",
+            "confidence": "community",
+        })
+        self.assertEqual(row["source_url"], "https://example.test/dtc/P0171")
+        self.assertEqual(row["confidence"], "community")
+        self.assertFalse(row["verified"])
+
+    def test_upsert_rejects_unknown_confidence(self) -> None:
+        with self.assertRaises(ValueError):
+            admin_api.upsert_dtc(self.db_path, {
+                "code": "P0171", "category": "powertrain", "title": "x",
+                "confidence": "certain",
+            })
+
     def test_invalid_category_rejected(self) -> None:
         with self.assertRaises(ValueError):
             admin_api.upsert_dtc(self.db_path, {
@@ -198,6 +215,19 @@ class TestSchematics(unittest.TestCase):
         admin_api.set_schematic_link(self.db_path, "n54-injectors", "P0171")
         self.assertTrue(admin_api.delete_schematic_link(self.db_path, "n54-injectors", "P0171"))
         self.assertFalse(admin_api.delete_schematic_link(self.db_path, "n54-injectors", "P0171"))
+
+    def test_visibility_toggle_preserves_schematic_record(self) -> None:
+        admin_api.upsert_schematic(self.db_path, self._payload())
+        self.assertTrue(admin_api.set_schematic_enabled(self.db_path, "n54-injectors", False))
+        with db.get_conn(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT slug, enabled FROM schematics WHERE slug = ?",
+                ("n54-injectors",),
+            ).fetchone()
+        self.assertEqual(row["slug"], "n54-injectors")
+        self.assertEqual(row["enabled"], 0)
+        self.assertTrue(admin_api.set_schematic_enabled(self.db_path, "n54-injectors", True))
+        self.assertFalse(admin_api.set_schematic_enabled(self.db_path, "missing", True))
 
 
 class TestDashboard(unittest.TestCase):

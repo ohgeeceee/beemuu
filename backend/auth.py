@@ -126,3 +126,27 @@ def revoke_session(db_path: Path, token: str) -> None:
     with db.get_conn(db_path) as conn:
         conn.execute("DELETE FROM session_cookie WHERE id = ?", (token,))
         conn.commit()
+
+
+def change_password(
+    db_path: Path,
+    admin_id: int,
+    current_password: str,
+    new_password: str,
+) -> None:
+    """Change the authenticated admin password and revoke every session."""
+    if len(new_password) < 12:
+        raise ValueError("new password must be at least 12 characters")
+    with db.get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT password_hash FROM admin_user WHERE id = ?", (admin_id,)
+        ).fetchone()
+        if row is None or not verify_password(current_password, row["password_hash"]):
+            raise ValueError("current password is incorrect")
+        password_hash = hash_password(new_password)
+        conn.execute(
+            "UPDATE admin_user SET password_hash = ? WHERE id = ?",
+            (password_hash, admin_id),
+        )
+        conn.execute("DELETE FROM session_cookie WHERE admin_id = ?", (admin_id,))
+        conn.commit()

@@ -10,6 +10,7 @@ import argparse
 import collections
 import hashlib
 import json
+import mimetypes
 import os
 import sqlite3
 import subprocess
@@ -34,6 +35,10 @@ PLUGIN_REGISTRY = Path(
 # Cookie name for the admin session. Limit to safe ASCII; auth.lookup_session
 # treats anything it can't find as None, so a hostile cookie value is harmless.
 _SESSION_COOKIE = "beemuu_admin"
+
+_COOKIE_SECURE = os.environ.get("BEEMUU_COOKIE_SECURE", "1").strip().lower() not in {
+    "0", "false", "no", "off",
+}
 
 # ---------------------------------------------------------------------------
 # Rate limiting — per-IP sliding-window counter (stdlib only).
@@ -423,6 +428,9 @@ class Handler(BaseHTTPRequestHandler):
             slug = tail
             self._handle_schematic_by_slug(slug)
             return
+        if parsed.path.startswith("/static/schematics/"):
+            self._handle_schematic_asset(parsed.path)
+            return
         # Read-only community plugin registry (list + per-id install manifest).
         if parsed.path == "/api/plugins":
             self._handle_plugins_list(parse_qs(parsed.query))
@@ -453,6 +461,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/app.css":
             self._file(FRONTEND / "app.css", "text/css; charset=utf-8")
+            return
+        if parsed.path == "/site-config.js":
+            self._file(FRONTEND / "site-config.js", "application/javascript; charset=utf-8")
             return
         # Live Gauges panel (v0.14.0 public-site bonus, PR #167). The
         # static asset routes mirror the existing /app.{js,css} pattern.
@@ -498,6 +509,10 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/api/admin/"):
             self._handle_admin_get(parsed.path, parse_qs(parsed.query))
             return
+        # Serve the rest of the public site from the same application origin.
+        # The admin SPA and API therefore need no external service or CORS.
+        if self._handle_frontend_static(parsed.path):
+            return
         self._json({"error": "not found"}, status=404)
 
     # ------------------------------------------------------------------
@@ -531,17 +546,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _set_session_cookie(self, token: str) -> None:
         # 7 days, matching auth._SESSION_TTL_SECS. HttpOnly; SameSite=Lax.
-        # Not Secure because the admin panel is served on the same origin
-        # as the public API; the systemd unit terminates TLS at nginx.
+        # Hosted deployments terminate TLS at the platform proxy.
+        secure = "; Secure" if _COOKIE_SECURE else ""
         self.send_header(
             "Set-Cookie",
-            f"{_SESSION_COOKIE}={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800",
+            f"{_SESSION_COOKIE}={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800{secure}",
         )
 
     def _clear_session_cookie(self) -> None:
         self.send_header(
             "Set-Cookie",
-            f"{_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+            f"{_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+            f"{'; Secure' if _COOKIE_SECURE else ''}",
         )
 
     def _handle_admin_static(self, path: str) -> bool:
@@ -578,6 +594,51 @@ class Handler(BaseHTTPRequestHandler):
         }.get(ext, "application/octet-stream")
         self._file(asset, ct)
         return True
+
+    def _handle_frontend_static(self, path: str) -> bool:
+        """Serve a public frontend file without allowing path traversal."""
+        rel = path.lstrip("/") or "index.html"
+        root = FRONTEND.resolve()
+        asset = (root / rel).resolve()
+        if asset.is_dir():
+            asset = (asset / "index.html").resolve()
+        if not asset.is_relative_to(root) or not asset.is_file():
+            return False
+        content_type, _ = mimetypes.guess_type(asset.name)
+        if content_type == "text/html":
+            content_type += "; charset=utf-8"
+        elif content_type and (
+            content_type.startswith("text/")
+            or content_type.endswith("javascript")
+            or content_type == "application/json"
+        ):
+            content_type += "; charset=utf-8"
+        self._file(asset, content_type or "application/octet-stream")
+        return True
+
+    def _handle_schematic_asset(self, path: str) -> None:
+        """Serve an active schematic file resolved from its database record."""
+        filename = path[len("/static/schematics/"):].strip("/")
+        slug, dot, extension = filename.rpartition(".")
+        if not dot or not slug or "/" in filename:
+            self._json({"error": "not found"}, status=404)
+            return
+        db_path = db._resolve_path(None)  # noqa: SLF001
+        with db.get_conn(db_path) as conn:
+            row = conn.execute(
+                "SELECT file_path, mime FROM schematics "
+                "WHERE slug = ? AND enabled = 1",
+                (slug,),
+            ).fetchone()
+        if row is None or extension != schematics._extension_for(row["mime"]):
+            self._json({"error": "not found"}, status=404)
+            return
+        schematic_root = (ROOT / "data" / "schematics").resolve()
+        asset = (ROOT / row["file_path"]).resolve()
+        if not asset.is_relative_to(schematic_root) or not asset.is_file():
+            self._json({"error": "not found"}, status=404)
+            return
+        self._file(asset, row["mime"])
 
     # ------------------------------------------------------------------
     # Admin GET routes — dashboard, audit, sessions, submissions
@@ -649,7 +710,17 @@ class Handler(BaseHTTPRequestHandler):
                     rows = conn.execute(
                         "SELECT * FROM schematics WHERE enabled = 1 ORDER BY slug ASC"
                     ).fetchall()
-            self._json({"results": [dict(r) for r in rows]})
+                results = []
+                for row in rows:
+                    item = dict(row)
+                    item["linked_codes"] = [
+                        link[0] for link in conn.execute(
+                            "SELECT code FROM schematic_link WHERE schematic_slug = ? ORDER BY code",
+                            (item["slug"],),
+                        ).fetchall()
+                    ]
+                    results.append(item)
+            self._json({"results": results})
             return
 
         if path == "/api/admin/sessions":
@@ -765,6 +836,33 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": True})
             return
 
+        if parsed.path == "/api/admin/password":
+            current_password = body.get("current_password")
+            new_password = body.get("new_password")
+            if not isinstance(current_password, str) or not isinstance(new_password, str):
+                self._json({"error": "current and new passwords are required"}, status=400)
+                return
+            try:
+                auth.change_password(
+                    db_path, admin_id, current_password, new_password
+                )
+            except ValueError as exc:
+                self._json({"error": str(exc)}, status=400)
+                return
+            admin_api.write_audit(
+                db_path, admin_id=admin_id, action="account.password_change",
+                ip=self.client_address[0],
+            )
+            response = json.dumps({"ok": True}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(response)))
+            self._clear_session_cookie()
+            self.end_headers()
+            self.wfile.write(response)
+            return
+
         if parsed.path == "/api/admin/logout":
             token = self._cookie_token()
             if token:
@@ -781,10 +879,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
-            self.send_header(
-                "Set-Cookie",
-                f"{_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
-            )
+            self._clear_session_cookie()
             self.end_headers()
             self.wfile.write(body)
             return
@@ -809,6 +904,32 @@ class Handler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         db_path = db._resolve_path(None)  # noqa: SLF001
+
+        # /api/admin/schematics/<slug>/enable and /disable.
+        if parsed.path.startswith("/api/admin/schematics/") and (
+            parsed.path.endswith("/enable") or parsed.path.endswith("/disable")
+        ):
+            if parsed.path.endswith("/enable"):
+                slug = parsed.path[len("/api/admin/schematics/"):-len("/enable")].rstrip("/")
+                enable = True
+            else:
+                slug = parsed.path[len("/api/admin/schematics/"):-len("/disable")].rstrip("/")
+                enable = False
+            try:
+                ok = admin_api.set_schematic_enabled(db_path, slug, enable)
+            except ValueError as exc:
+                self._json({"error": str(exc)}, status=400)
+                return
+            if not ok:
+                self._json({"error": "not found"}, status=404)
+                return
+            admin_api.write_audit(
+                db_path, admin_id=admin_id,
+                action=f"schematic.{'enable' if enable else 'disable'}",
+                target=slug, ip=self.client_address[0],
+            )
+            self._json({"ok": True})
+            return
 
         # /api/admin/dtc/<code>/enable and /disable — checked BEFORE the bare
         # /api/admin/dtc/<code> handler since the suffix variants are a
@@ -1197,7 +1318,9 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     parser = argparse.ArgumentParser(description="BeeEmUu VPS web backend")
     parser.add_argument("--host", default=os.environ.get("BEEMUU_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.environ.get("BEEMUU_PORT", "8765")))
+    parser.add_argument("--port", type=int, default=int(
+        os.environ.get("BEEMUU_PORT", "8765")
+    ))
     args = parser.parse_args()
 
     # First-boot bootstrap: ensure DB + schema exist, ensure admin user exists.

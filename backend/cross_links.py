@@ -209,7 +209,7 @@ def list_links_for_dtc(
         return []
     sql = _sql_for_code() + " WHERE l.code = ?"
     if not include_disabled:
-        sql += " AND (d.enabled IS NULL OR d.enabled = 1)"
+        sql += " AND s.enabled = 1 AND (d.enabled IS NULL OR d.enabled = 1)"
     sql += " ORDER BY l.schematic_slug ASC LIMIT ?"
     with db.get_conn(db_path) as conn:
         rows = conn.execute(sql, (code, limit)).fetchall()
@@ -233,7 +233,7 @@ def list_links_for_schematic(
         return []
     sql = _sql_for_slug() + " WHERE l.schematic_slug = ?"
     if not include_disabled:
-        sql += " AND (d.enabled IS NULL OR d.enabled = 1)"
+        sql += " AND s.enabled = 1 AND (d.enabled IS NULL OR d.enabled = 1)"
     sql += " ORDER BY l.code ASC LIMIT ?"
     with db.get_conn(db_path) as conn:
         rows = conn.execute(sql, (slug, limit)).fetchall()
