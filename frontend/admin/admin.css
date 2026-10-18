@@ -42,6 +42,9 @@ button.ghost {
   background: transparent; color: var(--text); border: 1px solid var(--line);
 }
 button:disabled { opacity: .5; cursor: wait; }
+button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 3px;
+}
 
 .tabs {
   display: flex; gap: 6px; flex-wrap: wrap;
@@ -54,7 +57,7 @@ button:disabled { opacity: .5; cursor: wait; }
   background: transparent; color: var(--muted);
   border: 0; border-radius: 12px;
   padding: 8px 14px; font-weight: 600;
-  cursor: pointer; min-height: 36px;
+  cursor: pointer; min-height: 44px;
 }
 .tab:hover { color: var(--text); }
 .tab.active { background: var(--card); color: var(--accent); }
@@ -79,6 +82,16 @@ button:disabled { opacity: .5; cursor: wait; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .form-grid .wide { grid-column: 1 / -1; }
 .form-grid .check-label { flex-direction: row; align-items: center; align-self: end; min-height: 38px; }
+.form-grid label > span, .search-row label > span { color: var(--muted); font-size: 13px; }
+.form-grid small { color: var(--muted); }
+.form-group { min-width: 0; margin: 10px 0 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
+.form-group legend { padding: 0 6px; color: var(--accent); font-weight: 700; }
+.editor-section { margin: 22px 0; padding: 14px; background: rgba(23,36,58,.52); border: 1px solid var(--line); border-radius: 14px; }
+.editor-section > summary, .metadata-details > summary { cursor: pointer; color: var(--accent); font-weight: 700; }
+.editor-section[open] > summary { margin-bottom: 8px; }
+.metadata-details { margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.metadata-details[open] > summary { margin-bottom: 14px; }
+.metadata-grid { margin-top: 12px; }
 .form-grid input[type="checkbox"] { width: 18px; min-height: 18px; accent-color: var(--accent); }
 .form-actions { display: flex; align-items: center; gap: 8px; }
 .form.inline label { flex: 1 1 140px; }
@@ -90,7 +103,8 @@ button:disabled { opacity: .5; cursor: wait; }
 .form input:focus, .form select:focus, .form textarea:focus {
   outline: 2px solid var(--accent); outline-offset: 1px;
 }
-.search-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.search-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; align-items: end; }
+.search-row label { display: flex; flex-direction: column; gap: 4px; min-width: min(100%, 230px); flex: 1 1 230px; }
 .search-row input, .search-row select {
   background: var(--card); color: var(--text);
   border: 1px solid var(--line); border-radius: 10px;
@@ -99,6 +113,7 @@ button:disabled { opacity: .5; cursor: wait; }
 
 .data { width: 100%; border-collapse: collapse; margin-top: 12px; }
 .panel { overflow-x: auto; }
+.table-wrap { width: 100%; overflow-x: auto; }
 .data th, .data td {
   text-align: left; padding: 10px 12px;
   border-bottom: 1px solid var(--line);
@@ -108,10 +123,15 @@ button:disabled { opacity: .5; cursor: wait; }
 .data tr:hover td { background: rgba(255,255,255,.02); }
 .data td.muted { color: var(--muted); text-align: center; padding: 24px; }
 .data td button { margin-right: 6px; }
+.pagination { display: flex; gap: 12px; justify-content: center; align-items: center; margin: 14px 0; }
+.pagination button { min-width: 104px; }
 .linked-code { display: inline-flex; align-items: center; margin: 0 6px 4px 0; }
 .icon-button { min-height: 22px; width: 22px; padding: 0; margin-left: 3px; background: transparent; border: 1px solid var(--line); color: var(--muted); }
 .icon-button:hover { color: var(--danger); border-color: var(--danger); }
 .dialog { width: min(680px, calc(100% - 24px)); max-height: 85vh; overflow: auto; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 24px 80px rgba(0,0,0,.5); }
+.compact-dialog { width: min(480px, calc(100% - 24px)); }
+.dialog-form { max-width: none; }
+.dialog-form .form-actions { flex-wrap: wrap; }
 .dialog::backdrop { background: rgba(0,0,0,.72); backdrop-filter: blur(4px); }
 .dialog h2 { margin: 6px 0 16px; }
 .dialog form[method="dialog"] { float: right; }
@@ -142,12 +162,18 @@ button:disabled { opacity: .5; cursor: wait; }
 .toast.ok { border-color: var(--ok); }
 .toast.bad { border-color: var(--danger); }
 
+[role="tabpanel"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
 @media (max-width: 640px) {
   .shell { padding: 16px 10px 28px; }
   .hero, .panel, .topbar { padding: 16px; border-radius: 16px; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .wide { grid-column: auto; }
   .data { min-width: 720px; }
+  .form-group { padding: 10px; }
+  .editor-section { padding: 12px; }
+  .pagination { justify-content: space-between; }
+  .pagination button { min-width: 88px; }
   .toast { left: 10px; right: 10px; bottom: 10px; max-width: none; }
 }
 

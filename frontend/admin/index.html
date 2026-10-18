@@ -41,26 +41,26 @@
         <h1>Content manager</h1>
         <p class="hint">Signed in as <strong id="who-name">…</strong> · <a href="#" id="logout-link">Sign out</a></p>
       </header>
-      <nav class="tabs" role="tablist">
-        <button type="button" class="tab active" data-tab="overview">Overview</button>
-        <button type="button" class="tab" data-tab="dtc">DTC catalog</button>
-        <button type="button" class="tab" data-tab="submissions">Submissions</button>
-        <button type="button" class="tab" data-tab="schematics">Schematics</button>
-        <button type="button" class="tab" data-tab="sessions">Diag sessions</button>
-        <button type="button" class="tab" data-tab="audit">Audit log</button>
-        <button type="button" class="tab" data-tab="account">Account</button>
+      <nav class="tabs" role="tablist" aria-label="Admin sections">
+        <button type="button" class="tab active" id="tab-button-overview" role="tab" aria-controls="tab-overview" aria-selected="true" tabindex="0" data-tab="overview">Overview</button>
+        <button type="button" class="tab" id="tab-button-dtc" role="tab" aria-controls="tab-dtc" aria-selected="false" tabindex="-1" data-tab="dtc">DTC catalog</button>
+        <button type="button" class="tab" id="tab-button-submissions" role="tab" aria-controls="tab-submissions" aria-selected="false" tabindex="-1" data-tab="submissions">Submissions</button>
+        <button type="button" class="tab" id="tab-button-schematics" role="tab" aria-controls="tab-schematics" aria-selected="false" tabindex="-1" data-tab="schematics">Schematics</button>
+        <button type="button" class="tab" id="tab-button-sessions" role="tab" aria-controls="tab-sessions" aria-selected="false" tabindex="-1" data-tab="sessions">Diagnostic sessions</button>
+        <button type="button" class="tab" id="tab-button-audit" role="tab" aria-controls="tab-audit" aria-selected="false" tabindex="-1" data-tab="audit">Audit log</button>
+        <button type="button" class="tab" id="tab-button-account" role="tab" aria-controls="tab-account" aria-selected="false" tabindex="-1" data-tab="account">Account</button>
       </nav>
 
       <!-- overview -->
-      <section class="panel" id="tab-overview" data-panel="overview">
+      <section class="panel" id="tab-overview" role="tabpanel" aria-labelledby="tab-button-overview" tabindex="0" data-panel="overview">
         <h2>Overview</h2>
         <div id="counts" class="grid">
-          <article class="card"><span>DTCs</span><strong id="count-dtc">…</strong></article>
-          <article class="card"><span>DTC enabled</span><strong id="count-dtc-enabled">…</strong></article>
+          <article class="card"><span>Diagnostic trouble codes (DTCs)</span><strong id="count-dtc">…</strong></article>
+          <article class="card"><span>DTCs in public catalog</span><strong id="count-dtc-enabled">…</strong></article>
           <article class="card"><span>Submissions (pending)</span><strong id="count-submissions">…</strong></article>
           <article class="card"><span>Schematics</span><strong id="count-schematics">…</strong></article>
           <article class="card"><span>Schematic links</span><strong id="count-links">…</strong></article>
-          <article class="card"><span>Diag sessions</span><strong id="count-sessions">…</strong></article>
+          <article class="card"><span>Diagnostic sessions</span><strong id="count-sessions">…</strong></article>
           <article class="card"><span>Audit events</span><strong id="count-audit">…</strong></article>
         </div>
         <h3>Recent activity</h3>
@@ -68,8 +68,34 @@
       </section>
 
       <!-- dtc -->
-      <section class="panel" id="tab-dtc" data-panel="dtc" hidden>
+      <section class="panel" id="tab-dtc" role="tabpanel" aria-labelledby="tab-button-dtc" tabindex="0" data-panel="dtc" hidden>
         <h2>DTC catalog</h2>
+        <p class="hint">DTC means diagnostic trouble code. Search or filter the catalog, then edit a record when needed.</p>
+        <div class="search-row" role="search" aria-label="Search DTC catalog">
+          <label><span>Search codes and titles</span><input type="search" id="dtc-search" placeholder="Example: P0171 or lean mixture"></label>
+          <label><span>Category</span><select id="dtc-category">
+            <option value="">All categories</option>
+            <option value="powertrain">Powertrain</option>
+            <option value="body">Body</option>
+            <option value="chassis">Chassis</option>
+            <option value="network">Network</option>
+            <option value="bmw-specific">BMW-specific</option>
+          </select></label>
+        </div>
+        <p id="dtc-results-summary" class="muted" aria-live="polite"></p>
+        <div class="table-wrap">
+        <table class="data" id="dtc-table">
+          <thead><tr><th>Code</th><th>Category</th><th>Title</th><th>Severity</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+        </table>
+        </div>
+        <div class="pagination" aria-label="DTC result pages">
+          <button type="button" class="ghost" id="dtc-prev" disabled>Previous</button>
+          <span id="dtc-page-label" class="muted">Page 1</span>
+          <button type="button" class="ghost" id="dtc-next" disabled>Next</button>
+        </div>
+        <details id="dtc-editor" class="editor-section">
+          <summary id="dtc-editor-summary">Add a DTC</summary>
         <form id="dtc-form" class="form">
           <div class="form-grid">
             <label><span>Code</span><input type="text" name="code" placeholder="P0171" maxlength="8" required></label>
@@ -82,111 +108,138 @@
             <label><span>Severity</span><select name="severity">
               <option value="">Not set</option><option>info</option><option>warn</option><option>critical</option>
             </select></label>
-            <label><span>Confidence</span><select name="confidence">
+            <label><span>Evidence level</span><select name="confidence" aria-describedby="confidence-help">
               <option value="unverified">unverified</option><option value="community">community</option>
               <option value="verified">verified</option>
             </select></label>
             <label class="check-label"><span>Verified</span><input type="checkbox" name="verified"></label>
-            <label class="check-label"><span>Enabled / published</span><input type="checkbox" name="enabled" checked></label>
+            <label class="check-label"><span>In public catalog</span><input type="checkbox" name="enabled" checked></label>
             <label><span>Source</span><input type="text" name="source" value="admin"></label>
             <label><span>Source URL</span><input type="url" name="source_url" placeholder="https://…"></label>
             <label class="wide"><span>Description</span><textarea name="description" rows="3"></textarea></label>
             <label class="wide"><span>Likely causes</span><textarea name="likely_causes" rows="3" placeholder="One cause per line"></textarea></label>
           </div>
+          <p class="hint" id="confidence-help">Evidence level describes the source of the record. “Verified” means checked against a reliable reference; it is separate from whether the record is published.</p>
           <div class="form-actions"><button type="submit" id="dtc-save">Save DTC</button><button type="button" class="ghost" id="dtc-cancel" hidden>Cancel edit</button></div>
+          <p id="dtc-error" class="error" role="alert" hidden></p>
         </form>
+        </details>
         <p class="hint">Catalog records are stored in Beemuu’s SQLite database. Disabling a code keeps its history and audit trail.</p>
-        <div class="search-row">
-          <input type="search" id="dtc-search" placeholder="Search code or title…">
-          <select id="dtc-category">
-            <option value="">All categories</option>
-            <option value="powertrain">powertrain</option>
-            <option value="body">body</option>
-            <option value="chassis">chassis</option>
-            <option value="network">network</option>
-            <option value="bmw-specific">bmw-specific</option>
-          </select>
-        </div>
-        <table class="data" id="dtc-table">
-          <thead><tr><th>Code</th><th>Category</th><th>Title</th><th>Severity</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
-        </table>
       </section>
 
       <!-- submissions -->
-      <section class="panel" id="tab-submissions" data-panel="submissions" hidden>
+      <section class="panel" id="tab-submissions" role="tabpanel" aria-labelledby="tab-button-submissions" tabindex="0" data-panel="submissions" hidden>
         <h2>Submission review queue</h2>
         <div class="search-row">
-          <select id="sub-status">
-            <option value="pending" selected>pending</option>
-            <option value="approved">approved</option>
-            <option value="rejected">rejected</option>
-            <option value="all">all</option>
-          </select>
+          <label><span>Show submissions</span><select id="sub-status">
+            <option value="pending" selected>Needs review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="all">All submissions</option>
+          </select></label>
         </div>
-        <table class="data" id="sub-table">
+        <div class="table-wrap"><table class="data" id="sub-table">
           <thead><tr><th>ID</th><th>Code</th><th>Submitter</th><th>Symptoms</th><th>Submitted</th><th>Status</th><th></th></tr></thead>
           <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-        </table>
+        </table></div>
       </section>
 
-      <dialog id="submission-dialog" class="dialog">
+      <dialog id="submission-dialog" class="dialog" aria-labelledby="submission-title">
         <form method="dialog"><button class="dialog-close" aria-label="Close">×</button></form>
         <p class="eyebrow">Community submission</p>
         <h2 id="submission-title">Submission</h2>
         <dl id="submission-details" class="details-list"></dl>
+        <form id="review-form" class="form dialog-form">
+          <label><span>Reviewer note (optional)</span><textarea id="review-note" rows="3" maxlength="2000"></textarea></label>
+          <p id="review-error" class="error" role="alert" hidden></p>
+          <div class="form-actions">
+            <button type="button" id="review-approve">Approve</button>
+            <button type="button" class="danger" id="review-reject">Reject</button>
+            <button type="button" class="ghost" id="review-reopen" hidden>Return to review queue</button>
+            <button type="button" class="ghost" data-close-dialog>Cancel</button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="action-dialog" class="dialog compact-dialog" aria-labelledby="action-title" aria-describedby="action-description">
+        <form method="dialog"><button class="dialog-close" aria-label="Close">×</button></form>
+        <h2 id="action-title">Confirm action</h2>
+        <p id="action-description" class="hint"></p>
+        <form id="action-form" class="form">
+          <label id="action-input-label" hidden><span>Diagnostic trouble code</span><input id="action-input" type="text" maxlength="8" autocomplete="off"></label>
+          <p id="action-error" class="error" role="alert" hidden></p>
+          <div class="form-actions">
+            <button type="submit" id="action-submit">Continue</button>
+            <button type="button" class="ghost" data-close-dialog>Cancel</button>
+          </div>
+        </form>
       </dialog>
 
       <!-- schematics -->
-      <section class="panel" id="tab-schematics" data-panel="schematics" hidden>
+      <section class="panel" id="tab-schematics" role="tabpanel" aria-labelledby="tab-button-schematics" tabindex="0" data-panel="schematics" hidden>
         <h2>Schematics catalog</h2>
-        <form id="sch-form" class="form inline">
-          <input type="text" name="slug" placeholder="slug" required>
-          <input type="text" name="title" placeholder="Title" required>
-          <input type="text" name="series" placeholder="E-series / F-series / G-series" required>
-          <input type="text" name="system" placeholder="system" required>
-          <input type="text" name="file_path" placeholder="data/schematics/x.svg" required>
-          <select name="mime" required aria-label="Image type">
+        <p class="hint">Schematics are wiring diagrams and reference images linked to DTCs. Subsystem identifies a smaller part of a vehicle system.</p>
+        <details id="sch-editor" class="editor-section">
+          <summary id="sch-editor-summary">Add a schematic</summary>
+        <form id="sch-form" class="form">
+          <fieldset class="form-group">
+            <legend>Diagram details</legend>
+            <div class="form-grid">
+              <label><span>Catalog ID (slug)</span><input type="text" name="slug" required></label>
+              <label><span>Title</span><input type="text" name="title" required></label>
+              <label><span>Vehicle series</span><input type="text" name="series" placeholder="Example: E-series" required></label>
+              <label><span>System</span><input type="text" name="system" placeholder="Example: engine control" required></label>
+              <label><span>Asset path</span><input type="text" name="file_path" placeholder="data/schematics/example.svg" required></label>
+              <label><span>Image type</span><select name="mime" required>
             <option value="image/svg+xml">SVG image</option><option value="image/png">PNG image</option>
             <option value="image/jpeg">JPEG image</option><option value="image/webp">WebP image</option>
-          </select>
-          <input type="text" name="license" placeholder="CC0" required>
-          <input type="text" name="subsys" placeholder="Subsystem (optional)">
-          <input type="text" name="model" placeholder="Model (optional)">
-          <input type="number" name="year_from" placeholder="From year">
-          <input type="number" name="year_to" placeholder="To year">
-          <input type="number" name="width_px" placeholder="Width in pixels (optional)" min="1">
-          <input type="number" name="height_px" placeholder="Height in pixels (optional)" min="1">
-          <input type="url" name="source_url" placeholder="Source URL (optional)">
-          <input type="text" name="tags" placeholder="Tags, comma separated">
-          <button type="submit">Upsert</button>
-          <button type="button" id="sch-cancel" class="ghost" hidden>Cancel edit</button>
+              </select></label>
+              <label><span>License</span><input type="text" name="license" placeholder="Example: CC0" required></label>
+            </div>
+          </fieldset>
+          <details class="metadata-details">
+            <summary>Vehicle, source, and display details (optional)</summary>
+            <div class="form-grid metadata-grid">
+              <label><span>Subsystem</span><input type="text" name="subsys"></label>
+              <label><span>Model</span><input type="text" name="model"></label>
+              <label><span>From year</span><input type="number" name="year_from"></label>
+              <label><span>To year</span><input type="number" name="year_to"></label>
+              <label><span>Width in pixels</span><input type="number" name="width_px" min="1"></label>
+              <label><span>Height in pixels</span><input type="number" name="height_px" min="1"></label>
+              <label class="wide"><span>Source URL</span><input type="url" name="source_url"></label>
+              <label class="wide"><span>Tags (comma separated)</span><input type="text" name="tags"></label>
+            </div>
+          </details>
+          <div class="form-actions"><button type="submit">Save schematic</button>
+            <button type="button" id="sch-cancel" class="ghost" hidden>Cancel edit</button></div>
+          <p id="sch-error" class="error" role="alert" hidden></p>
         </form>
+        </details>
         <p class="hint">Place the asset in <code>data/schematics/</code>, use that repository-relative path, and use the same slug and file extension. Beemuu serves it locally. Disabling hides a schematic but keeps links and history.</p>
-        <table class="data" id="sch-table">
+        <div class="table-wrap"><table class="data" id="sch-table">
           <thead><tr><th>Slug</th><th>Title</th><th>Vehicle</th><th>System</th><th>DTC links</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-        </table>
+        </table></div>
       </section>
 
       <!-- sessions -->
-      <section class="panel" id="tab-sessions" data-panel="sessions" hidden>
-        <h2>Diag sessions</h2>
-        <p class="hint">Most recent first. DTC codes in <code>dtc_codes</code> are a JSON array.</p>
-        <table class="data" id="session-table">
+      <section class="panel" id="tab-sessions" role="tabpanel" aria-labelledby="tab-button-sessions" tabindex="0" data-panel="sessions" hidden>
+        <h2>Diagnostic sessions</h2>
+        <p class="hint">Most recent first. DTC codes recorded for each session are shown below.</p>
+        <div class="table-wrap"><table class="data" id="session-table">
           <thead><tr><th>ID</th><th>When</th><th>Client</th><th>VIN</th><th>Profile</th><th>Transport</th><th>DTCs</th></tr></thead>
           <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-        </table>
+        </table></div>
       </section>
 
       <!-- audit -->
-      <section class="panel" id="tab-audit" data-panel="audit" hidden>
+      <section class="panel" id="tab-audit" role="tabpanel" aria-labelledby="tab-button-audit" tabindex="0" data-panel="audit" hidden>
         <h2>Audit log</h2>
         <p class="hint">Every admin write is recorded with admin_id, action, target, IP, and timestamp. Login attempts (success and failure) are logged even when no admin_id is known.</p>
         <ul id="audit-list" class="audit-list"><li class="muted">Loading…</li></ul>
       </section>
 
-      <section class="panel" id="tab-account" data-panel="account" hidden>
+      <section class="panel" id="tab-account" role="tabpanel" aria-labelledby="tab-button-account" tabindex="0" data-panel="account" hidden>
         <h2>Account security</h2>
         <p class="hint">Change the password for your Beemuu admin account. Changing it signs out all sessions.</p>
         <form id="password-form" class="form">
