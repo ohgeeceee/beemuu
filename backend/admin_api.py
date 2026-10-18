@@ -119,7 +119,7 @@ def upsert_dtc(db_path: Path, payload: dict) -> dict:
 
     with db.get_conn(db_path) as conn:
         existing = conn.execute(
-            "SELECT code, created_at FROM dtc WHERE code = ?", (code,)
+            "SELECT code, created_at, enabled FROM dtc WHERE code = ?", (code,)
         ).fetchone()
         if existing is None:
             conn.execute(
@@ -130,6 +130,8 @@ def upsert_dtc(db_path: Path, payload: dict) -> dict:
                  source, source_url, verified, confidence, enabled, now, now),
             )
         else:
+            if "enabled" not in payload:
+                enabled = int(existing["enabled"])
             conn.execute(
                 "UPDATE dtc SET category=?, severity=?, title=?, description=?, "
                 "likely_causes=?, source=?, source_url=?, verified=?, confidence=?, enabled=?, updated_at=? "
@@ -234,10 +236,8 @@ def upsert_schematic(db_path: Path, payload: dict) -> dict:
         raise ValueError(
             "slug, title, series, system, file_path, mime, license are all required"
         )
-    if mime not in {
-        "image/svg+xml", "image/png", "image/jpeg", "image/webp", "application/pdf",
-    }:
-        raise ValueError("mime must be an SVG, PNG, JPEG, WebP, or PDF asset")
+    if mime not in {"image/svg+xml", "image/png", "image/jpeg", "image/webp"}:
+        raise ValueError("mime must be an SVG, PNG, JPEG, or WebP image")
 
     now = int(time.time())
     fields = dict(
@@ -259,7 +259,7 @@ def upsert_schematic(db_path: Path, payload: dict) -> dict:
     )
     with db.get_conn(db_path) as conn:
         existing = conn.execute(
-            "SELECT id FROM schematics WHERE slug = ?", (slug,)
+            "SELECT id, width_px, height_px FROM schematics WHERE slug = ?", (slug,)
         ).fetchone()
         if existing is None:
             conn.execute(
@@ -270,6 +270,10 @@ def upsert_schematic(db_path: Path, payload: dict) -> dict:
                 (*fields.values(), now),
             )
         else:
+            if "width_px" not in payload:
+                fields["width_px"] = existing["width_px"]
+            if "height_px" not in payload:
+                fields["height_px"] = existing["height_px"]
             conn.execute(
                 "UPDATE schematics SET title=?, series=?, system=?, subsys=?, "
                 "model=?, year_from=?, year_to=?, file_path=?, mime=?, "
