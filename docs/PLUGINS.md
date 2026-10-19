@@ -6,6 +6,21 @@ offline. Packages are stored in this webview's local storage; clearing webview
 data may remove them. Export packages to keep a copy. Installation and replacement
 leave a package disabled. No tool runs at startup.
 
+## v5.0.0 capability module status
+
+`src/js/plugin_capability_bridge.js` implements manifest validation,
+capability classification, grant evaluation and guarded injected host calls.
+The Diagnostics capability-review panel exercises that decision model.
+It does **not** mean installed API 1/2 packages receive vehicle access:
+`plugin_runner.js` runs JSON tools in a worker, and `plugins_ui.js` does not
+wire that runner to the capability module or a vehicle host. No automatic
+transfer of VINs, faults or live data is available through that runtime.
+
+The full install → consent → sandbox → guarded host → revocation workflow
+still needs integration and end-to-end verification. Package signatures and
+publisher verification also remain planned. The existing local package digest
+detects changes; it is not a publisher signature.
+
 ## Package API 2 (multi-file tools)
 
 API 2 keeps everything from API 1 and adds **bundled tools**: instead of a single
