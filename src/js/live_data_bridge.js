@@ -89,10 +89,11 @@ const DECODE_FN = {
  *   passthrough.
  */
 function createDIDBridge(options = {}) {
-  const { decodeFn = null } = options;
+  const { decodeFn = null, now = Date.now } = options;
   const cache = {};
   const texts = {};
   const peaks = {};
+  const observedAt = {};
   let lastSweepAt = null;
 
   /**
@@ -106,7 +107,7 @@ function createDIDBridge(options = {}) {
    *   `latestValues()` will return).
    */
   function applySweep(values, errors) {
-    lastSweepAt = Date.now();
+    lastSweepAt = now();
     if (!Array.isArray(values)) return cache;
 
     for (const v of values) {
@@ -117,7 +118,7 @@ function createDIDBridge(options = {}) {
       // they are kept here instead of dropped. See `latestText()`.
       if (v.text !== undefined && v.text !== null) {
         const label = String(v.text);
-        if (label) texts[v.id] = label;
+        if (label) { texts[v.id] = label; observedAt[v.id] = lastSweepAt; }
         continue;
       }
 
@@ -128,6 +129,7 @@ function createDIDBridge(options = {}) {
       if (!Number.isFinite(numeric)) continue;
 
       cache[gaugeKey] = numeric;
+      observedAt[gaugeKey] = lastSweepAt;
 
       // Track peak across the session (mirrors live_gauges.js).
       if (peaks[gaugeKey] === undefined || numeric > peaks[gaugeKey]) {
@@ -135,6 +137,12 @@ function createDIDBridge(options = {}) {
       }
     }
 
+    // Preserve history but mark failed parameters unavailable immediately.
+    for (const error of Array.isArray(errors) ? errors : []) {
+      if (error && typeof error.id === "string") {
+        delete observedAt[PARAM_TO_GAUGE[error.id] || error.id];
+      }
+    }
     // Log errors for debugging. Failed PIDs keep their last value.
     if (Array.isArray(errors) && errors.length > 0) {
       // eslint-disable-next-line no-console
@@ -202,7 +210,31 @@ function createDIDBridge(options = {}) {
     return { ...texts };
   }
 
+  // Five seconds is a display freshness limit, not a transport timeout.
+  // Each channel ages independently; successful unrelated reads cannot refresh it.
+  function freshness(maxAgeMs = 5000) {
+    const at = now();
+    const keys = [...Object.keys(cache), ...Object.keys(texts)];
+    const staleKeys = keys.filter(key => !Object.hasOwn(observedAt, key) ||
+      at < observedAt[key] || at - observedAt[key] >= maxAgeMs);
+    return { state: keys.length === 0 ? "waiting" : staleKeys.length ? "stale" : "live", staleKeys };
+  }
+
+  function markStale() {
+    for (const key of Object.keys(observedAt)) delete observedAt[key];
+  }
+
+  function reset() {
+    for (const object of [cache, texts, peaks, observedAt]) {
+      for (const key of Object.keys(object)) delete object[key];
+    }
+    lastSweepAt = null;
+  }
+
   return {
+    freshness,
+    markStale,
+    reset,
     applySweep,
     latestValues,
     latestText,

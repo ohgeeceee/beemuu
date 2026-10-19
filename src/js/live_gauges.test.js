@@ -308,3 +308,24 @@ test("the status line is refreshed on each render from the values cache", () => 
   assert.equal(h.statusLine.textContent, "Gear 3 · Cruise on");
   h.controller.stop();
 });
+
+test("stale readings and old-profile cache never appear as current dials", () => {
+  let data = { rpm: 2000, coolant: 90 };
+  let health = { state: "live", staleKeys: [] };
+  const h = harness({ source: { latestValues: () => data, readingState: () => health } });
+  h.controller.render();
+  assert.equal(h.controller.peakFor('rpm'), 2000);
+  health = { state: 'stale', staleKeys: ['rpm'] };
+  data = { rpm: 9000, coolant: 91 };
+  h.controller.render();
+  assert.equal(h.controller.peakFor('rpm'), 2000, 'stale values cannot inflate peaks');
+  assert.match(h.status.textContent, /Stale/);
+  assert.equal(h.controller.gauges.rpm.calls.at(-1), 0);
+  data = {};
+  health = { state: 'waiting', staleKeys: [] };
+  h.controller.render();
+  data = { rpm: 800 };
+  health = { state: 'live', staleKeys: [] };
+  h.controller.render();
+  assert.equal(h.controller.gauges.coolant.calls.at(-1), 0, 'previous profile coolant is cleared');
+});

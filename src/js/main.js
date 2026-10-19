@@ -5,6 +5,10 @@ const invoke = window.__TAURI__.core.invoke;
 const $ = (id) => document.getElementById(id);
 
 let connected = false;
+let connectionBusy = false;
+let connectionError = false;
+let liveReadEpoch = 0;
+let liveReadBusy = false;
 let modules = [];
 let selectedAddress = null;
 let faultMemoryRead = false;
@@ -309,6 +313,7 @@ function renderFirstScanGuide() {
   if (!body || !api || typeof api.buildFirstScanGuide !== "function") return;
   const selected = modules.find((module) => module.address === selectedAddress);
   const guide = api.buildFirstScanGuide({
+    connectionError,
     connectionKind: $("conn-kind").value,
     connected,
     moduleCount: modules.filter((module) => module.present).length,
@@ -466,7 +471,7 @@ $("btn-enet-discover").addEventListener("click", async () => {
     const targets = await invoke("discover_enet_targets");
     if (!targets.length) {
       sel.classList.add("hidden");
-      setStatus("No vehicle answered discovery — enter the IP manually (typically 169.254.x.x).");
+      setStatus("No vehicle answered discovery. Check the cable, ignition and firewall, then use Discover again.");
       return;
     }
     // textContent/value only — discovered strings never touch innerHTML.
@@ -492,83 +497,109 @@ $("enet-discovered").addEventListener("change", () => {
 });
 
 $("btn-connect").addEventListener("click", async () => {
-  if (connected) {
-    stopPolling();
-    stopWatch();
-    clearSecCountdown();
-    unlockStates.clear();
-    await invoke("disconnect");
-    connected = false;
-    sessionReplay = false;
-    modules = [];
-    selectedAddress = null;
-    lastVehicleInfo = null;
-    lastTraffic = [];
-    faultMemoryRead = false;
-    $("btn-connect").textContent = "Connect";
-    $("btn-connect").classList.add("btn-primary");
-    $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
-    setStatus("Disconnected");
-    renderTree();
-    refreshFrmCodingCard();
-    renderFirstScanGuide();
-    renderBeginnerFaultSummary();
-    window.beeemuuV3._notify();
-    return;
-  }
-  if (sessionReplay) {
-    sessionReplay = false;
-    modules = [];
-    selectedAddress = null;
-    lastVehicleInfo = null;
-    lastTraffic = [];
-    faultMemoryRead = false;
-    window.beeemuuV3._notify();
-    $("ecu-tree").innerHTML = "<li class='tree-empty'>Connect and run a vehicle test to identify control units.</li>";
-    $("fault-rows").innerHTML = "<tr><td colspan='3' class='muted'>Select a control unit.</td></tr>";
-    $("info-body").innerHTML = "<p class='muted'>Connect and click 'Read vehicle' to read VIN, decode it, and read mileage.</p>";
-    $("traffic-rows").innerHTML = "<tr><td colspan='6' class='muted'>No traffic yet. Connect and interact with the car.</td></tr>";
-    $("btn-connect").textContent = "Connect";
-    $("btn-connect").classList.add("btn-primary");
-    $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
-    setStatus("Disconnected");
-    refreshFrmCodingCard();
-    renderFirstScanGuide();
-    renderBeginnerFaultSummary();
-    return;
-  }
+  if (connectionBusy) return;
+  connectionBusy = true;
+  connectionError = false;
+  const connectButton = $("btn-connect");
+  connectButton.disabled = true;
+  $("conn-kind").disabled = true;
+  liveReadEpoch++;
+  kdcanDataSource?.reset();
+  window.beeemuuLiveGauges?.controller?.resetPeaks();
   try {
-    setStatus("Connecting…", false);
-    const info = await invoke("connect", { config: connConfig() });
-    connected = true;
-    $("btn-connect").textContent = "Disconnect";
-    const vin = info.vin ? `VIN ${info.vin}` : "VIN unavailable";
-    $("vehicle-banner").innerHTML =
-      `<span class='vehicle-label'>${escapeHtml(info.transport_name)} &nbsp;·&nbsp; ${escapeHtml(vin)}</span>`;
-    setStatus("Connected via " + info.transport_name);
-    log("");
-    // Auto-select suggested profile if available
-    if (info.suggested_profile) {
-      const liveSel = $("live-profile");
-      const logSel = $("log-profile");
-      // Only switch if the profile exists in the dropdown
-      const exists = Array.from(liveSel.options).some((o) => o.value === info.suggested_profile);
-      if (exists) {
-        liveSel.value = info.suggested_profile;
-        logSel.value = info.suggested_profile;
-        // Trigger change to rebuild gauges / log params
-        liveSel.dispatchEvent(new Event("change"));
-        log("Auto-selected profile: " + info.suggested_profile);
+    if (connected) {
+      stopPolling();
+      stopWatch();
+      clearSecCountdown();
+      unlockStates.clear();
+      let disconnectFailed = false;
+      try {
+        await invoke("disconnect");
+      } catch (error) {
+        disconnectFailed = true;
+        log("Disconnect could not be confirmed: " + error + ". Check the cable before reconnecting.");
       }
+      connected = false;
+      sessionReplay = false;
+      modules = [];
+      selectedAddress = null;
+      lastVehicleInfo = null;
+      lastTraffic = [];
+      faultMemoryRead = false;
+      $("btn-connect").textContent = "Connect";
+      $("btn-connect").classList.add("btn-primary");
+      $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
+      setStatus(disconnectFailed ? "Disconnected locally — cable closure unconfirmed" : "Disconnected");
+      renderTree();
+      refreshFrmCodingCard();
+      renderFirstScanGuide();
+      renderBeginnerFaultSummary();
+      window.beeemuuV3._notify();
+      return;
     }
-    saveSettings();
-    refreshFrmCodingCard();
-    renderFirstScanGuide();
-    renderBeginnerFaultSummary();
-  } catch (e) {
-    setStatus("Disconnected");
-    log("Connect failed: " + e);
-    renderFirstScanGuide();
+    if (sessionReplay) {
+      sessionReplay = false;
+      modules = [];
+      selectedAddress = null;
+      lastVehicleInfo = null;
+      lastTraffic = [];
+      faultMemoryRead = false;
+      window.beeemuuV3._notify();
+      $("ecu-tree").innerHTML = "<li class='tree-empty'>Connect and run a vehicle test to identify control units.</li>";
+      $("fault-rows").innerHTML = "<tr><td colspan='3' class='muted'>Select a control unit.</td></tr>";
+      $("info-body").innerHTML = "<p class='muted'>Connect and click 'Read vehicle' to read VIN, decode it, and read mileage.</p>";
+      $("traffic-rows").innerHTML = "<tr><td colspan='6' class='muted'>No traffic yet. Connect and interact with the car.</td></tr>";
+      $("btn-connect").textContent = "Connect";
+      $("btn-connect").classList.add("btn-primary");
+      $("vehicle-banner").innerHTML = "<span class='vehicle-label'>No vehicle connected</span>";
+      setStatus("Disconnected");
+      refreshFrmCodingCard();
+      renderFirstScanGuide();
+      renderBeginnerFaultSummary();
+      return;
+    }
+    try {
+      setStatus("Connecting…", false);
+      const config = connConfig();
+      if ((config.kind === "kdcan" || config.kind === "kdcan_auto") && !config.port) {
+        throw new Error("No cable port selected.");
+      }
+      const info = await invoke("connect", { config });
+      connected = true;
+      $("btn-connect").textContent = "Disconnect";
+      const vin = info.vin ? `VIN ${info.vin}` : "VIN unavailable";
+      $("vehicle-banner").innerHTML =
+        `<span class='vehicle-label'>${escapeHtml(info.transport_name)} &nbsp;·&nbsp; ${escapeHtml(vin)}</span>`;
+      setStatus("Connected via " + info.transport_name);
+      log("");
+      // Auto-select suggested profile if available
+      if (info.suggested_profile) {
+        const liveSel = $("live-profile");
+        const logSel = $("log-profile");
+        // Only switch if the profile exists in the dropdown
+        const exists = Array.from(liveSel.options).some((o) => o.value === info.suggested_profile);
+        if (exists) {
+          liveSel.value = info.suggested_profile;
+          logSel.value = info.suggested_profile;
+          // Trigger change to rebuild gauges / log params
+          liveSel.dispatchEvent(new Event("change"));
+          log("Auto-selected profile: " + info.suggested_profile);
+        }
+      }
+      saveSettings();
+      refreshFrmCodingCard();
+      renderFirstScanGuide();
+      renderBeginnerFaultSummary();
+    } catch (e) {
+      setStatus("Disconnected");
+      log("Connect failed: " + e);
+      connectionError = true;
+      renderFirstScanGuide();
+    }
+  } finally {
+    connectionBusy = false;
+    connectButton.disabled = false;
+    $("conn-kind").disabled = connected;
   }
 });
 
@@ -1556,6 +1587,9 @@ async function loadProfiles() {
 }
 
 $("live-profile").addEventListener("change", () => {
+  liveReadEpoch++;
+  kdcanDataSource?.reset();
+  window.beeemuuLiveGauges?.controller?.resetPeaks();
   // different profile = different parameter set: rebuild gauges
   gauges.clear();
   $("gauge-grid").innerHTML = "";
@@ -1669,6 +1703,9 @@ function feedColdStartMonitor(values) {
 }
 
 async function pollOnce() {
+  if (liveReadBusy || !connected) return;
+  const epoch = liveReadEpoch;
+  liveReadBusy = true;
   let result = { values: [], errors: [] };
   try {
     // v0.14.3 slice 3b — `read_live_data` now returns
@@ -1680,6 +1717,7 @@ async function pollOnce() {
     result = connected
       ? await invoke("read_live_data", { profile: $("live-profile").value })
       : result;
+    if (epoch !== liveReadEpoch || !connected) return;
     // v0.15.0 slice 2c — feed the same sweep into the K+DCAN
     // bridge so the Live Gauges panel can render real values
     // (RPM, coolant, oil temp, etc.) from the K+DCAN cable.
@@ -1694,6 +1732,8 @@ async function pollOnce() {
     // which the sweep already carries, so this costs nothing extra.
     feedColdStartMonitor(result.values || []);
   } catch (e) {
+    if (epoch !== liveReadEpoch) return;
+    kdcanDataSource?.markStale?.();
     // Systemic failure (no transport, unknown profile, poisoned state
     // lock) — `read_live_data` returns `Err(_)` for these. Same
     // v0.14.2 slice 2 surface: parse the error string, log the
@@ -1705,7 +1745,10 @@ async function pollOnce() {
       log("Live data: " + e);
     }
     stopPolling();
+    setStatus("Live data stopped. Check the cable and ignition; disconnect and reconnect if needed.");
     return;
+  } finally {
+    liveReadBusy = false;
   }
   for (const v of result.values) {
     // Enum params (gear, engine state, etc.) have v.text set and
@@ -1831,6 +1874,7 @@ function startPolling() {
   pollOnce();
 }
 function stopPolling() {
+  liveReadEpoch++;
   clearInterval(pollTimer);
   pollTimer = null;
   $("live-poll").checked = false;

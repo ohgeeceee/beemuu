@@ -20,3 +20,18 @@ Version assignment and release publication are separate maintainer decisions.
 Hardware evidence collection for update 3 can run alongside application work.
 Do not label a cycle complete until its acceptance target is verified. Use
 [feature status](feature-status.md) to avoid rebuilding existing modules.
+
+## Development progress
+
+- Update 1: baseline documentation merged in PR #374.
+- Update 2: first connection-recovery slice documented in
+  [connection-recovery.md](connection-recovery.md). The cycle remains open
+  until the other polling paths and real-cable recovery behavior are checked.
+- Updates 3–10: acceptance targets above remain outstanding.
+
+Follow-up baseline finding: the About modal in `src/index.html` still carries
+an old version string and repository spelling. Correct its displayed metadata
+in a separate focused change; do not treat that as a release version bump.
+
+GitHub Issues is disabled in this repository as of 2026-10-19, so this document
+and focused PRs carry the development status instead of a separate issue tracker.

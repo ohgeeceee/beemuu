@@ -95,11 +95,11 @@ function initKdcanDataSource({ invoke, log }) {
   }
 
   /**
-   * Reset bridge peaks. Call on profile change or session reset.
+   * Clear cached readings, labels and peaks without stopping the listener.
+   * Call on profile change or session reset.
    */
   function reset() {
-    stop();
-    bridge?.resetPeaks();
+    bridge?.reset();
   }
 
   return {
@@ -107,6 +107,7 @@ function initKdcanDataSource({ invoke, log }) {
     start,
     stop,
     reset,
+    markStale: () => bridge?.markStale(),
     getKdcanSource: () => kdcanSource,
     getBridge: () => bridge,
   };
