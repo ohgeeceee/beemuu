@@ -31,6 +31,9 @@ jobs:
   build:
     strategy:
       fail-fast: false
+      # The action uploads latest.json alongside each platform's signed
+      # bundles. Serialize matrix jobs so the release asset cannot race itself.
+      max-parallel: 1
       matrix:
         include:
           - platform: windows-latest
@@ -80,6 +83,8 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ inputs.release_tag || github.ref_name }}
           releaseCommitish: ${{ steps.source_commit.outputs.commit }}
@@ -93,6 +98,7 @@ jobs:
           # finished and all assets are attached.
           releaseDraft: true
           prerelease: false
+          uploadUpdaterJson: true
           args: ${{ matrix.args }}
 
   publish-release:

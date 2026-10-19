@@ -31,6 +31,9 @@ _site/
 # Hermes agent artifacts (plans, scratch)
 .hermes/
 
+# Tauri updater signing keys (never commit or upload these files)
+.tauri-private/
+
 # Python
 __pycache__/
 *.py[cod]

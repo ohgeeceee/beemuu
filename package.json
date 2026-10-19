@@ -8,11 +8,17 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
+    "build:auto-update": "esbuild src/js/auto_update.js --bundle --format=iife --outfile=src/js/auto_update.bundle.js",
     "test:histogram": "node --test src/js/*.test.js",
     "test:js": "node --test src/js/test/*.test.cjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.3",
+    "esbuild": "^0.28.2",
     "jsdom": "^30.1.3"
+  },
+  "dependencies": {
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0"
   }
 }

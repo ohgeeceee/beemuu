@@ -4,6 +4,7 @@
   "version": "5.0.1",
   "identifier": "com.beeemuu.diag",
   "build": {
+    "beforeBuildCommand": "npm run build:auto-update",
     "frontendDist": "../src"
   },
   "app": {
@@ -24,11 +25,20 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVEMDA5MTY4OEFCNkYzRUQKUldUdDg3YUthSkVBN2ZBd2ZTSnZMcG5xWUlWUnR3ZXlIN3FmOUZuSWlPWFpSYjMxOGxyYWJJenQK",
+      "endpoints": [
+        "https://github.com/ohgeeceee/beemuu/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
