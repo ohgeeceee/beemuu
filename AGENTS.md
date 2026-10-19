@@ -230,3 +230,71 @@ If you are using a K+DCAN cable on Windows:
    git clone https://github.com/ohgeeceee/beemuu.git
    cd beemuu
    ```
+
+## Sustainable engineering and delivery standard
+
+Build Beemuu to be easy for customers, sustainable for the team, and professional in execution. These additional standards supplement the existing safety invariants, autonomy tiers, test requirements, and release gates above. They do not relax those controls.
+
+## 2. Implement clearly
+- Match local naming, formatting, architecture, and language conventions.
+- Keep functions and modules focused; extract shared behavior when a real repeated need exists.
+- Prefer explicit, readable logic over clever shortcuts.
+- Keep business rules out of presentation code where the established architecture supports that separation.
+- Use types or schemas where supported. Handle missing, invalid, and unexpected values deliberately.
+- Comment on non-obvious intent and constraints; avoid comments that repeat the code.
+- Avoid unrelated refactors, disabled checks, dead code, placeholder production behavior, and silent error handling.
+- Add dependencies only when their value outweighs maintenance, security, licensing, and bundle or runtime costs. Use the project's lockfile and package workflow.
+
+## 3. Make customer flows complete
+For each affected flow, address applicable initial, loading, empty, success, validation, failure, and permission states. Keep errors actionable and avoid exposing internal details.
+
+Use semantic controls, accessible labels, keyboard navigation, visible focus, and responsive layouts. Preserve entered data during recoverable failures where practical. Prevent duplicate consequential submissions and communicate completion clearly.
+
+Keep customer-facing language concise, respectful, and consistent with existing Beemuu terminology. Do not expose implementation details unless they help customers make a decision.
+
+## 4. Protect trust and data
+- Treat all external input as untrusted; validate it at the trusted system boundary.
+- Enforce authentication, authorization, and resource ownership on the server or equivalent trusted layer. Hiding a control is not access control.
+- Follow established secure storage, session, query, and output-encoding patterns.
+- Never commit secrets, embed privileged credentials in client code, or include sensitive information in logs or fixtures.
+- Collect and retain only information needed for the feature and approved business purpose.
+- Use safe migrations compatible with the deployment process. Explain backup, rollout, and recovery needs for meaningful data changes.
+- Keep ordinary development and test work away from live customer data unless explicitly authorized.
+
+## 5. Keep operation sustainable
+- Avoid unnecessary requests, unbounded queries, heavy client assets, and repeated expensive work.
+- Bound external calls with appropriate timeouts. Retry only when safe, with limits; make consequential operations idempotent where needed.
+- Follow existing structured logging and monitoring conventions. Record useful failure context while protecting personal data and secrets.
+- Keep configuration explicit and document new environment variables without secret values.
+- Document new operational dependencies, recurring costs, ownership, and failure recovery when relevant.
+- For production-impacting changes, identify how success and regressions will be observed and how the change can be reversed or safely corrected.
+
+## 6. Verify proportionally
+Use the checks relevant to the change, such as formatting, linting, type checks, focused tests, builds, and browser inspection. The mandatory repository checks and merge gates above still apply; proportional verification supplements them.
+
+Add or update meaningful tests for changed business rules, permissions, important error paths, regressions, and data transformations. For a small visual or copy edit, focused inspection may be sufficient. Avoid tests that simply duplicate implementation details.
+
+When changing UI, inspect the affected flow at representative screen sizes and check keyboard use and important states when tooling permits. When fixing a defect, verify the original failure and the corrected behavior where reproducible.
+
+Report failed, skipped, or unavailable checks accurately. Do not describe code as tested merely because it was read or generated.
+
+## 7. Finish cleanly
+A change is ready for review when:
+- The requested behavior is implemented, including relevant edge and failure cases.
+- Unrelated work is preserved and the final diff is focused.
+- Applicable checks have passed, or remaining failures and limitations are clearly identified.
+- Necessary setup, configuration, behavior, or operational documentation is updated.
+- No secrets, accidental debug output, or misleading production placeholders were introduced.
+- Material compatibility, migration, rollout, and recovery concerns are addressed.
+
+Summarize what changed, why it matters to the user, how it was verified, and what remains unresolved. Keep routine reports concise. Do not mark incomplete work as complete or claim deployment without confirmation from the deployment system.
+
+## Decision filter
+When choosing between approaches, prefer the one that best balances:
+1. Customer clarity and accessibility.
+2. Correctness, privacy, and reliability.
+3. Simplicity and consistency with the existing application.
+4. Sustainable operating and maintenance cost.
+5. Ability to verify, support, and improve the result.
+
+Do not sacrifice data protection or core correctness for speed or visual polish. Avoid complexity that has no demonstrated customer or operational benefit.

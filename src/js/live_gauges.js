@@ -94,9 +94,20 @@ function createLiveGaugesController(options) {
   }
 
   function render() {
+    const health = sourceHolder.source?.readingState?.();
+    if (health) {
+      const labels = { live: "Live", waiting: "Waiting for live data", stale: "Stale readings — check connection", stopped: "Live data stopped" };
+      status.textContent = labels[health.state] || "Live data unavailable";
+      status.classList.toggle("live-can-off", health.state !== "live");
+    }
     if (sourceHolder.source && typeof sourceHolder.source.latestValues === "function") {
       const fresh = sourceHolder.source.latestValues();
       if (fresh && typeof fresh === "object") {
+        if (health) {
+          for (const definition of GAUGE_DEFINITIONS) {
+            if (!Number.isFinite(fresh[definition.key])) delete values[definition.key];
+          }
+        }
         setValues(fresh);
         // Gear + the flag keys are not dials, so they never reach `values`;
         // read them from the source's live cache instead. The K+DCAN DID path
@@ -105,7 +116,9 @@ function createLiveGaugesController(options) {
           const labels = typeof sourceHolder.source.latestText === "function"
             ? sourceHolder.source.latestText()
             : null;
-          statusLine.textContent = liveStatusText(fresh, labels);
+          const availableLabels = { ...labels };
+          for (const key of health?.staleKeys || []) delete availableLabels[key];
+          statusLine.textContent = liveStatusText(fresh, availableLabels);
         }
       }
       if (typeof onSourceTick === "function") {
@@ -114,7 +127,9 @@ function createLiveGaugesController(options) {
     }
     for (const definition of GAUGE_DEFINITIONS) {
       const value = values[definition.key];
-      if (Number.isFinite(value)) {
+      if (health && (health.state === "waiting" || health.state === "stopped" || health.staleKeys.includes(definition.key) || !Number.isFinite(value))) {
+        gauges[definition.key].set(0, health.state === "waiting" ? "Waiting" : health.state === "stopped" ? "Stopped" : !Number.isFinite(value) ? "No data" : "Stale");
+      } else if (Number.isFinite(value)) {
         gauges[definition.key].set(value);
         // Track peak across the session. Reset on `start()`.
         if (peaks[definition.key] === undefined || value > peaks[definition.key]) {
@@ -135,6 +150,7 @@ function createLiveGaugesController(options) {
 
   function start() {
     if (timer) return timer;
+    resetPeaks();
     if (sourceHolder.source && typeof sourceHolder.source.start === "function") {
       sourceHolder.source.start();
       sourceRunning = true;

@@ -12,6 +12,11 @@ function buildFirstScanGuide(state) {
       : "Simulator selected. This is a safe place to learn the scan flow without changing a vehicle.";
   const moduleCount = Number.isFinite(input.moduleCount) ? input.moduleCount : 0;
   const selectedModule = String(input.selectedModuleName || "").trim();
+  const recovery = kind === "kdcan"
+    ? "Check the cable and ignition, choose an available port in Connection settings, and confirm the FTDI latency timer is 1 ms. Then try Connect again."
+    : kind === "enet"
+      ? "Check the ENET cable and ignition, use Discover in Connection settings, and try Connect again. Check that your firewall allows vehicle discovery."
+      : "Try Connect again to restart the simulator.";
   const faultDetail = input.faultMemoryRead
     ? input.faultCount > 0
       ? `${input.faultCount} fault${input.faultCount === 1 ? "" : "s"} read. Select one to see its plain-language detail and any guided checks.`
@@ -24,7 +29,7 @@ function buildFirstScanGuide(state) {
     intro: "This guide only reads information. It does not clear faults, code modules, or program the vehicle.",
     steps: [
       { title: "Choose an adapter", detail: adapterDetail, complete: true },
-      { title: "Connect", detail: input.connected ? "Connected. You can now identify the vehicle and its control units." : "Connect before starting a vehicle test.", complete: !!input.connected },
+      { title: "Connect", detail: input.connectionError ? "Connection failed. " + recovery : input.connected ? "Connected. You can now identify the vehicle and its control units." : "Connect before starting a vehicle test.", complete: !!input.connected },
       { title: "Run a vehicle test", detail: moduleCount > 0 ? `${moduleCount} control unit${moduleCount === 1 ? "" : "s"} found.` : "The vehicle test identifies control units; it does not change them.", complete: moduleCount > 0 },
       { title: "Read fault memory", detail: faultDetail, complete: !!input.faultMemoryRead },
     ],

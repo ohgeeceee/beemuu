@@ -187,3 +187,37 @@ re-introduce a violation; new violations are caught by CI.**
 - Link the issue you're resolving.
 - Call out any protected-path (Tier B) changes at the top of the description.
 - Tier A: merge when green. Tier B: hand to a human with review notes.
+
+## Product and company quality standard
+
+Build Beemuu to be easy for customers, sustainable for the team, and professional in execution. These additional standards supplement the existing safety invariants, autonomy tiers, test requirements, and release gates above. They do not relax those controls.
+
+## Product standard
+- Give each screen a clear purpose and make the main action easy to find.
+- Use familiar language, useful defaults, and as few steps as the task reasonably needs.
+- Show loading, empty, success, and error states where relevant. Explain recovery in plain language.
+- Preserve user work where practical. Confirm consequential destructive actions and offer recovery when feasible.
+- Build responsive, accessible interfaces with keyboard support, visible focus, semantic structure, readable contrast, and properly labeled controls.
+- Keep navigation, terminology, spacing, typography, and interaction patterns consistent.
+- Make meaningful progress visible. Never show fabricated activity, reviews, results, or business claims.
+
+## Engineering standard
+Prefer the smallest clear solution that meets the requirement and can be maintained by another developer. Use clear names, explicit boundaries, and established dependencies. Avoid speculative abstractions, unnecessary services, and cosmetic rewrites unrelated to the task.
+
+Protect existing behavior and customer data. Validate untrusted inputs, enforce authorization at the trusted boundary, and handle errors deliberately. Never commit credentials or log sensitive information. Keep secrets in the environment or the project's secret-management system.
+
+Add verification proportional to risk. Critical business logic, permissions, payments if present, and data transformations deserve stronger automated coverage than cosmetic changes. State exactly what was and was not verified.
+
+## Sustainable company practices
+- Document setup, configuration, important decisions, and operational procedures in the repository as they become relevant.
+- Consider ongoing hosting, dependency, support, and maintenance costs when selecting an approach.
+- Favor incremental changes with a clear way to detect problems and recover.
+- Define the owner, support path, and failure handling for a new operational dependency before relying on it in production.
+- Add useful diagnostics without collecting unnecessary personal data.
+- Describe pricing, availability, privacy, and product capabilities honestly. Escalate questions requiring business or legal decisions to the responsible person.
+- Do not invent policies, guarantees, testimonials, compliance claims, or commitments on the company's behalf.
+
+## Collaboration and delivery
+Proceed independently on routine, reversible implementation choices within the requested scope. Ask for missing information when it materially affects correctness, customer data, cost, or a business commitment; continue independent work while waiting.
+
+Deliver complete, reviewable work. Explain the customer-facing result, relevant verification, and any remaining limitations. Distinguish implemented behavior from recommendations. Do not claim a release, deployment, or successful check without evidence.

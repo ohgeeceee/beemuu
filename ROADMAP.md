@@ -4,6 +4,15 @@ This document tracks planned work and rough priorities. Items are not
 promised in any order — contributors are welcome to grab anything marked
 "help wanted".
 
+## Current baseline and next updates
+
+Current source version: **v5.0.0** (2026-10-15). Historical cycle sections
+below retain their original planning context; an older "planned" or
+"in progress" label does not override the later shipped cycle tables.
+See [feature status](docs/feature-status.md) for the audited boundaries and
+[the next ten updates](docs/next-updates.md) for the current proposed sequence.
+Release assets must be checked independently from the source version.
+
 ## Legend
 
 | Label | Meaning |
@@ -1197,7 +1206,7 @@ transport and no ECU reads, so they are Tier A. See the v3.0.0 table above.
 
 ---
 
-## v0.19.0 — "Report Clarity" (In Progress)
+## v0.19.0 — "Report Clarity" (Historical planning placeholder)
 
 This section is a placeholder and has no content of its own. The v0.19.0 to
 v0.30.0 plan lives in

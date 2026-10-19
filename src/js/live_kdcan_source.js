@@ -46,6 +46,7 @@ function createKdcanSource(bridge, options = {}) {
    */
   function start() {
     if (running) return;
+    bridge.reset?.();
     running = true;
     frameCount = 0;
     lastFrameAt = null;
@@ -119,7 +120,13 @@ function createKdcanSource(bridge, options = {}) {
     bridge.resetPeaks();
   }
 
+  function readingState() {
+    if (!running) return { state: "stopped", staleKeys: Object.keys(bridge.latestValues()) };
+    return typeof bridge.freshness === "function" ? bridge.freshness() : { state: "live", staleKeys: [] };
+  }
+
   return {
+    readingState,
     start,
     stop,
     latestValues,
