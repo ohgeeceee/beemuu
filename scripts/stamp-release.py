@@ -195,7 +195,8 @@ def verify(new_tag: str) -> list[str]:
     checks = [
         ("frontend/index.html", f"BeeEmUu {new_tag} is here"),
         ("frontend/index.html", f'class="banner-tag">{new_tag}<'),
-        ("frontend/index.html", f"Download {new_tag}"),
+        ("frontend/index.html", 'href="/downloads.html"'),
+        ("frontend/index.html", "Choose your installer"),
         ("frontend/index.html", tag_link),
         ("frontend/press.html", f"BeeEmUu {new_tag} &mdash; what's new"),
         ("frontend/press.html", tag_link),
