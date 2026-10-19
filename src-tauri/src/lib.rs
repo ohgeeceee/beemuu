@@ -74,6 +74,8 @@ pub fn run() {
         // replacing the unreliable `window.confirm()` for the
         // "Clear fault memory" and security-access confirmation gates.
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(commands::AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::list_ports,
