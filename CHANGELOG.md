@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Show adapter-specific connection recovery, reject missing K+DCAN ports and
+  prevent duplicate connection attempts. Restore local controls when disconnect
+  reports an error, while reporting that transport closure is unconfirmed.
+- Live Gauges marks failed or five-second-old channels stale, clears cached
+  values across profile/session changes and listener restarts, and ignores
+  live-read responses from an earlier connection or profile.
+- Add a real app-shell recovery regression to the browser CI job.
+
 ### Documentation
 
 - Reconcile the v5.0.0 README and roadmap baseline; document installed-plugin

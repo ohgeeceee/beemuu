@@ -70,6 +70,7 @@ jobs:
       - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-plugins-browser.cjs
+      - run: node scripts/test-connection-recovery.cjs
 
   # ─── App-shell chrome + dark-theme regression guard ───
   # Every interactive control and chrome surface in src/index.html must be
