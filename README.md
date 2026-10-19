@@ -131,29 +131,6 @@ installer availability. At the 2026-10-19 baseline audit, the public v5.0.0
 release had no attached installers; source version and installer availability
 are separate facts.
 
-### What shipped in v0.15.x (2026-08-30)
-
-- **Tuner logging workflow** ✅ — injector duty, trigger-based
-  logging, custom math channels, workspace persistence.
-  PRs #228–#235, v0.15.0–v0.15.9.
-- **External log import** ✅ — Bootmod3/MHD CSV read-only adapter.
-  PR #257.
-- **CAN broadcast validation harness** ✅ — anonymized fixture +
-  real-car capture instructions. PR #258.
-- **Vehicle database** ✅ — VIN prefix → build-sheet mappings.
-  PR #258.
-
-### What shipped in v0.14.0 (2026-07-25)
-
-- **Live Gauges panel** ✅ — 6-gauge real-time panel under Live
-  Data tab. PR #162.
-- **Pure JS CAN broadcast decoders** ✅ — 8 byte-level decoders
-  for E-series broadcast IDs. PR #157.
-- **JS-side simulator broadcast personality** ✅ — 10-thread
-  worker producing 6 known frames at documented rates. PR #158.
-- **Live Gauges on `beemuu.com`** ✅ — same 6 gauges on the
-  public site. PR #167.
-
 ### Analysis already implemented
 
 Adaptation Drift Tracker and Tuning Fingerprint Detector shipped in v3.0.0.
