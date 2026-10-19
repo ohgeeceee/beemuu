@@ -31,7 +31,7 @@ E90 simulator means you can work on the app without owning a car.
 
 ## What ships today
 
-The desktop app is organized into eight tabs. Every one of these is real code in
+The desktop app is organized into nine tabs. Every one of these is real code in
 `src/index.html`:
 
 | Tab | What it does |
@@ -44,6 +44,7 @@ The desktop app is organized into eight tabs. Every one of these is real code in
 | **Service Functions** | Battery registration, CBS reset, DPF/adaptations where the ECU firmware supports them. High-risk functions stay gated. |
 | **Diagnostics** | Run an individual diagnostic job against one ECU (as opposed to scanning the whole car). |
 | **Snapshots** | Bundle VIN + fault memory + freeze frames + recent live values into one JSON artifact for sharing or analysis. |
+| **Plugins** | Install reviewed community packages and explicitly run sandboxed JSON tools or import data packs. |
 
 ### Where the hosted app lives
 
@@ -117,11 +118,17 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The current release is **v3.0.0 — "The Car Remembers"** (shipped
-2026-10-05): long-term vehicle history tools, local Garage and repair
-comparisons, richer drive-log annotations, maintenance links, and plugin
-trust details. See
-[`CHANGELOG.md`](CHANGELOG.md) for the full list.
+The current release is **v5.0.0 — "Beemuu Platform"** (2026-10-15).
+It includes the read-only analysis panels from v3.8–v4.3 and a plugin
+capability decision module. The installed API 1/2 plugin runtime still has
+no automatic access to VINs, fault records or live data; the module's
+presence does not enable host access. See [feature status](docs/feature-status.md)
+and [the plugin guide](docs/PLUGINS.md) for the integration boundary.
+
+Use the [download center](https://beemuu.com/downloads.html) to check published
+installer availability. At the 2026-10-19 baseline audit, the public v5.0.0
+release had no attached installers; source version and installer availability
+are separate facts.
 
 ### What shipped in v0.15.x (2026-08-30)
 
@@ -146,21 +153,15 @@ trust details. See
 - **Live Gauges on `beemuu.com`** ✅ — same 6 gauges on the
   public site. PR #167.
 
-### Ideas being explored (not on the roadmap yet)
+### Analysis already implemented
 
-These are not promised and not scheduled. They are mentioned in
-[`LAUNCH_POST.md`](LAUNCH_POST.md) as long-term direction. They land
-on [`ROADMAP.md`](ROADMAP.md) when someone does the work and opens a
-PR — see [`COMMUNITY_FRAMEWORK.md`](COMMUNITY_FRAMEWORK.md) Rule 2
-(work lands directly as PRs; Discussions are optional, never a gate).
+Adaptation Drift Tracker and Tuning Fingerprint Detector shipped in v3.0.0.
+They analyze recorded evidence; they do not predict a future fault with a
+validated probability or prove whether a vehicle has been tuned.
 
-- **Adaptive Drift Tracker** — plot long-term fuel trims and adaptation
-  values over time to predict when an N55 is about to throw 29E0.
-- **Tuning Fingerprint Detector** — compare live-data distributions
-  against a stock baseline (useful when buying used).
-
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Last release: **v3.0.0**
-(2026-10-05), "The Car Remembers". See the changelog for release details.
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Current source version:
+**v5.0.0** (2026-10-15). See [feature status](docs/feature-status.md) for
+implemented modules, integration limits and hardware-validation work.
 
 ---
 

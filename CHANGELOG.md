@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- Reconcile the v5.0.0 README and roadmap baseline; document installed-plugin
+  integration limits and the audited installer availability.
+- Record the next ten update cycles with acceptance targets and dependencies.
+
 ## [5.0.0] — 2026-10-15
 
 ### Added — Tier A (v5.0.0 "Beemuu Platform")
