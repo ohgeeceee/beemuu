@@ -311,6 +311,19 @@ class TestAdminWrites(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("category", _as_dict(body)["error"])
 
+    def test_admin_dtc_search_returns_total_and_pages(self) -> None:
+        for code in ("P0171", "P0172", "P0173"):
+            self.client.post("/api/admin/dtc", {
+                "code": code, "category": "powertrain", "title": f"Fault {code}",
+            })
+        status, _, body = self.client.get("/api/admin/dtc?limit=2&offset=1&q=Fault")
+        data = _as_dict(body)
+        self.assertEqual(status, 200)
+        self.assertEqual(data["total"], 3)
+        self.assertEqual(data["limit"], 2)
+        self.assertEqual(data["offset"], 1)
+        self.assertEqual([row["code"] for row in data["results"]], ["P0172", "P0173"])
+
     def test_dtc_disable_soft_deletes(self) -> None:
         self.client.post("/api/admin/dtc", {
             "code": "P0171", "category": "powertrain", "title": "x",
@@ -350,6 +363,15 @@ class TestAdminWrites(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(_as_dict(body)["status"], "approved")
         self.assertEqual(_as_dict(body)["reviewer_note"], "verified in shop")
+
+        status, _, body = self.client.post("/api/admin/submissions/review", {
+            "id": sid, "status": "pending",
+        })
+        reopened = _as_dict(body)
+        self.assertEqual(status, 200)
+        self.assertEqual(reopened["status"], "pending")
+        self.assertIsNone(reopened["reviewed_at"])
+        self.assertIsNone(reopened["reviewer_note"])
 
     def test_submission_review_rejects_bad_status(self) -> None:
         status, _, body = self.client.post("/api/admin/submissions/review", {

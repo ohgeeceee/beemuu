@@ -197,10 +197,11 @@ def list_submissions(db_path: Path, status: str = "pending", limit: int = 100) -
 
 
 def review_submission(db_path: Path, sub_id: int, *, status: str, note: str | None) -> dict | None:
-    """Approve or reject a submission. status must be 'approved' or 'rejected'."""
-    if status not in ("approved", "rejected"):
-        raise ValueError("status must be 'approved' or 'rejected'")
-    now = int(time.time())
+    """Set a review decision, or return it to the pending queue."""
+    if status not in ("approved", "rejected", "pending"):
+        raise ValueError("status must be 'approved', 'rejected', or 'pending'")
+    reviewed_at = None if status == "pending" else int(time.time())
+    reviewer_note = None if status == "pending" else note
     with db.get_conn(db_path) as conn:
         row = conn.execute(
             "SELECT id FROM dtc_submission WHERE id = ?", (sub_id,)
@@ -210,7 +211,7 @@ def review_submission(db_path: Path, sub_id: int, *, status: str, note: str | No
         conn.execute(
             "UPDATE dtc_submission SET status=?, reviewed_at=?, reviewer_note=? "
             "WHERE id = ?",
-            (status, now, note, sub_id),
+            (status, reviewed_at, reviewer_note, sub_id),
         )
         conn.commit()
         updated = conn.execute(

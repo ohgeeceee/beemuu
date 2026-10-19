@@ -676,7 +676,8 @@ class Handler(BaseHTTPRequestHandler):
             # Admin can see disabled entries too
             q = query.get("q", [None])[0]
             category = query.get("category", [None])[0]
-            limit = int(query.get("limit", ["200"])[0])
+            limit = max(1, min(100, int(query.get("limit", ["50"])[0])))
+            offset = max(0, int(query.get("offset", ["0"])[0]))
             with db.get_conn(db_path) as conn:
                 where = ["1=1"]
                 params: list[object] = []
@@ -687,12 +688,17 @@ class Handler(BaseHTTPRequestHandler):
                     where.append("(code LIKE ? OR title LIKE ?)")
                     like = f"%{q}%"
                     params.extend([like, like])
+                predicate = " AND ".join(where)
+                total = conn.execute(
+                    "SELECT COUNT(*) FROM dtc WHERE " + predicate, params,
+                ).fetchone()[0]
                 rows = conn.execute(
-                    "SELECT * FROM dtc WHERE " + " AND ".join(where) +
-                    " ORDER BY code ASC LIMIT ?",
-                    (*params, limit),
+                    "SELECT * FROM dtc WHERE " + predicate +
+                    " ORDER BY code ASC LIMIT ? OFFSET ?",
+                    (*params, limit, offset),
                 ).fetchall()
-            self._json({"results": [dict(r) for r in rows]})
+            self._json({"results": [dict(r) for r in rows], "total": total,
+                        "limit": limit, "offset": offset})
             return
 
         if path == "/api/admin/submissions":

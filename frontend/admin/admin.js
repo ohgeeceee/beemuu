@@ -43,6 +43,17 @@
     return data;
   }
 
+  function friendlyError(err) {
+    const message = String(err?.message || "");
+    if (/network error|failed to fetch|load failed/i.test(message)) {
+      return "Could not reach Beemuu. Your changes are still here; check the connection and try again.";
+    }
+    if (/^HTTP \d+/.test(message)) {
+      return "Beemuu could not complete that request. Your changes are still here; please try again.";
+    }
+    return message || "Beemuu could not complete that request. Your changes are still here; please try again.";
+  }
+
   // -------- Toast --------
   let toastTimer = null;
   function toast(msg, kind = "ok") {
@@ -95,12 +106,30 @@
 
   // -------- Tabs --------
   function activateTab(name) {
-    $$(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+    $$(".tab").forEach((b) => {
+      const selected = b.dataset.tab === name;
+      b.classList.toggle("active", selected);
+      b.setAttribute("aria-selected", String(selected));
+      b.tabIndex = selected ? 0 : -1;
+    });
     $$("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== name; });
     if (loaders[name]) loaders[name]();
   }
-  $$(".tab").forEach((btn) =>
-    btn.addEventListener("click", () => activateTab(btn.dataset.tab)));
+  $$(".tab").forEach((btn, index, tabs) => {
+    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+    btn.addEventListener("keydown", (event) => {
+      const current = tabs.indexOf(btn);
+      let next = current;
+      if (event.key === "ArrowRight") next = (current + 1) % tabs.length;
+      else if (event.key === "ArrowLeft") next = (current - 1 + tabs.length) % tabs.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      tabs[next].focus();
+      activateTab(tabs[next].dataset.tab);
+    });
+  });
 
   // -------- Loaders per tab --------
   const loaders = {
@@ -128,7 +157,7 @@
       if (!rows.length) { list.innerHTML = `<li class="muted">No activity yet.</li>`; return; }
       list.innerHTML = rows.map(renderAuditRow).join("");
     } catch (err) {
-      toast(`Overview failed: ${err.message}`, "bad");
+      toast(`Overview could not load. ${friendlyError(err)}`, "bad");
     }
   }
 
@@ -143,18 +172,33 @@
 
   let dtcEntries = [];
   let editingDtcCode = null;
+  const dtcPageSize = 50;
+  let dtcOffset = 0;
+  let dtcRequestId = 0;
   async function loadDtc() {
+    const requestId = ++dtcRequestId;
     try {
       const q = $("#dtc-search").value.trim();
       const category = $("#dtc-category").value;
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       if (category) params.set("category", category);
-      params.set("limit", "200");
+      params.set("limit", String(dtcPageSize));
+      params.set("offset", String(dtcOffset));
       const data = await api("GET", `/api/admin/dtc?${params}`);
+      if (requestId !== dtcRequestId) return;
       const tbody = $("#dtc-table tbody");
       const rows = data.results || [];
       dtcEntries = rows;
+      const total = Number(data.total ?? rows.length);
+      const page = Math.floor(dtcOffset / dtcPageSize) + 1;
+      const pageCount = Math.max(1, Math.ceil(total / dtcPageSize));
+      $("#dtc-results-summary").textContent = total
+        ? `Showing ${dtcOffset + 1}–${Math.min(dtcOffset + rows.length, total)} of ${total} DTCs`
+        : "No DTCs found";
+      $("#dtc-page-label").textContent = `Page ${page} of ${pageCount}`;
+      $("#dtc-prev").disabled = dtcOffset === 0;
+      $("#dtc-next").disabled = dtcOffset + dtcPageSize >= total;
       if (!rows.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="muted">No DTCs match.</td></tr>`;
         return;
@@ -174,7 +218,7 @@
           </td>
         </tr>`).join("");
     } catch (err) {
-      toast(`DTC load failed: ${err.message}`, "bad");
+      if (requestId === dtcRequestId) toast(friendlyError(err), "bad");
     }
   }
 
@@ -200,14 +244,14 @@
           <td>${escapeHtml(r.status)}</td>
           <td>
             <button class="ghost" data-action="view-sub" data-id="${r.id}">Details</button>
-            ${r.status === "pending" ? `
-              <button data-action="approve-sub" data-id="${r.id}">Approve</button>
-              <button class="danger" data-action="reject-sub" data-id="${r.id}">Reject</button>
-            ` : `<span class="muted">${escapeHtml(r.reviewer_note || "")}</span>`}
+            ${r.status === "pending"
+              ? `<button data-action="view-sub" data-id="${r.id}">Review</button>`
+              : `<button class="ghost" data-action="view-sub" data-id="${r.id}">Details</button>
+                 <button class="ghost" data-action="reopen-sub" data-id="${r.id}">Return to queue</button>`}
           </td>
         </tr>`).join("");
     } catch (err) {
-      toast(`Submissions load failed: ${err.message}`, "bad");
+      toast(`Submissions could not load. ${friendlyError(err)}`, "bad");
     }
   }
 
@@ -240,7 +284,7 @@
           </td>
         </tr>`).join("");
     } catch (err) {
-      toast(`Schematics load failed: ${err.message}`, "bad");
+      toast(`Schematics could not load. ${friendlyError(err)}`, "bad");
     }
   }
 
@@ -267,7 +311,7 @@
         </tr>`;
       }).join("");
     } catch (err) {
-      toast(`Sessions load failed: ${err.message}`, "bad");
+      toast(`Diagnostic sessions could not load. ${friendlyError(err)}`, "bad");
     }
   }
 
@@ -279,7 +323,7 @@
       if (!rows.length) { list.innerHTML = `<li class="muted">No audit events yet.</li>`; return; }
       list.innerHTML = rows.map(renderAuditRow).join("");
     } catch (err) {
-      toast(`Audit load failed: ${err.message}`, "bad");
+      toast(`Audit log could not load. ${friendlyError(err)}`, "bad");
     }
   }
 
@@ -295,7 +339,7 @@
       if (me) showApp(me);
       else { errEl.textContent = "login succeeded but session not found"; errEl.hidden = false; }
     } catch (err) {
-      errEl.textContent = err.message;
+      errEl.textContent = friendlyError(err);
       errEl.hidden = false;
     }
   });
@@ -323,13 +367,16 @@
       toast("Password changed. Sign in again with the new password.");
       setTimeout(() => location.reload(), 1400);
     } catch (err) {
-      error.textContent = err.message;
+      error.textContent = friendlyError(err);
       error.hidden = false;
     }
   });
 
   $("#dtc-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const error = $("#dtc-error");
+    const save = $("#dtc-save");
+    error.hidden = true;
     const fd = new FormData(e.target);
     const payload = {
       code: editingDtcCode || fd.get("code"),
@@ -344,16 +391,20 @@
       verified: fd.has("verified"),
       enabled: fd.has("enabled"),
     };
+    save.disabled = true;
+    save.textContent = editingDtcCode ? "Saving changes…" : "Saving…";
     try {
       await api("POST", "/api/admin/dtc", payload);
       toast(`${editingDtcCode ? "Updated" : "Saved"} ${payload.code.toUpperCase()}`);
-      e.target.reset();
-      editingDtcCode = null;
-      e.target.elements.code.disabled = false;
-      $("#dtc-save").textContent = "Save DTC";
-      $("#dtc-cancel").hidden = true;
-      loadDtc();
-    } catch (err) { toast(`DTC upsert failed: ${err.message}`, "bad"); }
+      resetDtcForm();
+      $("#dtc-editor").open = false;
+      dtcOffset = 0;
+      await loadDtc();
+    } catch (err) { error.textContent = friendlyError(err); error.hidden = false; }
+    finally {
+      save.disabled = false;
+      save.textContent = editingDtcCode ? `Update ${editingDtcCode}` : "Save DTC";
+    }
   });
 
   function editDtc(code) {
@@ -368,6 +419,7 @@
     form.elements.code.disabled = true;
     editingDtcCode = row.code;
     $("#dtc-save").textContent = `Update ${row.code}`;
+    $("#dtc-editor-summary").textContent = `Editing ${row.code}`;
     $("#dtc-cancel").hidden = false;
     form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -378,17 +430,30 @@
     form.elements.code.disabled = false;
     editingDtcCode = null;
     $("#dtc-save").textContent = "Save DTC";
+    $("#dtc-editor-summary").textContent = "Add a DTC";
+    $("#dtc-error").hidden = true;
     $("#dtc-cancel").hidden = true;
   }
   $("#dtc-cancel").addEventListener("click", resetDtcForm);
 
-  $("#dtc-search").addEventListener("input", () => loadDtc());
-  $("#dtc-category").addEventListener("change", () => loadDtc());
+  let dtcSearchTimer = null;
+  $("#dtc-search").addEventListener("input", () => {
+    clearTimeout(dtcSearchTimer);
+    dtcSearchTimer = setTimeout(() => { dtcOffset = 0; loadDtc(); }, 250);
+  });
+  $("#dtc-category").addEventListener("change", () => { dtcOffset = 0; loadDtc(); });
+  $("#dtc-prev").addEventListener("click", () => {
+    dtcOffset = Math.max(0, dtcOffset - dtcPageSize); loadDtc();
+  });
+  $("#dtc-next").addEventListener("click", () => { dtcOffset += dtcPageSize; loadDtc(); });
 
   $("#sub-status").addEventListener("change", () => loadSubmissions());
 
   $("#sch-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const error = $("#sch-error");
+    const save = e.target.querySelector("button[type=submit]");
+    error.hidden = true;
     const fd = new FormData(e.target);
     const payload = {
       slug: editingSchematicSlug || fd.get("slug"),
@@ -407,6 +472,8 @@
       source_url: fd.get("source_url") || null,
       tags: fd.get("tags") || null,
     };
+    save.disabled = true;
+    save.textContent = editingSchematicSlug ? "Saving changes…" : "Saving…";
     try {
       await api("POST", "/api/admin/schematics", payload);
       toast(`${editingSchematicSlug ? "Updated" : "Saved"} ${payload.slug}`);
@@ -415,8 +482,14 @@
       e.target.elements.slug.disabled = false;
       e.target.querySelector("button[type=submit]").textContent = "Save schematic";
       $("#sch-cancel").hidden = true;
-      loadSchematics();
-    } catch (err) { toast(`Schematic upsert failed: ${err.message}`, "bad"); }
+      $("#sch-editor-summary").textContent = "Add a schematic";
+      $("#sch-editor").open = false;
+      await loadSchematics();
+    } catch (err) { error.textContent = friendlyError(err); error.hidden = false; }
+    finally {
+      save.disabled = false;
+      save.textContent = editingSchematicSlug ? `Update ${editingSchematicSlug}` : "Save schematic";
+    }
   });
 
   function editSchematic(slug) {
@@ -430,6 +503,9 @@
     form.elements.slug.disabled = true;
     editingSchematicSlug = row.slug;
     form.querySelector("button[type=submit]").textContent = `Update ${row.slug}`;
+    $("#sch-editor-summary").textContent = `Editing ${row.slug}`;
+    $("#sch-editor").open = true;
+    $(".metadata-details", form).open = true;
     $("#sch-cancel").hidden = false;
     form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -440,23 +516,30 @@
     form.elements.slug.disabled = false;
     editingSchematicSlug = null;
     form.querySelector("button[type=submit]").textContent = "Save schematic";
+    $("#sch-editor-summary").textContent = "Add a schematic";
+    $("#sch-error").hidden = true;
     $("#sch-cancel").hidden = true;
   }
   $("#sch-cancel").addEventListener("click", resetSchematicForm);
 
+  let activeSubmissionId = null;
   function showSubmission(id) {
     const row = submissionEntries.find((item) => String(item.id) === String(id));
     if (!row) return;
+    activeSubmissionId = row.id;
     $("#submission-title").textContent = `${row.code || "Submission"} · #${row.id}`;
+    $("#review-note").value = row.reviewer_note || "";
+    $("#review-error").hidden = true;
+    $("#review-approve").hidden = row.status !== "pending";
+    $("#review-reject").hidden = row.status !== "pending";
+    $("#review-reopen").hidden = row.status === "pending";
+    $("#review-note").disabled = row.status !== "pending";
     const details = $("#submission-details");
     details.replaceChildren();
     const fields = [
-      ["Status", row.status],
-      ["Submitted", fmtTime(row.submitted_at)],
-      ["Submitter", row.submitter_handle],
-      ["VIN", row.submitter_vin],
-      ["Symptoms", row.symptoms],
-      ["Proposed description", row.proposed_description],
+      ["Status", row.status], ["Submitted", fmtTime(row.submitted_at)],
+      ["Submitter", row.submitter_handle], ["VIN", row.submitter_vin],
+      ["Symptoms", row.symptoms], ["Proposed description", row.proposed_description],
       ["Reviewer note", row.reviewer_note],
     ];
     for (const [label, value] of fields) {
@@ -469,57 +552,148 @@
     $("#submission-dialog").showModal();
   }
 
-  // -------- Delegated clicks for table actions --------
+  // -------- In-app recoverable actions --------
+  let actionConfig = null;
+  const actionDialog = $("#action-dialog");
+  function askAction(config) {
+    actionConfig = config;
+    $("#action-title").textContent = config.title;
+    $("#action-description").textContent = config.description;
+    $("#action-error").hidden = true;
+    $("#action-input-label").hidden = !config.inputLabel;
+    $("#action-input-label span").textContent = config.inputLabel || "";
+    $("#action-input").value = "";
+    $("#action-input").placeholder = config.placeholder || "";
+    $("#action-input").required = Boolean(config.inputLabel);
+    const submit = $("#action-submit");
+    submit.textContent = config.submitLabel || "Continue";
+    submit.classList.toggle("danger", Boolean(config.danger));
+    actionDialog.showModal();
+    if (config.inputLabel) $("#action-input").focus();
+  }
+
+  async function setSubmissionStatus(status) {
+    const error = $("#review-error");
+    error.hidden = true;
+    const buttons = [$("#review-approve"), $("#review-reject"), $("#review-reopen")];
+    buttons.forEach((button) => { button.disabled = true; });
+    try {
+      await api("POST", "/api/admin/submissions/review", {
+        id: Number(activeSubmissionId), status,
+        note: status === "pending" ? null : ($("#review-note").value.trim() || null),
+      });
+      $("#submission-dialog").close();
+      toast(status === "pending" ? "Submission returned to the review queue." : `Submission ${status}.`);
+      await loadSubmissions();
+    } catch (err) {
+      error.textContent = friendlyError(err);
+      error.hidden = false;
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; });
+    }
+  }
+  $("#review-approve").addEventListener("click", () => setSubmissionStatus("approved"));
+  $("#review-reject").addEventListener("click", () => setSubmissionStatus("rejected"));
+  $("#review-reopen").addEventListener("click", () => setSubmissionStatus("pending"));
+  $("#review-form").addEventListener("submit", (event) => event.preventDefault());
+
+  $("#action-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!actionConfig) return;
+    const submit = $("#action-submit");
+    const error = $("#action-error");
+    submit.disabled = true;
+    error.hidden = true;
+    try {
+      await actionConfig.run($("#action-input").value.trim());
+      actionDialog.close();
+      actionConfig = null;
+    } catch (err) {
+      error.textContent = friendlyError(err);
+      error.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+  $$('[data-close-dialog]').forEach((button) => button.addEventListener("click", () => {
+    button.closest("dialog").close();
+  }));
+
   document.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-action]");
     if (!t) return;
     const action = t.dataset.action;
     try {
       if (action === "disable-dtc") {
-        if (!confirm(`Disable ${t.dataset.code}? This hides it from the public catalog but preserves its record.`)) return;
-        await api("DELETE", `/api/admin/dtc/${encodeURIComponent(t.dataset.code)}`);
-        toast(`Disabled ${t.dataset.code}`);
-        loadDtc();
+        askAction({
+          title: `Disable ${t.dataset.code}?`,
+          description: "This removes the code from the public catalog and preserves its record and history.",
+          submitLabel: "Disable code", danger: true,
+          run: async () => {
+            await api("DELETE", `/api/admin/dtc/${encodeURIComponent(t.dataset.code)}`);
+            toast(`Disabled ${t.dataset.code}`);
+            await loadDtc();
+          },
+        });
       } else if (action === "enable-dtc") {
         await api("DELETE", `/api/admin/dtc/${encodeURIComponent(t.dataset.code)}/enable`);
-        toast(`Enabled ${t.dataset.code}`);
-        loadDtc();
+        toast(`Enabled ${t.dataset.code}`); await loadDtc();
       } else if (action === "edit-dtc") {
         editDtc(t.dataset.code);
-      } else if (action === "approve-sub") {
-        await api("POST", "/api/admin/submissions/review", { id: parseInt(t.dataset.id, 10), status: "approved" });
-        toast(`Approved submission ${t.dataset.id}`);
-        loadSubmissions();
-      } else if (action === "reject-sub") {
-        const note = prompt("Reviewer note (optional):") || null;
-        await api("POST", "/api/admin/submissions/review", { id: parseInt(t.dataset.id, 10), status: "rejected", note });
-        toast(`Rejected submission ${t.dataset.id}`);
-        loadSubmissions();
+        $("#dtc-editor").open = true;
       } else if (action === "view-sub") {
         showSubmission(t.dataset.id);
+      } else if (action === "reopen-sub") {
+        const row = submissionEntries.find((item) => String(item.id) === String(t.dataset.id));
+        if (!row) return;
+        activeSubmissionId = row.id;
+        askAction({
+          title: "Return submission to review?",
+          description: `This clears the previous decision for ${row.code} and adds it back to the pending review queue.`,
+          submitLabel: "Return to queue",
+          run: async () => {
+            await api("POST", "/api/admin/submissions/review", { id: Number(row.id), status: "pending" });
+            toast("Submission returned to the review queue."); await loadSubmissions();
+          },
+        });
       } else if (action === "link-sch") {
-        const code = prompt("DTC code to link (e.g. P0171):");
-        if (!code) return;
-        await api("POST", "/api/admin/schematic-links", { slug: t.dataset.slug, code: code.toUpperCase() });
-        toast(`Linked ${code.toUpperCase()} ↔ ${t.dataset.slug}`);
-        loadSchematics();
+        askAction({
+          title: `Link a DTC to ${t.dataset.slug}`,
+          description: "Enter a diagnostic trouble code to connect this diagram to the catalog.",
+          inputLabel: "DTC code", placeholder: "Example: P0171", submitLabel: "Create link",
+          run: async (value) => {
+            const code = value.toUpperCase();
+            await api("POST", "/api/admin/schematic-links", { slug: t.dataset.slug, code });
+            toast(`Linked ${code} to ${t.dataset.slug}`); await loadSchematics();
+          },
+        });
       } else if (action === "unlink-sch") {
-        if (!confirm(`Remove the ${t.dataset.code} link from ${t.dataset.slug}?`)) return;
-        await api("DELETE", `/api/admin/schematic-links?slug=${encodeURIComponent(t.dataset.slug)}&code=${encodeURIComponent(t.dataset.code)}`);
-        toast(`Unlinked ${t.dataset.code}`);
-        loadSchematics();
+        askAction({
+          title: `Remove ${t.dataset.code} link?`,
+          description: `This removes the link from schematic ${t.dataset.slug}.`,
+          submitLabel: "Remove link", danger: true,
+          run: async () => {
+            await api("DELETE", `/api/admin/schematic-links?slug=${encodeURIComponent(t.dataset.slug)}&code=${encodeURIComponent(t.dataset.code)}`);
+            toast(`Unlinked ${t.dataset.code}`); await loadSchematics();
+          },
+        });
       } else if (action === "edit-sch") {
         editSchematic(t.dataset.slug);
       } else if (action === "disable-sch" || action === "enable-sch") {
         const enable = action === "enable-sch";
-        if (!enable && !confirm(`Disable ${t.dataset.slug}? It will no longer appear in the public catalog.`)) return;
-        const suffix = enable ? "/enable" : "/disable";
-        await api("DELETE", `/api/admin/schematics/${encodeURIComponent(t.dataset.slug)}${suffix}`);
-        toast(`${enable ? "Enabled" : "Disabled"} ${t.dataset.slug}`);
-        loadSchematics();
+        const perform = async () => {
+          await api("DELETE", `/api/admin/schematics/${encodeURIComponent(t.dataset.slug)}${enable ? "/enable" : "/disable"}`);
+          toast(`${enable ? "Enabled" : "Disabled"} ${t.dataset.slug}`); await loadSchematics();
+        };
+        if (enable) await perform();
+        else askAction({
+          title: `Disable ${t.dataset.slug}?`,
+          description: "The schematic will no longer appear in the public catalog. Existing DTC links and history stay in place.",
+          submitLabel: "Disable schematic", danger: true, run: perform,
+        });
       }
     } catch (err) {
-      toast(`${action} failed: ${err.message}`, "bad");
+      toast(friendlyError(err), "bad");
     }
   });
 
