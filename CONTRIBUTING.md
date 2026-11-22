@@ -150,8 +150,8 @@ Requires **Node 20+**; the Tauri CLI drives the Rust build. Python
 3.11+ is only needed for the `backend/` test suite
 (`pip install pytest`, nothing else — the backend is stdlib-only).
 Install Rust and the native build dependencies first; see the
-[source quick start](README.md#quick-start-from-source) for Fedora packages
-and other platforms.
+[source quick start](README.md#quick-start-from-source) for platform-specific
+prerequisites.
 
 ```bash
 git clone https://github.com/ohgeeceee/beemuu
