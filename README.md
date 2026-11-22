@@ -83,6 +83,21 @@ Requires **Node 20+**. Tauri drives the Rust build, so the first compile is
 the slowest part. (Python 3.11+ is only needed to run the `backend/` test
 suite — `pip install pytest`, nothing else; the backend is stdlib-only.)
 
+Install [Rust and Cargo](https://www.rust-lang.org/tools/install) and the
+native Tauri build dependencies before starting. On Fedora, install them with:
+
+```bash
+sudo dnf install gcc gcc-c++ pkgconf-pkg-config glib2-devel gtk3-devel \
+  webkit2gtk4.1-devel libayatana-appindicator-gtk3-devel librsvg2-devel \
+  openssl-devel systemd-devel
+```
+
+These development packages provide the `pkg-config` metadata required by the
+Rust build. In particular, a missing `glib-2.0.pc` or `gobject-2.0.pc`
+usually means `glib2-devel` is not installed; `PKG_CONFIG_PATH` is normally
+unnecessary when using Fedora's packages. For other platforms, see the
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
+
 ```bash
 git clone https://github.com/ohgeeceee/beemuu
 cd beemuu
