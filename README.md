@@ -83,6 +83,41 @@ Requires **Node 20+**. Tauri drives the Rust build, so the first compile is
 the slowest part. (Python 3.11+ is only needed to run the `backend/` test
 suite — `pip install pytest`, nothing else; the backend is stdlib-only.)
 
+Install [Node.js 20+ and npm](https://nodejs.org/),
+[Rust and Cargo](https://www.rust-lang.org/tools/install), and the native
+dependencies for your platform before starting:
+
+- **Windows:** Install Microsoft C++ Build Tools with **Desktop development
+  with C++** and the WebView2 runtime.
+- **macOS:** Install Xcode Command Line Tools with `xcode-select --install`.
+- **Linux:** Install your distribution's development packages for GTK 3,
+  WebKitGTK 4.1, GLib, OpenSSL, libudev, and the other Tauri dependencies.
+  Examples for Debian/Ubuntu and Fedora are below.
+
+See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for
+platform-specific details and other Linux distributions.
+
+On Debian/Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install build-essential pkg-config libglib2.0-dev libgtk-3-dev \
+  libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+  libssl-dev libudev-dev libxdo-dev
+```
+
+On Fedora:
+
+```bash
+sudo dnf install gcc gcc-c++ pkgconf-pkg-config glib2-devel gtk3-devel \
+  webkit2gtk4.1-devel libayatana-appindicator-gtk3-devel librsvg2-devel \
+  openssl-devel systemd-devel
+```
+
+On Linux, missing `glib-2.0.pc` or `gobject-2.0.pc` usually means the GLib
+development package is not installed. Distribution packages normally place
+these files where `pkg-config` can find them without setting `PKG_CONFIG_PATH`.
+
 ```bash
 git clone https://github.com/ohgeeceee/beemuu
 cd beemuu
