@@ -3,6 +3,8 @@
 Proposed sequence approved for development on 2026-10-19. Each cycle should
 produce a focused PR with relevant regression checks and accurate limitations.
 Version assignment and release publication are separate maintainer decisions.
+The calendar-time sequencing of these updates lives in
+[product_calendar.md](product_calendar.md).
 
 | Order | Update | Acceptance target | Dependencies / review |
 |---|---|---|---|
@@ -25,13 +27,19 @@ Do not label a cycle complete until its acceptance target is verified. Use
 
 - Update 1: baseline documentation merged in PR #374.
 - Update 2: first connection-recovery slice documented in
-  [connection-recovery.md](connection-recovery.md). The cycle remains open
-  until the other polling paths and real-cable recovery behavior are checked.
+  [connection-recovery.md](connection-recovery.md). The second slice
+  (2026-11-27, same document) brought the profile gauge grid to the same
+  freshness semantics, fixed the About modal metadata, fixed the unloaded
+  `live_data_panel.js` script tag plus the latent top-level collision it had
+  been masking, and pinned both with a `window.*` wiring test and the
+  script-collision guard in CI. Remaining before the cycle closes: physical
+  adapter health probes, automatic reconnect, and real-cable recovery
+  behavior.
 - Updates 3–10: acceptance targets above remain outstanding.
 
-Follow-up baseline finding: the About modal in `src/index.html` still carries
-an old version string and repository spelling. Correct its displayed metadata
-in a separate focused change; do not treat that as a release version bump.
+Follow-up baseline finding: resolved 2026-11-27 — the About modal in
+`src/index.html` now shows the current version and the correct
+`ohgeeceee/beemuu` repository spelling.
 
 GitHub Issues is disabled in this repository as of 2026-10-19, so this document
 and focused PRs carry the development status instead of a separate issue tracker.
