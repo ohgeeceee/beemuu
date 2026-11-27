@@ -84,11 +84,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Updater signing is disabled: the TAURI_SIGNING_PRIVATE_KEY repo
-          # secret is malformed ("Missing comment in secret key") and newer
-          # tauri-cli hard-fails on it. This matches the v5.0.1 production
-          # release, which already shipped unsigned. Re-add the two env lines
-          # (TAURI_SIGNING_PRIVATE_KEY / _PASSWORD) once the secret is reset
-          # from the original ~/.tauri key file.
+          # secret is malformed ("Missing comment in secret key"). tauri-cli
+          # 2.12.6 hard-fails both on a malformed key and on a missing key
+          # when tauri.conf.json carries an updater pubkey, so the CLI is
+          # pinned to 2.12.4 in package.json — the version that shipped the
+          # unsigned v5.0.1 release with a warning. To restore signed
+          # auto-updates: reset the secret from the original ~/.tauri key
+          # file, re-add TAURI_SIGNING_PRIVATE_KEY / _PASSWORD here, and
+          # unpin the CLI.
         with:
           tagName: ${{ inputs.release_tag || github.ref_name }}
           releaseCommitish: ${{ steps.source_commit.outputs.commit }}
