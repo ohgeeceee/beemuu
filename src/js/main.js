@@ -34,6 +34,14 @@ let workspaceSaveTimer = null; // debounce handle for workspace.json writes
 // reads through it instead of the simulator mirror.
 let kdcanDataSource = null;
 
+// Update 2 slice 2 — profile gauge grid freshness. One tracker per page
+// load; pollOnce() feeds it per-PID results, stopPolling() marks the loop
+// stopped, and the profile-change / connect handlers reset it. Guarded so a
+// missing live_freshness.js degrades to "no freshness line", never a crash.
+const liveFreshness = window.beeemuuLiveFreshness
+  ? window.beeemuuLiveFreshness.createTracker()
+  : null;
+
 /* ---------------- v3 analysis bridge ----------------
  * The v3 engines (misfire_patterns, adaptation_drift, tuning_fingerprint,
  * flash_audit, symptom_index, signal_library, parameter_hunt, cold_start) are
@@ -508,6 +516,7 @@ $("btn-connect").addEventListener("click", async () => {
   $("conn-kind").disabled = true;
   liveReadEpoch++;
   kdcanDataSource?.reset();
+  liveFreshness?.reset();
   window.beeemuuLiveGauges?.controller?.resetPeaks();
   try {
     if (connected) {
@@ -1537,10 +1546,17 @@ function ensureGauge(v) {
   peak.className = "gauge-peak";
   peak.dataset.peak = v.id;
   peak.textContent = "peak: —";
+  // Update 2 slice 2 — freshness line. Empty while the channel is live;
+  // says stale / waiting / polling stopped otherwise, mirroring the DID-
+  // backed Live Gauges panel (docs/connection-recovery.md).
+  const fresh = document.createElement("div");
+  fresh.className = "gauge-fresh";
+  fresh.dataset.fresh = v.id;
   cell.appendChild(canvas);
   cell.appendChild(label);
   cell.appendChild(range);
   cell.appendChild(peak);
+  cell.appendChild(fresh);
   $("gauge-grid").appendChild(cell);
   // Per-profile [profile.theme] colour scheme (stashed by loadProfiles);
   // undefined => the Gauge renders its built-in cockpit palette.
@@ -1592,6 +1608,7 @@ async function loadProfiles() {
 $("live-profile").addEventListener("change", () => {
   liveReadEpoch++;
   kdcanDataSource?.reset();
+  liveFreshness?.reset();
   window.beeemuuLiveGauges?.controller?.resetPeaks();
   // different profile = different parameter set: rebuild gauges
   gauges.clear();
@@ -1664,6 +1681,25 @@ function renderPeakTable() {
       );
     })
     .join("");
+}
+
+// Update 2 slice 2 — push the freshness tracker's decision into each gauge
+// cell: the .stale class greys the dial, and the freshness line says why.
+// Called once per sweep from pollOnce and once from stopPolling; between
+// sweeps nothing moves, which is exactly when the line matters most.
+// textContent only — the tracker's label text never touches innerHTML.
+function refreshFreshnessCells() {
+  if (!liveFreshness) return;
+  for (const id of gauges.keys()) {
+    const cell = document.querySelector(
+      '.gauge-cell[data-pid-id="' + id + '"]'
+    );
+    if (!cell) continue;
+    const { status, text } = liveFreshness.label(id);
+    cell.classList.toggle("stale", status !== "live");
+    const el = cell.querySelector("[data-fresh]");
+    if (el) el.textContent = text;
+  }
 }
 
 // Enable / disable the snapshot button based on whether the live panel
@@ -1759,6 +1795,7 @@ async function pollOnce() {
     // Gauge renders text when given a label override.
     const g = ensureGauge(v);
     g.set(v.value, v.text);
+    liveFreshness?.noteValue(v.id);
     // Peak tracking — applyValuesToPeaks is a pure reducer over the
     // values array; it skips enum / non-finite values internally.
     livePeakState = window.beeemuuLiveDataPanel.applyValuesToPeaks(
@@ -1796,6 +1833,9 @@ async function pollOnce() {
   // the next sweep will retry.
   let unsupportedCount = 0;
   for (const err of result.errors) {
+    // Update 2 slice 2 — an explicit per-PID error marks the channel stale
+    // immediately (same semantics as the DID-backed Live Gauges source).
+    liveFreshness?.noteError(err.id);
     const cls = window.beeemuuLiveDataPanel.classifyNrc(err);
     if (cls === "unsupported") {
       unsupportedCount++;
@@ -1845,6 +1885,7 @@ async function pollOnce() {
   }
   renderPeakTable();
   updateSnapshotButton();
+  refreshFreshnessCells();
 }
 
 // v0.14.3 slice 3b — one-click remove-from-profile handler. Gated
@@ -1881,6 +1922,10 @@ function stopPolling() {
   clearInterval(pollTimer);
   pollTimer = null;
   $("live-poll").checked = false;
+  // Update 2 slice 2 — the numbers on screen are history now, not live
+  // data. Mark every gauge stopped so nothing reads as current.
+  liveFreshness?.stop();
+  refreshFreshnessCells();
 }
 
 $("live-poll").addEventListener("change", (e) => {

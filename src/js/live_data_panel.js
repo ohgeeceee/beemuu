@@ -23,6 +23,17 @@
 // No new Tauri command, no new crate, no `transport/**` touch.
 // Patterned after live_gauges.js (v0.14.0) — controller-mirror-tests
 // split, same dual-export pattern.
+//
+// The body is wrapped in the root/factory IIFE (the wiring_detect.js
+// pattern) because every classic <script> shares one global lexical scope:
+// a bare top-level `const api` here collided with workspace_state.js the
+// moment this file actually got loaded by index.html (Update 2 slice 2).
+
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root) root.beeemuuLiveDataPanel = api;
+})(typeof window !== "undefined" ? window : globalThis, function () {
 
 const POLL_RATE_MS_OPTIONS = Object.freeze([100, 250, 500, 1000]);
 const DEFAULT_POLL_RATE_MS = 250;
@@ -206,7 +217,7 @@ function classifyNrc(err) {
 // Public surface
 // ---------------------------------------------------------------------------
 
-const api = {
+return {
   POLL_RATE_MS_OPTIONS,
   DEFAULT_POLL_RATE_MS,
   resolvePollRateMs,
@@ -220,9 +231,4 @@ const api = {
   UNSUPPORTED_NRCS,
 };
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = api;
-}
-if (typeof window !== "undefined") {
-  window.beeemuuLiveDataPanel = api;
-}
+});

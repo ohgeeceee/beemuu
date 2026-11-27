@@ -310,6 +310,21 @@ body {
   font-weight: normal;
   color: var(--muted);
 }
+/* Update 2 slice 2 — freshness state for the profile gauge grid. Applied
+   when the DID sweep has stopped, the channel has gone quiet past the
+   threshold, or the last read was explicitly rejected. The dial greys so a
+   cached number no longer reads as live; the .gauge-fresh line says why.
+   Independent of .dimmed (unsupported) — the two can coexist. */
+.gauge-cell.stale canvas { opacity: 0.55; }
+.gauge-cell.stale .gauge-range-fill { opacity: 0.4; }
+.gauge-fresh {
+  min-height: 14px;
+  margin-top: 2px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--muted);
+}
+.gauge-cell.stale .gauge-fresh { color: #f4b400; }
 /* v0.14.3 slice 3b — one-click remove-from-profile button. Sits below
    the peak label inside the gauge cell. Only present when the cell is
    dimmed (see pollOnce in main.js). */

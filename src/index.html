@@ -928,7 +928,7 @@
         <span class="brand-badge">◔</span>
         <div>
           <div class="brand-title">BeeEmUu</div>
-          <div class="brand-sub">Independent diagnostic tool for BMW vehicles · v0.1.0</div>
+          <div class="brand-sub">Independent diagnostic tool for BMW vehicles · v5.0.1</div>
         </div>
       </div>
       <div class="modal-body">
@@ -943,7 +943,7 @@
         can actuate hardware. Use with the vehicle stationary and secured, never
         while driving, and entirely at your own risk.</p>
         <p class="muted">Source, license, and contribution guide:
-        github.com/ohgeeceee/beeemuu</p>
+        github.com/ohgeeceee/beemuu</p>
       </div>
       <div class="modal-actions">
         <button id="modal-accept" class="btn btn-primary">I understand</button>
@@ -1062,6 +1062,11 @@
   <script src="js/live_data_bridge.js"></script>
   <script src="js/live_kdcan_source.js"></script>
   <script src="js/live_data_source_wiring.js"></script>
+  <!-- live_data_panel.js publishes window.beeemuuLiveDataPanel, which
+       main.js's pollOnce / startPolling path dereferences directly. It must
+       load before main.js; the script_globals wiring test pins this. -->
+  <script src="js/live_data_panel.js"></script>
+  <script src="js/live_freshness.js"></script>
   <script src="js/live_can_source.js"></script>
   <script src="js/live_gauges.js"></script>
   <script src="js/first_scan_guide.js"></script>

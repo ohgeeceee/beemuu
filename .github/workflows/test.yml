@@ -112,5 +112,11 @@ jobs:
       - name: Install test dependencies
         run: npm install --no-save --package-lock=false --ignore-scripts
 
+      # Static guard for the classic-<script> shared global scope: two files
+      # declaring the same top-level `const`/`let`/`class` is a SyntaxError in
+      # a real browser and invisible to node --test. Cheap; runs anywhere.
+      - name: Script-collision guard
+        run: node scripts/check-script-collisions.cjs
+
       - name: node --test
         run: node --test "src/js/**/*.test.js" "src/js/**/*.test.cjs" "frontend/**/*.test.js"
