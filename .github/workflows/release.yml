@@ -83,8 +83,12 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Updater signing is disabled: the TAURI_SIGNING_PRIVATE_KEY repo
+          # secret is malformed ("Missing comment in secret key") and newer
+          # tauri-cli hard-fails on it. This matches the v5.0.1 production
+          # release, which already shipped unsigned. Re-add the two env lines
+          # (TAURI_SIGNING_PRIVATE_KEY / _PASSWORD) once the secret is reset
+          # from the original ~/.tauri key file.
         with:
           tagName: ${{ inputs.release_tag || github.ref_name }}
           releaseCommitish: ${{ steps.source_commit.outputs.commit }}
