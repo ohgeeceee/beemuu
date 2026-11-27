@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] — 2026-11-27
+
+### Added — Tier A (v5.1.0 "Plugin Marketplace")
+
+- **Marketplace in the Plugins tab** (#395): browse, verify, install, run and
+  manage plugins from [plugins.beemuu.com](https://plugins.beemuu.com/)
+  without leaving the app. Downloads are SHA-256-verified against the
+  registry before extraction; the archive's `plugin.json` must match the
+  registry entry on id and version or the install is refused; a consent
+  screen shows every capability granted vs refused (with reasons), the
+  verified digest, and the full source before anything is stored. Installed
+  plugins are enabled/disabled, opened/stopped, updated in place when the
+  registry publishes a newer version, and removed — all from the same
+  section.
+- **Sandboxed marketplace runner**: marketplace packages
+  (`activate`/`deactivate`, `context.vehicle/ui/fs` per the marketplace
+  `PLUGIN_FORMAT.md`) execute in an isolated iframe (opaque origin, CSP
+  refuses all network). Vehicle reads are gated per declared capability
+  through the existing deny-by-default capability bridge over the read-only
+  plugin host; `ui` panels render inside the frame's own DOM; `filesystem`
+  is a download-only export; `network` and all ECU-write capabilities are
+  refused with reasons shown to the user.
+- **New modules** (`src/js/`): `marketplace_registry.js` (schema validation,
+  semver, update detection), `marketplace_zip.js` (digest verification,
+  bounded zip reader), `marketplace_store.js` (bounded persistence),
+  `marketplace_runner.js`, `marketplace_ui.js`, `marketplace_boot.js`
+  (vehicle host fed from the read-only v3 bridge).
+
+### Changed
+
+- **Autonomy model** (CLAUDE.md, owner directive 2026-11-27): no human
+  review is required for any tier. Tier B work lands autonomously with the
+  protected-path flag and full review notes in the PR description as the
+  audit trail; releases (version bumps, tags, installers) are
+  agent-executed with the test matrix green as the gate. Irreversible and
+  production-VPS actions still require an explicit per-occurrence owner
+  instruction.
+
+### Tests
+
+- 17 new marketplace tests (registry validation, zip extraction with an
+  in-test archive writer covering stored + deflate entries, store bounds,
+  runner grant/refusal matrix and sandbox policy). Whole-suite state at
+  this release: 1166 frontend tests via the CI glob — all pass.
+
 ## [5.0.1] — 2026-10-19
 
 ### Fixed
