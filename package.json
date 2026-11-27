@@ -13,7 +13,7 @@
     "test:js": "node --test src/js/test/*.test.cjs"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.12.4",
+    "@tauri-apps/cli": "^2.12.6",
     "esbuild": "^0.28.2",
     "jsdom": "^31.0.1"
   },

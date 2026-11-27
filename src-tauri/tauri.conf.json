@@ -35,7 +35,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVEMDA5MTY4OEFCNkYzRUQKUldUdDg3YUthSkVBN2ZBd2ZTSnZMcG5xWUlWUnR3ZXlIN3FmOUZuSWlPWFpSYjMxOGxyYWJJenQK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIwMEY0MjgwQkQzOUFBQTcKUldTbnFqbTlnRUlQSUdlNStNWTJGWEZ2MWlZanlicHBLSWJ4ano3WHVxZTlkYmxnd2hCOEU5L2kK",
       "endpoints": [
         "https://github.com/ohgeeceee/beemuu/releases/latest/download/latest.json"
       ]
