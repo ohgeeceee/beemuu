@@ -8,15 +8,24 @@ and timing are safety-relevant — but **process friction is not safety**. The
 safety lives in tests, invariants, and the tier gates below, not in requiring
 a human to eyeball every diff.
 
-## Autonomy model — act first, ask at the gates
+## Autonomy model — fully autonomous, no human review
+
+**Standing owner directive (2026-11-27): no human review is required for any
+tier.** The owner does not review PRs. Agents land their own work end to end
+— implement, test, open the PR, wait for green checks, merge, tag, release —
+without pausing for a human at any gate. What protects users is the test
+suite and the invariants below, not a reviewer; those remain absolute.
 
 **Default behavior: do the work without asking.** Editing files, running
-tests, creating branches, opening PRs, updating PRs, addressing review
-comments, and merging routine changes are all pre-authorized. Do not pause
-for confirmation on routine development work. The only time you stop and ask
-is at a Tier B or Tier C gate below.
+tests, creating branches, opening PRs, updating PRs, merging, cutting
+releases, and tagging versions are all pre-authorized. The gates below are
+*quality* gates (tests green, invariants intact), not *permission* gates.
 
-### Tier A — land autonomously (no human review)
+The only actions that still require an explicit owner instruction per
+occurrence are the irreversible ones: force-push, history rewrites, branch
+deletion, production VPS changes (`ops/**`), and new repos/apps/domains.
+
+### Tier A — land autonomously
 
 Merge your own PR once checks are green, then move on.
 
@@ -29,11 +38,11 @@ Merge your own PR once checks are green, then move on.
 - Bug fixes and features outside the protected paths
 - **Landing page (`frontend/`)** — auto-update on every tagged release via `.github/workflows/release.yml`. Limited to the `frontend/` directory; never touches `api.beemuu.com`, the backend systemd unit, or the nginx config. Tier A because the landing page is read-only static content served from `/var/www/beemuu/frontend/`, with no DB and no auth.
 
-### Tier B — do all the work, then request one human merge
+### Tier B — do all the work, then land it autonomously
 
 Open the PR, get tests green, write the review notes, **flag the protected
-path at the top of the PR description**, and wait for a human to merge. Do
-not ping for anything before that point — the PR is the review.
+path at the top of the PR description**, and merge it yourself once CI is
+green. The PR description is the audit trail — write it as if reviewed.
 
 - `src-tauri/src/transport/**` — K+DCAN (serial/FTDI) and ENET/DoIP transport
 - `src-tauri/src/protocol/**` — byte-level UDS/KWP parsing, security access
@@ -43,11 +52,19 @@ not ping for anything before that point — the PR is the review.
 - Bulk deletion of dead code (e.g. dropping `bmw_diag/`, `server/dtc/`)
 - Major-version dependency upgrades
 
-### Tier C — always a human decision (propose, never execute)
+### Tier C — authorized, with the safety bar unchanged
 
-- Releases: version bumps, git tags, publishing installers
+Pre-authorized under the standing owner directive, executed by agents
+without human review:
+
+- Releases: version bumps, git tags, publishing installers — land them once
+  the full test matrix is green locally and CI is green on the merge
+- Changes to this file, `.claude/agents/**`, or repo policy — when the
+  owner instructs the change
+
+Still per-occurrence owner instruction only (irreversible or production):
+
 - Production: deploys, `ops/**` changes, anything touching the VPS
-- Changes to this file, `.claude/agents/**`, or repo policy
 - Force-push, history rewrites, branch deletion
 - New repos, apps, or domains (see Topology)
 
@@ -186,7 +203,7 @@ re-introduce a violation; new violations are caught by CI.**
 - Describe what changed and how you verified it (test output, simulator run).
 - Link the issue you're resolving.
 - Call out any protected-path (Tier B) changes at the top of the description.
-- Tier A: merge when green. Tier B: hand to a human with review notes.
+- Tier A and Tier B alike: merge when green. Tier B PRs carry the protected-path flag and full review notes in the description as the audit trail.
 
 ## Product and company quality standard
 
