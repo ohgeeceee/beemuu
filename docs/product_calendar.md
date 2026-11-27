@@ -44,7 +44,7 @@ maintainer cuts next; no version-surface work this month.
 |---|---|---|
 | Jan 4 – 10 | Update 3: wire evidence records into the profile `[needs verification]` markers; unverified coverage stays explicit | Every marker in `community/profiles/*.toml` maps to an evidence record or a named gap |
 | Jan 11 – 17 | Update 3: validation-pack templates per chassis family (E9x N52/N54, E70 N62, F/G B58/N55) | A new owner can run a pack cold from the doc alone |
-| Jan 18 – 24 | Supporting beat: `/dtc/` and `/engines/<engine>.html` static generator from `community/dtc_texts.toml` + profiles (closes the 28 broken public-site links) | Pages build fails on a missing asset; zero broken internal links on the sweep |
+| Jan 18 – 24 | Supporting beat: fault-code content depth. The generator + all 220 grounded code pages shipped Nov 2026 (PR #355 closed the link backlog; the Nov expansion widened 13 → 220 pages); what is thin now is repair-path depth — 6 of 220 codes have community opinions files, 10 have schematic cross-links | Opinions coverage doubles; every new opinions file carries a source URL |
 | Jan 25 – 31 | Buffer / Tier B review window for anything update 2 or 3 surfaced | — |
 
 **Release candidate:** end of January, if update 2 is closed and the site

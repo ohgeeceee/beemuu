@@ -36,8 +36,11 @@ assert.match(scriptConfig, /backendStatus\":\s*\"static-only\"/);
 assert.doesNotMatch(scriptConfig, /window\.location\.origin/);
 
 // Walk every shipped page and fail on a missing asset (css/js/image/font/json/xml).
-// Missing content pages are printed with counts but do not fail, because the
-// site deliberately links ~28 planned per-record pages (/dtc/*, /engines/*).
+// Missing content pages are printed with counts but do not fail, so a planned
+// per-record page can be linked before it ships. The original ~28-link /dtc
+// and /engines backlog closed in PR #355; the DTC set widened to every
+// grounded code in November 2026 (gen-content-pages.py owns /dtc/* and the
+// sitemap's DTC block).
 const assetExt = /\.(css|js|png|svg|jpg|jpeg|gif|ico|json|xml|woff|woff2|ttf|webmanifest)$/;
 const shipped = new Set();
 (function collect(dir, prefix) {

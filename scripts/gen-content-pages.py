@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Generate the data-driven guide pages for beemuu.com.
 
-The public site links ~34 per-record pages (`/dtc/*`, `/engines/*`) plus a
-handful of hub pages that were never built after the landing page moved to
-GitHub Pages. `scripts/test-github-pages-build.cjs` calls these the
-"deliberate backlog". This generator builds them from the in-repo sources of
-truth so they never drift from the data:
+The public site ships one page per grounded fault code (`/dtc/*` — every code
+in the dim01 research seed or with a community opinions file, plus the
+original curated set), one page per engine profile (`/engines/*`), and a
+handful of hub pages. `scripts/test-github-pages-build.cjs` used to call
+these the "deliberate backlog"; the backlog closed in PR #355, and the DTC
+coverage widened from 13 curated codes to every grounded code in November
+2026. This generator builds them from the in-repo sources of truth so they
+never drift from the data:
 
   - community/dtc_texts.toml        -> BMW hex code -> short text
   - community/opinions/*.toml       -> DIY / indie / dealer repair opinions
@@ -37,7 +40,10 @@ DATA = ROOT / "community"
 BACKEND = ROOT / "backend"
 
 SITE = "https://beemuu.com"
-TODAY = "2026-10-11"
+TODAY = "2026-11-27"
+# Human month label for the meta strips, derived from TODAY so the two
+# can never disagree. Deterministic: fixed string, not wall-clock.
+STAMP_MONTH = "November 2026"
 AUTHOR = {"@type": "Organization", "name": "Beemuu contributors", "url": SITE + "/"}
 PUBLISHER = {"@type": "Organization", "name": "Beemuu contributors"}
 OG_IMAGE = SITE + "/og-image-service.png"
@@ -314,16 +320,25 @@ CATEGORY_LABEL = {
 
 
 def build_dtc_index() -> tuple[list[str], dict]:
-    """Return (codes, catalog) for the featured codes."""
+    """Return (codes, catalog) for every code with grounded data.
+
+    Coverage = the dim01 BMW hex research seed (each row carries section,
+    title, severity and source_url) ∪ community opinions files ∪ the
+    original curated set, which is kept so the SAE-code pages the site has
+    always linked (P0171, U0100, …) stay up even where dim01 does not carry
+    them. Nothing here is invented: a code without a grounded row gets no
+    page.
+    """
     dim01 = load_dim01()
     sae = load_sae()
     texts = load_dtc_texts()
     opinions = load_opinions()
 
-    featured = [
+    legacy = [
         "120308", "29E0", "29E1", "29E2", "2A82", "2A99", "30FF",
         "P0171", "P0300", "P0301", "P0306", "P0420", "U0100",
     ]
+    featured = sorted(set(dim01) | set(opinions) | set(legacy))
     catalog: dict[str, dict] = {}
     for code in featured:
         if code in opinions:
@@ -506,22 +521,46 @@ def build_dtc_page(code: str, entry: dict, cross: dict) -> str:
 
 def build_dtc_index_page(featured: list[str], catalog: dict) -> str:
     url = "/dtc/index.html"
-    rows = []
-    for code in featured:
+
+    def row(code: str) -> str:
         e = catalog[code]
         cat = CATEGORY_LABEL.get(e["section"], e["section"].title())
         sev = SEVERITY_LABEL.get(e["severity"], e["severity"])
-        rows.append(
+        return (
             f'<a href="/dtc/{esc(code)}.html"><span class="resource-code">{esc(code)}</span>'
             f'<span><strong>{esc(e["title"])}</strong>'
             f'<small>{esc(cat)} · {esc(sev)}</small></span>'
             f'<span aria-hidden="true">↗</span></a>'
         )
-    art = (
-        '<h2 id="codes">Featured fault codes</h2>'
-        '<p>These codes have full write-ups: severity, provenance, schematic '
-        'cross-links and community repair opinions where recorded.</p>'
-        f'<div class="resource-index">{"".join(rows)}</div>'
+
+    # Codes with a community opinions file get the featured strip; the full
+    # catalogue is grouped by system below.
+    with_opinions = [c for c in featured if catalog[c]["opinions"]]
+    by_section: dict[str, list[str]] = {}
+    for code in featured:
+        by_section.setdefault(catalog[code]["section"], []).append(code)
+
+    art = ""
+    if with_opinions:
+        art += (
+            '<h2 id="featured">Community repair opinions</h2>'
+            '<p>These codes carry recorded DIY, independent-shop and dealer '
+            'repair paths alongside the code facts.</p>'
+            f'<div class="resource-index">{"".join(row(c) for c in with_opinions)}</div>'
+        )
+    art += (
+        '<h2 id="codes">Every documented code, by system</h2>'
+        '<p>One page per code: severity, provenance, schematic cross-links '
+        'and community repair opinions where recorded.</p>'
+    )
+    for section in sorted(by_section, key=lambda s: CATEGORY_LABEL.get(s, s.title())):
+        codes = by_section[section]
+        label = CATEGORY_LABEL.get(section, section.title())
+        art += (
+            f'<h3>{esc(label)} ({len(codes)})</h3>'
+            f'<div class="resource-index">{"".join(row(c) for c in codes)}</div>'
+        )
+    art += (
         '<h2 id="by-engine">Browse by engine</h2>'
         '<div class="resource-index">'
         '<a href="/dtc/by-engine/n54.html"><span class="resource-code">N54</span>'
@@ -532,8 +571,8 @@ def build_dtc_index_page(featured: list[str], catalog: dict) -> str:
         '<span aria-hidden="true">↗</span></a>'
         '</div>'
         '<h2 id="all">Every BMW code</h2>'
-        '<p>The full catalogue — 211 hex codes from open community research '
-        'plus the generic SAE J2012 set — is searchable in the '
+        f'<p>Every grounded code — {len(featured)} pages above — is also '
+        'searchable alongside the generic SAE J2012 set in the '
         '<a href="/tools/known-codes.html">known-codes browser</a>. The '
         '<a href="/tools/dtc-decoder.html">DTC decoder</a> resolves a single '
         'code on demand.</p>'
@@ -549,6 +588,7 @@ def build_dtc_index_page(featured: list[str], catalog: dict) -> str:
         'proprietary ISTA text is reproduced.</p></details>'
         '</div>'
     )
+    hex_count = sum(1 for c in featured if not c.startswith(("P", "B", "C", "U")))
     return page(
         url=url, title="BMW fault codes — diagnostic trouble code index",
         desc="An index of BMW diagnostic trouble codes with severity, system, "
@@ -556,9 +596,10 @@ def build_dtc_index_page(featured: list[str], catalog: dict) -> str:
         eyebrow="Fault codes", h1="BMW fault codes, explained.",
         lede="Every code BeeEmUu knows about, grouped by system and by engine, "
              "with the same severity and provenance the desktop app shows.",
-        meta=[f"{len(featured)} featured codes", "211 community hex codes", "Updated October 2026"],
+        meta=[f"{len(featured)} codes documented", f"{hex_count} BMW hex codes",
+              f"{len(with_opinions)} with repair opinions"],
         crumbs=[("Beemuu", "/"), ("Fault codes", url)],
-        toc=[("codes", "Featured codes"), ("by-engine", "By engine"),
+        toc=[("codes", "All codes"), ("by-engine", "By engine"),
              ("all", "Every code"), ("faq", "FAQ")],
         article=art,
         related=[("/tools/known-codes.html", "Known codes", "Search the catalogue."),
@@ -599,7 +640,7 @@ def build_by_engine_page(engine: str, codes: list[str], catalog: dict) -> str:
              f"severity and community repair opinions.",
         eyebrow=f"{name} engine", h1=f"{name} fault codes.",
         lede=f"The {name} trouble set in one place — codes, causes and repair paths.",
-        meta=[f"{len(rows)} codes", name, "Updated October 2026"],
+        meta=[f"{len(rows)} codes", name, f"Updated {STAMP_MONTH}"],
         crumbs=[("Beemuu", "/"), ("Fault codes", "/dtc/"),
                 (name, url)],
         toc=[("codes", "Codes"), ("live", "Live data")],
@@ -708,7 +749,7 @@ def build_engines_index(profiles: list[dict]) -> str:
              "queries and decodes per engine.",
         eyebrow="Engines", h1="BMW engine profiles.",
         lede="One page per engine family: what BeeEmUu monitors and how it decodes it.",
-        meta=[f"{len(profiles)} engines", "Community profiles", "Updated October 2026"],
+        meta=[f"{len(profiles)} engines", "Community profiles", f"Updated {STAMP_MONTH}"],
         crumbs=[("Beemuu", "/"), ("Engines", "/engines.html")],
         toc=[("profiles", "Profiles"), ("compare", "Compare"), ("faq", "FAQ")],
         article=art,
@@ -750,7 +791,7 @@ def build_engine_compare(profiles: list[dict]) -> str:
              "coverage.",
         eyebrow="Engines", h1="Compare engine profiles.",
         lede="Parameter coverage across every engine family BeeEmUu supports.",
-        meta=[f"{len(profiles)} engines", "Community profiles", "Updated October 2026"],
+        meta=[f"{len(profiles)} engines", "Community profiles", f"Updated {STAMP_MONTH}"],
         crumbs=[("Beemuu", "/"), ("Engines", "/engines.html"),
                 ("Compare", "/engines/compare.html")],
         toc=[("table", "Comparison"), ("faq", "FAQ")],
@@ -794,7 +835,7 @@ def build_roadmap_hub() -> str:
              "next planned cycle, with PR-level detail.",
         eyebrow="Roadmap", h1="The Beemuu roadmap.",
         lede="A public, cycle-by-cycle record of what the project ships — and what it defers on purpose.",
-        meta=["Updated October 2026", "Open source", "GPL-3.0"],
+        meta=[f"Updated {STAMP_MONTH}", "Open source", "GPL-3.0"],
         crumbs=[("Beemuu", "/"), ("Roadmap", "/roadmap.html")],
         toc=[("shipped", "Where the project is"), ("how", "How cycles work")],
         article=art,
@@ -836,7 +877,7 @@ def build_changelog_hub() -> str:
              "canonical CHANGELOG and GitHub releases.",
         eyebrow="Changelog", h1="What shipped, when.",
         lede="Every BeeEmUu change, newest first — one canonical file plus the GitHub releases cut from it.",
-        meta=["Updated October 2026", "v5.1.0", "GPL-3.0"],
+        meta=[f"Updated {STAMP_MONTH}", "v5.1.0", "GPL-3.0"],
         crumbs=[("Beemuu", "/"), ("Changelog", "/changelog.html")],
         toc=[("sources", "Where it lives"), ("current", "Current release")],
         article=art,
@@ -977,12 +1018,49 @@ def build_guide(slug: str, cfg: dict) -> str:
     return page(
         url=url, title=cfg["title"], desc=cfg["desc"],
         eyebrow=cfg["eyebrow"], h1=cfg["h1"], lede=cfg["lede"],
-        meta=["Guide", "Updated October 2026", "GPL-3.0"],
+        meta=["Guide", f"Updated {STAMP_MONTH}", "GPL-3.0"],
         crumbs=[("Beemuu", "/"), (cfg["h1"], url)],
         toc=toc, article="".join(art), related=cfg["related"],
         cta_h="Read the data, not the guess.",
         cta_p="BeeEmUu reads your BMW's modules directly — free and offline.",
     )
+
+
+# --------------------------------------------------------------------------
+# sitemap
+# --------------------------------------------------------------------------
+
+def update_sitemap(featured: list[str]) -> None:
+    """Rewrite the /dtc/ block of frontend/sitemap.xml from the code list.
+
+    The sitemap is otherwise hand-maintained; the generator owns only the
+    DTC lines so the per-record pages stay in sync with the catalogue.
+    Deterministic for a fixed code list and TODAY. New pages slot into the
+    position the old DTC block occupied, leaving the rest of the file's
+    ordering untouched.
+    """
+    path = FRONTEND / "sitemap.xml"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    first_dtc = next(
+        (i for i, l in enumerate(lines) if "https://beemuu.com/dtc/" in l),
+        None,
+    )
+    kept = [l for l in lines if "https://beemuu.com/dtc/" not in l]
+
+    def entry(loc: str) -> str:
+        return (
+            f"  <url><loc>{loc}</loc><lastmod>{TODAY}</lastmod>"
+            f"<changefreq>weekly</changefreq><priority>0.6</priority></url>"
+        )
+
+    block = [entry(f"{SITE}/dtc/index.html")]
+    block += [entry(f"{SITE}/dtc/{code}.html") for code in featured]
+    for engine in ("n54", "b58"):
+        block.append(entry(f"{SITE}/dtc/by-engine/{engine}.html"))
+    at = first_dtc if first_dtc is not None else len(kept) - 1
+    out = kept[:at] + block + kept[at:]
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    print(f"wrote frontend/sitemap.xml ({len(block)} DTC entries)")
 
 
 # --------------------------------------------------------------------------
@@ -997,6 +1075,7 @@ def main() -> None:
     for code in featured:
         write(f"dtc/{code}.html", build_dtc_page(code, catalog[code], cross))
     write("dtc/index.html", build_dtc_index_page(featured, catalog))
+    update_sitemap(featured)
 
     # by-engine DTC pages
     by_engine = {
