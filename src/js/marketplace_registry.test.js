@@ -65,3 +65,17 @@ test("semver compare and update detection", () => {
   const updates = api.updatesAvailable([{ id: "dtc-explainer", version: "0.9.0" }, { id: "other", version: "2.0.0" }], reg);
   assert.deepEqual(updates.map(u => u.id), ["dtc-explainer"]);
 });
+
+
+test("filterEntries matches name, id, description, author and category, case-insensitively", () => {
+  const reg = [entry(), entry({ id: "fuel-trim-health", name: "Fuel Trim Health", category: "data", description: "Long-term fuel trim trends.", author: "community-dev" })];
+  assert.equal(api.filterEntries(reg, "").length, 2); // empty query keeps everything
+  assert.equal(api.filterEntries(reg, "   ").length, 2);
+  assert.equal(api.filterEntries(reg, null).length, 2);
+  assert.deepEqual(api.filterEntries(reg, "DTC").map(e => e.id), ["dtc-explainer"]);
+  assert.deepEqual(api.filterEntries(reg, "fuel trim").map(e => e.id), ["fuel-trim-health"]); // name, space-separated
+  assert.deepEqual(api.filterEntries(reg, "trends").map(e => e.id), ["fuel-trim-health"]); // description
+  assert.deepEqual(api.filterEntries(reg, "COMMUNITY-DEV").map(e => e.id), ["fuel-trim-health"]); // author, any case
+  assert.deepEqual(api.filterEntries(reg, "data").map(e => e.id), ["fuel-trim-health"]); // category
+  assert.deepEqual(api.filterEntries(reg, "no-such-plugin"), []);
+});

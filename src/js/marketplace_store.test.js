@@ -49,3 +49,36 @@ test("caps count, entry size and total size; quota errors surface", () => {
   }), /cap/);
   assert.throws(() => api.save({ setItem() { throw new Error("quota"); } }, []), /quota/);
 });
+
+
+test("registry cache round-trips and stays separate from installed storage", () => {
+  const s = storage();
+  assert.equal(api.loadRegistryCache(s), null); // nothing cached yet
+  const entries = [{ id: "dtc-explainer", version: "1.0.0" }];
+  api.saveRegistryCache(s, entries, "2026-11-27T10:00:00.000Z");
+  assert.deepEqual(api.loadRegistryCache(s), { fetchedAt: "2026-11-27T10:00:00.000Z", entries });
+  assert.equal(s.getItem(api.STORAGE_KEY), null); // installed store untouched
+  assert.deepEqual(api.load(s), []);
+});
+
+test("registry cache load discards corruption instead of throwing", () => {
+  const s = storage();
+  s.setItem(api.REGISTRY_CACHE_KEY, "not json");
+  assert.equal(api.loadRegistryCache(s), null);
+  s.setItem(api.REGISTRY_CACHE_KEY, JSON.stringify({ fetchedAt: "2026-11-27T10:00:00.000Z" })); // no entries
+  assert.equal(api.loadRegistryCache(s), null);
+  s.setItem(api.REGISTRY_CACHE_KEY, JSON.stringify({ entries: [] })); // no timestamp
+  assert.equal(api.loadRegistryCache(s), null);
+  s.setItem(api.REGISTRY_CACHE_KEY, JSON.stringify([1, 2])); // wrong top-level shape
+  assert.equal(api.loadRegistryCache(s), null);
+  s.setItem(api.REGISTRY_CACHE_KEY, "x".repeat(256 * 1024 + 1)); // oversized
+  assert.equal(api.loadRegistryCache(s), null);
+});
+
+test("registry cache save rejects invalid input and surfaces quota errors", () => {
+  const s = storage();
+  assert.throws(() => api.saveRegistryCache(s, "nope", "2026-11-27T10:00:00.000Z"), /array/);
+  assert.throws(() => api.saveRegistryCache(s, [], ""), /timestamp/);
+  assert.throws(() => api.saveRegistryCache(s, [{ blob: "x".repeat(300 * 1024) }], "2026-11-27T10:00:00.000Z"), /too large/);
+  assert.throws(() => api.saveRegistryCache({ setItem() { throw new Error("quota"); } }, [], "2026-11-27T10:00:00.000Z"), /quota/);
+});

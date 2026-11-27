@@ -114,7 +114,17 @@
     return registry.filter(entry => byId.has(entry.id) && compareSemver(entry.version, byId.get(entry.id)) > 0);
   }
 
-  const api = { CAPABILITIES, CATEGORIES, MAX_ENTRIES, compareSemver, validateEntry, validateRegistry, updatesAvailable };
+  /* Case-insensitive text filter over the fields a user actually scans.
+   * An empty or whitespace query returns every entry (same array). */
+  function filterEntries(entries, query) {
+    const q = String(query == null ? "" : query).trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter(entry =>
+      [entry.id, entry.name, entry.description, entry.author, entry.category]
+        .some(field => String(field || "").toLowerCase().includes(q)));
+  }
+
+  const api = { CAPABILITIES, CATEGORIES, MAX_ENTRIES, compareSemver, validateEntry, validateRegistry, updatesAvailable, filterEntries };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.BeemuuMarketplaceRegistry = api;
 })(typeof window !== "undefined" ? window : null);

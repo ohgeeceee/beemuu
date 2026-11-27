@@ -29,6 +29,8 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
   let running = null;      // { id, handle }
   let stagedInstall = null; // { entry, pkg, sha256 }
   let storageError = "";
+  let offlineNotice = "";  // set when the listing comes from cache or is unavailable
+  let filterText = "";
 
   function el(tag, text, className) {
     const node = document.createElement(tag);
@@ -69,9 +71,11 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
     return { granted, refused, notes };
   }
 
-  /* ---- install: download, verify, extract, stage for consent ---- */
-  async function stageInstall(entry) {
-    status(`Downloading ${entry.name}…`);
+  /* ---- install: download, verify, extract ----
+   * Shared by single installs and Update all. Every package passes the same
+   * checks: sha256 against the registry BEFORE unzip, then id/version match
+   * between archive and listing. */
+  async function downloadVerifiedPackage(entry) {
     const response = await fetch(entry.download.url);
     if (!response.ok) throw new Error(`Download failed (HTTP ${response.status}).`);
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -90,8 +94,30 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
      * is a refusal, not a merge. */
     if (pkg.descriptor.id !== entry.id) throw new Error(`Archive contains "${pkg.descriptor.id}" but the registry listed "${entry.id}". Install refused.`);
     if (pkg.descriptor.version !== entry.version) throw new Error(`Archive version ${pkg.descriptor.version} does not match registry version ${entry.version}. Install refused.`);
+    return { pkg, sha256: sha };
+  }
 
-    stagedInstall = { entry, pkg, sha256: sha };
+  /* Build the stored entry for a verified package. Updates keep the enabled
+   * flag the user already chose; brand-new installs always start disabled. */
+  function storedEntryFor(entry, pkg, sha256, current) {
+    return {
+      manifest: {
+        id: pkg.descriptor.id, name: pkg.descriptor.name, version: pkg.descriptor.version,
+        capabilities: pkg.descriptor.capabilities, author: entry.author, description: entry.description,
+        category: entry.category, official: entry.official, homepage: entry.homepage, license: entry.license,
+      },
+      source: pkg.source,
+      readme: pkg.readme,
+      enabled: current ? current.enabled : false,
+      sha256,
+      installedAt: new Date().toISOString(),
+    };
+  }
+
+  async function stageInstall(entry) {
+    status(`Downloading ${entry.name}…`);
+    const { pkg, sha256 } = await downloadVerifiedPackage(entry);
+    stagedInstall = { entry, pkg, sha256 };
     renderConsent();
   }
 
@@ -110,8 +136,8 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
     box.append(el("p", `Author: ${entry.author} (self-declared) · Category: ${entry.category}${entry.license ? ` · License: ${entry.license}` : ""}`));
     for (const note of notes) box.append(el("p", note));
     box.append(el("p", `SHA-256 verified against the registry: ${sha256.slice(0, 16)}…`));
-    if (current) box.append(el("p", `Installed version: ${current.manifest.version} — this will replace it.`));
-    box.append(el("p", "The plugin stays disabled until you enable it. Vehicle writes are never granted by this app."));
+    if (current) box.append(el("p", `Installed version: ${current.manifest.version} — this will replace it. Your enable/disable choice is kept.`));
+    box.append(el("p", current ? "A running copy is stopped before the update. Vehicle writes are never granted by this app." : "The plugin stays disabled until you enable it. Vehicle writes are never granted by this app."));
     detail.append(box);
 
     if (pkg.readme) {
@@ -127,23 +153,61 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
       button(current ? "Confirm — replace installed plugin" : "Confirm install", () => {
         const { entry: e, pkg: p, sha256: digest } = stagedInstall;
         stagedInstall = null;
-        commit([...installed.filter(x => x.manifest.id !== e.id), {
-          manifest: {
-            id: p.descriptor.id, name: p.descriptor.name, version: p.descriptor.version,
-            capabilities: p.descriptor.capabilities, author: e.author, description: e.description,
-            category: e.category, official: e.official, homepage: e.homepage, license: e.license,
-          },
-          source: p.source,
-          readme: p.readme,
-          enabled: false,
-          sha256: digest,
-          installedAt: new Date().toISOString(),
-        }]);
+        if (current && running && running.id === e.id) stopRunning();
+        commit([...installed.filter(x => x.manifest.id !== e.id), storedEntryFor(e, p, digest, current)]);
         detail.replaceChildren();
-        status(`${e.name} installed and disabled. Enable it when you are ready.`);
+        status(current ? `${e.name} updated to ${p.descriptor.version}.` : `${e.name} installed and disabled. Enable it when you are ready.`);
       }),
       button("Cancel", () => { stagedInstall = null; detail.replaceChildren(); status("Install cancelled. Nothing was stored."); }),
     );
+  }
+
+  /* ---- update all: one consent, then the same verified pipeline per plugin ---- */
+  function stageUpdateAll(updates) {
+    stopRunning();
+    const detail = byId("plugins-marketplace-detail");
+    detail.replaceChildren();
+    const box = el("section", undefined, "plugin-trust-detail");
+    box.append(el("h4", `Update ${updates.length} plugins`));
+    for (const entry of updates) {
+      const current = installed.find(e => e.manifest.id === entry.id);
+      box.append(el("p", `${entry.name}: ${current.manifest.version} → ${entry.version}`));
+      const { notes } = capabilityNotes(entry);
+      for (const note of notes) box.append(el("p", note, "muted"));
+    }
+    box.append(el("p", "Each package is SHA-256 verified against the registry before install. Enable/disable choices are kept; running plugins are stopped first. A plugin that fails to download is left at its current version."));
+    detail.append(box);
+    detail.append(
+      button(`Confirm — update ${updates.length} plugins`, () => runUpdateAll(updates)),
+      button("Cancel", () => { detail.replaceChildren(); status("Update all cancelled. Nothing was changed."); }),
+    );
+  }
+
+  async function runUpdateAll(updates) {
+    const detail = byId("plugins-marketplace-detail");
+    detail.replaceChildren();
+    const results = [];
+    let next = [...installed];
+    for (const entry of updates) {
+      status(`Updating ${entry.name}…`);
+      try {
+        const { pkg, sha256 } = await downloadVerifiedPackage(entry);
+        const current = next.find(e => e.manifest.id === entry.id);
+        if (running && running.id === entry.id) stopRunning();
+        next = [...next.filter(x => x.manifest.id !== entry.id), storedEntryFor(entry, pkg, sha256, current)];
+        results.push({ name: entry.name, ok: true, version: pkg.descriptor.version });
+      } catch (e) {
+        results.push({ name: entry.name, ok: false, error: String(e.message || e) });
+      }
+    }
+    commit(next); // one save + render after the batch, not one per plugin
+    const failed = results.filter(r => !r.ok);
+    for (const r of results) {
+      detail.append(el("p", r.ok ? `${r.name}: updated to ${r.version}.` : `${r.name}: ${r.error}`, r.ok ? undefined : "plugin-update"));
+    }
+    status(failed.length
+      ? `Updated ${results.length - failed.length} of ${results.length} plugins; ${failed.length} failed and kept the installed version.`
+      : `All ${results.length} plugins updated.`);
   }
 
   /* ---- run an installed, enabled plugin ---- */
@@ -175,6 +239,36 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
   }
 
   /* ---- cards ---- */
+  function cardForInstalledOnly(current) {
+    /* Installed but absent from the current listing (offline with no cache,
+     * or unlisted upstream). Management must keep working regardless. */
+    const m = current.manifest;
+    const card = el("article", undefined, "plugin-card");
+    card.append(el("h3", m.name));
+    card.append(el("p", `${m.version} · ${m.author || "unknown author"} · ${m.category || "uncategorised"}`));
+    card.append(el("p", m.description || "Installed plugin — not in the current registry listing."));
+    const { notes } = capabilityNotes(m);
+    card.append(el("p", notes.join(" · "), "muted"));
+    card.append(el("p", "Not in the current registry listing; enable, open and remove still work.", "muted"));
+    card.append(
+      button(current.enabled ? "Disable" : "Enable", () => {
+        if (running && running.id === m.id) stopRunning();
+        commit(installed.map(e => e.manifest.id === m.id ? { ...e, enabled: !e.enabled } : e));
+        status(`${m.name} ${current.enabled ? "disabled" : "enabled"}.`);
+      }),
+    );
+    if (current.enabled) {
+      card.append(button(running && running.id === m.id ? "Running — show" : "Open", () => openPlugin(current)));
+    }
+    card.append(button("Remove", () => {
+      if (running && running.id === m.id) stopRunning();
+      commit(installed.filter(e => e.manifest.id !== m.id));
+      byId("plugins-marketplace-detail").replaceChildren();
+      status(`${m.name} removed.`);
+    }));
+    return card;
+  }
+
   function render() {
     const grid = byId("plugins-marketplace");
     grid.replaceChildren();
@@ -182,16 +276,18 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
       grid.append(el("p", `Marketplace plugin storage cannot be used: ${storageError}`, "muted"));
       return;
     }
-    if (!registry.length) {
-      grid.append(el("p", "Marketplace is empty or unavailable. Try Refresh.", "muted"));
-      return;
-    }
+    if (offlineNotice) grid.append(el("p", offlineNotice, "plugin-update"));
     let updates = [];
     try { updates = registryApi.updatesAvailable(installed.map(e => e.manifest), registry); }
     catch (_) { updates = []; }
     const updateIds = new Set(updates.map(u => u.id));
+    if (updates.length >= 2) {
+      grid.append(button(`Update all (${updates.length})`, () => stageUpdateAll(updates)));
+    }
 
-    for (const entry of registry) {
+    const listed = registryApi.filterEntries(registry, filterText);
+    const listedIds = new Set(registry.map(e => e.id));
+    for (const entry of listed) {
       const current = installed.find(e => e.manifest.id === entry.id);
       const card = el("article", undefined, "plugin-card");
       const title = el("h3", entry.name);
@@ -231,6 +327,16 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
       }
       grid.append(card);
     }
+    /* Installed plugins missing from the listing are always manageable —
+     * filtered by the same query so search behaves consistently. */
+    const unlisted = installed.filter(e => !listedIds.has(e.manifest.id));
+    const visibleUnlisted = registryApi.filterEntries(unlisted.map(e => e.manifest), filterText).map(m => m.id);
+    for (const current of unlisted) {
+      if (visibleUnlisted.includes(current.manifest.id)) grid.append(cardForInstalledOnly(current));
+    }
+    if (!listed.length && !unlisted.length) {
+      grid.append(el("p", filterText ? "No plugins match your search." : "Marketplace is empty or unavailable. Try Refresh.", "muted"));
+    }
   }
 
   async function refresh() {
@@ -240,15 +346,35 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
       const response = await fetch(`${registryUrl}/registry.json`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       registry = registryApi.validateRegistry(await response.json());
+      offlineNotice = "";
+      try { storeApi.saveRegistryCache(window.localStorage, registry, new Date().toISOString()); }
+      catch (_) { /* A full or blocked cache must never break browsing. */ }
     } catch (e) {
-      registry = [];
-      grid.replaceChildren(el("p", `Marketplace unavailable: ${e.message}. Installed plugins keep working offline.`, "muted"));
-      return;
+      /* Offline path: fall back to the last-good registry (re-validated —
+       * cached JSON is not inherently trustworthy), else to installed-only
+       * cards. Management never depends on the network. */
+      const cached = storeApi.loadRegistryCache(window.localStorage);
+      let restored = null;
+      if (cached) {
+        try { restored = registryApi.validateRegistry({ plugins: cached.entries }); }
+        catch (_) { restored = null; }
+      }
+      if (restored) {
+        registry = restored;
+        offlineNotice = `Marketplace unreachable (${e.message}). Showing the listing cached ${cached.fetchedAt.slice(0, 10)}; downloads may fail, but installed plugins are fully manageable.`;
+      } else {
+        registry = [];
+        offlineNotice = `Marketplace unavailable: ${e.message}. Showing installed plugins only — they remain fully manageable.`;
+      }
     }
     render();
   }
 
   byId("plugins-marketplace-refresh").addEventListener("click", refresh);
+  const filterInput = byId("plugins-marketplace-filter");
+  if (filterInput) {
+    filterInput.addEventListener("input", () => { filterText = filterInput.value; render(); });
+  }
   document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
     if (tab.dataset.view !== "plugins") stopRunning();
   }));
