@@ -71,7 +71,38 @@
     storage.setItem(STORAGE_KEY, raw); // Quota errors must reach the UI.
   }
 
-  const api = { STORAGE_KEY, MAX_INSTALLED, load, save };
+  /* Last-good registry cache. Unlike the installed store, this is advisory
+   * state: a corrupt or oversized cache is DISCARDED (load returns null),
+   * never thrown, because the network can always rebuild it. The UI still
+   * re-validates the entries through the registry client before listing
+   * them — this module only guarantees JSON shape, not trust. */
+  const REGISTRY_CACHE_KEY = "beeemuu.plugins.marketplace.registry-cache.v1";
+  const MAX_REGISTRY_CACHE_BYTES = 256 * 1024;
+
+  function saveRegistryCache(storage, entries, fetchedAt) {
+    if (!Array.isArray(entries)) fail("Registry cache entries must be an array.");
+    if (typeof fetchedAt !== "string" || !fetchedAt) fail("Registry cache needs a fetch timestamp.");
+    const raw = JSON.stringify({ fetchedAt, entries });
+    if (size(raw) > MAX_REGISTRY_CACHE_BYTES) fail("Registry is too large to cache.");
+    storage.setItem(REGISTRY_CACHE_KEY, raw); // Quota errors must reach the UI.
+  }
+
+  function loadRegistryCache(storage) {
+    try {
+      const raw = storage.getItem(REGISTRY_CACHE_KEY);
+      if (!raw) return null;
+      if (size(raw) > MAX_REGISTRY_CACHE_BYTES) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      if (typeof parsed.fetchedAt !== "string" || !parsed.fetchedAt) return null;
+      if (!Array.isArray(parsed.entries)) return null;
+      return { fetchedAt: parsed.fetchedAt, entries: parsed.entries };
+    } catch (_) {
+      return null; // Corrupt cache: ignore it, the next refresh rewrites it.
+    }
+  }
+
+  const api = { STORAGE_KEY, MAX_INSTALLED, load, save, REGISTRY_CACHE_KEY, saveRegistryCache, loadRegistryCache };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.BeemuuMarketplaceStore = api;
 })(typeof window !== "undefined" ? window : null);

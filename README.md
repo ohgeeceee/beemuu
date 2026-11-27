@@ -15,7 +15,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![No VC](https://img.shields.io/badge/no_VC-no_paywalls-critical.svg)](COMMUNITY_FRAMEWORK.md)
 [![Community-owned](https://img.shields.io/badge/community-owned-orange.svg)](CONTRIBUTORS.md)
-[![v5.1.0](https://img.shields.io/badge/release-v5.1.0-blue.svg)](CHANGELOG.md)
+[![v5.2.0](https://img.shields.io/badge/release-v5.2.0-blue.svg)](CHANGELOG.md)
 
 BeeEmUu (the binary is `beemuu`) is a desktop application — Tauri shell over a
 Rust core — for talking to your BMW's ECUs over OBD-II. It speaks **UDS**
@@ -153,7 +153,7 @@ The roadmap is the canonical source of truth for planned work —
 (`🟢 Ready`, `🟡 Needs research`, `✅ Done`). Don't trust this README
 section over the roadmap; it is a *summary*, not the spec.
 
-The current source version is **v5.1.0 — "Plugin Marketplace"** (2026-11-27).
+The current source version is **v5.2.0 — "Offline Marketplace"** (2026-11-27).
 It adds connection retry guidance and stale-reading handling to the v5.0.0 platform.
 It includes the read-only analysis panels from v3.8–v4.3 and a plugin
 capability decision module. The installed API 1/2 plugin runtime still has
@@ -173,7 +173,7 @@ They analyze recorded evidence; they do not predict a future fault with a
 validated probability or prove whether a vehicle has been tuned.
 
 Changelog: [`CHANGELOG.md`](CHANGELOG.md). Current source version:
-**v5.1.0** (2026-11-27). See [feature status](docs/feature-status.md) for
+**v5.2.0** (2026-11-27). See [feature status](docs/feature-status.md) for
 implemented modules, integration limits and hardware-validation work.
 
 ---
