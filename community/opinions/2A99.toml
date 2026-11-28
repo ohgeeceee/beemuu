@@ -1,0 +1,32 @@
+dtc = "2A99"
+dtc_text = "Crankshaft–exhaust camshaft, correlation — value outside reference range"
+
+[[opinion]]
+perspective = "diy"
+action = "Remove the exhaust VANOS solenoid, blow it out gently with shop air, replace the o-rings, and swap it with the intake solenoid — if the fault follows the solenoid, replace the solenoid, not the VANOS unit"
+cost_usd = 20
+time_estimate = "45 minutes"
+difficulty = "easy"
+source = "BimmerFest — error code 2a82 and 2a99 (SI B 11 05 05 procedure)"
+source_url = "https://www.bimmerfest.com/threads/error-code-2a82-and-2a99.604589/"
+note = "The solenoid swap is the official diagnostic: fault stays on exhaust = wiring or timing problem; fault follows to intake = the solenoid itself. Replacement solenoid is BMW part 11 36 7 516 293. Solenoids stick most often on old or low oil — check level and service history first."
+
+[[opinion]]
+perspective = "indie"
+action = "Clean and bench-test both VANOS solenoids, verify oil pressure and condition, check cam/crank correlation on live data at warm idle, update DME integration level if the solenoids test good"
+cost_usd = 250
+time_estimate = "1-2 hours"
+difficulty = "moderate"
+source = "BimmerFest — error code 2a82 and 2a99 thread"
+source_url = "https://www.bimmerfest.com/threads/error-code-2a82-and-2a99.604589/"
+note = "The N52/N54 SI bulletin notes the DME software was revised with additional solenoid activation logic to flush particles — a software update is part of the fix, not just hardware. Recurring 2A99 with good solenoids warrants a timing-chain stretch check."
+
+[[opinion]]
+perspective = "dealer"
+action = "Perform the SI B 11 05 05 procedure: clean or replace the faulted VANOS solenoid, then reprogram the vehicle to the target integration level"
+cost_usd = 450
+time_estimate = "2-3 hours"
+difficulty = "moderate"
+source = "BMW SI B 11 05 05 (quoted in the BimmerFest thread)"
+source_url = "https://www.bimmerfest.com/threads/error-code-2a82-and-2a99.604589/"
+note = "The bulletin covers N52, N52KP and N54 cars with exactly this fault set (2A82/2A87/2A98/2A99 plus misfires). Under original warranty it was covered; out of warranty the solenoid-plus-reprogram visit is one of the cheaper dealer outcomes."

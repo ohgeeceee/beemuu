@@ -1,0 +1,32 @@
+dtc = "29E2"
+dtc_text = "Fuel injection rail, pressure sensor signal"
+
+[[opinion]]
+perspective = "diy"
+action = "Read rail pressure on live data before replacing anything: inspect the rail pressure sensor connector for bent pins and chafed wiring, then watch actual vs specified rail pressure at idle and under load"
+cost_usd = 90
+time_estimate = "30-60 minutes"
+difficulty = "easy"
+source = "Bimmerpost — RESOLVED: 29E2 and 29F2 codes and half-engine limp mode"
+source_url = "https://g80.bimmerpost.com/fr/forums/showthread.php?t=1002296"
+note = "29E2 is a signal-plausibility code, not a verdict that the pump is dead — the community consensus is to check the sensor and its wiring first. A replacement rail pressure sensor is a fraction of an HPFP. Low rail pressure under load alongside 29F2 points back toward the HPFP instead."
+
+[[opinion]]
+perspective = "indie"
+action = "Scope the rail pressure sensor signal, test the HPFP output against specification on a loaded road test, replace the sensor or the pump based on which side of the reading is wrong"
+cost_usd = 350
+time_estimate = "2-3 hours"
+difficulty = "moderate"
+source = "Independent BMW shop experience"
+source_url = ""
+note = "The sensor and the HPFP report the same physical pressure; a flatlined or implausible signal with normal actual pressure is the sensor, a genuinely low reading under load is the pump. N54 HPFPs are a known wear item at higher mileage."
+
+[[opinion]]
+perspective = "dealer"
+action = "Run the ISTA fuel-system test plan; replace the rail pressure sensor or high-pressure pump per the measured result and update DME software"
+cost_usd = 1200
+time_estimate = "half a day"
+difficulty = "moderate"
+source = "BMW service information"
+source_url = ""
+note = "The N54 HPFP had an extended-warranty history in several markets — worth asking the dealer to check coverage before paying out of pocket."

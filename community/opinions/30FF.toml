@@ -1,0 +1,32 @@
+dtc = "30FF"
+dtc_text = "Turbocharger, charge-air pressure too low (underboost)"
+
+[[opinion]]
+perspective = "diy"
+action = "Pressure-test the charge path before blaming the turbos: inspect the charge pipe (the N54 plastic unit cracks at the throttle-body end), the intercooler connections, and every vacuum line to the boost solenoids and wastegate actuators"
+cost_usd = 150
+time_estimate = "1-2 hours"
+difficulty = "easy"
+source = "BMW Tuning — N54 30FF diagnosis & repair guide"
+source_url = "https://bmwtuning.co/bmw-n54-30ff-engine-fault-code-30ff-diagnosis-repair-guide/"
+note = "The classic N54 failure order is charge pipe, then vacuum lines, then boost solenoids — all under $200 in parts. Wastegate rattle at idle points at actuator wear, not necessarily dead turbos. Log actual vs target boost under load before spending anything."
+
+[[opinion]]
+perspective = "indie"
+action = "Smoke test the charge tract, test boost solenoids and wastegate actuator travel with vacuum gauge, log rail and boost pressure on a road test, replace the failed component"
+cost_usd = 300
+time_estimate = "2-4 hours"
+difficulty = "moderate"
+source = "Independent BMW shop experience"
+source_url = ""
+note = "A good indie will rule out the $150 causes before quoting turbos. If boost solenoids are original past 100k miles they are a routine replace-in-pairs item. Turbo replacement is only warranted once the charge path and controls pass."
+
+[[opinion]]
+perspective = "dealer"
+action = "Run the ISTA charge-pressure test plan; on confirmed underboost with the charge path intact, replace both turbochargers as an assembly"
+cost_usd = 4500
+time_estimate = "1-2 days"
+difficulty = "advanced"
+source = "BMW Tuning — N54 common fault codes"
+source_url = "https://bmwtuning.co/bmw-n54-common-fault-codes/"
+note = "The dealer test plan converges on turbo replacement faster than most owners want. Get the charge-pipe and vacuum-line checks documented first — they are the difference between a $300 visit and a $4,000+ one."
