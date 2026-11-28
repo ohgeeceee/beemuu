@@ -1079,7 +1079,8 @@ def main() -> None:
 
     # by-engine DTC pages
     by_engine = {
-        "n54": ["29E0", "29E1", "29E2", "2A82", "2A99", "30FF"],
+        "n54": ["29CC", "29E0", "29E1", "29E2", "2A82", "2A87", "2A99",
+                "30FF", "3100"],
         "b58": ["120308", "29E0", "29E1", "2A82"],
     }
     for engine, codes in by_engine.items():

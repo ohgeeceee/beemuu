@@ -1,0 +1,32 @@
+dtc = "29CC"
+dtc_text = "Combustion misfires, several cylinders (random/multiple)"
+
+[[opinion]]
+perspective = "diy"
+action = "Swap the ignition coils and spark plugs from the flagged cylinders with different cylinders and re-scan — if the misfire follows the part, replace that part; fuel-soaked plugs after a rough cold start point at leaking injectors instead"
+cost_usd = 250
+time_estimate = "1-2 hours"
+difficulty = "easy"
+source = "5post — rough idle, misfires and codes galore thread"
+source_url = "https://5post.com/forums/showthread.php?t=1744043"
+note = "On the N54, exhaust every plug and coil swap before touching injectors — they run around $200 each and need DME calibration after fitting. If misfires survive brand-new plugs, coils and injectors, suspect the MSD80 DME injector-driver MOSFETs (30BA/30BB territory) rather than buying a second round of parts."
+
+[[opinion]]
+perspective = "indie"
+action = "Reproduce the cold-start misfire, pull plugs on the flagged cylinders (fuel-soaked confirms a leaking injector), run a compression check, replace the affected injectors with the improved part, and code the injector calibration values to the DME"
+cost_usd = 900
+time_estimate = "3-5 hours"
+difficulty = "moderate"
+source = "Burger Motorsports — N54 MSD80 ECU MOSFET failure write-up"
+source_url = "https://burgertuning.com/products/n54-msd80-ecu-mosfet"
+note = "The bulletin logic scales with spread: one cylinder gets one injector, multiple cylinders on the same bank get all three of that bank, and three or more cylinders get the full set of six — plus new plugs on any cylinder found fuel-soaked. A good indie will also load-test the DME driver stage before condemning a full set."
+
+[[opinion]]
+perspective = "dealer"
+action = "Perform the SI B 13 04 09 cold-start misfire procedure: reproduce the cold-start rough running, replace the affected high-pressure injectors with the improved part (13 53 7 585 261), replace soaked spark plugs, and perform injector calibration per SI B 12 26 08"
+cost_usd = 2200
+time_estimate = "1 day"
+difficulty = "advanced"
+source = "dot.report — NHTSA bulletin summary quoting SI B 13 04 09"
+source_url = "https://dot.report/vehicle/bmw/328i/2012"
+note = "The bulletin applies to N54 cars produced up to 09/2008 with cold-start rough running and misfire codes (29CC with 29CF-29D2 companions). For misfires that are NOT cold-start related, bulletins B12 05 09 and B12 06 09 cover a DME software error — ask which path was followed before approving a full injector set."
