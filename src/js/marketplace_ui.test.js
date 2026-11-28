@@ -56,6 +56,7 @@ function makeDom({ installed = [], cache = null, fetchImpl = offline } = {}) {
     <div id="plugins-marketplace-detail"></div>
     <button id="plugins-marketplace-refresh" type="button"></button>
     <input id="plugins-marketplace-filter" type="search">
+    <input id="plugins-marketplace-sideload" type="file">
   </body>`, { url: "http://localhost/", runScripts: "dangerously" });
   const w = dom.window;
   w.BeemuuMarketplaceRegistry = registryApi;
@@ -157,4 +158,129 @@ test("a successful refresh clears the offline notice and writes the cache", asyn
   const cache = storeApi.loadRegistryCache(w.localStorage);
   assert.ok(cache, "refresh persisted the registry cache");
   assert.equal(cache.entries[0].id, "dtc-explainer");
+});
+
+
+/* ---- v5.3.0 sideload flow: local .zip, unverified-source consent ---- */
+const zlib = require("node:zlib");
+const zipApi = require("./marketplace_zip.js");
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (const b of buf) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function buildZip(files) {
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, content] of Object.entries(files)) {
+    const nameBytes = Buffer.from(name, "utf8");
+    const data = Buffer.from(content, "utf8");
+    const stored = zlib.deflateRawSync(data);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(stored.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    chunks.push(local, nameBytes, stored);
+    const cd = Buffer.alloc(46);
+    cd.writeUInt32LE(0x02014b50, 0);
+    cd.writeUInt16LE(20, 4);
+    cd.writeUInt16LE(20, 6);
+    cd.writeUInt16LE(8, 10);
+    cd.writeUInt32LE(crc, 16);
+    cd.writeUInt32LE(stored.length, 20);
+    cd.writeUInt32LE(data.length, 24);
+    cd.writeUInt16LE(nameBytes.length, 28);
+    cd.writeUInt32LE(offset, 42);
+    central.push(Buffer.concat([cd, nameBytes]));
+    offset += 30 + nameBytes.length + stored.length;
+  }
+  const cd = Buffer.concat(central);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(central.length, 8);
+  eocd.writeUInt16LE(central.length, 10);
+  eocd.writeUInt32LE(cd.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return new Uint8Array(Buffer.concat([...chunks, cd, eocd]));
+}
+
+const SIDE_ZIP = () => buildZip({
+  "plugin.json": JSON.stringify({ id: "side-demo", name: "Side Demo", version: "0.1.0", entry: "main.js", capabilities: ["ui"] }),
+  "main.js": "export function activate() {}",
+  "README.md": "# Side Demo",
+});
+const flush = () => new Promise(resolve => setTimeout(resolve, 50));
+
+function pickFile(w, bytes, name) {
+  const input = w.document.getElementById("plugins-marketplace-sideload");
+  Object.defineProperty(input, "files", { value: [new w.File([bytes], name)], configurable: true });
+  input.dispatchEvent(new w.Event("change"));
+}
+const detailText = w => w.document.getElementById("plugins-marketplace-detail").textContent;
+const detailButton = (w, label) => [...w.document.querySelectorAll("#plugins-marketplace-detail button")].find(b => b.textContent === label);
+const statusText = w => w.document.getElementById("plugins-status").textContent;
+
+test("sideload consent is explicit about the unverified source; confirm installs disabled", async () => {
+  const dom = makeDom();
+  const w = dom.window;
+  await w.mountBeemuuMarketplace({ host: {}, appVersion: "5.3.0" });
+
+  const bytes = SIDE_ZIP();
+  pickFile(w, bytes, "side-demo.zip");
+  await flush();
+
+  assert.match(detailText(w), /Unverified source/);
+  const expectedSha = await zipApi.sha256Hex(bytes);
+  assert.ok(detailText(w).includes(expectedSha), "consent shows the full local SHA-256");
+  assert.match(detailText(w), /Side Demo 0\.1\.0/);
+  assert.deepEqual(storeApi.load(w.localStorage), [], "nothing stored before consent");
+
+  detailButton(w, "Confirm install").dispatchEvent(new w.Event("click"));
+  await flush(); await flush();
+  const stored = storeApi.load(w.localStorage);
+  assert.equal(stored.length, 1);
+  assert.equal(stored[0].manifest.id, "side-demo");
+  assert.equal(stored[0].enabled, false, "sideloaded plugins start disabled");
+  assert.equal(stored[0].sha256, expectedSha);
+  assert.match(gridText(w), /Side Demo/); // unlisted card, manageable offline
+  assert.ok(gridButton(w, "Enable"), "sideloaded plugin can be enabled");
+});
+
+test("sideload refuses an archive with no plugin.json and stores nothing", async () => {
+  const dom = makeDom();
+  const w = dom.window;
+  await w.mountBeemuuMarketplace({ host: {}, appVersion: "5.3.0" });
+  pickFile(w, buildZip({ "main.js": "x" }), "broken.zip");
+  await flush();
+  assert.match(statusText(w), /Sideload failed: Archive has no plugin\.json/);
+  assert.deepEqual(storeApi.load(w.localStorage), []);
+  assert.equal(detailText(w), "");
+});
+
+test("sideload cancel leaves storage untouched", async () => {
+  const dom = makeDom();
+  const w = dom.window;
+  await w.mountBeemuuMarketplace({ host: {}, appVersion: "5.3.0" });
+  pickFile(w, SIDE_ZIP(), "side-demo.zip");
+  await flush();
+  detailButton(w, "Cancel").dispatchEvent(new w.Event("click"));
+  await flush();
+  assert.deepEqual(storeApi.load(w.localStorage), []);
+  assert.match(statusText(w), /Sideload cancelled/);
 });
