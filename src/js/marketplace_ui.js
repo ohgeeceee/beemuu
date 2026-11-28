@@ -31,6 +31,7 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
   let storageError = "";
   let offlineNotice = "";  // set when the listing comes from cache or is unavailable
   let filterText = "";
+  let stagedSideload = null; // { pkg, sha256, fileName }
 
   function el(tag, text, className) {
     const node = document.createElement(tag);
@@ -210,6 +211,74 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
       : `All ${results.length} plugins updated.`);
   }
 
+  /* ---- sideload: install a local .zip with NO registry digest ----
+   * The archive is hashed so the user can compare the digest against wherever
+   * they got the file, but there is no listing to verify against — the consent
+   * dialog says that plainly instead of implying registry-level trust. */
+  async function stageSideload(file) {
+    status(`Reading ${file.name}…`);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const sha = await zipApi.sha256Hex(bytes);
+    if (sha === null) throw new Error("This system has no WebCrypto, so the archive cannot be hashed. Install refused.");
+    const files = await zipApi.unzip(bytes);
+    const pkg = zipApi.extractPackage(files);
+    stagedSideload = { pkg, sha256: sha, fileName: file.name };
+    renderSideloadConsent();
+  }
+
+  function renderSideloadConsent() {
+    const detail = byId("plugins-marketplace-detail");
+    detail.replaceChildren();
+    if (!stagedSideload) return;
+    stopRunning();
+    const { pkg, sha256, fileName } = stagedSideload;
+    const d = pkg.descriptor;
+    const current = installed.find(e => e.manifest.id === d.id);
+    const { notes } = capabilityNotes({ capabilities: d.capabilities });
+
+    const box = el("section", undefined, "plugin-trust-detail");
+    box.append(el("h4", `${d.name} ${d.version} — sideloaded package`));
+    box.append(el("p", `Source: local file ${fileName}. Unverified source — this archive did not come from plugins.beemuu.com, so there is no registry digest to compare. Install only if you trust where you obtained it.`));
+    box.append(el("p", `SHA-256 of the file you selected: ${sha256}`));
+    for (const note of notes) box.append(el("p", note));
+    if (current) box.append(el("p", `Installed version: ${current.manifest.version} — this will replace it. Your enable/disable choice is kept.`));
+    box.append(el("p", current ? "A running copy is stopped before the replace. Vehicle writes are never granted by this app." : "The plugin stays disabled until you enable it. Vehicle writes are never granted by this app."));
+    detail.append(box);
+
+    if (pkg.readme) {
+      const readme = el("details");
+      readme.append(el("summary", "Read the plugin's README"), el("pre", pkg.readme, "plugin-output"));
+      detail.append(readme);
+    }
+    const source = el("details");
+    source.append(el("summary", "Inspect plugin source"), el("pre", pkg.source, "plugin-output"));
+    detail.append(source);
+
+    detail.append(
+      button(current ? "Confirm — replace installed plugin" : "Confirm install", () => {
+        const { pkg: p, sha256: digest } = stagedSideload;
+        stagedSideload = null;
+        if (current && running && running.id === d.id) stopRunning();
+        commit([...installed.filter(x => x.manifest.id !== d.id), {
+          manifest: {
+            id: d.id, name: d.name, version: d.version,
+            capabilities: d.capabilities, author: "Sideloaded (local archive)",
+            description: "Installed from a local .zip; not registry-verified.",
+            category: "tools", official: false, homepage: null, license: null,
+          },
+          source: p.source,
+          readme: p.readme,
+          enabled: current ? current.enabled : false,
+          sha256: digest,
+          installedAt: new Date().toISOString(),
+        }]);
+        detail.replaceChildren();
+        status(`${d.name} installed${current ? " as an update" : " and disabled. Enable it when you are ready."}`);
+      }),
+      button("Cancel", () => { stagedSideload = null; detail.replaceChildren(); status("Sideload cancelled. Nothing was stored."); }),
+    );
+  }
+
   /* ---- run an installed, enabled plugin ---- */
   function openPlugin(installedEntry) {
     stopRunning();
@@ -374,6 +443,16 @@ window.mountBeemuuMarketplace = async function ({ host, appVersion }) {
   const filterInput = byId("plugins-marketplace-filter");
   if (filterInput) {
     filterInput.addEventListener("input", () => { filterText = filterInput.value; render(); });
+  }
+  const sideloadInput = byId("plugins-marketplace-sideload");
+  if (sideloadInput) {
+    sideloadInput.addEventListener("change", async () => {
+      const file = sideloadInput.files && sideloadInput.files[0];
+      if (!file) return;
+      try { await stageSideload(file); }
+      catch (e) { status(`Sideload failed: ${e.message || e}`); }
+      finally { sideloadInput.value = ""; } // allow picking the same file again
+    });
   }
   document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
     if (tab.dataset.view !== "plugins") stopRunning();

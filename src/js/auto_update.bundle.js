@@ -1,4 +1,74 @@
 (() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __commonJS = (cb, mod) => function __require() {
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e) {
+      throw mod = 0, e;
+    }
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
+
+  // src/js/update_status.js
+  var require_update_status = __commonJS({
+    "src/js/update_status.js"(exports, module) {
+      (function(root) {
+        "use strict";
+        const SEMVER_IN_TEXT = /\bv?(\d+\.\d+\.\d+)\b/;
+        const SEMVER = /^\d+\.\d+\.\d+$/;
+        function versionFromText(text) {
+          const match = SEMVER_IN_TEXT.exec(String(text || ""));
+          return match ? match[1] : null;
+        }
+        function releaseNotesUrl(version) {
+          if (!SEMVER.test(String(version || ""))) return null;
+          return `https://github.com/ohgeeceee/beemuu/releases/tag/v${version}`;
+        }
+        function progressFromEvent(state, event) {
+          const previous = state && typeof state === "object" ? state : {};
+          const next = { downloaded: previous.downloaded || 0, total: previous.total || 0 };
+          if (!event || typeof event !== "object") return next;
+          if (event.event === "Started") {
+            next.total = Number(event.data && event.data.contentLength) || 0;
+            next.downloaded = 0;
+          } else if (event.event === "Progress") {
+            next.downloaded += Number(event.data && event.data.chunkLength) || 0;
+          } else if (event.event === "Finished") {
+            next.downloaded = next.total || next.downloaded;
+          }
+          return next;
+        }
+        function percent(state) {
+          if (!state || !state.total) return null;
+          return Math.min(100, Math.round(state.downloaded / state.total * 100));
+        }
+        const api = { versionFromText, releaseNotesUrl, progressFromEvent, percent };
+        if (typeof module !== "undefined" && module.exports) module.exports = api;
+        if (root) root.BeemuuUpdateStatus = api;
+      })(typeof window !== "undefined" ? window : null);
+    }
+  });
+
   // node_modules/@tauri-apps/api/external/tslib/tslib.es6.js
   function __classPrivateFieldGet(receiver, state, kind, f) {
     if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
@@ -284,49 +354,130 @@
   }
 
   // src/js/auto_update.js
+  var import_update_status = __toESM(require_update_status());
   (function() {
     const RETRY_MS = 30 * 60 * 1e3;
     const IDLE_POLL_MS = 10 * 1e3;
+    let busy = false;
+    const byId = (id) => document.getElementById(id);
     function setMessage(message) {
-      const target = document.getElementById("status-log");
+      const log = byId("status-log");
+      if (log) log.textContent = message;
+      const target = byId("app-update-status");
       if (target) target.textContent = message;
+    }
+    function setProgress(state) {
+      const bar = byId("app-update-progress");
+      if (!bar) return;
+      const pct = import_update_status.default.percent(state);
+      if (pct === null) {
+        bar.style.display = "none";
+        return;
+      }
+      bar.style.display = "";
+      bar.value = pct;
+    }
+    function showNotes(version) {
+      const link = byId("app-update-notes");
+      const url = import_update_status.default.releaseNotesUrl(version);
+      if (!link || !url) return;
+      link.href = url;
+      link.style.display = "";
+    }
+    function currentVersion() {
+      for (const node of document.querySelectorAll(".brand-sub")) {
+        const version = import_update_status.default.versionFromText(node.textContent);
+        if (version) return version;
+      }
+      return null;
+    }
+    function setCurrentVersion() {
+      const target = byId("app-update-current");
+      if (!target) return;
+      const version = currentVersion();
+      target.textContent = version ? `Current version: v${version}` : "Current version: unknown";
     }
     function isConnected() {
       return typeof window.beeemuuIsConnected === "function" && window.beeemuuIsConnected();
     }
-    async function checkAndInstall() {
-      if (!window.__TAURI__) return;
-      if (isConnected()) {
-        window.setTimeout(checkAndInstall, IDLE_POLL_MS);
+    async function downloadAndRelaunch(update) {
+      showNotes(update.version);
+      let state = { downloaded: 0, total: 0 };
+      setMessage(`Downloading update ${update.version}\u2026`);
+      setProgress(state);
+      await update.downloadAndInstall((event) => {
+        state = import_update_status.default.progressFromEvent(state, event);
+        setProgress(state);
+        if (event && event.event === "Finished") setMessage(`Update ${update.version} downloaded. Installing\u2026`);
+      });
+      const relaunchWhenIdle = () => {
+        if (isConnected()) {
+          window.setTimeout(relaunchWhenIdle, IDLE_POLL_MS);
+          return;
+        }
+        setMessage("Update installed. Restarting\u2026");
+        relaunch().catch((error) => {
+          console.error("BeeEmUu update restart failed", error);
+          setMessage("Update ready. Restart Beemuu to finish installing.");
+        });
+      };
+      relaunchWhenIdle();
+    }
+    async function runCheck(manual) {
+      if (!window.__TAURI__) {
+        if (manual) setMessage("Update checks are available in the desktop app.");
         return;
       }
+      if (busy) {
+        if (manual) setMessage("An update check is already in progress.");
+        return;
+      }
+      if (isConnected()) {
+        if (manual) setMessage("Disconnect from the vehicle before checking for updates.");
+        return;
+      }
+      busy = true;
       try {
+        if (manual) setMessage("Checking for updates\u2026");
         const update = await check();
-        if (!update) return;
-        setMessage(`Installing update ${update.version}\u2026`);
-        await update.downloadAndInstall();
-        const relaunchWhenIdle = () => {
-          if (isConnected()) {
-            window.setTimeout(relaunchWhenIdle, IDLE_POLL_MS);
-            return;
+        if (!update) {
+          if (manual) {
+            const version = currentVersion();
+            setMessage(version ? `BeeEmUu v${version} is up to date.` : "No update available.");
           }
-          setMessage("Update installed. Restarting\u2026");
-          relaunch().catch((error) => {
-            console.error("BeeEmUu update restart failed", error);
-            setMessage("Update ready. Restart Beemuu to finish installing.");
-          });
-        };
-        relaunchWhenIdle();
+          return;
+        }
+        setMessage(`Installing update ${update.version}\u2026`);
+        await downloadAndRelaunch(update);
       } catch (error) {
-        console.warn("BeeEmUu automatic update check failed", error);
-        setMessage("Update check unavailable");
-        window.setTimeout(checkAndInstall, RETRY_MS);
+        console.warn("BeeEmUu update check failed", error);
+        setMessage(manual ? `Update check failed: ${error.message || error}. You can retry.` : "Update check unavailable");
+        if (!manual) window.setTimeout(() => runCheck(false), RETRY_MS);
+      } finally {
+        busy = false;
       }
     }
+    function autoLoop() {
+      if (!window.__TAURI__) return;
+      if (isConnected()) {
+        window.setTimeout(autoLoop, IDLE_POLL_MS);
+        return;
+      }
+      runCheck(false).catch(() => {
+      });
+    }
+    const manualButton = byId("app-update-check");
+    if (manualButton) {
+      manualButton.addEventListener("click", () => {
+        runCheck(true).catch(() => {
+        });
+      });
+    }
+    setCurrentVersion();
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => window.setTimeout(checkAndInstall, 2500), { once: true });
+      document.addEventListener("DOMContentLoaded", () => window.setTimeout(autoLoop, 2500), { once: true });
     } else {
-      window.setTimeout(checkAndInstall, 2500);
+      window.setTimeout(autoLoop, 2500);
     }
   })();
 })();
