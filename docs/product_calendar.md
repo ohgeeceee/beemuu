@@ -42,7 +42,7 @@ maintainer cuts next; no version-surface work this month.
 
 | Week | Focus | Gate |
 |---|---|---|
-| Jan 4 – 10 | Update 3: wire evidence records into the profile `[needs verification]` markers; unverified coverage stays explicit | Every marker in `community/profiles/*.toml` maps to an evidence record or a named gap |
+| Jan 4 – 10 | Update 3: wire evidence records into the profile `[needs verification]` markers; unverified coverage stays explicit (prep landed Nov 28: `docs/evidence/coverage.toml` + CI guard map all 90 markers) | Every marker in `community/profiles/*.toml` maps to an evidence record or a named gap |
 | Jan 11 – 17 | Update 3: validation-pack templates per chassis family (E9x N52/N54, E70 N62, F/G B58/N55) | A new owner can run a pack cold from the doc alone |
 | Jan 18 – 24 | Supporting beat: fault-code content depth. The generator + all 220 grounded code pages shipped Nov 2026 (PR #355 closed the link backlog; the Nov expansion widened 13 → 220 pages); both depth levers landed early (Nov 28) — 12 of 222 codes have community opinions files (#403, #405) and 16 carry schematic cross-links | Both depth gates met Nov 28: opinions 6 → 12 (every file sourced), cross-links 10 → 16; January slot free for update-3 spillover |
 | Jan 25 – 31 | Buffer / Tier B review window for anything update 2 or 3 surfaced | — |

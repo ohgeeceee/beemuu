@@ -1,0 +1,581 @@
+# Evidence coverage ledger (v0.22 evidence program, Update 3 prep)
+#
+# Every [needs verification] marker in community/profiles/*.toml maps here
+# to exactly one [[entry]]: either an evidence record (status = "evidence")
+# or a named gap (status = "gap"). This is the wiring that keeps unverified
+# coverage explicit instead of silent.
+#
+# Enforced by backend/tests/test_evidence_coverage.py:
+#   - every live marker must have exactly one matching [[entry]]
+#   - entries whose marker no longer exists are rejected (no rot)
+#   - status = "gap"      -> gap names a [gap.<name>] table below
+#   - status = "evidence" -> evidence names a real docs/evidence/<file>
+#
+# Closing a gap: land the capture described in the gap's closes_when, then
+# flip the entry to status = "evidence" and point it at the pack. Only then
+# may the [needs verification] marker come off the profile label.
+
+[gap.profile-unvalidated]
+summary = "No parameter in this profile has been validated on a real vehicle; the whole profile ships as community-researched."
+closes_when = "Evidence records exist for the profile's core DID/PID set and the profile-level [needs verification] marker is removed from the label."
+
+[gap.obdb-mirror-unvalidated]
+summary = "DID and decode mirrored from the OBDb-researched (CC-BY-SA 4.0) F-series DME set shipped in b58.toml / n20.toml; never confirmed answered on a real car of this family."
+closes_when = "A real-car UDS capture of this DID (request, raw positive-response payload, expected decoded value, provenance) lands in a docs/evidence/<family>.uds.json pack, cross-checked against ISTA or a known-good tool."
+
+[gap.uds-did-unvalidated]
+summary = "UDS DID carried from family research; decode is implemented but the DID's availability and payload semantics are unconfirmed on a real car (some target a non-DME ECU, e.g. EGS gear position, or the diesel DDE)."
+closes_when = "A real-car UDS capture of this DID (request, raw positive-response payload, expected decoded value, provenance) lands in a docs/evidence/<family>.uds.json pack."
+
+[gap.obd-bench-unvalidated]
+summary = "Standard OBD-II mode-01 PID; decode math is implemented, but the marked chassis bench check has not been run."
+closes_when = "A bench or real-car capture of the PID reply with the expected decoded value lands in a docs/evidence/<family> pack."
+
+# --- b48 (13 markers) ---
+[[entry]]
+profile = "b48"
+param = "*"
+status = "gap"
+gap = "profile-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "battery_v"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "hpfp_rail"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "boost_cmd"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "maf"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "ambient_pres"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "dme_temp"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "eng_torque"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "lambda_1"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "inj_time"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "gear"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "engine_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "b48"
+param = "knock_detect"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+# --- b58 (4 markers) ---
+[[entry]]
+profile = "b58"
+param = "inj_time"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "b58"
+param = "engine_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "b58"
+param = "knock_detect"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "b58"
+param = "inj_duty"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+# --- n20 (13 markers) ---
+[[entry]]
+profile = "n20"
+param = "*"
+status = "gap"
+gap = "profile-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "battery_v"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "hpfp_rail"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "boost_cmd"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "maf"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "ambient_pres"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "dme_temp"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "eng_torque"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "lambda_1"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "inj_time"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "gear"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "engine_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n20"
+param = "knock_detect"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+# --- n52 (3 markers) ---
+[[entry]]
+profile = "n52"
+param = "fuel_rate_lh"
+status = "gap"
+gap = "obd-bench-unvalidated"
+
+[[entry]]
+profile = "n52"
+param = "engine_runtime"
+status = "gap"
+gap = "obd-bench-unvalidated"
+
+[[entry]]
+profile = "n52"
+param = "fuel_rate_gs"
+status = "gap"
+gap = "obd-bench-unvalidated"
+
+# --- n54 (3 markers) ---
+[[entry]]
+profile = "n54"
+param = "fuel_rate_lh"
+status = "gap"
+gap = "obd-bench-unvalidated"
+
+[[entry]]
+profile = "n54"
+param = "engine_runtime"
+status = "gap"
+gap = "obd-bench-unvalidated"
+
+[[entry]]
+profile = "n54"
+param = "fuel_rate_gs"
+status = "gap"
+gap = "obd-bench-unvalidated"
+
+# --- n55 (6 markers) ---
+[[entry]]
+profile = "n55"
+param = "inj_time"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n55"
+param = "engine_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n55"
+param = "knock_detect"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n55"
+param = "ltft_bank1"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n55"
+param = "idle_adaptation"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n55"
+param = "inj_duty"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+# --- n57 (20 markers) ---
+[[entry]]
+profile = "n57"
+param = "*"
+status = "gap"
+gap = "profile-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "battery_v"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "hpfp_rail"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "boost_cmd"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "maf"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "ambient_pres"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "dme_temp"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "eng_torque"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "lambda_1"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "inj_time"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "gear"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "engine_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "glow_plug"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "dpf_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "dpf_regen"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "dpf_ash"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "dpf_soot"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "nox_sensor"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "exhaust_temp"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "n57"
+param = "egr_cooler"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+# --- s55 (15 markers) ---
+[[entry]]
+profile = "s55"
+param = "*"
+status = "gap"
+gap = "profile-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "battery_v"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "hpfp_rail"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "boost_cmd"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "maf"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "ambient_pres"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "dme_temp"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "eng_torque"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "lambda_1"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "inj_time"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "gear"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "engine_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "knock_detect"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "ltft_bank1"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s55"
+param = "idle_adaptation"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+# --- s58 (13 markers) ---
+[[entry]]
+profile = "s58"
+param = "*"
+status = "gap"
+gap = "profile-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "battery_v"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "hpfp_rail"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "boost_cmd"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "maf"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "ambient_pres"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "dme_temp"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "eng_torque"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "lambda_1"
+status = "gap"
+gap = "obdb-mirror-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "inj_time"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "gear"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "engine_state"
+status = "gap"
+gap = "uds-did-unvalidated"
+
+[[entry]]
+profile = "s58"
+param = "knock_detect"
+status = "gap"
+gap = "uds-did-unvalidated"
