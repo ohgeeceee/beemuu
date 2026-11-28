@@ -57,6 +57,28 @@ Fields:
    last 6 if privacy is a concern), the cable type, and any notes
    about the capture conditions (engine warm/cold, idle/load, etc.).
 
+## Coverage ledger
+
+`coverage.toml` is the Update-3 wiring for the profile
+`[needs verification]` markers. Every marker in
+`community/profiles/*.toml` maps to exactly one `[[entry]]` — either an
+evidence record (`status = "evidence"`, pointing at a pack in this
+directory) or a named gap (`status = "gap"`, referencing a
+`[gap.<name>]` table whose `closes_when` says exactly what capture
+retires it). `backend/tests/test_evidence_coverage.py` enforces the
+mapping in CI both ways: a marker without an entry fails, and an entry
+whose marker disappears fails, so the ledger cannot silently rot.
+
+Today every entry is a named gap — no profile DID has a real-car
+capture yet (`n55.example.json` is a simulator baseline for the CAN
+broadcast decoders, adjacent but not DID validation). The gap
+definitions name the record form that closes them: for UDS parameters,
+a `<family>.uds.json` pack of DID request, raw positive-response
+payload, expected decoded value and provenance; the schema extension
+for that form is part of the January beat. To close a gap: land the
+capture, flip the entry to `status = "evidence"`, and only then remove
+the marker from the profile label.
+
 ## Security
 
 Evidence packs are read-only reference data. They are never executed
