@@ -1,0 +1,32 @@
+dtc = "2A87"
+dtc_text = "VANOS exhaust: control fault, camshaft stuck"
+
+[[opinion]]
+perspective = "diy"
+action = "Fresh oil and filter first — VANOS runs on oil pressure — then remove the exhaust VANOS solenoid, clean it, and swap it with the intake solenoid; if the fault follows the solenoid, replace the solenoid"
+cost_usd = 120
+time_estimate = "1-2 hours"
+difficulty = "easy"
+source = "Bimmerforums — VANOS codes 2A7A and 2A7C thread"
+source_url = "https://www.bimmerforums.com/forum/showthread.php?2391334-VANOS-Codes-2A7A-and-2A7C"
+note = "When refitting, do not cross the intake and exhaust solenoid connectors — they reach each other and a swapped pair sets fresh correlation faults that look exactly like a failed repair. Solenoids stick most often on old or low oil, so check level and service history before suspecting hardware."
+
+[[opinion]]
+perspective = "indie"
+action = "Verify oil pressure supply to the VANOS adjustment unit, clean or replace both solenoids, and if the fault persists at full operating temperature inspect the camshaft bearing ledges through the valve cover"
+cost_usd = 400
+time_estimate = "2-4 hours"
+difficulty = "moderate"
+source = "FCP Euro — BMW camshaft bearing ledge wear explained"
+source_url = "https://help.fcpeuro.com/hc/en-us/articles/26441700107917-Bmw-camshaft-bearing-ledge-wear-explained"
+note = "A 2A87 that survives good oil and new solenoids points at bearing-ledge wear: the rectangular seals cut into the ledge and oil bypasses, so the cam never reaches target. These faults are always mechanical and are never fixed by replacing a camshaft position sensor. On the N54 the cam and tray can be replaced without losing the cylinder head."
+
+[[opinion]]
+perspective = "dealer"
+action = "Perform the service-bulletin procedure for VANOS-related power reduction: check oil pressure supply to the VANOS unit, replace the faulted solenoid(s), and reprogram the DME to the current integration level"
+cost_usd = 650
+time_estimate = "2-4 hours"
+difficulty = "moderate"
+source = "Tech Shop Magazine — tech tip quoting BMW service bulletin (NHTSA SB-10032779-8218)"
+source_url = "https://www.techshopmag.com/tech-tip-bmw-s-power-reduction-and-vanos-faults-are-stored-in-dme/"
+note = "The bulletin covers 2005-2008 N51/N52/N52K/N54 cars storing 2A82 or 2A87, often with consequential 3100 boost deactivation. The classic symptom is power reduction that appears only at full operating temperature and clears on an ignition cycle — document that pattern, it is what the bulletin addresses."

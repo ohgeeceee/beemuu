@@ -1,0 +1,32 @@
+dtc = "3100"
+dtc_text = "Boost-pressure control, deactivation"
+
+[[opinion]]
+perspective = "diy"
+action = "Do not chase the 3100 itself — read the full fault list and freeze frame, find the primary code stored alongside it (30FF underboost, 2A82/2A87 VANOS, an overtemp event), fix that, then clear and re-test"
+cost_usd = 0
+time_estimate = "30 minutes"
+difficulty = "easy"
+source = "JB4tech — N54 fault code list & solutions"
+source_url = "https://www.jb4tech.com/forum/model-specific-engine-tuning-modification-discussion/n54/support-log-review-ab/12409-n54-fault-code-list-solutions"
+note = "3100 is triggered any time the DME enters a reduced-boost mode — it is the limp-mode flag, not a failed part. It very rarely appears alone; if it does, clear it and watch whether it returns with companions before buying anything."
+
+[[opinion]]
+perspective = "indie"
+action = "Run a full-module scan, identify the primary fault that triggered the boost cut, fix that system, then road-test with boost logging to confirm limp mode no longer engages"
+cost_usd = 180
+time_estimate = "1-2 hours"
+difficulty = "easy"
+source = "BMW Tuning — N54 common fault codes"
+source_url = "https://bmwtuning.co/bmw-n54-common-fault-codes/"
+note = "On a severely overheating N54 the DME cuts turbo operation to protect the engine, and 3100 is how that shows up in fault memory — a 3100 stored next to cooling codes means fix the cooling first. The diagnostic hour is the whole job; the repair bill belongs to the primary code."
+
+[[opinion]]
+perspective = "dealer"
+action = "Run the ISTA test plan for the underlying fault set; 3100 clears from memory once the primary cause is resolved and verified on a test drive"
+cost_usd = 250
+time_estimate = "1-2 hours"
+difficulty = "easy"
+source = "Tech Shop Magazine — BMW power reduction and VANOS faults tech tip"
+source_url = "https://www.techshopmag.com/tech-tip-bmw-s-power-reduction-and-vanos-faults-are-stored-in-dme/"
+note = "BMW's own service information treats 3100 as a consequential fault of the 2A82/2A87 VANOS oil-pressure issue, with power reduction that often clears after an ignition cycle — until the root cause is fixed it always comes back. Paying dealer rates to diagnose 3100 alone buys nothing."
