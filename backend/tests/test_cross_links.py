@@ -186,21 +186,24 @@ class TestListLinksForSchematic(unittest.TestCase):
     def tearDown(self) -> None:
         self._td.cleanup()
 
-    def test_e90_cas3_has_4_links(self) -> None:
+    def test_e90_cas3_has_8_links(self) -> None:
         rows = cross_links.list_links_for_schematic(
             self.path, "e90-cas3-pinout"
         )
         codes = sorted(r["code"] for r in rows)
-        # Seed defined these four for e90-cas3-pinout:
-        self.assertEqual(codes, ["29E0", "29E2", "A105", "U0100"])
+        # Seed defined these eight for e90-cas3-pinout:
+        self.assertEqual(
+            codes,
+            ["29E0", "29E2", "2F44", "2F45", "A0B2", "A105", "D904", "U0100"],
+        )
 
-    def test_n54_dme_has_5_links(self) -> None:
+    def test_n54_dme_has_7_links(self) -> None:
         rows = cross_links.list_links_for_schematic(
             self.path, "e60-n54-dme-power"
         )
         codes = sorted(r["code"] for r in rows)
         self.assertEqual(
-            codes, ["29D2", "29DC", "29E0", "2A0C", "2A82"]
+            codes, ["2793", "29D2", "29DC", "29E0", "2A0C", "2A82", "2D58"]
         )
 
     def test_unknown_slug_empty(self) -> None:

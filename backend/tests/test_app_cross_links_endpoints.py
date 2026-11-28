@@ -79,7 +79,10 @@ class TestCrossLinkEndpoints(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body["slug"], "e90-cas3-pinout")
         codes = sorted(r["code"] for r in body["results"])
-        self.assertEqual(codes, ["29E0", "29E2", "A105", "U0100"])
+        self.assertEqual(
+            codes,
+            ["29E0", "29E2", "2F44", "2F45", "A0B2", "A105", "D904", "U0100"],
+        )
 
     def test_dtc_to_schematics_unknown_code_empty(self):
         status, body = self._get("/api/dtc/ZZZZZZ/schematics")

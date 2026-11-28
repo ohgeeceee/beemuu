@@ -59,6 +59,30 @@ _LINKS: list[tuple[str, str, str]] = [
         "PT-CAN timeout — first place to inspect: splice at CAS "
         "pin 16/17 after rodent damage in engine bay.",
     ),
+    (
+        "e90-cas3-pinout",
+        "2F44",
+        "EWS immobilizer read path runs through the ring antenna on "
+        "pins 5/18 — verify both before condemning the key.",
+    ),
+    (
+        "e90-cas3-pinout",
+        "2F45",
+        "Sibling of 2F44 — same EWS antenna pins 5/18 check, plus "
+        "CAS supply on pin 1 (KL30).",
+    ),
+    (
+        "e90-cas3-pinout",
+        "A0B2",
+        "CAS supply fault — measure KL30 at pin 1 and KL15 at pin 3 "
+        "before suspecting the module.",
+    ),
+    (
+        "e90-cas3-pinout",
+        "D904",
+        "K-CAN wire fault — the bus hubs at CAS; continuity-check "
+        "K-CAN H/L on pins 14/15.",
+    ),
 
     # --- e60 N54 DME main-relay / power tree ---
     (
@@ -89,6 +113,18 @@ _LINKS: list[tuple[str, str, str]] = [
         "2A0C",
         "DME internal — confirm external power is clean before "
         "reflashing.",
+    ),
+    (
+        "e60-n54-dme-power",
+        "2793",
+        "Power-management faults start at supply integrity — KL30 at "
+        "relay pin 30 and KL87 at DME pin 1.",
+    ),
+    (
+        "e60-n54-dme-power",
+        "2D58",
+        "Same rule as 2A0C: confirm clean KL87 at DME pin 1 before "
+        "blaming the DME internals.",
     ),
 ]
 
